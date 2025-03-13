@@ -1,12 +1,3 @@
 cmake-build-debug/
 cmake-build-release/
-bin/
-build/
-.idea
-vec_vers/sub_tests/new_inp/tests
-new_version/to_convert
-new_version/test.nosync
-.DS_Store
-*.collapsed
 .vscode/
-obj/
