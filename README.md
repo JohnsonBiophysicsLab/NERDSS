@@ -2,7 +2,7 @@
 
 Structure-Resolved Reaction-Diffusion Simulation Software by Johnson Lab, JHU
 
-### [Website](https://mjohn218.github.io/NERDSS/)
+### [Website](https://johnsonbiophysicslab.github.io/NERDSS/)
 
 ### Version Information
 
