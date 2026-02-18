@@ -3,11 +3,23 @@
 #include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
+
 // only works for complex on sphere surface
 Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom)
 {
     // TRACE();
     Coord trajTrans;
+
+    const double R_fixed = params.sphereR;
+    const Coord COM_original = targCom.comCoord;
+    const double COM_norm = radius(COM_original);
+
+    // project COM onto the surface
+    Coord COM = Coord {
+        R_fixed * COM_original.x / COM_norm,
+        R_fixed * COM_original.y / COM_norm,
+        R_fixed * COM_original.z / COM_norm,
+    };
 
     double dx = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
     double dy = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
@@ -17,7 +29,6 @@ Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
         dangle = 2.0 * M_PI - dangle;
     } // propagation direction
     double rotangle = dangle - M_PI / 2.0;
-    Coord COM = targCom.comCoord;
     Coord COMsphere = find_spherical_coords(COM);
     double dtheta = dl / COMsphere.z;
     Coord COMnewtmp = Coord { COMsphere.x - dtheta, COMsphere.y, COMsphere.z };
@@ -44,8 +55,8 @@ Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
     crdset[8] = k.z;
     Coord COMnew = rotate_on_sphere(COMnewtmp, COM, crdset, rotangle);
 
-    trajTrans.x = COMnew.x - targCom.comCoord.x;
-    trajTrans.y = COMnew.y - targCom.comCoord.y;
-    trajTrans.z = COMnew.z - targCom.comCoord.z;
+    trajTrans.x = COMnew.x - COM.x;
+    trajTrans.y = COMnew.y - COM.y;
+    trajTrans.z = COMnew.z - COM.z;
     return trajTrans;
 }

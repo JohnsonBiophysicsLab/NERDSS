@@ -1,0 +1,59 @@
+# Input file
+
+start parameters
+    nItr = 6e5
+    timestep = 0.3
+    timeWrite = 5000
+    trajWrite = 1000000
+    restartWrite = 1000000
+    fromRestart = false
+    overlapSepLimit = 2.3
+    scaleMaxDisplace = 30.0
+    pdbWrite = 1000000
+    transitionWrite = 5000
+end parameters
+start boundaries
+    WaterBox = [321.47, 321.47, 321.47] #nm
+end boundaries
+
+start molecules
+    A : 333
+    B : 333
+    C : 333
+end molecules
+
+start reactions
+	    
+    #Same sites - Dimer reactions
+    A(a1) + B(b2) <-> A(a1!1).B(b2!1)
+    onRate3Dka = 100.0000
+    offRatekb = 1000.028
+    norm1 = [0, 4.17774579, -6.75973469]
+    norm2 = [0, 4.17774579, -6.75973469]
+    sigma = 1.0
+    assocAngles = [2.58801829,2.58801829,0,0,0]
+    bindRadSameCom = 1.5
+    loopCoopFactor = 0.0
+    
+
+    A(a2) + C(c1) <-> A(a2!1).C(c1!1)
+    onRate3Dka = 100.0000
+    offRatekb = 1000.028
+    norm1 = [0, 4.17774579, -6.75973469]
+    norm2 = [0, 4.17774579, -6.75973469]
+    sigma = 1.0
+    assocAngles = [2.58801829,2.58801829,0,0,0]
+    bindRadSameCom = 1.5
+    loopCoopFactor = 0.0
+
+    C(c2) + B(b1) <-> C(c2!1).B(b1!1)
+    onRate3Dka = 100.0000
+    offRatekb = 1000.028
+    norm1 = [0, 4.17774579, -6.75973469]
+    norm2 = [0, 4.17774579, -6.75973469]
+    sigma = 1.0
+    assocAngles = [2.58801829,2.58801829,0,0,0]
+    bindRadSameCom = 1.5
+    loopCoopFactor = 0.0
+    
+end reactions

@@ -46,13 +46,15 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
     double currPhi { calculate_phi(
         reactIface1, ifaceIndex2, reactMol1, reactMol2, normal, rotAxis, currRxn, molTemplateList) };
     double initPhi{currPhi};
-    // std::cout << "Desired phi: " << targPhi << " Current phi: " << currPhi << std::endl;
+    // std::cout << "Desired phi: " << targPhi << " Current phi: " << currPhi << " areSameAngle: " << areSameAngle(currPhi, targPhi) << std::endl;
 
     // quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
     if (areSameAngle(currPhi, targPhi)) {
         // std::cout << "No phi rotation needed" << std::endl;
-    // } else if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, currPhi)) {
+      return;
+    } else if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
         // std::cout << "No phi rotation needed" << std::endl;
+      return;
     } else {
         rotAxis.normalize(); // rotation axis must be normalized
 
@@ -93,7 +95,9 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
             = calculate_phi(reactIface1, ifaceIndex2, reactMol1, reactMol2, normal, rotAxis, currRxn, molTemplateList);
 
         //write_xyz_assoc("phi_forward2.xyz", reactCom1, reactCom2, moleculeList);
-        if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, currPhi)) {
+	// quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
+        if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
+	  //if(areSameAngle(targPhi, currPhi)){
             // std::cout << "Phi After: " << currPhi << std::endl;
             return;
         }
@@ -150,7 +154,8 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
             currPhi = calculate_phi(
                 reactIface1, ifaceIndex2, reactMol1, reactMol2, normal, rotAxis, currRxn, molTemplateList);
             // std::cout << "Phi After: " << currPhi << std::endl;
-            if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, currPhi)) {
+	        // quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
+            if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
                 // std::cout << "Phi After: " << currPhi << std::endl;
                 return;
             }

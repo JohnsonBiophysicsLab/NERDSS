@@ -26,7 +26,7 @@ void srand_gsl(int num)
 
 void write_rng_state()
 {
-    FILE* stateOut = fopen("rng_state", "w");
+    FILE* stateOut = fopen("DATA/rng_state", "w");
     if (ferror(stateOut)) {
         std::cerr << "ERROR: Could not open RNG state file for writing. Exiting.\n";
         exit(1);
@@ -41,7 +41,7 @@ void write_rng_state()
 }
 
 void write_rng_state(int rank) {
-  std::string rngFileName{"rng_state_" + std::to_string(rank)};
+  std::string rngFileName{"DATA/rng_state_" + std::to_string(rank)};
   char charArray[rngFileName.size() + 1];
 
   std::strcpy(charArray, rngFileName.c_str());

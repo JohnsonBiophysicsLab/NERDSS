@@ -22,6 +22,7 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     bool in2D = false;
     double dim1 = 3; //dimensionality
     double dim2 = 3; //dimensionality
+    double eps = 1e-12; // for machine precision
 
     /*Assume diffusion is isotropic!*/
     Dtot1 = reactCom1.D.x; //Dtot1 = 1.0 / 3.0 * (reactCom1.D.x) + 1.0 / 3.0 * (reactCom1.D.y) + 1.0 / 3.0 * (reactCom1.D.z);
@@ -40,6 +41,13 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     }
     if (dim1 == 2 && dim2 == 2)
         in2D = true;
+    // For 1D, dim1=1, dim2=1
+    if (reactCom1.onFiber) {
+        dim1 = 1;
+    }
+    if (reactCom2.onFiber) {
+        dim1 = 1;
+    }
 
     /*rotational displacement*/
     cf = cos(sqrt(2.0 * (dim1 - 1) * reactCom1.Dr.z * params.timeStep));
@@ -73,7 +81,7 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     dz = reactCom1.tmpComCoord.z - reactCom1.comCoord.z;
 
     R2 = dx * dx + dy * dy + dz * dz;
-    if (R2 > LDISP1SQ) {
+    if (R2 > LDISP1SQ + eps) {
         // std::cout << "Cancel Association: NEW COMPLEX COM1 FOR ASSOCIATING " << reactCom1.index << " DISPLACED BY: " << sqrt(R2) << " max displace is : " << LARGE_DISP1 << std::endl;
         flag = true;
         return;
@@ -85,7 +93,7 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     dz = reactCom2.tmpComCoord.z - reactCom2.comCoord.z;
 
     R2 = dx * dx + dy * dy + dz * dz;
-    if (R2 > LDISP2SQ) {
+    if (R2 > LDISP2SQ + eps) {
         // std::cout << "Cancel Association: NEW COMPLEX COM FOR ASSOCIATING " << reactCom2.index << " DISPLACED BY: " << sqrt(R2) << " max displace is : " << LARGE_DISP2 << std::endl;
         flag = true;
         return;
@@ -105,7 +113,7 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
         // double moleculeRad=molTemplateList[moleculeList[mp].molTypeIndex].radius*2.0;//they are the exact same protein at different positions
         // double molRadSq=moleculeRad*moleculeRad;//don't use this-for lipids it will be close to zero.
 
-        if (R2 > LDISP1SQ) {
+        if (R2 > LDISP1SQ + eps) {
             // std::cout << "Cancel Association: NEW PROTEIN COM1 FOR ASSOCIATING PROTEIN " << mp << " DISPLACED BY: " << sqrt(R2) << " max displace is : " << LARGE_DISP1 << std::endl;
             flag = true;
             return;
@@ -125,7 +133,7 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
         // double moleculeRad=molTemplateList[moleculeList[mp].molTypeIndex].radius*2.0;//they are the exact same protein at different positions
         // double molRadSq=moleculeRad*moleculeRad;//don't use this-for lipids it will be close to zero.
 
-        if (R2 > LDISP2SQ) {
+        if (R2 > LDISP2SQ + eps) {
             // std::cout << "Cancel Association: NEW PROTEIN COM2 FOR ASSOCIATING PROTEIN " << mp << " DISPLACED BY: " << sqrt(R2) << " max displace is " << LARGE_DISP2 << std::endl;
             flag = true;
             return;

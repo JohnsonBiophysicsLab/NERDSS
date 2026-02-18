@@ -154,7 +154,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                     BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
-
+                                    // std::cout << "Evaluate 2-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
                                     determine_2D_bimolecular_reaction_probability(
                                         simItr, rxnIndex, rateIndex,
                                         isStateChangeBackRxn, DDTableIndex,
@@ -171,7 +171,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                     BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
-
+                                    // std::cout << "Evaluate 3-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
                                     determine_3D_bimolecular_reaction_probability(
                                         simItr, rxnIndex, rateIndex,
                                         isStateChangeBackRxn, biMolData, params,
@@ -219,6 +219,11 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         // this is on 1D (a fiber)
                                         double Dtot = complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x;
                                         double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
+                                        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        }
                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
                                         if (R1 < RMax) {
                                             moleculeList[pro1Index].crossbase.push_back(pro2Index);

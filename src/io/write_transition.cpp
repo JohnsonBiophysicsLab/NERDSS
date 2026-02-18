@@ -7,7 +7,7 @@
 void write_transition(double time, std::ofstream& transitionFile, const std::vector<MolTemplate>& molTemplateList)
 {
     transitionFile << "time: " << time << std::endl;
-    transitionFile << "transion matrix for each mol type: " << std::endl;
+    transitionFile << "transition matrix for each mol type: " << std::endl;
     for (auto& molTemp : molTemplateList){
         if(molTemp.countTransition == true){
             transitionFile << molTemp.molName << std::endl;

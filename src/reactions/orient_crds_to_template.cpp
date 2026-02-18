@@ -49,69 +49,94 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
 
     if (targMol.interfaceList.size() > 1) {
         // if the protein has more than one interface, use a second one to make sure all the interfaces line up
-        // First check to make sure they're not in a line. If so, use the last interface
+        
         size_t ifaceIndex { 1 };
-        {
-            Vector ifaceVec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
-            Vector ifaceVec2 { oneTemplate.interfaceList[1].iCoord - oneTemplate.comCoord };
-            ifaceVec1.calc_magnitude();
-            ifaceVec2.calc_magnitude();
+        
+        Vector ifaceVec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
+        ifaceVec1.calc_magnitude();
 
+        // First check to make sure they're not in a line. If so, use the last interface
+        
+        // Vector ifaceVec2 { oneTemplate.interfaceList[1].iCoord - oneTemplate.comCoord };
+        // ifaceVec2.calc_magnitude();
+
+        // double ang1 { ifaceVec1.dot_theta(ifaceVec2) };
+        // if ((ang1 == 0 || ang1 == M_PI) && !oneTemplate.isRod && oneTemplate.interfaceList.size() > 2) {
+        //     size_t tmpIndex { oneTemplate.interfaceList.size() - 1 };
+        //     Vector ifaceVec3 { oneTemplate.interfaceList[tmpIndex].iCoord - oneTemplate.comCoord };
+        //     ifaceVec3.calc_magnitude();
+        //     double ang2 { ifaceVec1.dot_theta(ifaceVec3) };
+        //     if (ang2 == 0 || ang2 == M_PI) {
+        //         // continue on or quit?
+        //         ifaceIndex = tmpIndex; // TODO: ONLY FOR NOW
+        //     } else {
+        //         ifaceIndex = tmpIndex;
+        //     }
+        //     // Now, just use the last interface if the first two are collinear
+        //     ifaceIndex = tmpIndex;
+        // }
+
+        bool allcollinear{true};
+        for (size_t tmpIndex=0; tmpIndex < oneTemplate.interfaceList.size(); tmpIndex++){
+            // check all other interfaces to find one that is not collinear to the first one
+            Vector ifaceVec2 {oneTemplate.interfaceList[tmpIndex].iCoord - oneTemplate.comCoord };
+            ifaceVec2.calc_magnitude();
             double ang1 { ifaceVec1.dot_theta(ifaceVec2) };
-            if ((ang1 == 0 || ang1 == M_PI) && !oneTemplate.isRod && oneTemplate.interfaceList.size() > 2) {
-                size_t tmpIndex { oneTemplate.interfaceList.size() - 1 };
-                Vector ifaceVec3 { oneTemplate.interfaceList[tmpIndex].iCoord - oneTemplate.comCoord };
-                ifaceVec3.calc_magnitude();
-                double ang2 { ifaceVec1.dot_theta(ifaceVec3) };
-                if (ang2 == 0 || ang2 == M_PI) {
-                    // continue on or quit?
-                    ifaceIndex = tmpIndex; // TODO: ONLY FOR NOW
-                } else {
-                    ifaceIndex = tmpIndex;
-                }
+            if (ang1 == 0 || ang1 == M_PI) {
+                // check next
+            } else {
                 ifaceIndex = tmpIndex;
+                allcollinear = false;
+                break;
             }
         }
-        Vector v0 { oneTemplate.interfaceList[ifaceIndex].iCoord - oneTemplate.comCoord };
-        Vector v1 { targMol.tmpICoords[ifaceIndex] - targMol.tmpComCoord };
-        Vector rotAxis { targMol.tmpICoords[0] - targMol.tmpComCoord };
-        v0.calc_magnitude();
-        v1.calc_magnitude();
-        rotAxis.normalize();
+        if (allcollinear && !oneTemplate.isRod){
+            // all interfaces are collinear, just use the first rotation
+            // By Mankun Sang (msang2@jh.edu): I don't know what isRod does here,
+            //   and I just preserved the logic. If this is a rod, just do what's remaining. 
+            return firstRot;
+        } else {
+            Vector v0 { oneTemplate.interfaceList[ifaceIndex].iCoord - oneTemplate.comCoord };
+            Vector v1 { targMol.tmpICoords[ifaceIndex] - targMol.tmpComCoord };
+            Vector rotAxis { targMol.tmpICoords[0] - targMol.tmpComCoord };
+            v0.calc_magnitude();
+            v1.calc_magnitude();
+            rotAxis.normalize();
 
-        // project the current and desired iface-com vectors
-        // onto a plane of which the first iface-com vector is normal to
-        Vector projVec0(v0.vector_projection(rotAxis));
-        Vector projVec1(v1.vector_projection(rotAxis));
-        projVec0.calc_magnitude();
-        projVec1.calc_magnitude();
-        double angle { projVec0.dot_theta(projVec1) };
+            // project the current and desired iface-com vectors
+            // onto a plane of which the first iface-com vector is normal to
+            Vector projVec0(v0.vector_projection(rotAxis));
+            Vector projVec1(v1.vector_projection(rotAxis));
+            projVec0.calc_magnitude();
+            projVec1.calc_magnitude();
+            double angle { projVec0.dot_theta(projVec1) };
 
-        if (requiresSignFlip(rotAxis, projVec0, projVec1))
-            angle = -angle;
+            if (requiresSignFlip(rotAxis, projVec0, projVec1))
+                angle = -angle;
 
-        double sa { std::sin(angle / 2) };
-        secondRot = Quat(cos(angle / 2), sin(angle / 2) * rotAxis.x, sin(angle / 2) * rotAxis.y, sin(angle / 2) * rotAxis.z);
-        secondRot = secondRot.unit();
+            double sa { std::sin(angle / 2) };
+            secondRot = Quat(cos(angle / 2), sin(angle / 2) * rotAxis.x, sin(angle / 2) * rotAxis.y, sin(angle / 2) * rotAxis.z);
+            secondRot = secondRot.unit();
 
-        //        {
-        //            Vector tmpVec { targMol.tmpICoords[ifaceIndex] - targMol.tmpComCoord };
-        //            firstRot.rotate(tmpVec);
-        //            if(std::abs(tmpVec.x - oneTemplate.interfaceList[ifaceIndex].iCoord.x) > 1E-8 || std::abs(tmpVec.y - oneTemplate.interfaceList[ifaceIndex].iCoord.y) > 1E-8 || std::abs(tmpVec.z - oneTemplate.interfaceList[ifaceIndex].iCoord.z) > 1E-8) {
-        //                angle = -angle;
-        //                sa = sin(angle/2);
-        //                secondRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
-        //                                  sa * rotAxis.z };
-        //                secondRot = secondRot.unit();
-        //            }
-        //        }
+            //        {
+            //            Vector tmpVec { targMol.tmpICoords[ifaceIndex] - targMol.tmpComCoord };
+            //            firstRot.rotate(tmpVec);
+            //            if(std::abs(tmpVec.x - oneTemplate.interfaceList[ifaceIndex].iCoord.x) > 1E-8 || std::abs(tmpVec.y - oneTemplate.interfaceList[ifaceIndex].iCoord.y) > 1E-8 || std::abs(tmpVec.z - oneTemplate.interfaceList[ifaceIndex].iCoord.z) > 1E-8) {
+            //                angle = -angle;
+            //                sa = sin(angle/2);
+            //                secondRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
+            //                                  sa * rotAxis.z };
+            //                secondRot = secondRot.unit();
+            //            }
+            //        }
 
-        // might not need this, but good for a check after
-        // to make sure it worked
-        for (auto& iface : targMol.tmpICoords) {
-            Vector tmpVec { iface - targMol.tmpComCoord };
-            secondRot.rotate(tmpVec);
-            iface = Coord { tmpVec.x, tmpVec.y, tmpVec.z };
+            // might not need this, but good for a check after
+            // to make sure it worked
+            for (auto& iface : targMol.tmpICoords) {
+                Vector tmpVec { iface - targMol.tmpComCoord };
+                secondRot.rotate(tmpVec);
+                iface = Coord { tmpVec.x, tmpVec.y, tmpVec.z };
+            }
         }
     }
 

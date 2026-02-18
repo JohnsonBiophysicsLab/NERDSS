@@ -9,7 +9,7 @@ bool determine_if_reaction_occurs(int& crossIndex1, int& crossIndex2, const doub
     std::vector<Molecule>& moleculeList, const std::vector<ForwardRxn>& forwardRxns)
 {
     // TRACE();
-    bool willReact { false };
+    // bool willReact { false };
     for (unsigned crossMolItr { 0 }; crossMolItr < mol.crossbase.size(); ++crossMolItr) {
 
         // make sure that the time step is resonable according to the prob of reaction
@@ -23,6 +23,14 @@ bool determine_if_reaction_occurs(int& crossIndex1, int& crossIndex2, const doub
 
         double rand1 { rand_gsl64() };
         // std::cout << mol.probvec[crossMolItr] << std::endl;
+        // debug info
+        // if (mol.probvec[crossMolItr] > 1e-3){
+        //     std::cout << "Determining if reaction occurs for molecule index: " << mol.index
+        //             << " on complex: " << mol.myComIndex << " crossMol: " << mol.crossbase[crossMolItr]
+        //             << " with reaction probability: " << mol.probvec[crossMolItr]
+        //             << " random number: " << rand1 << std::endl;
+        // }
+        // END
         if (rand1 < mol.probvec[crossMolItr]) {
 
             crossIndex1 = crossMolItr;

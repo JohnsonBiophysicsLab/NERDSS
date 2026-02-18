@@ -19,6 +19,13 @@
 # TODO: Make rules for *.hpp's
 #
 # Set terminal width to 220 to avoid viewing wrapped lines in output. A width of 200 avoids most wrapping.
+#
+# Update 2025-08-25:
+# o dded new PHONY: "debug" and "profile". 
+# o Use `make serial debug` to debug with gdb
+# o use `make serial profile` to profile
+#
+
 BDIR   = bin
 ODIR   = obj
 SDIR   = src
@@ -26,10 +33,9 @@ EDIR   = EXEs
 
 PROF   =
 
-.PHONY: any
+.PHONY: any debug profile clean
 
-#               REQUIREMENTS: gls and directories
-
+# ---------------- REQUIREMENTS: gsl and directories
 hasGSL = $(shell type gsl-config >/dev/null 2>&1; echo $$?)
 ifeq ($(hasGSL),1)
 $(error " GSL must be installed, and gsl-config must be in path.")
@@ -38,89 +44,86 @@ $(shell mkdir -p bin)
 $(shell mkdir -p obj)
 endif
 
-#               EXECUTABLE SETUP for serial, MPI
+# ---------------- EXECUTABLE SETUP
 INCLUDE_FOLDERS = boundary_conditions classes error math parser reactions system_setup trajectory_functions io
 
-ifeq (serial,$(MAKECMDGOALS))
+ifneq (,$(filter serial,$(MAKECMDGOALS)))
 	_EXEC = nerdss
 endif
 
-ifeq (mpi,$(MAKECMDGOALS))
+ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 	_EXEC = nerdss_mpi
-         DEFS = -Dmpi_
-		 INCLUDE_FOLDERS += debug io_mpi mpi
+	DEFS = -Dmpi_
+	INCLUDE_FOLDERS += debug io_mpi mpi
 endif
 
-ifeq (clean,$(MAKECMDGOALS))
+ifneq (,$(filter clean,$(MAKECMDGOALS)))
 	MAKECMDGOALS = dummy
 endif
 
+ifneq (,$(filter debug,$(MAKECMDGOALS)))
+	ENABLE_DEBUG = true
+endif
+
+ifneq (,$(filter profile,$(MAKECMDGOALS)))
+	ENABLE_PROFILING = true
+endif
+
 SRCS = $(foreach dir,$(INCLUDE_FOLDERS),$(wildcard $(SDIR)/$(dir)/*.cpp))
-
-         EXEC  = $(patsubst %,$(BDIR)/%,$(_EXEC))
-
+EXEC = $(patsubst %,$(BDIR)/%,$(_EXEC))
 
 OS    := $(shell uname)
-INTEL  = $(shell type icpc  >/dev/null 2>&1; echo $$?)
-GCC    = $(shell type g++   >/dev/null 2>&1; echo $$?)
+INTEL = $(shell type icpc  >/dev/null 2>&1; echo $$?)
+GCC   = $(shell type g++   >/dev/null 2>&1; echo $$?)
 
 INCS    = $(shell gsl-config --cflags) -Iinclude
 CXXFLAGS = -std=c++0x
 LIBS     = $(shell gsl-config --libs)
-#LIBS     += $(shell pkg-config --libs libprofiler)
 
-
-#---------------COMPILER SETUP
-
-#               comment out next statement to allow profiling with gprof
+# ---------------- COMPILER SETUP
 override PROF   =
 
-ifeq ($(GCC),0)          # Will use GCC. (See Intel below.)
+ifeq ($(GCC),0)
 	CC      = g++
 	ifeq (mpi,$(MAKECMDGOALS))
-	CC    = mpicxx
+		CC = mpicxx
 	endif
-	# CFLAGS  = -O3
-	PROF    = -pg -g
-#	MPCFLAG = -I /cm/shared/mpi/openmpi/2.1/intel/17.0/include
+	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
 endif
 
-
-ifeq ($(INTEL),0)        # Will use Intel, overrides GCC if both present.
+ifeq ($(INTEL),0)
 	CC      = icpc
 	ifeq (mpi,$(MAKECMDGOALS))
-	CC    = mpicxx
+		CC = mpicxx
 	endif
-	MPCC    = mpicxx
-	# CFLAGS  = -O3
-	PROF    = -pg -g
+	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
 endif
 
+# ---------------- Feature toggles
+# Set debug flags if ENABLE_DEBUG is true
+ifdef ENABLE_DEBUG
+	CFLAGS = -g -O0 -fsanitize=address -fno-omit-frame-pointer
+	CXXFLAGS += -DDEBUG
+endif
+
+# Set profiling flags if ENABLE_PROFILING is true
 ifdef ENABLE_PROFILING
-	CFLAGS = -DENABLE_PROFILING -g
-	LIBS   += -lprofiler
-else
-	CFLAGS = -O3 #-g
+	PROF += -pg
+	CFLAGS += -DENABLE_PROFILING 
+	LIBS += $(shell pkg-config --libs libprofiler)
 endif
 
-#---------------OBJECT FILES
-# Create the OBJS variable maintaining the directory structure
+# ---------------- OBJECT FILES
 OBJS = $(patsubst $(SDIR)/%.cpp,$(ODIR)/%.o,$(SRCS))
 
-# Debug prints (uncomment if needed)
-# $(info SRCS = $(SRCS))
-# $(info OBJS = $(OBJS))
-
-#---------------RULES
+# ---------------- RULES
 syntax:
 	@echo "------------------------------------"
-	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi"
+	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi [debug] [profile]"
 	@echo "------------------------------------"
 	exit 0
 
-# Rules: for $(MAKECMDGOALS) serial, mpi, or omp build
-# $(EXEC) bin/nerdss, bin/nerdss_mpi or /binnerdss_omp
-$(MAKECMDGOALS):$(EXEC)
+$(MAKECMDGOALS): $(EXEC)
 	@echo "Finished making (re-)building $(MAKECMDGOALS) version, $(EXEC)."
 
 $(EXEC): $(OBJS)
@@ -128,7 +131,6 @@ $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
 	@echo "------------"
 
-# Updated rule for object files
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	@echo "Compiling $< to $@"
 	@mkdir -p $(@D)
@@ -137,6 +139,8 @@ $(ODIR)/%.o: $(SDIR)/%.cpp
 
 clean:
 	rm -rf $(ODIR) bin
+
+
 # Reference: https://www.gnu.org/software/make/manual/html_node/Quick-Reference.html
 #            https://www.gnu.org/software/make/
 #            https://www.cmcrossroads.com/article/basics-vpath-and-vpath

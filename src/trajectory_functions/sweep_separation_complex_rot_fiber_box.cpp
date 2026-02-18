@@ -13,22 +13,10 @@ void sweep_separation_complex_rot_fiber_box(
     const std::vector<MolTemplate> &molTemplateList,
     const Membrane &membraneObject) {
   /*
-    In this version, complex comIndex1 is on the membrane.
-    If both proteins are on the membrane (Dz==0), evaluate only xy displacement,
-   not z. In this _complex_ version, it tests overlap not just for each protein,
-   but for each complex, so all the proteins in a complex, before performing
-   position updates. NEW 2018: IN THIS VERSION, IT DOES NOT ATTEMPT TO SOLVE
-   OVERLAP FOR PROTEINS WITHIN THE SAME COMPLEX, SINCE THEY CANNOT DIFFUSE
-   RELATIVE TO ONE ANOTHER! This routine checks whether protein p1 is
-   overlapping any partners in its reaction zone at its new position that is
-   given by its current position +traj. If it does overlap, the displacement by
-   traj is rejected and a new position for itself and any overlapping partners
-   are selected. Once it no longer overlaps anyone, this protein and its complex
-   are moved and the partners retain their stored new displacements. If a
-   protein has already updated its position (done in sequential order) then it
-   cannot resample a new position, the current protein must still continue to
-   avoid overlapping, however.
+    The molecule "selfIndex" is on Fiber
   */
+
+  // std::cout << "Iter num: " << simItr << " Molecule Index: " << selfIndex << std::endl;
   // TRACE();
   int comIndex1{moleculeList[selfIndex].myComIndex};
   int startProIndex = selfIndex;
@@ -40,15 +28,12 @@ void sweep_separation_complex_rot_fiber_box(
       maxRows = moleculeList[memMol].crossbase.size();
   }
 
-  int ifaceList[maxRows * com1Size];
-  int overlapList[maxRows * com1Size];
-  int memCheckList[maxRows * com1Size];
-
-  // int reflectList[complexList.size()]; // if this is 0, we need call
-  // reflect_traj; if this is 1, we do not need call reflect_traj for (auto i :
-  // reflectList) { // initialize
-  //     i = 0;
-  // }
+  std::vector<int> ifaceList(maxRows * com1Size, -1);
+  std::vector<int> overlapList(maxRows * com1Size, -1);
+  std::vector<int> memCheckList(maxRows * com1Size, -1);
+  // int ifaceList[maxRows * com1Size];
+  // int overlapList[maxRows * com1Size];
+  // int memCheckList[maxRows * com1Size];
 
   /*The sampled displacement for p1 is stored in traj. the position from the
    previous step is still stored in bases[p1].xcom, etc, and will be updated
@@ -91,29 +76,36 @@ void sweep_separation_complex_rot_fiber_box(
     }
   }
 
-  int tsave = 0;
-  // if (reflectList[comIndex1] == 0) {
-  //     reflect_traj_complex_rad_rot(params, moleculeList,
-  //     complexList[comIndex1], membraneObject, RS3Dinput);
-  //     reflectList[comIndex1] = 1;
-  // }
+  // int tsave = 0; // This is not actually used
 
   int itr{0};
-  int maxItr{20};
+  int maxItr{50};
   int saveit{0};
   while (itr < maxItr) {
     int numOverlap{0};
     bool hasOverlap{false};
     int comIndex2{};
     double dr2{};
-    for (unsigned memMolItr{0};
-         memMolItr < complexList[comIndex1].memberList.size(); ++memMolItr) {
+    for (unsigned memMolItr{0}; memMolItr < complexList[comIndex1].memberList.size(); ++memMolItr) 
+    {
       int pro1Index = complexList[comIndex1].memberList[memMolItr];
-      for (int crossMemItr{0};
-           crossMemItr < moleculeList[pro1Index].crossbase.size();
+      // if (simItr==3226 && selfIndex==52){
+      //   for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossbase.size();
+      //      ++crossMemItr) {
+      //       std::cout << "Mol 2: " << moleculeList[pro1Index].crossbase[crossMemItr] << std::endl;
+      //      }
+      // }
+      for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossbase.size();
            ++crossMemItr) {
         int pro2Index{moleculeList[pro1Index].crossbase[crossMemItr]};
         if (moleculeList[pro2Index].isImplicitLipid) continue;
+
+        // For co-localized proteins, they do not affect other 1D objects
+        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter) {
+          continue; 
+        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter) {
+          continue; 
+        }
 
         comIndex2 = moleculeList[pro2Index].myComIndex;
         /*Do not sweep for overlap if proteins are in the same complex, they
@@ -127,8 +119,7 @@ void sweep_separation_complex_rot_fiber_box(
           Vector iface1Vec{
               moleculeList[pro1Index].interfaceList[relIface1].coord -
               complexList[comIndex1].comCoord};
-          std::array<double, 9> M =
-              create_euler_rotation_matrix(complexList[comIndex1].trajRot);
+          std::array<double, 9> M = create_euler_rotation_matrix(complexList[comIndex1].trajRot);
           iface1Vec = matrix_rotate(iface1Vec, M);
 
           double dx1{complexList[comIndex1].comCoord.x + iface1Vec.x +
@@ -163,8 +154,7 @@ void sweep_separation_complex_rot_fiber_box(
           double dfy{dy1 - dy2};
           double dfz{dz1 - dz2};
 
-          double sepLimit_sq =
-              forwardRxns[rxnItr].bindRadius * forwardRxns[rxnItr].bindRadius;
+          double sepLimit_sq = forwardRxns[rxnItr].bindRadius * forwardRxns[rxnItr].bindRadius;
 
           dr2 = (dfx * dfx);
           if (memCheckList[maxRows * memMolItr + crossMemItr] != 1) {
@@ -177,18 +167,25 @@ void sweep_separation_complex_rot_fiber_box(
             }
           } else {
             double dfx_origin = complexList[comIndex1].comCoord.x + iface1Vec.x -
-                                complexList[comIndex2].comCoord.x - + iface2Vec.x;
-            // no hop and no overlap
-            if (dfx_origin * dfx < 0 || dr2 < sepLimit_sq) {
-              // std::cout << "Iteration:" << simItr << " resample:" << std::endl;
-              // std::cout << "dr^2:" << dr2 << std::endl;
-              // std::cout << "minimum:" << sepLimit_sq << std::endl;
-              // std::cout << "dx0:" << dfx_origin << std::endl;
-              // std::cout << "dx1:" << dfx << std::endl;
-              /*reselect positions for protein p2*/
-              overlapList[numOverlap] = pro2Index;
-              numOverlap++;
-              hasOverlap = true;
+                                complexList[comIndex2].comCoord.x - iface2Vec.x;
+            if (!moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter) {
+              // Both molecules are not DNA sites
+              // no hop and no overlap
+              if (dfx_origin * dfx < 0 || dr2 < sepLimit_sq) {
+                /*reselect positions for protein p2*/
+                overlapList[numOverlap] = pro2Index;
+                numOverlap++;
+                hasOverlap = true;
+              }
+            } else {
+              // At least one molecule is a DNA site
+              // no overlap
+              if (dr2 < sepLimit_sq) {
+                /*reselect positions for protein p2*/
+                overlapList[numOverlap] = pro2Index;
+                numOverlap++;
+                hasOverlap = true;
+              }
             }
           }
           //   std::cout << "dr^2:" << dr2 << std::endl;
@@ -226,10 +223,11 @@ void sweep_separation_complex_rot_fiber_box(
                                    false);  // set isInsideCompartment = false.
       // reflectList[comIndex1] = 1;
 
-      int resampleList[complexList.size()];  // if this is 0, we need resample
-      for (auto &i : resampleList) {         // initialize
-        i = 0;
-      }
+      std::vector<int> resampleList(complexList.size(), 0);
+      // int resampleList[complexList.size()];  // if this is 0, we need resample
+      // for (auto &i : resampleList) {         // initialize
+      //   i = 0;
+      // }
 
       for (int checkMolItr{0}; checkMolItr < numOverlap; checkMolItr++) {
         int p2{overlapList[checkMolItr]};
@@ -242,58 +240,84 @@ void sweep_separation_complex_rot_fiber_box(
           // TrajStatus::canBeResampled)) {
           if ((moleculeList[p2].trajStatus == TrajStatus::none ||
                moleculeList[p2].trajStatus == TrajStatus::canBeResampled)) {
-            /*
-         We loop over proteins sequentially, so earlier proteins have already
-         moved and avoided their neighbors and should not be moved again. These
-         new positions selected for proteins not yet moved will be stored and
-         then used when they test for overlap themselves.
-         */
+                /*
+                We loop over proteins sequentially, so earlier proteins have already
+                moved and avoided their neighbors and should not be moved again. These
+                new positions selected for proteins not yet moved will be stored and
+                then used when they test for overlap themselves.
+                */
+                // if (simItr==3226 && selfIndex==52){
+                //   std::cout << "resample the overlaped moelcule: " << p2  << std::endl;
+                // }
 
-            /*If p2 just dissociated, also don't try to move again*/
-            complexList[comIndex2].trajTrans.x =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].D.x) *
-                GaussV();
-            complexList[comIndex2].trajTrans.y =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].D.y) *
-                GaussV();
-            complexList[comIndex2].trajTrans.z =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].D.z) *
-                GaussV();
-            complexList[comIndex2].trajRot.x =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.x) *
-                GaussV();
-            complexList[comIndex2].trajRot.y =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.y) *
-                GaussV();
-            complexList[comIndex2].trajRot.z =
-                sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.z) *
-                GaussV();
+                /*If p2 just dissociated, also don't try to move again*/
+                complexList[comIndex2].trajTrans.x =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.x) * GaussV();
+                complexList[comIndex2].trajTrans.y =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.y) * GaussV();
+                complexList[comIndex2].trajTrans.z =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.z) * GaussV();
+                complexList[comIndex2].trajRot.x =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.x) * GaussV();
+                complexList[comIndex2].trajRot.y =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.y) * GaussV();
+                complexList[comIndex2].trajRot.z =
+                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.z) * GaussV();
 
-            // reflectList[comIndex2] = 0;
-            reflect_traj_complex_rad_rot(
-                params, moleculeList, complexList[comIndex2], membraneObject,
-                RS3Dinput, false);  // set isInsideCompartment = false.
-            // reflectList[comIndex2] = 1;
-            resampleList[comIndex2] = 1;
+                // reflectList[comIndex2] = 0;
+                reflect_traj_complex_rad_rot(
+                    params, moleculeList, complexList[comIndex2], membraneObject,
+                    RS3Dinput, false);  // set isInsideCompartment = false.
+                // reflectList[comIndex2] = 1;
+                resampleList[comIndex2] = 1;
           }
         }
       }
-      tsave = numOverlap;
+      // tsave = numOverlap;
     } else {
       saveit = itr + 1;
       itr = maxItr;  // break from loop
     }
   }  // end maximum iterations
-     // cancel propagation if no available place found
-  // if (saveit == 0) {
-  //   // std::cout << "Overlap Check Reached Iteration Limitation" << std::endl;
-  //   complexList[comIndex1].trajTrans.zero_crds();
-  //   complexList[comIndex1].trajRot.zero_crds();
-  // }
+  
+  if (saveit == 0) {
+    // std::cout << "Overlap Check Reached Iteration Limitation" << "(" << maxItr << ") at itr " << 
+    // simItr << " for molecule " << selfIndex << std::endl;
+    // throw std::runtime_error("Debug error: Overlap not fixed!");
+
+    // Choice 1 (default): accept any movement. Moving is better than stuck. 
+    // Although excluded volumes can prohibit most of unphysical overlaps,
+    // in crowded systems, some overlaps may still happen.
+    // So we accept any propagation to avoid deadlock.
+    // DEBUG: Warning is given to inform users that overlaps happen.
+    // std::cout << "Warning: Overlap Check Reached Iteration Limitation" << "(" << maxItr
+    //           << ") at itr " << simItr << " for molecule " << selfIndex << std::endl;
+
+    // Choice 2: cancel propagation if no available place found
+    // complexList[comIndex1].trajTrans.zero_crds();
+    // complexList[comIndex1].trajRot.zero_crds();
+
+    /* Explain why there was no propagation cancel
+    previously, in case to form a fake loop on a straight 1D fiber,
+    (like GAGA factor which forms a hexamer while all subunits bind with the same DNA)
+    proteins are allowed to form a "3D" structure while they are still considered as 
+    1D objects. For 1D objects, the distance (both for overlap and reactions) is dx = |x2 - x1|,
+    and the 3D structure may bring two proteins too close such that their 1D distance is 
+    smaller than the overlap limit, sigma. To avoid proteins being trapped after dissociation
+    (proteins are not reset to a reasonable place after dissociation), we forced proteins to 
+    be propagated even the propagation may result in a place with overlap issue. However, there 
+    are two problems:
+    1. The no cancel method messed up kinetics.
+    2. For normal crowded proteins, the no cancel method creates huge overlap issue.
+    So, now we returned to the "cancel propagation" method to make sure crowded proteins have 
+    correct movements.
+    3. PRICE: have to apply excluded volumes for all 1D interactions, unless for co-localized proteins.
+    */ 
+
+  }
 
   // accept any propagation
-  complexList[comIndex1].propagate(moleculeList, membraneObject,
-                                   molTemplateList);
+  complexList[comIndex1].propagate(moleculeList, membraneObject, molTemplateList);
 
   // Reset displacements to zero so distance is measured to your current
   // updated position that won't change again this turn

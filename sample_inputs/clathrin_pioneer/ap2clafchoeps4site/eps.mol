@@ -1,0 +1,29 @@
+##
+# eps15 molecule information file
+##
+
+Name    = eps
+checkOverlap = false
+
+# translational diffusion constants
+D       = [33.0,33.0,33.0]
+
+# rotational diffusion constants
+Dr      = [0.6,0.6,0.6]
+
+# Coordinates
+COM     0.0000    0.0000    0.0000
+c2c     8.0000    0.0000    0.0000
+d21apa -5.0000    0.0000    0.0000
+d22apa -8.0000    0.0000    0.0000
+d23apa -11.0000   0.0000    0.0000
+d24apa -14.0000   0.0000    0.0000
+d2uhd  -2.0000    0.0000    0.0000
+
+bonds = 6
+com c2c
+com d21apa
+com d22apa
+com d23apa
+com d24apa
+com d2uhd

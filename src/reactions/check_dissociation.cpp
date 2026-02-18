@@ -60,7 +60,7 @@ void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolu
                     exit(1);
                 }
                 if (prob > 0.5) {
-                    std::cout << "WARNING: prob of reaction > 0.5. If this is a reaction for a bimolecular binding with multiple binding sites, please use a smaller time step." << std::endl;
+                    std::cout << "WARNING: prob of reaction > 0.5. If this is a dissociation for a bimolecular binding with multiple binding sites, please use a smaller time step." << std::endl;
                 }
 
                 if (params.debugParams.forceDissoc)

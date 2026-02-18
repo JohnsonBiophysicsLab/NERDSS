@@ -4,8 +4,8 @@ start parameters
     nItr = 700000
     timeStep = 0.1
 
-    timeWrite = 200
-    trajWrite = 1000000
+    timeWrite = 2000
+    trajWrite = 10000
     restartWrite = 1000000
 
 end parameters

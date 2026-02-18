@@ -32,7 +32,8 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "overlapseplimit", ParamKeyword::overlapSepLimit }, { "name", ParamKeyword::name },
     { "checkpoint", ParamKeyword::checkPoint }, { "scalemaxdisplace", ParamKeyword::scaleMaxDisplace },
     { "transitionwrite", ParamKeyword::transitionWrite }, 
-    { "clusteroverlapcheck", ParamKeyword::clusterOverlapCheck }
+    { "clusteroverlapcheck", ParamKeyword::clusterOverlapCheck }, 
+    { "rngwrite", ParamKeyword::rngwrite },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -125,6 +126,10 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             this->assocDissocWrite = read_boolean(value);
             std::cout << "Read in assocDissocWrite: " << std::boolalpha << this->assocDissocWrite << std::endl;
             break;
+        case 19:
+            this->rngwrite = read_boolean(value);
+            std::cout << "Read in RNGwrite: " << std::boolalpha << this->rngwrite << std::endl;
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -198,6 +203,7 @@ void Parameters::display()
     std::cout << "overlapSepLimit: " << overlapSepLimit << " nm\n";
     std::cout << "Transition matrix write interval: " << transitionWrite << " timesteps\n";
     std::cout << "ClusterOverlapCheck: " << clusterOverlapCheck << "\n";
+    std::cout << "RNGwrite: " << rngwrite << "\n";
 
     std::cout << "Molecule specific parameters:\n";
     std::cout << "Number of unique molecule types: " << numMolTypes << '\n';

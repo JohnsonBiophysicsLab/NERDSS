@@ -1,0 +1,119 @@
+# Input file
+
+start parameters
+    nItr = 50000000
+    timeStep = 1
+
+    timeWrite = 50000
+    trajWrite = 500000000
+    pdbWrite = 5000000
+    transitionWrite = 3000000
+    restartWrite = 50000
+    checkPoint = 5000000
+    scaleMaxDisplace = 10.0
+    overlapSepLimit = 7.0
+    clusterOverlapCheck = false
+end parameters
+
+start boundaries
+    WaterBox = [700,700,1000]
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+    p : 10000
+    f : 13 #0.042uM
+    e : 28 #0.094uM
+    ap2 : 59 #0.2uM
+end molecules
+
+start reactions
+    #### pip2 - FCHo1/2 ####
+    f(fl) + p(head) <-> f(fl!1).p(head!1)
+    onRate3DMacro = 14
+    offRateMacro = 10
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+    observeLabel = fp
+
+    #### FCHo1/2 - FCHo1/2 ####
+    f(ff) + f(ff) <-> f(ff!1).f(ff!1)
+    onRate3DMacro = 4
+    offRateMacro = 10
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = ff
+
+    #### CC - CC ####
+    e(cc) + e(cc) <-> e(cc!1).e(cc!1)
+    onRate3Dka = 100
+    offRatekb = 0.1
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [2.3561945, 2.3561945, 1.5707963, 1.5707963, 0]
+    observeLabel = ee
+
+    #### EH - unstructured region ####
+    e(eh,cc!*,ee) + e(ee,cc!*,eh) <-> e(eh!1,cc!*,ee).e(ee!1,cc!*,eh)
+    onRate3Dka = 100
+    offRatekb = 0.1
+    sigma = 1.0
+    bindRadSameCom = 4
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [1.5708024, 1.5708024, 1.5707963, 1.5707963, 0]
+    observeLabel = tt
+
+    e(eh) + e(ee) <-> e(eh!1).e(ee!1)
+    onRate3Dka = 0
+    offRatekb = 0.1
+
+    #### EH - uHD ####
+    e(ef) + f(fu) <-> e(ef!1).f(fu!1)
+    onRate3Dka = 100
+    offRatekb = 0.1
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [3.1415831, 1.5707963, M_PI, nan, M_PI]
+    observeLabel = ef
+
+    #### pip2 - AP2 ####
+    ap2(m2muh) + p(head) <-> ap2(m2muh!1).p(head!1)
+    onRate3DMacro = 0.333
+    offRateMacro = 1
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+    observeLabel = ap
+
+    #### eps15 - AP2 ####
+    ap2(ae) + e(ea) <-> ap2(ae!1).e(ea!1)
+    onRate3DMacro = 0.333
+    offRateMacro = 1
+    sigma = 1.0
+    bindRadSameCom = 1.1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [1.5707963, 3.1415852, nan, M_PI, M_PI]
+    observeLabel = ae
+end reactions

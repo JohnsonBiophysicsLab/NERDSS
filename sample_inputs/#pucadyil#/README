@@ -1,0 +1,20 @@
+distinct labeled self interactions multiplied by 2.
+
+Clathrin is a flat trimer, it has a clathrin leg length of 6nm, so two bound clathrin have COM separated by 17nm (including 5nm binding radius).
+
+In this model, the Clath + AP2_on_mem/IL is 25uM. koff=0.025s-1 (kon and koff of Clath + AP2_on_mem/IL can be adjusted; keep Clath + AP2_on_mem/IL 25uM)
+Clath + Clath is 120uM. koff=10s-1. (kon and koff of Clath + Clath can be adjusted; keep Clath + Clath 120uM)
+
+Increase Clath + Clath if either molecule is bound to an AP2_on_mem/IL, by a factor of 10. (the factor can be adjusted)
+
+Use loopCoopFactor=0.001.
+
+Add reflecting site at clathrin COM to prevent passing through each other.
+
+length3Dto2D is 30nm for all binding reactions. (This parameter can be adjusted)
+
+get_clath_on_mem_time_from_histfile.py is the python script used to get the time dependence of clath copy numbers on the memebrane.
+
+Pucadyil_time_mean_std_sem.dat is the epxeriment data.
+
+fitPlot.m is the matlab script to plot and fit the data.

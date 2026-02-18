@@ -1,0 +1,51 @@
+# Input file
+
+start parameters
+    nItr = 50000000
+    timeStep = 1
+
+    timeWrite = 50000
+    trajWrite = 500000000
+    pdbWrite = 5000000
+    transitionWrite = 3000000
+    restartWrite = 50000
+    checkPoint = 5000000
+    scaleMaxDisplace = 10.0
+    overlapSepLimit = 7.0
+    clusterOverlapCheck = false
+end parameters
+
+start boundaries
+    WaterBox = [700,700,1000]
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+    p : 10000
+    f : 13 #0.042uM
+end molecules
+
+start reactions
+    #### pip2 - FCHo1/2 ####
+    f(fl) + p(head) <-> f(fl!1).p(head!1)
+    onRate3DMacro = 14
+    offRateMacro = 10
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+    observeLabel = fp
+
+    #### FCHo1/2 - FCHo1/2 ####
+    f(ff) + f(ff) <-> f(ff!1).f(ff!1)
+    onRate3DMacro = 4
+    offRateMacro = 10
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    length3Dto2D = 30 # in nm
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = ff
+end reactions

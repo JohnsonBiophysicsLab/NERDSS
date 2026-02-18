@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+for i in `find sample_inputs/. -name "*out"` ; do \rm $i ; done
+for i in `find sample_inputs/. -name "*xyz"` ; do \rm $i ; done
+for i in `find sample_inputs/. -name "*dat"` ; do \rm $i ; done
+for i in `find sample_inputs/. -name "*psf"` ; do \rm $i ; done
+for i in `find sample_inputs/. -name "*pdb"` ; do \rm $i ; done
+for i in `find . -name "*~"` ; do \rm $i ; done
+
+\rm -rf obj
+\rm -rf bin

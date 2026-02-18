@@ -31,7 +31,7 @@ start reactions
     offRatekb =0.0 #1/s rate to perform dissociation with no coupled reaction.
     kcat = 1.0 #1/s rate to perform dissociation coupled to degA
     sigma = 8 #nm
-    coupledRxnLabel = degA #FORCE RXN NUM LISTED (rate=INF)
+    coupledRxnLabel = degA #rate of this reaction is controlled here by kcat.
     norm1=[0,0,1]
     norm2=[0,0,1]
     assocAngles=[nan, nan, nan, nan, nan]

@@ -273,8 +273,8 @@ void Molecule::destroy() {
 // MPI_remove_from_one_rank destroys the molecule from one of two ranks
 // that both kept information about,
 // since it was in their shared-area:
-void Molecule::MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList,
-                                        std::vector<Complex>& complexList) {
+void Molecule::MPI_remove_from_one_rank(std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList)
+{
   /*! \ingroup Reactions
    * \brief Destroys the parent Molecule.
    *
@@ -284,7 +284,8 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList,
 
   // If this was the only molecule in the complex,
   // destroy the complex, which destroys the molecule as well:
-  if (complexList[myComIndex].memberList.size() == 1) {
+  if (complexList[myComIndex].memberList.size() == 1)
+  {
     complexList[myComIndex].destroy(moleculeList, complexList);
     return;
   }
@@ -295,9 +296,10 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList,
   // keep track of molecule types
   --MolTemplate::numEachMolType[molTypeIndex];
 
-  auto& vec = complexList[myComIndex].memberList;
+  auto &vec = complexList[myComIndex].memberList;
   int iIndex = 0;
-  while ((iIndex < vec.size()) && (vec[iIndex] != index)) iIndex++;
+  while ((iIndex < vec.size()) && (vec[iIndex] != index))
+    iIndex++;
   vec.erase(vec.begin() + iIndex);
 
   myComIndex = -1;
@@ -324,29 +326,33 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList,
 }
 
 void Molecule::create_random_coords(const MolTemplate &molTemplate,
-                                    const Membrane &membraneObject) {
+                                    const Membrane &membraneObject)
+{
   /*!
    * \brief Create random coordinates for a Molecule
    * rotation. Saves time, but could be changed easily.
    */
-  if (membraneObject.isSphere) {
+  bool outOfBox{false}; // TODO: commented out for testing purposes only
+  if (membraneObject.isSphere)
+  {
     double R = membraneObject.sphereR;
 
     comCoord.x = (membraneObject.sphereR * 2 * rand_gsl() - (membraneObject.sphereR));
     comCoord.y = (membraneObject.sphereR * 2 * rand_gsl() - (membraneObject.sphereR));
     comCoord.z = (membraneObject.sphereR * 2 * rand_gsl() - (membraneObject.sphereR));
-
-    bool outOfBox{false}; // TODO: commented out for testing purposes only
+    
     // if the molecule is a lipid, place it along the bottom of the box and
     // don't give it a rotation
 
     double molMag = sqrt(comCoord.x * comCoord.x + comCoord.y * comCoord.y + comCoord.z * comCoord.z);
 
-    if (molMag > R) {
+    if (molMag > R)
+    {
       outOfBox = true;
     }
     // TODO: initialize a fiber in sphere system
-    if (molTemplate.isLipid) {
+    if (molTemplate.isLipid)
+    {
       double x = comCoord.x;
       double y = comCoord.y;
       double z = comCoord.z;
@@ -355,7 +361,8 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
       comCoord.y = (R / sqrt(x * x + y * y + z * z)) * y;
       comCoord.z = (R / sqrt(x * x + y * y + z * z)) * z;
       for (unsigned int ifaceItr{0};
-           ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr) {
+           ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
+      {
 
         interfaceList[ifaceItr].coord =
             Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
@@ -381,16 +388,15 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
        multiple states, the default choice here is to use the first state,
        usually an unbound state.
       */
-        interfaceList[ifaceItr].index =
-            molTemplate.interfaceList[ifaceItr].stateList[0].index;
+        interfaceList[ifaceItr].index = molTemplate.interfaceList[ifaceItr].stateList[0].index;
         interfaceList[ifaceItr].relIndex = ifaceItr;
-        interfaceList[ifaceItr].stateIden =
-            molTemplate.interfaceList[ifaceItr].stateList[0].iden;
-        interfaceList[ifaceItr].stateIndex =
-            0; // because by default we picked the first state
+        interfaceList[ifaceItr].stateIden = molTemplate.interfaceList[ifaceItr].stateList[0].iden;
+        interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
         interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
       }
-    } else {
+    }
+    else
+    {
 
       // set interface coordinates, with a random rotation on the entire
       // molecule
@@ -399,7 +405,8 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
                    rand_gsl() * 2 - 1};
       rotQuat = rotQuat.unit();
       for (unsigned int ifaceItr{0};
-           ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr) {
+           ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
+      {
         Vector ifaceVec{Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord} - comCoord};
         rotQuat.rotate(ifaceVec);
         interfaceList[ifaceItr].coord = Coord{comCoord + ifaceVec};
@@ -408,7 +415,8 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         Coord iCoord = interfaceList[ifaceItr].coord;
         double iMag = sqrt(iCoord.x * iCoord.x + iCoord.y * iCoord.y +
                            iCoord.z * iCoord.z);
-        if (iMag > R) {
+        if (iMag > R)
+        {
           outOfBox = true;
           break;
         }
@@ -420,23 +428,22 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
       }
     }
-
-    // TODO: Commented out for testing
-    if (outOfBox)
-      this->create_random_coords(molTemplate, membraneObject);
-
-  } else { //in a box geometry
-    //boundaries are box
-    // comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
+  }
+  else
+  { // in a box geometry
+    // boundaries are box
+    //  comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
     comCoord.x = (membraneObject.waterBox.xLeft + (membraneObject.waterBox.xRight - membraneObject.waterBox.xLeft) * rand_gsl());
-    bool outOfBox{false};
-    if (molTemplate.isPromoter) {
+    if (molTemplate.isPromoter)
+    { // in 1D
       comCoord.y = 0.0;
       comCoord.z = 0.0;
-      for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr) {
+      for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
+      {
         interfaceList[ifaceItr].coord = Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
         /* TODO: commented out for testing only */
-        if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject)) {
+        if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
+        {
           outOfBox = true;
           break;
         }
@@ -454,96 +461,106 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
         interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
       }
-    } else {  // not in 1D
+    }
+    else
+    { // not in 1D
+      comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
+      // if the molecule is a lipid, place it along the bottom of the box and don't give it a rotation
+      if (molTemplate.isLipid)
+      { // in 2D
+        comCoord.z = -membraneObject.waterBox.z / 2.0;
+        for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
+        {
+          interfaceList[ifaceItr].coord = Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
 
+          /* TODO: commented out for testing only */
+          if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
+          {
+            outOfBox = true;
+            break;
+          }
 
-	   comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
-        // if the molecule is a lipid, place it along the bottom of the box and don't give it a rotation
-        if (molTemplate.isLipid) {
-            comCoord.z = -membraneObject.waterBox.z / 2.0;
-            for (unsigned int ifaceItr { 0 }; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr) {
-                interfaceList[ifaceItr].coord = Coord { comCoord + molTemplate.interfaceList[ifaceItr].iCoord };
-
-                /* TODO: commented out for testing only */
-                if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject)) {
-                    outOfBox = true;
-                    break;
-                }
-
-                // initialize the Interface::State to the default state (first listed)
-                /*For each physical molecule, initialize the interfaces using
-              the interfaces defined for the molTemplate, which were defined in parse_molFile.cpp
-             at lines 1038.  Since each interface can exist in multiple states, the
-             default choice here is to use the first state, usually an unbound state.
-            */
-                interfaceList[ifaceItr].index = molTemplate.interfaceList[ifaceItr].stateList[0].index;
-                interfaceList[ifaceItr].relIndex = ifaceItr;
-                interfaceList[ifaceItr].stateIden = molTemplate.interfaceList[ifaceItr].stateList[0].iden;
-                interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
-                interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
+          // initialize the Interface::State to the default state (first listed)
+          /*For each physical molecule, initialize the interfaces using
+        the interfaces defined for the molTemplate, which were defined in parse_molFile.cpp
+       at lines 1038.  Since each interface can exist in multiple states, the
+       default choice here is to use the first state, usually an unbound state.
+      */
+          interfaceList[ifaceItr].index = molTemplate.interfaceList[ifaceItr].stateList[0].index;
+          interfaceList[ifaceItr].relIndex = ifaceItr;
+          interfaceList[ifaceItr].stateIden = molTemplate.interfaceList[ifaceItr].stateList[0].iden;
+          interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
+          interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
+        }
+        // done with isLipid
+      }
+      else
+      { // in 3D
+        // Solution molecule.
+        comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
+        /*Alternative is to sample r values from compartmentR to the box diagonal length (reach the corners!)
+          but r can't be uniformly sampled, correct for the Jacobian factor.
+          then, with that r, sample cos(phi) from -1 to 1 uniformly (polar angle), and then sample theta from 0 to 2pi.
+          Then make sure the coordinates are still within the box.
+        */
+        if (membraneObject.hasCompartment == true)
+        {
+          // make sure the molecule is initialized outside of the compartment.
+          if (molTemplate.outsideCompartment == true)
+          {
+            double R = comCoord.get_magnitude(); // length of this vector.
+            while (R < membraneObject.compartmentR)
+            {
+              // resample position.
+              comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
+              comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
+              comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
+              R = comCoord.get_magnitude(); // length of this vector.
             }
-			//done with isLipid
-        } else { //in 3D
-		  //Solution molecule.
-		  comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
-			/*Alternative is to sample r values from compartmentR to the box diagonal length (reach the corners!)
-			  but r can't be uniformly sampled, correct for the Jacobian factor.
-			  then, with that r, sample cos(phi) from -1 to 1 uniformly (polar angle), and then sample theta from 0 to 2pi.
-			  Then make sure the coordinates are still within the box.
-			*/
-			if(membraneObject.hasCompartment == true){
-			  //make sure the molecule is initialized outside of the compartment.
-                if (molTemplate.outsideCompartment == true) {
-                    double R = comCoord.get_magnitude();//length of this vector.
-  			        while( R < membraneObject.compartmentR ){
-  				        //resample position.
-  				        comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
-  				        comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
-  				        comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
-  				        R = comCoord.get_magnitude();//length of this vector.
-  			        }
-                } else if (molTemplate.insideCompartment == true) {
-                    double R = comCoord.get_magnitude();//length of this vector.
-  			        while( R > membraneObject.compartmentR ){
-  				        //resample position.
-  				        comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
-  				        comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
-  				        comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
-  				        R = comCoord.get_magnitude();//length of this vector.
-  			        }
-                }
-			}
-
-            // set interface coordinates, with a random rotation on the entire molecule
-            // TODO: Commented this out for testing against old version
-            Quat rotQuat { rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1 };
-            rotQuat = rotQuat.unit();
-            for (unsigned int ifaceItr { 0 }; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr) {
-                Vector ifaceVec { Coord { comCoord + molTemplate.interfaceList[ifaceItr].iCoord } - comCoord };
-                rotQuat.rotate(ifaceVec);
-                interfaceList[ifaceItr].coord = Coord { comCoord + ifaceVec };
-
-                // TODO: Commented out for testing
-                if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject)) {
-                    outOfBox = true;
-                    break;
-                }
-
-                interfaceList[ifaceItr].index = molTemplate.interfaceList[ifaceItr].stateList[0].index;
-                interfaceList[ifaceItr].relIndex = ifaceItr;
-                interfaceList[ifaceItr].stateIden = molTemplate.interfaceList[ifaceItr].stateList[0].iden;
-                interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
-                interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
+          }
+          else if (molTemplate.insideCompartment == true)
+          {
+            double R = comCoord.get_magnitude(); // length of this vector.
+            while (R > membraneObject.compartmentR)
+            {
+              // resample position.
+              comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
+              comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
+              comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
+              R = comCoord.get_magnitude(); // length of this vector.
             }
-			
-		}//end if solution molecule
-		
-		
-		// TODO: Commented out for testing
-		if (outOfBox)
-		  this->create_random_coords(molTemplate, membraneObject);
-	}
-  }
+          }
+        }
+
+        // set interface coordinates, with a random rotation on the entire molecule
+        // TODO: Commented this out for testing against old version
+        Quat rotQuat{rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1};
+        rotQuat = rotQuat.unit();
+        for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
+        {
+          Vector ifaceVec{Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord} - comCoord};
+          rotQuat.rotate(ifaceVec);
+          interfaceList[ifaceItr].coord = Coord{comCoord + ifaceVec};
+
+          // TODO: Commented out for testing
+          if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
+          {
+            outOfBox = true;
+            break;
+          }
+
+          interfaceList[ifaceItr].index = molTemplate.interfaceList[ifaceItr].stateList[0].index;
+          interfaceList[ifaceItr].relIndex = ifaceItr;
+          interfaceList[ifaceItr].stateIden = molTemplate.interfaceList[ifaceItr].stateList[0].iden;
+          interfaceList[ifaceItr].stateIndex = 0; // because by default we picked the first state
+          interfaceList[ifaceItr].molTypeIndex = molTemplate.molTypeIndex;
+        }
+      } // end if molecule in 2D or 3D
+    } // end if molecule in 1D
+  } // end if spherical boundary
+  // TODO: Commented out for testing
+  if (outOfBox)
+    this->create_random_coords(molTemplate, membraneObject);
 }
 
 bool Molecule::operator==(const Molecule &rhs) const {

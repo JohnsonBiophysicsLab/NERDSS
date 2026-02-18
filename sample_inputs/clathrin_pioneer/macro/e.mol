@@ -1,0 +1,27 @@
+##
+# eps15 molecule information file
+##
+
+Name    = e
+checkOverlap = false
+
+# translational diffusion constants
+D       = [25.0,25.0,25.0]
+
+# rotational diffusion constants
+Dr      = [0.5,0.5,0.5]
+
+# Coordinates
+COM     0.0000    0.0000    0.0000
+cc   0.0001    0.0001   0.0000
+eh  16.5000    0.0001    0.0000
+ef  -10.5000    0.0000    0.0001
+ea  -13.5000    0.0000    0.0000
+ee  -16.5000    0.0001    0.0000
+
+bonds = 5
+com cc
+com eh
+com ef
+com ea
+com ee

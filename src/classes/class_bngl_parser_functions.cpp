@@ -327,7 +327,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
         }
         case 1: {
             onRate3DMacro = std::stod(line);
-            std::cout << "Read in value of onRate3DMacro: " << onRate3DMacro << "uM^-1us^-1\n";
+            std::cout << "Read in value of onRate3DMacro: " << onRate3DMacro << "uM^-1s^-1\n";
             break;
         }
         case 2: {

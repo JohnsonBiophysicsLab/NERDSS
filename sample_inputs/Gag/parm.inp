@@ -1,0 +1,56 @@
+ # Input file
+
+start parameters
+    nItr = 2000
+    timestep = 0.1
+    timeWrite = 500
+    trajWrite = 500
+    restartWrite = 1000
+    fromRestart = false
+    overlapSepLimit = 2.3
+    pdbWrite = 1000
+end parameters
+
+start boundaries
+    WaterBox = [50,50,50] #nm
+    implicitLipid = false
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+     A:1
+end molecules
+
+start reactions
+
+    #### A - B (Dimer) ####
+    A(b) + A(b) <-> A(b!1).A(b!1)
+    onRate3Dka = 10
+    offRatekb = 0
+    sigma = 0.459582
+    norm1 = [-0.051846, -0.002660, 0.998652]
+    norm2 = [-0.051846, -0.002660, 0.998652]
+    assocAngles = [2.093674, 2.093674, -1.951566, -1.951566, -1.777488]
+
+    #### A - C (Trimer) ####
+    A(c) + A(q) <-> A(c!1).A(q!1)
+    onRate3Dka = 5
+    offRatekb = 0
+    sigma = 0.729108
+    norm1 = [-0.051846, -0.002660, 0.998652]
+    norm2 = [-0.051846, -0.002660, 0.998652]
+    assocAngles = [2.664786, 2.493340, 0.333380, -0.238772, -0.089999]
+    excludeVolumeBound =true
+
+    #### A - D (Hexamer) ####
+    A(d) + A(p) <-> A(d!1).A(p!1)
+    onRate3Dka = 10
+    offRatekb = 0
+    sigma = 0.849084
+    norm1 = [-0.051846, -0.002660, 0.998652]
+    norm2 = [-0.051846, -0.002660, 0.998652]
+    assocAngles = [2.271531, 1.761437, -3.126078, 2.023676, 0.410696]
+
+ end reactions

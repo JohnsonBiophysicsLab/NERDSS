@@ -55,6 +55,7 @@ enum class ParamKeyword : int {
     transitionWrite = 16, //!< interval to write to transition matrix file
     clusterOverlapCheck = 17, //!< is overlap checked by cluster
     assocDissocWrite = 18, //!< write association and dissociation to a file
+    rngwrite = 19, //!< is overlap checked by cluster 
 };
 
 /*! \enum MolKeyword
@@ -157,6 +158,7 @@ struct Parameters {
     int maxUniqueSpecies { 1000 }; //!< maximum number of allowed unique species
     long long int itrRestartFrom { 0 }; //!< number of timesteps from when the simlation restart
     double timeRestartFrom { 0.0 }; //!< time from when the simulation restart (unit: s)
+    double sphereR = 0;
 
     static double dt; //!< timestep, in microseconds.
     static std::vector<long long int> lastUpdateTransition; //!< steps that last update transition matrix
@@ -196,6 +198,10 @@ struct Parameters {
     long long int checkPoint { -1 }; //!< interval to write checkpoint
     long long int transitionWrite { -1 }; //!< timestep interval to write transition matrix
     bool clusterOverlapCheck { false }; //!< is overlap checked by cluster 
+    bool rngwrite { false }; //!< whether to write rng state along with restart files (checkpoints)
+                            // Normally we do not need to restart with the same rng
+                            // sequence, set this true to print the rng_state so
+                            // that restarts can be identical
 
     void display();
     void parse_paramFile(std::ifstream& paramFile);
@@ -242,6 +248,7 @@ struct Parameters {
         PUSH(checkPoint);
         PUSH(transitionWrite);
         PUSH(clusterOverlapCheck);
+        PUSH(rngwrite)
         PUSH(checkUnimoleculeReactionPopulation);
         PUSH(hasRankCommunicationForLargeComplex);
     }
@@ -284,6 +291,7 @@ struct Parameters {
         POP(checkPoint);
         POP(transitionWrite);
         POP(clusterOverlapCheck);
+        POP(rngwrite);
         POP(checkUnimoleculeReactionPopulation);
         POP(hasRankCommunicationForLargeComplex);
     }

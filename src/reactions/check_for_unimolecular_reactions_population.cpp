@@ -290,8 +290,18 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                 // check explicit dissociation, e.g. A-B bind pair -> A + B
                 // Decide how many reactions occur based on lambda=k*dt*NAB, where p(m_events)=exp(-lambda)*lamba^m /m!
                 // determine the number of the bind A-B
-                int NAB { 0 };
-                NAB = static_cast<int>(counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex].size());
+                // int NABnotdissociated { 0 };
+                int NAB = static_cast<int>(counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex].size());
+                // before we start, count the number of A-B pairs that have not dissociated. This is the max of dissociation events number
+                // for (int i = 0; i < NAB; i++){
+                //     int molIndexA { counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex][i] };
+                //     int ifaceIndexA { oneRxn.productListNew[0].relIfaceIndex };
+                //     int molIndexB { -1 };
+                //     molIndexB = moleculeList[molIndexA].interfaceList[ifaceIndexA].interaction.partnerIndex;
+                //     if(!moleculeList[molIndexA].isDissociated && !moleculeList[molIndexB].isDissociated){
+                //         NABnotdissociated++;
+                //     }
+                // }
                 // if ( counterArrays.copyNumSpecies[oneRxn.reactantListNew[0].absIfaceIndex] != NAB ){
                 //     std::cout<<"Wrong! in dissociation, copynum = "<<counterArrays.copyNumSpecies[oneRxn.reactantListNew[0].absIfaceIndex]<<", but NAB="<<NAB<<std::endl;
                 //     exit(0);
@@ -318,6 +328,9 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                     long double prob { 1 - explam };
                     // std::cout << rate << "," << lambda << "," << prob << std::endl;
                     int numEvents = gsl_ran_binomial(r, prob, NAB); // r is global rng
+                    // if (numEvents > NABnotdissociated) {
+                    //     numEvents = NABnotdissociated; // This is the max of numEvents
+                    // }
                     /*double rNum { 1.0 * rand_gsl() };
                     long double lampow=lambda;
                     long double factor = 1;*/
@@ -361,7 +374,8 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                             if (randIntNum == NAB) {
                                 randIntNum = NAB - 1;
                             }
-
+                            // std::cout << "Try dissociating at iteration: " << simItr << " dissociate " << randIntNum << "/" << NAB << std::endl;
+                            // oneRxn.display();
                             // int molIndexA { counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex][randIntNum] };
                             // figure out the iface rel index and mol index of B, molIndexA must be the first productant
                             // int ifaceIndexA { oneRxn.productListNew[0].relIfaceIndex };
@@ -376,6 +390,7 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 
                             std::vector<int>::iterator result { std::find(std::begin(dissociateMolIndex), std::end(dissociateMolIndex), counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex][randIntNum]) }; //check whether this A-B has been selected in this step
 							if (result == std::end(dissociateMolIndex)) {
+                                // std::cout << "'result' fulfills the request." << std::endl;
                                 // dissociate
                                 int molIndexA { counterArrays.bindPairList[oneRxn.reactantListNew[0].absIfaceIndex][randIntNum] };
                                 // figure out the iface rel index and mol index of B, molIndexA must be the first productant
@@ -385,7 +400,13 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                                 molIndexB = moleculeList[molIndexA].interfaceList[ifaceIndexA].interaction.partnerIndex;
                                 ifaceIndexB = moleculeList[molIndexA].interfaceList[ifaceIndexA].interaction.partnerIfaceIndex;
 
+                                // std::cout << "molA dissociated? " << moleculeList[molIndexA].isDissociated << std::endl;
+                                // std::cout << "molB dissociated? " << moleculeList[molIndexB].isDissociated << std::endl;
+
                                 if(moleculeList[molIndexA].isDissociated || moleculeList[molIndexB].isDissociated){
+                                    // Even though this will not happen, we count it since NAB overestimates the number of pais we should sample from
+                                    // std::cout << "WARNING! Timestep might be too large. Usually there should not be more than one dissociation events happen to one molecule in a timestep." << std::endl;
+                                    --numEvents;
                                     continue;
                                 }
 
@@ -419,12 +440,15 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                                 //           << ","
                                 //           << moleculeList[molIndexB].comCoord
                                 //           << std::endl;
+                                // std::cout <<"check whether to Canceled dissociation. "<<std::endl;
+
 								cancelDissociation
                                     = break_interaction(simItr, ifaceIndexA, ifaceIndexB, moleculeList[molIndexA], moleculeList[molIndexB],
 														oneRxn, moleculeList, complexList, molTemplateList, membraneObject.implicitlipidIndex, 
                                                         forwardRxns[oneRxn.conjForwardRxnIndex], breakLinkComplex, params.timeStep, assocDissocFile);
 
-								//if(cancelDissociation) std::cout <<" Canceled dissociation! "<<std::endl;
+								if(cancelDissociation) std::cout <<" Canceled dissociation! "<<std::endl;
+                                
                                 if(cancelDissociation == false){
                                     //std::cout <<" Returned to check_for_unimolecular_reactions_population after break_interactino "<<std::endl;
                                     //Continue on with dissociation event
@@ -589,6 +613,9 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 								}//IF CANCELLED DISSOCIATION, do not update anything
 								--numEvents;//even cancelled dissociation counts as an event
 							}
+                            else {
+                                std::cout << "'result' does not fulfill the request." << std::endl;
+                            }
 					  }
 					  // remove the A-B from the bindPairList because they are seperated
 					  for (auto oneDissociate : dissociateMolIndex) {

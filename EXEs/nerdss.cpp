@@ -50,8 +50,26 @@ void debug_print_wrong_Mol(std::vector<Molecule> &moleculeList,
   for (int molItr{0}; molItr < moleculeList.size(); ++molItr) {
     if (molItr == monitor_mol) {
       std::cout << infoStr << std::endl;
-      moleculeList[molItr].display_all();
+      // moleculeList[molItr].display_all();
+      if (moleculeList[molItr].trajStatus == TrajStatus::none){
+        std::cout << "TrajStatus: None" << std::endl;
+      } else if (moleculeList[molItr].trajStatus == TrajStatus::canBeResampled){
+        std::cout << "TrajStatus: Can be resampled" << std::endl;
+      } else if (moleculeList[molItr].trajStatus == TrajStatus::propagated){
+        std::cout << "TrajStatus: Propagated" << std::endl;
+      } else {
+        std::cout << "TrajStatus: unknown" << std::endl;
+      }
     }
+  }
+}
+
+void debug_check_nan_Mol(const Molecule moli, const int simItr, const std::string &infoStr){
+  // raise error if there is nan in the coordinates
+  if (std::isnan(moli.comCoord.x) || std::isnan(moli.comCoord.y) || std::isnan(moli.comCoord.z)) {
+    std::cerr << "ERROR: [" << infoStr << "] nan in the coordinates of molecule " << moli.index
+              << " at iteration " << simItr << ". Exiting..\n";
+    exit(1);
   }
 }
 
@@ -121,6 +139,8 @@ int main(int argc, char *argv[]) {
   T = gsl_rng_default;
   r = gsl_rng_alloc(T);
   gsl_rng_set(r, seed);
+
+  // srand(seed);
 
   bool debugRNG = false; // Normally we do not need to restart with the same rng
                          // sequence, set this true to print the rng_state so
@@ -270,8 +290,8 @@ int main(int argc, char *argv[]) {
     // generate the system coordinates, write out coordinate and topology files
     // modify generate coordinates to keep molecules out of compartment
     // initially.
-    generate_coordinates(params, moleculeList, complexList, molTemplateList,
-                         forwardRxns, membraneObject, coordinateFileName);
+    generate_coordinates(params, moleculeList, complexList, molTemplateList, forwardRxns, membraneObject, coordinateFileName);
+    
     write_psf(params, moleculeList, molTemplateList);
 
     // set up some important parameters for implicit-lipid model;
@@ -725,6 +745,7 @@ int main(int argc, char *argv[]) {
 
   Parameters::dt = params.timeStep;
   Parameters::lastUpdateTransition.resize(molTemplateList.size());
+  params.sphereR = membraneObject.sphereR;
 
   /*Print out system information*/
   std::cout << "\nSimulation Parameters\n";
@@ -739,7 +760,6 @@ int main(int argc, char *argv[]) {
             membraneObject);
   std::cout << "*************** BEGIN SIMULATION **************** "
             << std::endl;
-
   // begin the timer
   MDTimer::time_point simulTimeStart = MDTimer::now();
   int numSavedDurations{1000};
@@ -762,8 +782,7 @@ int main(int argc, char *argv[]) {
     // std::cout << "Writing restart file at iteration " << simItr << " ";
     // if (0 < strftime(charTime, sizeof(charTime), "%F %T",
     // std::localtime(&endTimeFormat))) std::cout << charTime << '\n';
-    if (debugRNG ==
-        true) // only do this if you need a rng sequence for debugging
+    if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
       write_rng_state(); // write the current RNG state
     write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                   complexList, molTemplateList, forwardRxns, backRxns,
@@ -794,8 +813,9 @@ int main(int argc, char *argv[]) {
     // int monitor_iter = 200000388;
     // int monitor_mol = 1;
     // if (simItr == monitor_iter) {
-    //   std::cout << "simItr: " << simItr << std::endl;
-    //   debug_print_wrong_Mol(moleculeList, "begin of the step", monitor_mol);
+      // std::cout << "simItr: " << simItr << std::endl;
+      // debug_print_wrong_Mol(moleculeList, "begin of the step", 0);
+      // debug_print_wrong_Mol(moleculeList, "begin of the step", 1);
     // }
 
     // destruct, unimol create, and dissociation (explicit) based on population
@@ -803,6 +823,16 @@ int main(int argc, char *argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, assocDissocFile);
+
+
+        //One by one dissociation
+        // for (unsigned molItr { 0 }; molItr < moleculeList.size(); ++molItr) {
+        //     // only do checks if the Molecule exists
+        //     if(moleculeList[molItr].isDissociated)
+        //         continue;
+        //     check_dissociation(simItr, params, simulVolume, molTemplateList, observablesList, molItr, moleculeList, complexList,
+        //         backRxns, forwardRxns, createDestructRxns, counterArrays, membraneObject,assocDissocFile);
+        // }
 
     // check_for_unimolecular_reactions(simItr, params, moleculeList,
     // complexList,
@@ -902,11 +932,9 @@ int main(int argc, char *argv[]) {
           // thirdly, loop over all neighboring cells, and all proteins in those
           // cells. for PBC, all cells have maxnbor neighbor cells. For
           // reflecting, edge have fewer.
-          for (auto &neighCellItr :
-               simulVolume.subCellList[cellItr].neighborList) {
+          for (auto &neighCellItr : simulVolume.subCellList[cellItr].neighborList) {
             for (unsigned memItr2{0};
-                 memItr2 <
-                 simulVolume.subCellList[neighCellItr].memberMolList.size();
+                 memItr2 < simulVolume.subCellList[neighCellItr].memberMolList.size();
                  ++memItr2) {
               int partMolIndex{
                   simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
@@ -938,9 +966,9 @@ int main(int argc, char *argv[]) {
         // Compare with rand num
         double rand1{rand_gsl()};
         if (moleculeList[molItr].transmissionProb > rand1) {
-          moleculeList[molItr].transmissionProb =
-              1.0; // Setting transmissionProb to 1 to use as a flag in
-                   // create_molecule_and_complex_from_rxn.cpp
+          moleculeList[molItr].transmissionProb = 1.0; 
+          // Setting transmissionProb to 1 to use as a flag in
+          // create_molecule_and_complex_from_rxn.cpp
           // physically move the molecule
           perform_transmission_reaction(molItr, moleculeList, complexList,
                                         molTemplateList, membraneObject,
@@ -959,6 +987,11 @@ int main(int argc, char *argv[]) {
          * this rxn. Loop over all reactions individually, instead of summing
          * probabilities
          */
+        // For debug, print the number of possible reactions for this molecule
+        // if (molItr==0 || molItr==1){
+        //   std::cout << "Itr (" << simItr << ") Molecule (" << molItr << ") has ("
+        //   << moleculeList[molItr].crossbase.size() << ") possible reactions." << std::endl;
+        // }
         // these are indices in crossbase/mycrossint/crossrxn of the reaction
         // for molecules 1 and 2, should it occur
         int crossIndex1{0};
@@ -978,8 +1011,7 @@ int main(int argc, char *argv[]) {
           if (pmatch > 0)
             willReact = true;
           if (!moleculeList[molItr].isImplicitLipid) {
-            for (unsigned j = 0; j < moleculeList[molItr2].crossbase.size();
-                 ++j) {
+            for (unsigned j = 0; j < moleculeList[molItr2].crossbase.size(); ++j) {
               if (moleculeList[molItr2].probvec[j] == pmatch) {
                 crossIndex2 = j;
                 if (moleculeList[molItr].crossrxn[crossIndex1] ==
@@ -1064,10 +1096,10 @@ int main(int argc, char *argv[]) {
               }
             }
             if (moleculeList[molItr2].isImplicitLipid == false) {
-              // std::cout << "Performing association between molecules " <<
-              // molItr << " and " << molItr2 << " ["
-              //           <<
-              //           molTemplateList[moleculeList[molItr].molTypeIndex].molName
+              // debug info
+              // std::cout << "Performing association between molecules " << molItr << " and " << molItr2  << std::endl;
+              //           << " ["
+              //           << molTemplateList[moleculeList[molItr].molTypeIndex].molName
               //           << "("
               //           <<
               //           molTemplateList[moleculeList[molItr].molTypeIndex].interfaceList[ifaceIndex1].name
@@ -1085,7 +1117,9 @@ int main(int argc, char *argv[]) {
               // complexList[moleculeList[molItr].myComIndex].memberList.size()
               // << "\n"; std::cout << " Complex 2 size: " <<
               // complexList[moleculeList[molItr2].myComIndex].memberList.size()
-              // << "\n";
+            
+              debug_check_nan_Mol(moleculeList[molItr2], simItr, "before association");
+              debug_check_nan_Mol(moleculeList[molItr], simItr, "before association");
 
               // For association, molecules must be read in in the order used to
               // define the reaction parameters.
@@ -1109,11 +1143,17 @@ int main(int argc, char *argv[]) {
                           complexList, membraneObject, forwardRxns, backRxns,
                           assocDissocFile);
               }
-
+              /* This is used for testing reweighting ratios 
+              Also need to edit clear_reweight_vecs.cpp 
+              */
+              // std::cout << "Association happened, exit!" << std::endl;
+              // exit(0);
               // if (simItr == monitor_iter) {
               //     debug_print_wrong_Mol(moleculeList, "Association finished",
               //     monitor_mol);
               // }
+              debug_check_nan_Mol(moleculeList[molItr2], simItr, "after association");
+              debug_check_nan_Mol(moleculeList[molItr], simItr, "after association");
             }
           } else if (forwardRxns[rxnIndex[0]].rxnType ==
                      ReactionType::biMolStateChange) {
@@ -1237,14 +1277,14 @@ int main(int argc, char *argv[]) {
     //   monitor_mol);
     // }
 
+    for (auto &moli : moleculeList) {
+      debug_check_nan_Mol(moli, simItr, "Before overlap checking");
+    }
+
     // Now we have to check for overlap!!!
     for (auto &mol : moleculeList) {
       // Now track each complex (ncrosscom), and test for overlap of all
       // proteins in that complex before performing final position updates.
-      if (mol.isEmpty || mol.isImplicitLipid ||
-          mol.trajStatus == TrajStatus::propagated)
-        continue;
-
       // determine RS3Dinput
       double RS3Dinput{0.0};
       if (membraneObject.implicitLipid) {
@@ -1261,8 +1301,7 @@ int main(int argc, char *argv[]) {
         // std::cout << "check overlap" << std::endl;
         // std::cout << moleculeList[0].comCoord.x << ","
         //           << moleculeList[1].comCoord.x << std::endl;
-        if (mol.trajStatus == TrajStatus::none ||
-            mol.trajStatus == TrajStatus::canBeResampled) {
+        if (mol.trajStatus == TrajStatus::none || mol.trajStatus == TrajStatus::canBeResampled) {
           // For any protein that overlapped and did not react, check whether it
           // overlaps with its partners, do all proteins in the same complex at
           // the same time. Also, if both proteins are stuck to membrane, only
@@ -1293,52 +1332,14 @@ int main(int argc, char *argv[]) {
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                     moleculeList, RS3Dinput, false);
         }
-      }
-      // commented out when debugging after merging referring to the currernt
-      // master branch else {
-      //     if (mol.trajStatus == TrajStatus::none || mol.trajStatus ==
-      //     TrajStatus::canBeResampled) {
-      //         // For proteins with ncross=0, they either moved independently,
-      //         or their displacements
-      //         // were selected based on the complex they were part of, and
-      //         they may not yet been moved. if (membraneObject.isSphere ==
-      //         true) {
-      //             // determine RS3Dinput
-      //             double RS3Dinput{0.0};
-      //             for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-      //                 if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] -
-      //                             mol.molTypeIndex) < 1E-2) {
-      //                     RS3Dinput = membraneObject.RS3Dvect[RS3Dindex +
-      //                     300]; break;
-      //                 }
-      //             }
-      //             complexList[mol.myComIndex].propagate(moleculeList,
-      //             membraneObject, molTemplateList);
-      //             reflect_complex_rad_rot(membraneObject,
-      //             complexList[mol.myComIndex], moleculeList, RS3Dinput,
-      //             false);
-      //         } else {
-      //             // reflect_traj_complex_rad_rot(params, moleculeList,
-      //             complexList[mol.myComIndex], membraneObject, RS3Dinput); if
-      //             (mol.trajStatus == TrajStatus::none) {
-      //                 create_complex_propagation_vectors(params,
-      //                 complexList[mol.myComIndex], moleculeList,
-      //                     complexList, molTemplateList, membraneObject);
-      //                 for (auto& memMol :
-      //                 complexList[mol.myComIndex].memberList)
-      //                     moleculeList[memMol].trajStatus =
-      //                     TrajStatus::canBeResampled;
-      //             }
-      //             complexList[mol.myComIndex].propagate(moleculeList,
-      //             membraneObject, molTemplateList);
-      //         }
-      //     }
-      //     // std::cout << moleculeList[0].comCoord.x << ","
-      //     //           << moleculeList[1].comCoord.x << std::endl;
-      // }
-      else {
-        if (mol.trajStatus == TrajStatus::none ||
-            mol.trajStatus == TrajStatus::canBeResampled) {
+        // for (auto &moli : moleculeList) {
+        //   // raise error if there is nan in the coordinates
+        //   std::ostringstream infostr;
+        //   infostr << "While checking overlap for molecule " << mol.index << " (ncross > 0)";
+        //   debug_check_nan_Mol(moli, simItr, infostr.str());
+        // }
+      } else {
+        if (mol.trajStatus == TrajStatus::none || mol.trajStatus == TrajStatus::canBeResampled) {
           // For proteins with ncross=0, they either moved independently,
           // or their displacements were selected based on the complex
           // they were part of, and they may not yet been moved.
@@ -1368,6 +1369,7 @@ int main(int argc, char *argv[]) {
             // reflect_traj_complex_rad_rot(params, moleculeList,
             // complexList[mol.myComIndex], membraneObject,
             // RS3Dinput);
+
             if (mol.trajStatus == TrajStatus::none) {
               create_complex_propagation_vectors(
                   params, complexList[mol.myComIndex], moleculeList,
@@ -1375,11 +1377,15 @@ int main(int argc, char *argv[]) {
               for (auto &memMol : complexList[mol.myComIndex].memberList)
                 moleculeList[memMol].trajStatus = TrajStatus::canBeResampled;
             }
-            complexList[mol.myComIndex].propagate(moleculeList, membraneObject,
-                                                  molTemplateList);
+            complexList[mol.myComIndex].propagate(moleculeList, membraneObject, molTemplateList);
           }
         }
       }
+    }
+
+    for (auto &moli : moleculeList) {
+      // raise error if there is nan in the coordinates
+      debug_check_nan_Mol(moli, simItr, "After overlap checking");
     }
 
     if (simItr % params.trajWrite == 0) {
@@ -1613,8 +1619,7 @@ int main(int argc, char *argv[]) {
       //                      %T") << '\n';
       // if (0 < strftime(charTime, sizeof(charTime), "%F %T",
       // std::localtime(&endTimeFormat))) std::cout << charTime << '\n';
-      if (debugRNG ==
-          true) // only do this if you need a rng sequence for debugging
+      if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
         write_rng_state(); // write the current RNG state
       write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                     complexList, molTemplateList, forwardRxns, backRxns,
@@ -1627,8 +1632,7 @@ int main(int argc, char *argv[]) {
     if (simItr % params.checkPoint == 0) {
       snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld.dat", simItr);
       std::ofstream restartFile(fnameProXYZ);
-      if (debugRNG ==
-          true) // only do this if you need a rng sequence for debugging
+      if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
         write_rng_state_simItr(simItr); // write the current RNG state
       write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                     complexList, molTemplateList, forwardRxns, backRxns,
@@ -1743,8 +1747,7 @@ int main(int argc, char *argv[]) {
     // std::cout << "Writing restart file at final iteration\n.";
     std::ofstream restartFile{restartFileName,
                               std::ios::out}; // to show different from append
-    if (debugRNG ==
-        true) // only do this if you need a rng sequence for debugging
+    if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
       write_rng_state(); // write the current RNG state
     write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                   complexList, molTemplateList, forwardRxns, backRxns,

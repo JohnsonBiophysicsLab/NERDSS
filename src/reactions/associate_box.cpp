@@ -23,9 +23,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
   
   // bool monitor{false};
   // if (iter == 200000295){
-  //   if (reactMol1.index == 32 || reactMol2.index == 32) {
-  //     monitor = true;
-  //   }
+    // if (reactMol1.index == 32 || reactMol2.index == 32) {
+    //   monitor = true;
+    // }
   // }
 
   bool isInsideCompartment {molTemplateList[reactMol1.molTypeIndex].insideCompartment};
@@ -69,11 +69,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     bool isOnMembrane = false;
     bool transitionToSurface = false;
     bool isOnFiber = false;
+    bool is1DSiteBinding = false;
     bool transitionToFiber = false;
     Molecule memProtein;
 
-    // reactMol1.display_all();
-    // reactMol2.display_all();
+    // std::cout << "Initial coordinates: " << std::endl;
+    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
     int slowPro = reactMol2.index;
     if (reactCom1.D.x + reactCom1.D.y + reactCom1.D.z <
@@ -116,34 +118,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       yCom2Temp = startCOM2.y;
     }
 
-    /*
-    // calibrate for some fixed proteins
-    double xCom1Temp{};
-    double xCom2Temp{};
-    if (reactCom1.D.x < tol) {
-      xCom1Temp = startCOM1.x;
-    }
-    if (reactCom2.D.x < tol) {
-        xCom2Temp = startCOM2.x;
-    }
-    double yCom1Temp{};
-    double yCom2Temp{};
-    if (reactCom1.D.y < tol) {
-      yCom1Temp = startCOM1.y;
-    }
-    if (reactCom2.D.y < tol) {
-      yCom2Temp = startCOM2.y;
-    }
-    double zCom1Temp{};
-    double zCom2Temp{};
-    if (reactCom1.D.z < tol) {
-      zCom1Temp = startCOM1.z;
-    }
-    if (reactCom2.D.z < tol) {
-      zCom2Temp = startCOM2.z;
-    }
-    */
-
     /* MOVE PROTEIN TO SIGMA */
 
     double DxSum{reactCom1.D.x + reactCom2.D.x};
@@ -185,10 +159,22 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         displaceFrac = 1;
       } else {
         double sigmaMag = sqrt((sigma.x * sigma.x));
-        // randomly move to the left or the right side
-        double randDouble = rand_gsl() < 0.5 ? 1.0 : -1.0;
-        displaceFrac = (sigmaMag - randDouble * currRxn.bindRadius) / sigmaMag;
-        // std::cout << "frac: " << displaceFrac << " rand: " << randDouble << std::endl; 
+        if (!reactMol1.isPromoter && reactMol2.isPromoter) {
+          // if one of the proteins is a promoter
+          // Move two molecules to the same x coordinate
+          is1DSiteBinding = true;
+          displaceFrac = 1.0;
+        } else if (reactMol1.isPromoter && !reactMol2.isPromoter) {
+          is1DSiteBinding = true;
+          displaceFrac = 1.0;
+        } else {
+          // both proteins are not promoters
+          // randomly move to the left or the right side
+          double randDouble = rand_gsl() < 0.5 ? 1.0 : -1.0;
+          displaceFrac = (sigmaMag - randDouble * currRxn.bindRadius) / sigmaMag;
+          // displaceFrac = (sigmaMag - currRxn.bindRadius) / sigmaMag;
+          // std::cout << "frac: " << displaceFrac << " rand: " << randDouble << std::endl;
+        }
       }
     }
     // not both in 2D nor both in 1D
@@ -207,97 +193,74 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       }
     }
 
-    // if (monitor){
-    //   std::cout << "displacement frac" << std::endl;
-    //   std::cout << displaceFrac << std::endl;
-    //   std::cout << "On fiber?" << isOnFiber << std::endl;
+    // bool MONITOR{false};
+    // if (isOnFiber){
+    //     MONITOR = true;
+    // }
+
+    // if (MONITOR==true) {
+    //   std::cout << "- INITIAL COORDS: "
+    //             << std::endl;
+    //   std::string molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol1.index);
+    //   reactMol1.display_assoc_icoords(molIDstr);
+    //   molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol2.index);
+    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     if (isOnFiber == true) {
-      // Complex conformation has first priority. Fiber binding is relaxed.
-      // keep the slow protein on fiber (only move along x direction)
-      // move the other reactant (fast protein) freely in 3 dimension
-      // The fast protein will be pushed back to fiber in orientation correction.
-      //TODO: For explicit model, if the Complex conformation requires one protein to detach from the fiber,
-      //      the binding site (which should be always on fiber) will also be moved away
-      if (slowPro == reactMol1.index){
-        if (abs(reactCom1.D.x)<1e-6){
-          transVec1.x = 0.0;
-          // std::cout << "found Dx=0" << std::endl;
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// This is commented out when merging
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2, 
-//     Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1,
-//     Complex& reactCom2, const Parameters& params, 
-//     ForwardRxn& currRxn, std::vector<Molecule>& moleculeList,
-//     std::vector<MolTemplate>& molTemplateList,
-//     std::map<std::string, int>& observablesList, 
-//     copyCounters& counterArrays, 
-//     std::vector<Complex>& complexList, Membrane& membraneObject, 
-//     const std::vector<ForwardRxn>& forwardRxns, 
-//     const std::vector<BackRxn>& backRxns)
-// {
-//     bool isInsideCompartment {molTemplateList[reactMol1.molTypeIndex].insideCompartment};
-//     if (reactCom1.index == reactCom2.index) {
-//         // skip to protein interation updates
-//         //std::cout << "Closing a loop, no rotations performed.\n";
-//         counterArrays.nLoops++;
-//         // update the Molecule's TrajStatus (this is done in the else, when Molecules are rotated but not otherwise)
-//         for (auto& memMol : reactCom1.memberList)
-//             moleculeList[memMol].trajStatus = TrajStatus::associated;
-//     } else { //not in the same complex
+      if (is1DSiteBinding) {
+        // if one of the proteins is a promoter
+        // Move two molecules to the same x coordinate
+        transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
+        transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
+      } else{
+        // Complex conformation has first priority. Fiber binding is relaxed.
+        // keep the slow protein on fiber (only move along x direction)
+        // move the other reactant (fast protein) freely in 3 dimension
+        // The fast protein will be pushed back to fiber in orientation correction.
+        //TODO: For explicit model, if the Complex conformation requires one protein to detach from the fiber,
+        //      the binding site (which should be always on fiber) will also be moved away
+        if (slowPro == reactMol1.index){
+          if (abs(reactCom1.D.x)<1e-6){
+            transVec1.x = 0.0;
+          } else {
+            transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
+          }
+          transVec1.y = 0.0;
+          transVec1.z = 0.0;
 
-//         // record the previous lastNumberUpdateItrEachMol & numEachMol
-//         std::vector<int> numEachMolPrevious1 {};
-//         std::vector<long long int> lastNumberUpdateItrEachMolPrevious1 {};
-//         std::vector<int> numEachMolPrevious2 {};
-//         std::vector<long long int> lastNumberUpdateItrEachMolPrevious2 {};
-
-
-//         for (unsigned index = 0; index < molTemplateList.size(); index++) {
-//             numEachMolPrevious1.emplace_back(complexList[reactMol1.myComIndex].numEachMol[index]);
-//             lastNumberUpdateItrEachMolPrevious1.emplace_back(complexList[reactMol1.myComIndex].lastNumberUpdateItrEachMol[index]);
-//             numEachMolPrevious2.emplace_back(complexList[reactMol2.myComIndex].numEachMol[index]);
-//             lastNumberUpdateItrEachMolPrevious2.emplace_back(complexList[reactMol2.myComIndex].lastNumberUpdateItrEachMol[index]);
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-        }
-        else{
-          transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
-        }
-        transVec1.y = 0.0;
-        transVec1.z = 0.0;
-
-        if (abs(reactCom2.D.x)<1e-6){
-          transVec2.x = 0.0;
-          // std::cout << "found Dx=0" << std::endl;
-        }
-        else{
-          transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
-        }
-        transVec2.y = sigma.y * displaceFrac3D;
-        transVec2.z = sigma.z * displaceFrac3D;
-      } else {
-        if (abs(reactCom1.D.x) < 1e-6) {
-          transVec1.x = 0.0;
-          // std::cout << "found Dx=0" << std::endl;
+          if (abs(reactCom2.D.x) < 1e-6){
+            transVec2.x = 0.0;
+            // std::cout << "found Dx=0" << std::endl;
+          }
+          else{
+            transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
+          }
+          transVec2.y = sigma.y * displaceFrac3D;
+          transVec2.z = sigma.z * displaceFrac3D;
         } else {
-          transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
-        }
-        transVec1.y = -sigma.y * displaceFrac3D;
-        transVec1.z = -sigma.z * displaceFrac3D;
+          if (abs(reactCom1.D.x) < 1e-6) {
+            transVec1.x = 0.0;
+            // std::cout << "found Dx=0" << std::endl;
+          } else {
+            transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
+          }
+          transVec1.y = -sigma.y * displaceFrac3D;
+          transVec1.z = -sigma.z * displaceFrac3D;
 
-        if (abs(reactCom2.D.x) < 1e-6) {
-          transVec2.x = 0.0;
-          // std::cout << "found Dx=0" << std::endl;
-        } else {
-          transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
+          if (abs(reactCom2.D.x) < 1e-6) {
+            transVec2.x = 0.0;
+            // std::cout << "found Dx=0" << std::endl;
+          } else {
+            transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
+          }
+          transVec2.y = 0.0;
+          transVec2.z = 0.0;
         }
-        transVec2.y = 0.0;
-        transVec2.z = 0.0;
       }
+      
     } else {
       transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
       transVec1.y = -sigma.y * (reactCom1.D.y / DySum) * displaceFrac;
@@ -307,15 +270,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       transVec2.y = sigma.y * (reactCom2.D.y / DySum) * displaceFrac;
       transVec2.z = sigma.z * (reactCom2.D.z / DzSum) * displaceFrac;
     }
-
-    // if (monitor){
-    //   std::cout << "translation vectors" << std::endl;
-    //   std::cout << reactMol1.index << std::endl;
-    //   std::cout << transVec1.x << "," << transVec1.y << "," << transVec1.z << std::endl;
-    //   std::cout << "&" << std::endl; /////////////////////////
-    //   std::cout << reactMol2.index << std::endl;
-    //   std::cout << transVec2.x << "," << transVec2.y << "," << transVec2.z << std::endl;
-    // }
 
     // update the temporary coordinates
     for (auto &mp : reactCom1.memberList)
@@ -330,6 +284,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterSigmaCOM2, moleculeList);
 
     // std::cout << "Diplace during pushing to sigma: " << std::endl;
+    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
     // std::cout << "COM1: " << std::endl;
     // std::cout << sqrt((afterSigmaCOM1.x - startCOM1.x) *
     // (afterSigmaCOM1.x - startCOM1.x) + (afterSigmaCOM1.y - startCOM1.y)
@@ -341,10 +297,18 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // * (afterSigmaCOM2.y - startCOM2.y) + (afterSigmaCOM2.z -
     // startCOM2.z) * (afterSigmaCOM2.z - startCOM2.z)) << std::endl;
 
-    if (molTemplateList[reactMol1.molTypeIndex].isPoint && molTemplateList[reactMol2.molTypeIndex].isPoint) {
-    //   if (monitor){
-    //   std::cout << "Correct: both are points" << std::endl;
+    // if (MONITOR==true) {
+    //   std::cout << "- COORDS PRIOR TO ORIENTATION: "
+    //             << std::endl;
+    //   std::string molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol1.index);
+    //   reactMol1.display_assoc_icoords(molIDstr);
+    //   molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol2.index);
+    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
+
+    if (molTemplateList[reactMol1.molTypeIndex].isPoint && molTemplateList[reactMol2.molTypeIndex].isPoint) {
       /*If both molecules are points, no orientations to specify*/
       //   std::cout << " Move two point particles to contact along current
       //   separation vector, NO ORIENTATION \n";
@@ -355,46 +319,18 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       // std::cout << std::setw(8) << std::setfill('-') << ' ' << std::endl
       //           << "THETA 1" << std::endl
       //           << std::setw(8) << ' ' << std::setfill(' ') << std::endl;
-      // if (iter == 818823) {
-        // std::cout << "Beofre ROT: " << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
-        // reactCom1.display();
-        // std::cout << reactMol1.index << std::endl;
-        // std::cout << "Corresponding Iface" << reactIface1 << std::endl;
-        // reactCom2.display();
-        // std::cout << reactMol2.index << std::endl;
-        // std::cout << "Corresponding Iface" << reactIface2 << std::endl;
-      // }
+     
 
       if (!std::isnan(currRxn.assocAngles.theta1))
         theta_rotation(reactIface1, reactIface2, reactMol1, reactMol2,
                        currRxn.assocAngles.theta1, reactCom1, reactCom2,
                        moleculeList);
 
-      // if (iter == 818823) {
-      //   std::cout << "after theta1 rotation: " << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
-      // }
-      // else
-      //   std::cout <<"No THETA1 !"<<std::endl;
-      //     std::cout << std::setw(30) << std::setfill('-') << ' ' <<
-      //     std::setfill(' ') << std::endl; std::cout << "THETA 2" << std::endl
-      //               << std::setw(8) << std::setfill('-') << ' ' <<
-      //               std::setfill(' ') << std::endl;
       if (!std::isnan(currRxn.assocAngles.theta2))
         theta_rotation(reactIface2, reactIface1, reactMol2, reactMol1,
                        currRxn.assocAngles.theta2, reactCom2, reactCom1,
                        moleculeList);
-
-      // if (iter == 818823) {
-      //   std::cout << "after theta2 rotation: " << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
-      // }
-      // else
-      //   std::cout <<" NO THETA 2 "<<std::endl;
+      
       /* OMEGA */
       // if protein has theta M_PI, uses protein norm instead of com_iface
       // vector std::cout << std::setw(6) << std::setfill('-') << ' ' <<
@@ -406,12 +342,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
                        reactMol2, reactCom1, reactCom2,
                        currRxn.assocAngles.omega, currRxn, moleculeList,
                        molTemplateList);
-      } // else
-      // if (iter == 818823) {
-      //   std::cout << "after omega rotation: " << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
-      // }
+      } 
       // std::cout << "P1 or P2 is a rod-type protein, no dihedral for
       // associated complex." << std::endl;
 
@@ -425,12 +356,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
                      reactMol2, reactCom1, reactCom2, currRxn.norm1,
                      currRxn.assocAngles.phi1, currRxn, moleculeList,
                      molTemplateList);
-      } // else
-      // if (iter == 818823) {
-      //   std::cout << "after phi1 rotation: " << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
-      // }
+      }
+      
       // std::cout << "P1 has no valid phi angle." << std::endl;
 
       // PHI 2
@@ -443,11 +370,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
                      currRxn.assocAngles.phi2, currRxn, moleculeList,
                      molTemplateList);
       } // else
-      // if (iter == 818823) {
-      //   std::cout << "after phi2 rotation: " << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
-      // }
+      
       // std::cout << "P2 has no valid phi angle." << std::endl;
     } // end of if points.
 
@@ -458,19 +381,11 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     com_of_two_tmp_complexes(reactCom1, reactCom1, afterRotateCOM1, moleculeList);
     Coord afterRotateCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterRotateCOM2, moleculeList);
-    
-    // if (monitor){
-    //   std::cout << "After rotation" << std::endl;
-    //   std::cout << reactMol1.index << std::endl;
-    //   std::cout << afterRotateCOM1.x << "," << afterRotateCOM1.y << ","
-    //             << afterRotateCOM1.z << std::endl;
-    //   std::cout << "&" << std::endl; /////////////////////////
-    //   std::cout << reactMol2.index << std::endl;
-    //   std::cout << afterRotateCOM2.x << "," << afterRotateCOM2.y << ","
-    //             << afterRotateCOM2.z << std::endl;
-    // }
+  
 
     // std::cout << "Diplace during rotating: " << std::endl;
+    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
     // std::cout << "COM1: " << std::endl;
     // std::cout << sqrt((afterSigmaCOM1.x - afterRotateCOM1.x) *
     // (afterSigmaCOM1.x - afterRotateCOM1.x) + (afterSigmaCOM1.y -
@@ -489,7 +404,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // com of c1+c2 (final (tmp) coordinates).
 
     Coord preCOM;
-    if (isOnMembrane == true || transitionToSurface == true || isOnFiber || transitionToFiber) {
+    if (isOnMembrane || transitionToSurface || isOnFiber || transitionToFiber) {
       // bool allpoints{true}; // check if all molecules are points
       // for (auto &mp : reactCom1.memberList){
       //   if (!molTemplateList[moleculeList[mp].molTypeIndex].isPoint) {
@@ -502,15 +417,14 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       //   }
       // }
       // if (allpoints) {
-        // Both complexes are treated as points
+      //   // Both complexes are treated as points
       // } else {
         /*return orientation of normal back to starting position*/
         /*This part is equivalent for fiber and membrane*/
-        // std::cout << " IS ON MEMBRANE, CORRECT ORIENTATION ! " << std::endl;
         Quat memRot;
         Coord pivot;
         // also translate the slowPro back to its same COM.
-
+        // This step may report warning of "Attempted dot product with vector of magnitude 0."
         if (slowPro == reactMol1.index) {
           memRot = save_mem_orientation(
               memProtein, reactMol1, molTemplateList[reactMol1.molTypeIndex]);
@@ -524,8 +438,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         }
 
         rotate(pivot, memRot, reactCom1, moleculeList);
-        rotate(pivot, memRot, reactCom2, moleculeList);
-      // }
+        rotate(pivot, memRot, reactCom2, moleculeList); // This may create NAN in coordinates
+
+        // std::cout << " IS ON MEMBRANE/Fiber, CORRECT ORIENTATION ! " << std::endl;
+        // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+        // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
+        
+      // } // checking all points
     }
 
     com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
@@ -534,15 +453,15 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     Coord afterOrientationCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterOrientationCOM2, moleculeList);
 
-    // if (monitor){
-    //   std::cout << "After orientation correction" << std::endl;
-    //   std::cout << reactMol1.index << std::endl;
-    //   std::cout << afterOrientationCOM1.x << "," << afterOrientationCOM1.y
-    //             << "," << afterOrientationCOM1.z << std::endl;
-    //   std::cout << "&" << std::endl; /////////////////////////
-    //   std::cout << reactMol2.index << std::endl;
-    //   std::cout << afterOrientationCOM2.x << "," << afterOrientationCOM2.y
-    //             << "," << afterOrientationCOM2.z << std::endl;
+    // if (MONITOR==true) {
+    //   std::cout << "- COORDS AFTER ORIENTATION: "
+    //             << std::endl;
+    //   std::string molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol1.index);
+    //   reactMol1.display_assoc_icoords(molIDstr);
+    //   molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol2.index);
+    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     Coord postCOM;
@@ -587,6 +506,10 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       for (auto &mp : reactCom2.memberList)
         moleculeList[mp].update_association_coords(dtrans);
 
+      
+      // std::cout << "TRANSLATE SLOWPRO TO ORIG SIGMA COM BY SHIFTING: " << std::endl;
+      //   reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+      //   reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
       // if (iter == 818823) {
         // std::cout << "NEW AFTER TRANSLATIONAL SHIFT: " << std::endl;
         // reactMol1.display_assoc_icoords("mol1");
@@ -644,6 +567,10 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         // reactMol2.display_assoc_icoords("mol2");
       // }
     }
+    // std::cout << "NEW AFTER ROTATIONAL ALIGN: " << std::endl;
+    //     reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+    //     reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
+
     Coord currCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, currCOM1, moleculeList);
     Coord currCOM2;
@@ -651,23 +578,28 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
 
     /*
       CORRECT FIBER PROTEIN POSITION
+      Loop over all molecules. If the molecule is a intrinsic fiber protein,
+      then move it to its original y,z coordinates.
     */
-    // Find the slow protein. All the molecules in this protein should be at
-    // correct position.
-    // Loop over all molecules. If the molecule is a intrinsic fiber protein,
-    // then move it to the x axis ( y=y_waterbox/2 and z=z_waterbox/2 ).
     for (auto &mp : reactCom2.memberList) {
       if (moleculeList[mp].isPromoter == true) {
-        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y, -moleculeList[mp].tmpComCoord.z};
+        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
+        -moleculeList[mp].tmpComCoord.z + moleculeList[mp].comCoord.z};
         moleculeList[mp].update_association_coords(dtrans);
       }
     }
     for (auto &mp : reactCom1.memberList) {
       if (moleculeList[mp].isPromoter == true) {
-        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y, -moleculeList[mp].tmpComCoord.z};
+        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
+        -moleculeList[mp].tmpComCoord.z + moleculeList[mp].comCoord.z};
         moleculeList[mp].update_association_coords(dtrans);
       }
     }
+
+
+    // std::cout << "CORRECT FIBER PROTEIN POSITION: " << std::endl;
+    //     reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
+    //     reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
     /*
       CHECK IF BELOW BOX
@@ -803,11 +735,15 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // afterBackCOM2.z) * (afterOrientationCOM2.z - afterBackCOM2.z)) <<
     // std::endl;
 
-    // if (iter == 818823) {
-      // std::cout << " FINAL COORDS PRIOR TO OVERLAP CHECK  AND REFLECT OFF BOX: "
-      //           << std::endl;
-      // reactMol1.display_assoc_icoords("mol1");
-      // reactMol2.display_assoc_icoords("mol2");
+    // if (MONITOR==true) {
+    //   std::cout << "- FINAL COORDS PRIOR TO OVERLAP CHECK: "
+    //             << std::endl;
+    //   std::string molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol1.index);
+    //   reactMol1.display_assoc_icoords(molIDstr);
+    //   molIDstr = "molecule ID: ";
+    //   molIDstr += std::to_string(reactMol2.index);
+    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     std::array<double, 3> traj; //=new double[3];
@@ -852,9 +788,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     bool cancelAssoc{false};
     check_for_structure_overlap(cancelAssoc, reactCom1, reactCom2, moleculeList,
                                 params, molTemplateList);
+    // if (cancelAssoc == true)
+    //   std::cout << "Canceling association, check_for_structure_overlap.\n";
     if (cancelAssoc == false) {
       check_if_spans_box(cancelAssoc, params, reactCom1, reactCom2,
                          moleculeList, membraneObject);
+      // if (cancelAssoc == true)
+      //   std::cout << "Canceling association, check_if_spans_box.\n";
       if (cancelAssoc == true)
         counterArrays.nCancelSpanBox++;
     } else
@@ -864,6 +804,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       check_for_structure_overlap_system(cancelAssoc, reactCom1, reactCom2,
                                          moleculeList, params, molTemplateList,
                                          complexList, forwardRxns, backRxns);
+      // if (cancelAssoc == true)
+      //   std::cout << "Canceling association, check_for_structure_overlap_system.\n";
       if (cancelAssoc == true)
         counterArrays.nCancelOverlapSystem++;
     }
@@ -871,6 +813,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       measure_complex_displacement(cancelAssoc, reactCom1, reactCom2,
                                    moleculeList, params, molTemplateList,
                                    complexList);
+      // if (cancelAssoc == true)
+      //   std::cout << "Canceling association, measure_complex_displacement.\n";
       if (cancelAssoc == true) {
         if (isOnMembrane)
           counterArrays.nCancelDisplace2D++;
@@ -882,8 +826,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     }
 
     if (cancelAssoc) {
-      // std::cout << "Canceling association, returning complexes to original
-      // state.\n";
+      // std::cout << "Canceling association, returning complexes to original state.\n";
       for (auto memMol : reactCom1.memberList)
         moleculeList[memMol].clear_tmp_association_coords();
       for (auto memMol : reactCom2.memberList)

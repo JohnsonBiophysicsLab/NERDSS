@@ -15,6 +15,8 @@
 double passocF_1D(double r0, double tCurr, double Dtot, double bindRadius, double ka)
 {
   if (Dtot==0){
+    // This is not computational efficient, but handles the case of zero diffusion correctly
+    // TODO: maybe initialize fixed proteins directly as a complex
     if (r0 - bindRadius > 1e-6) {
       return 0.0;
     }

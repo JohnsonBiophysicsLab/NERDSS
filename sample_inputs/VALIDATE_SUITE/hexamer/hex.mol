@@ -1,0 +1,27 @@
+##
+# Clathrin molecule information file
+##
+
+Name = hex
+checkOverlap = true
+
+# translational diffusion constants
+D = [25.0, 25.0, 25.0]
+
+# rotational diffusion constants
+Dr = [0.2, 0.2, 0.2]
+
+# Coordinates, flat legLenth=6nm
+COM    0.0000    0.0000    0.0000
+cd1    3.0000    5.1962    0.0000
+cd2    3.0000   -5.1962    0.0000
+
+
+
+# bonds for visualization only.
+bonds = 2
+com cd1
+com cd2
+
+
+

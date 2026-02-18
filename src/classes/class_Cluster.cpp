@@ -109,8 +109,11 @@ void define_cluster_pairs(int p1, std::vector<Molecule>& moleculeList, std::vect
     }
 }
 
-void resample_traj(int currStop, std::vector<ClusterPair>& pairList, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const Parameters& params, const Membrane& membraneObject, double RS3Dinput)
-{
+void resample_traj(
+    int currStop, std::vector<ClusterPair>& pairList, 
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, 
+    const Parameters& params, const Membrane& membraneObject, double RS3Dinput
+){
     int i;
     int k1, k2;
     int p1, p2;
@@ -122,7 +125,8 @@ void resample_traj(int currStop, std::vector<ClusterPair>& pairList, std::vector
         k1 = pairList[i].k1;
         k2 = pairList[i].k2;
 
-        if (moleculeList[p1].trajStatus == TrajStatus::none || moleculeList[p1].trajStatus == TrajStatus::canBeResampled) {
+        if (moleculeList[p1].trajStatus == TrajStatus::none || 
+            moleculeList[p1].trajStatus == TrajStatus::canBeResampled) {
             flag = 0;
             for (int d = 0; d < didMove.size(); d++) {
                 if (didMove[d] == k1)
@@ -153,7 +157,8 @@ void resample_traj(int currStop, std::vector<ClusterPair>& pairList, std::vector
                 didMove.push_back(k1);
             }
         }
-        if (moleculeList[p2].trajStatus == TrajStatus::none || moleculeList[p2].trajStatus == TrajStatus::canBeResampled) {
+        if (moleculeList[p2].trajStatus == TrajStatus::none || 
+            moleculeList[p2].trajStatus == TrajStatus::canBeResampled) {
             flag = 0;
             for (int d = 0; d < didMove.size(); d++) {
                 if (didMove[d] == k2)

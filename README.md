@@ -1,24 +1,37 @@
-## NERDSS
+<p align="center">
+  <img src="docs/nerdss_banner_export.svg" alt="Project banner" width="100%">
+</p>
+
+
+## NERDSS Development
+
+<p align="center">
+  <!-- Release -->
+  <a href="https://github.com/JohnsonBiophysicsLab/NERDSS/releases">
+    <img alt="Release" src="https://img.shields.io/github/v/release/JohnsonBiophysicsLab/NERDSS">
+  </a>
+  <!-- License -->
+  <a href="https://github.com/JohnsonBiophysicsLab/NERDSS/blob/master/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/JohnsonBiophysicsLab/NERDSS">
+  </a>
+  <!-- C++ standard -->
+  <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-%E2%89%A514-blue">
+  <!-- CMake minimum -->
+  <img alt="Make" src="https://img.shields.io/badge/Make-%E2%89%A53.79-informational">
+  <!-- Package managers (optional) -->
+  <!-- img alt="Conan" src="https://img.shields.io/badge/Conan-ready-0ea5e9">
+  <!-- img alt="vcpkg" src="https://img.shields.io/badge/vcpkg-port-22c55e">
+  <!-- Platforms -->
+  <img alt="Platforms" src="https://img.shields.io/badge/Linux%20|%20macOS%20-supported-success">
+  <!-- Code style -->
+  <!-- img alt="clang-format" src="https://img.shields.io/badge/clang--format-enforced-brightgreen"-->
+</p>
 
 Structure-Resolved Reaction-Diffusion Simulation Software by Johnson Lab, JHU
 
-### [Website](https://johnsonbiophysicslab.github.io/NERDSS/)
-
-### Version Information
-
-- Current Version: 1.2.1
-    - This version includes the latest stable features
-
-- Parallel NERDSS
-    - A parallelized version of NERDSS is in the [mpi](https://github.com/mjohn218/NERDSS/tree/mpi) branch.
-
-#### Run a quick trial with our server
-
-Go to the [NERDSS server](http://18.188.233.206:5000/).
-
 ### Installation
 
-To build NERDSS, you need:
+To build serial NERDSS, you need:
 
 1. A C++ compiler:
     - For macOS, install XCode
@@ -31,14 +44,45 @@ To build NERDSS, you need:
     - Run *make serial*
     - The executable will be placed in the *./bin* directory
 
-### Running Simulations
+To build parallel NERDSS, you need to checkout to the `mpi` branch:
+
+1. MPI:
+    - For macOS, install OpenMPI with Homebrew: *brew install open-mpi*
+    - For Ubuntu, install OpenMPI through apt: *sudo apt install openmpi-bin libopenmpi-dev*
+2. To compile using make:
+    - Navigate to the main directory
+    - Run *make mpi* (with profiling support: *make mpi ENABLE_PROFILING=1*)
+    - The executable will be placed in the ./bin directory
+
+### Run Simulations
+
+#### Run a quick trial with Google Colab
+
+Click the following link to make a copy of the iPython notebook in your Google Colab and following the instructions on the Notebook (Note currently the link is under NERDSS development repo. The link will need to be updated once synced to released repo)
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mjohn218/nerdss_development/blob/master/docs/Run_NERDSS_colab.ipynb?copy=true)
+
+#### Run a quick trial with our server
+
+Go to the [NERDSS server](http://18.188.233.206:5000/).
+
+#### Compile and run NERDSS on your local machine
 
 1. Example input files are located in the subdirectories within the *sample_inputs* folder. They can also be generated using the [python GUI program](./gui.py), which is also included in the ioNERDSS tool.
 
-2. To start the simulation, use the command *./nerdss -f parms.inp*.
+2. To start the serial simulation, use the command *./nerdss -f parms.inp*.
+
+3. To start the parallel simulation, use the command *mpirun -np $nprocs  ./nerdss_mpi -f parms.inp*.
+
+4. To debug the parallel code, use the command *mpirun -np 2 xterm -e gdb --ex 'b error' --ex r --args ./nerdss_mpi -f parms.inp -s 123*.
 
 ### Analyzing Results
 
 1. Use the ioNERDSS PyPi library for visualizing simulation results.
 2. Install ioNERDSS with *pip install ioNERDSS*.
 3. Refer to the [ionerdss repository](https://github.com/JohnsonBiophysicsLab/ionerdss) for more details.
+
+### Best Practices for Developers
+
+1. Choose meaningful names for variables, functions, and classes. Comment on complex logic, and maintain consistent indentation and formatting. Use CamelCase for variables, snake_case for functions, and PascalCase for classes. Avoid global variables.
+2. Follow the Google C++ Style Guide and the C++ Core Guidelines. Prefer using the C++ Standard Library and modern C++ features. Provide comments and documentation to explain complex or non-obvious code sections. Write unit tests to ensure code quality.

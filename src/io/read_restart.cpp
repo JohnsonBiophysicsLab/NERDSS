@@ -120,6 +120,10 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             restartFile >> params.clusterOverlapCheck;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            restartFile >> params.rngwrite;
+            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
             unsigned long lastUpdateTransitionSize { 0 };
             restartFile >> lastUpdateTransitionSize;
             for (unsigned itr { 0 }; itr < lastUpdateTransitionSize; ++itr) {

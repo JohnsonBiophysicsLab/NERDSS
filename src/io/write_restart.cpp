@@ -49,6 +49,7 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         restartFile << "scaleMaxDisplace = " << params.scaleMaxDisplace << '\n';
         restartFile << "transitionWrite = " << params.transitionWrite << '\n';
         restartFile << "clusterOverlapCheck = " << params.clusterOverlapCheck << '\n';
+        restartFile << "RNGwrite = " << params.rngwrite << '\n';
 
         restartFile << Parameters::lastUpdateTransition.size();
         for (auto& index : Parameters::lastUpdateTransition)

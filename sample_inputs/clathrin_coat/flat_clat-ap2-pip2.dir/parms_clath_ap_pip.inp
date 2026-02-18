@@ -12,12 +12,12 @@ start parameters
 end parameters
 
 start boundaries
-    WaterBox = [1000,1000,1000]
+    WaterBox = [100,100,100]
     
 end boundaries
 
 start molecules
-    pip2 : 500000
+    pip2 : 5000
     ap2 : 300
     clat : 100
 end molecules

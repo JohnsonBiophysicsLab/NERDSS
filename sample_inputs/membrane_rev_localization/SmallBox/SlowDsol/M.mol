@@ -6,7 +6,7 @@ Name    = M
 isLipid   = true
 
 # translational diffusion constants
-D       = [0.5,0.5,0]
+D       = [5.0,5.0,0]
 
 # rotational diffusion constants
 Dr      = [0,0,0]

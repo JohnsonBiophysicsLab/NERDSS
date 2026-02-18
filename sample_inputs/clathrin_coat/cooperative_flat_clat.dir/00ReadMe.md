@@ -7,3 +7,5 @@ Example simulation of flat clathrin sheet formation in solution, featuring coope
 
 
 for distinct clathrin leg sites, multiply rates by 2.
+
+Input files are following old format and do not specify molecule copy numbers.

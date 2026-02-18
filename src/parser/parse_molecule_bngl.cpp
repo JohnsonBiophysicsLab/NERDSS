@@ -12,6 +12,11 @@ ParsedMol parse_molecule_bngl(int& totSpecies, bool isProductSide,
             buffer += *molIterator;
         else {
             switch (*molIterator) {
+            case '_': {
+                // if the character is '_' it indicates an underscore for separator
+                // it will be treated as part of a continuous name
+                buffer += *molIterator;
+            }
             case '~': {
                 // if the character is '~' it indicates a state. add an iface to the vector with
                 // iface~state as the ifaceName and state as the state

@@ -1,0 +1,48 @@
+# Input file
+
+start parameters
+    nItr = 1000000
+    timestep = 0.1
+    timeWrite = 5000
+    trajWrite = 100
+    pdbWrite = -1
+    restartWrite = 50000
+    overlapSepLimit = 0.7
+    scaleMaxDisplace = 20
+end parameters
+
+
+start boundaries
+      waterBox = [436, 436, 436]
+end boundaries
+
+start molecules
+    gag : 2500
+end molecules
+
+start reactions
+    #gag-gag homodimerization
+    gag(homo) + gag(homo) <-> gag(homo!1).gag(homo!1)
+    onRate3DMacro      = 3.33  #units of /uM/s
+    offRateMacro     = 1.0 #units of /s
+    sigma       = 1.0  #nm
+    norm1       = [0,0,1]
+    norm2       = [0,0,1]
+    bindRadSameCom = 1.5 #scales sigma to define distance	
+    excludeVolumeBound = true
+    loopCoopFactor = 0.001
+    assocAngles = [1.56349699, 1.56349699, 0.0, 0.0, 0.0] 
+        
+
+    #gag-gag heterodimerization
+    gag(het2) + gag(het1) <-> gag(het2!1).gag(het1!1)
+    onRate3DMacro      = 0.5 #/uM/s
+    offRateMacro     = 5 #/s
+    sigma       = 1.0
+    norm1       = [0,0,1]
+    norm2       = [0,0,1]
+    bindRadSameCom = 1.5 #scales sigma to define distance	
+    loopCoopFactor = 0.001
+    assocAngles = [2.61799387799, 2.61799387799, -3.075896854, 3.075896854, 0.0] 
+
+end reactions

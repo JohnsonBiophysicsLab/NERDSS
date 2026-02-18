@@ -1,0 +1,109 @@
+# Input file
+
+start parameters
+    nItr = 100000
+    timeStep = 0.1
+    timeWrite = 1000
+    trajWrite = 5000
+    restartWrite = 50000
+    checkPoint = 100000   
+    overlapSepLimit = 7.0
+end parameters
+
+start boundaries
+    	WaterBox      = [1000.0,1000.0,1000.0]
+	hasCompartment = true
+	compartmentR = 400
+	compartmentSiteD = 1
+	compartmentSiteRho = 0.02
+end boundaries
+
+start molecules
+    clat : 0
+    clatComp : 100
+end molecules
+
+start reactions
+    ### Clathrin moving inside compartment ###
+        
+    clat(cd1) + compartment()  <-> clatComp(cd1) + compartment() 
+    onRate3Dka = 0.0 #units nm3/us. kon 1uM-1s-1. 
+    offRatekb = 50.0   #koff 1s-1
+    sigma = 1.0
+    
+    ### Clathrin reactions inside compartment ###
+    
+    clatComp(cd1) + clatComp(cd1) <-> clatComp(cd1!1).clatComp(cd1!1)
+    onRate3Dka = 1.6986 #units nm3/us. kon 1uM-1s-1. 
+    offRatekb = 1.0225   #koff 1s-1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    clatComp(cd2) + clatComp(cd2) <-> clatComp(cd2!1).clatComp(cd2!1)
+    onRate3Dka = 1.6986 #kon 1uM-1s-1. 
+    offRatekb = 1.0225
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    clatComp(cd3) + clatComp(cd3) <-> clatComp(cd3!1).clatComp(cd3!1)
+    onRate3Dka = 1.6986 #kon 1uM-1s-1. 
+    offRatekb = 1.0225
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    #With distinct interface labels, to retain same dG, multiply rates by 2.
+    clatComp(cd1) + clatComp(cd2) <-> clatComp(cd1!1).clatComp(cd2!1)
+    onRate3Dka = 3.3971   #units nm3/us. kon 1uM-1s-1, *2 for distinct cd1+cd2
+    offRatekb = 1.0225     #koff 1s-1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    clatComp(cd1) + clatComp(cd3) <-> clatComp(cd1!1).clatComp(cd3!1)
+    onRate3Dka = 3.3971   #kon 1uM-1s-1, *2 for distinct cd1+cd2
+    offRatekb = 1.0225	#koff 1s-1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    clatComp(cd2) + clatComp(cd3) <-> clatComp(cd2!1).clatComp(cd3!1)
+    onRate3Dka = 3.3971   #kon 1uM-1s-1, *2 for distinct cd1+cd2
+    offRatekb = 1.0225 #koff 1s-1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+    observeLabel = leg
+    bindRadSameCom = 5.0
+    loopCoopFactor = 0.001
+
+    #Reflect off other COM at all times (no possibility of binding)
+    
+    clatComp(ref) + clatComp(ref) <-> clatComp(ref!1).clatComp(ref!1)
+    onRate3Dka = 0.0   #no binding
+    offRatekb = 1.0 #koff 1s-1
+
+end reactions

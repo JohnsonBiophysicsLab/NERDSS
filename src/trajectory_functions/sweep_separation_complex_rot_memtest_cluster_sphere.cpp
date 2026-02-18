@@ -12,14 +12,17 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
     //determine RS3Dinput
     double RS3Dinput { 0.0 };
     Complex targCom { complexList[comIndex1] };
-    for (auto& molIndex : targCom.memberList) {
-        for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
-                RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-                break;
-            }
-        }
+    if (membraneObject.implicitLipid) {
+    	for (auto& molIndex : targCom.memberList) {
+   	        for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
+   	            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
+   	                RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
+   	                break;
+   	            }
+   	        }
+   	    }
     }
+    
 
     std::vector<TrajStatus> movestatOrig;
     std::vector<ClusterPair> pairList;

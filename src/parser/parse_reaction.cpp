@@ -2,6 +2,7 @@
 #include "io/io.hpp"
 #include "parser/parser_functions.hpp"
 #include <cmath>
+#include <limits>
 
 void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvidedRxns,
     std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
@@ -15,7 +16,8 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
         { "observelabel", RxnKeyword::observeLabel }, { "bindradsamecom", RxnKeyword::bindRadSameCom },
         { "irrevringclosure", RxnKeyword::irrevRingClosure },
         { "creationradius", RxnKeyword::creationRadius }, { "loopcoopfactor", RxnKeyword::loopCoopFactor },
-        { "length3dto2d", RxnKeyword::length3Dto2D }, { "rxnlabel", RxnKeyword::rxnLabel }, { "coupledrxnlabel", RxnKeyword::coupledRxnLabel }, { "kcat", RxnKeyword::kcat }, { "excludevolumebound", RxnKeyword::excludeVolumeBound } };
+        { "length3dto2d", RxnKeyword::length3Dto2D }, { "rxnlabel", RxnKeyword::rxnLabel }, { "coupledrxnlabel", RxnKeyword::coupledRxnLabel }, 
+        { "kcat", RxnKeyword::kcat }, { "excludevolumebound", RxnKeyword::excludeVolumeBound }, { "area3dto1d", RxnKeyword::area3Dto1D} };
 
     // Parse reaction
     ParsedRxn parsedRxn;
@@ -212,7 +214,7 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
             else if (*lineItr == '=') {
                 auto keyFind = rxnKeywords.find(buffer);
                 if (keyFind == rxnKeywords.end()) {
-                    std::cerr << buffer + " is an invalid argument for the reactions block. Exiting...";
+                    std::cerr << buffer + " is an invalid argument for the reactions block. Exiting... San Check!";
                     exit(1);
                 }
 
@@ -321,6 +323,9 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
 
         if (parsedRxn.length3Dto2D == -1)
             parsedRxn.length3Dto2D = 2.0 * parsedRxn.bindRadius;
+
+        if (parsedRxn.area3Dto1D == -1)
+            parsedRxn.area3Dto1D = 4.0 * M_PI * parsedRxn.bindRadius * parsedRxn.bindRadius;
     }
 //NOTE: we donnot know whether to add the 'transmission' into this if, something about the reaction rate
     if (parsedRxn.rxnType == ReactionType::bimolecular || parsedRxn.rxnType == ReactionType::biMolStateChange) {
@@ -355,6 +360,10 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
                     } else {
                         parsedRxn.onRate3Dka = 0;
                     }
+                    if (parsedRxn.onRate3Dka < 0.0) {
+                        std::cout << "WARNING: onRate3DMacro is faster than diffusion limit; setting onRate3Dka to DBL_MAX" << std::endl;
+                        parsedRxn.onRate3Dka = std::numeric_limits<double>::max();
+                    }
                 }
                 if (std::isnan(parsedRxn.offRatekb) == true && parsedRxn.isReversible == true) {
                     if (std::isnan(parsedRxn.offRateMacro) == false) {
@@ -379,6 +388,10 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
                                 parsedRxn.onRate3Dka = 1.0 / (1.0 / (parsedRxn.onRate3DMacro / 0.602214076) - 1.0 / (4.0 * M_PI * parsedRxn.bindRadius * Dtot));
                             } else {
                                 parsedRxn.onRate3Dka = 0;
+                            }
+                            if (parsedRxn.onRate3Dka < 0.0) {
+                                std::cout << "WARNING: onRate3DMacro is faster than diffusion limit; setting onRate3Dka to DBL_MAX" << std::endl;
+                                parsedRxn.onRate3Dka = std::numeric_limits<double>::max();
                             }
                         }
                         if (std::isnan(parsedRxn.offRatekb) == true && parsedRxn.isReversible == true) {
@@ -405,6 +418,10 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
                             } else {
                                 parsedRxn.onRate3Dka = 0;
                             }
+                            if (parsedRxn.onRate3Dka < 0.0) {
+                                std::cout << "WARNING: onRate3DMacro is faster than diffusion limit; setting onRate3Dka to DBL_MAX" << std::endl;
+                                parsedRxn.onRate3Dka = std::numeric_limits<double>::max();
+                            }
                         }
                         if (std::isnan(parsedRxn.offRatekb) == true && parsedRxn.isReversible == true) {
                             if (std::isnan(parsedRxn.offRateMacro) == false) {
@@ -428,6 +445,10 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
                                 parsedRxn.onRate3Dka = 0.5 / (1.0 / (2.0 * parsedRxn.onRate3DMacro / 0.602214076) - 1.0 / (4.0 * M_PI * parsedRxn.bindRadius * Dtot));
                             } else {
                                 parsedRxn.onRate3Dka = 0;
+                            }
+                            if (parsedRxn.onRate3Dka < 0.0) {
+                                std::cout << "WARNING: onRate3DMacro is faster than diffusion limit; setting onRate3Dka to DBL_MAX" << std::endl;
+                                parsedRxn.onRate3Dka = std::numeric_limits<double>::max();
                             }
                         }
                         if (std::isnan(parsedRxn.offRatekb) == true && parsedRxn.isReversible == true) {

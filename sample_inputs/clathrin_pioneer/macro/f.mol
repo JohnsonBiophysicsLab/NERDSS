@@ -1,0 +1,25 @@
+##
+# FCHo1/2 molecule information file
+##
+
+Name    = f
+checkOverlap = true
+
+# translational diffusion constants
+D       = [25.0,25.0,25.0]
+
+# rotational diffusion constants
+Dr      = [0.5,0.5,0.5]
+
+# Coordinates
+COM     0.0000    0.0000    0.0000
+fl   0.0000    0.0000   -0.0001
+ff  0.0000    5.0000    0.0000
+fk  0.0000    0.0000    5.0000
+fu  0.0000    0.0000    10.0000
+
+bonds = 4
+com fl
+com ff
+com fk
+com fu

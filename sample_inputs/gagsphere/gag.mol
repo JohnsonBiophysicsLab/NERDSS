@@ -5,11 +5,11 @@
 name = gag
 checkOverlap = true
 
-#translational diffusion
+#translational diffusion um2/s
 D = [10.0,10.0,10.0]
 
-#rotational diffusion
-Dr = [0.05,0.05,0.05]
+#rotational diffusion rad2/us
+Dr = [0.01,0.01,0.01]
 
 
 #coordinates
