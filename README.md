@@ -31,32 +31,124 @@ Structure-Resolved Reaction-Diffusion Simulation Software by Johnson Lab, JHU
 
 ### Installation
 
-To build serial NERDSS, you need:
+---
 
-1. A C++ compiler:
-    - For macOS, install XCode
-    - For Ubuntu, install a compiler through apt
-2. GNU Scientific Library (GSL) version 1.0 or higher:
-    - For macOS, install via Homebrew
-    - For Ubuntu, install via apt
-3. To compile using make:
-    - Navigate to the main directory
-    - Run `make serial`
-    - The executable will be placed in the `./bin` directory
+#### Build Serial NERDSS
 
-To build parallel NERDSS, you need to checkout to the `mpi` branch:
+##### Step 1 — Install a C++ Compiler
+
+###### macOS
+
+Install Xcode via App Store. Alternatively, use commandline:
+
+```bash
+xcode-select --install
+```
+
+###### Ubuntu / Linux
+
+```bash
+sudo apt update
+sudo apt install build-essential
+```
+
+---
+
+##### Step 2 — Install GNU Scientific Library (GSL ≥ 1.0)
+
+###### macOS (Homebrew)
+
+```bash
+brew install gsl
+```
+
+###### Ubuntu / Linux
+
+```bash
+sudo apt install libgsl-dev
+```
+
+---
+
+##### Step 3 — Compile Serial Version
+
+From the **NERDSS root directory**:
+
+```bash
+make serial
+```
+
+Executable will appear in:
 
 ```
+./bin
+```
+
+---
+
+#### Build Parallel NERDSS (MPI)
+
+##### Step 1 — Switch to the MPI Branch
+
+```bash
 git checkout mpi
 ```
 
-1. MPI:
-    - For macOS, install OpenMPI with Homebrew: `brew install open-mpi`
-    - For Ubuntu, install OpenMPI through apt: `sudo apt install openmpi-bin libopenmpi-dev`
-2. To compile using make:
-    - Navigate to the main directory
-    - Run `make mpi` (with profiling support: *make mpi ENABLE_PROFILING=1*)
-    - The executable will be placed in the ./bin directory
+---
+
+##### Step 2 — Install MPI (OpenMPI)
+
+###### macOS (Homebrew)
+
+```bash
+brew install open-mpi
+```
+
+###### Ubuntu / Linux
+
+```bash
+sudo apt install openmpi-bin libopenmpi-dev
+```
+
+---
+
+##### Step 3 — Compile MPI Version
+
+From the **NERDSS root directory**:
+
+```bash
+make mpi
+```
+
+Executable will appear in:
+
+```
+./bin
+```
+
+---
+
+##### Quick Verification
+
+After building, check:
+
+```bash
+ls ./bin
+```
+
+You should see the compiled executable(s).
+
+---
+
+##### Summary
+
+| Build Type | Command                         |
+| ---------- | ------------------------------- |
+| Serial     | `make serial`                   |
+| MPI        | `git checkout mpi` → `make mpi` |
+
+---
+
 
 ### Run Simulations
 
