@@ -1,0 +1,303 @@
+/* (0) Larger logo top-left */
+/* ================================
+   LARGE TOP-LEFT LOGO (REAL FIX)
+   ================================ */
+
+/* Remove Phantom's small square container */
+#header .logo.logo-big .symbol {
+  width: auto !important;
+  height: auto !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-right: 0.75rem;
+  display: block;
+}
+
+/* Control actual logo size here */
+#header .logo.logo-big .symbol img {
+  width: 140px;      /* ← change this to whatever size you want */
+  height: auto;
+  display: block;
+}
+
+/* Align header nicely after resizing */
+#header .inner {
+  display: flex;
+  align-items: center;
+  max-width: 1100px;
+}
+
+
+
+/* Tighter, more academic layout */
+#main > .inner {
+  max-width: 1100px;
+  padding-top: 1.6rem;
+}
+
+/* Remove excess hero whitespace */
+.hero-compact h1 {
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.02em;
+}
+
+/* (2) Make “Software” appear near the top */
+.section-title {
+  margin: 1.2rem 0 0.75rem 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+}
+
+/* Citation box */
+.callout {
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin: 0 0 1.4rem 0;
+  background: rgba(0,0,0,0.02);
+}
+
+/* second and third header*/
+h2, h3, .major {
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+  font-weight: 700;
+}
+
+/* Reduce space below headings */
+h2, h3 {
+  margin-bottom: 0.5rem !important;
+}
+
+/* Reduce space above following paragraph */
+h2 + p,
+h3 + p {
+  margin-top: 0.25rem !important;
+}
+
+/* Reduce vertical space between consecutive paragraphs */
+p + p {
+  margin-top: 0.05rem !important;
+}
+
+
+
+.callout p {
+  margin: 0.3rem 0;
+}
+
+/* Software grid/cards */
+.software-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.25rem;
+}
+
+.software-card {
+  grid-column: span 6;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+@media (max-width: 900px) {
+  .software-card { grid-column: span 12; }
+}
+
+.software-card .header {
+  padding: 1rem 1.1rem 0.75rem 1.1rem;
+}
+
+/* (3.0) Make names compact + obvious (no spaced letters) */
+.software-name {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: 0 !important;
+  text-transform: none;
+}
+
+.software-card p {
+  margin: 0.55rem 0 0 0;
+  color: rgba(0,0,0,0.70);
+}
+
+/* Media */
+.software-card .media {
+  background: rgba(0,0,0,0.03);
+}
+
+.software-card .media img {
+  width: 100%;
+  display: block;
+  height: 240px;
+  object-fit: cover;
+}
+
+/* (3.1/3.2) Icon action pills */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding: 0.9rem 1.1rem 1.1rem 1.1rem;
+}
+
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.62rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.16);
+  background: #fff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.action-pill.primary {
+  border-color: rgba(29,78,216,0.35);
+  background: rgba(29,78,216,0.06);
+}
+
+.action-pill:hover {
+  transform: translateY(-1px);
+}
+
+/* Slightly larger icons */
+.action-pill .icon {
+  font-size: 1.05em;
+}
+
+
+/* Make the buttons line up
+/* Make each card a column so we can pin actions to the bottom */
+.software-card{
+  display: flex;
+  flex-direction: column;
+}
+
+/* Let the header take natural height */
+.software-card .header{
+  flex: 0 0 auto;
+}
+
+/* Let the media take natural height (or lock it) */
+.software-card .media{
+  flex: 0 0 auto;
+}
+
+/* Optional: ensure both images take same height so cards are equal */
+.software-card .media img{
+  height: 260px;             /* pick what looks best */
+  object-fit: cover;
+}
+
+.software-card .actions{
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  grid-auto-rows: auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+/* Make “Learn more” span full width on row 2 */
+.software-card .actions .action-pill.primary{
+  grid-column: 1 / -1;
+  justify-self: start;  /* or stretch */
+}
+
+
+/* Menu toggle
+/* Header layout */
+#header .inner{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Button-style social link (icon + text inline) */
+a.social-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  line-height: 1;
+}
+
+a.social-btn .icon{
+  font-size: 1.15rem;
+}
+
+a.social-btn:hover{
+  transform: translateY(-1px);
+}
+
+/* =================================
+   NERDSS online demo callout
+   ================================= */
+
+.demo-callout{
+  margin: 1.5rem 0 1.75rem 0;
+}
+
+.demo-box{
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem;
+  background: rgba(0,0,0,0.02);
+}
+
+.demo-box h2{
+  margin-bottom: 0.35rem !important;
+}
+
+.demo-box p{
+  margin-bottom: 0.7rem !important;
+}
+
+/* Primary CTA button */
+.demo-button{
+  display: inline-block;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(29,78,216,0.35);
+  background: rgba(29,78,216,0.08);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.demo-button:hover{
+  transform: translateY(-1px);
+}
+
+/* ================================
+   3-column footer layout
+   ================================ */
+
+.footer-columns{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+/* Stack on mobile */
+@media (max-width: 800px){
+  .footer-columns{
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.footer-columns{
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+
