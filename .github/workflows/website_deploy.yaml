@@ -28,6 +28,10 @@ jobs:
 
       # build your site into ./_site (or ./dist etc.)
       # - run: ...
+      - name: Add case-redirect pages
+        run: |
+          mkdir -p _site
+          cp -R redirects/* _site/
 
       - uses: actions/upload-pages-artifact@v3
         with:
