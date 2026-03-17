@@ -34,7 +34,18 @@ include_directories(include)
 # ---- Option: CUDA GPU acceleration ----
 option(NERDSS_CUDA "Enable CUDA GPU acceleration" OFF)
 
-file(GLOB SOURCES "src/*/*.cpp")
+# Collect sources from specific subdirectories (matching Makefile behavior).
+# The debug, mpi, and io_mpi directories require MPI and are excluded from
+# the serial and CUDA builds.
+set(SERIAL_SOURCE_DIRS
+    boundary_conditions classes error math parser reactions
+    system_setup trajectory_functions io)
+
+set(SOURCES "")
+foreach(dir ${SERIAL_SOURCE_DIRS})
+    file(GLOB dir_sources "src/${dir}/*.cpp")
+    list(APPEND SOURCES ${dir_sources})
+endforeach()
 
 # ---- Serial (CPU-only) target ----
 add_executable(nerdss ${SOURCES} EXEs/nerdss.cpp)
