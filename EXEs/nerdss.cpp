@@ -29,6 +29,9 @@
 #include "system_setup/system_setup.hpp"
 #include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
+#ifdef NERDSS_CUDA
+#include "gpu/gpu_manager.hpp"
+#endif
 #include <chrono>
 #include <cstring>
 #include <iomanip>
@@ -760,6 +763,28 @@ int main(int argc, char *argv[]) {
             membraneObject);
   std::cout << "*************** BEGIN SIMULATION **************** "
             << std::endl;
+
+#ifdef NERDSS_CUDA
+  // --- GPU Initialization ---
+  gpu::GPUManager gpuManager;
+  bool useGPU = gpu::GPUManager::isGPUAvailable();
+  if (useGPU) {
+    // Estimate upper bounds for buffer allocation (2x current size for growth)
+    int maxComplexes = static_cast<int>(complexList.size()) * 2;
+    int maxMolecules = static_cast<int>(moleculeList.size()) * 2;
+    int maxIfaces = 0;
+    for (const auto& mol : moleculeList)
+      maxIfaces += static_cast<int>(mol.interfaceList.size());
+    maxIfaces *= 2;
+
+    gpuManager.initialize(maxComplexes, maxMolecules, maxIfaces,
+                          params, membraneObject, seed);
+    std::cout << "GPU: Acceleration enabled for propagation and distance kernels.\n";
+  } else {
+    std::cout << "GPU: No CUDA device found. Falling back to CPU.\n";
+  }
+#endif
+
   // begin the timer
   MDTimer::time_point simulTimeStart = MDTimer::now();
   int numSavedDurations{1000};
@@ -952,6 +977,34 @@ int main(int argc, char *argv[]) {
     // if (simItr == monitor_iter) {
     //   debug_print_wrong_Mol(moleculeList, "before binding", monitor_mol);
     // }
+
+#ifdef NERDSS_CUDA
+    // --- GPU: Batch-generate propagation vectors for all complexes ---
+    // Pre-compute random displacements on GPU for non-reacting complexes.
+    // Complexes that end up reacting will have their coordinates overwritten
+    // by the association logic, so the pre-computed vectors are harmless.
+    // After downloading, mark all molecules as canBeResampled so that the
+    // individual CPU create_complex_propagation_vectors calls are skipped.
+    if (useGPU) {
+      gpuManager.resizeIfNeeded(
+          static_cast<int>(complexList.size()),
+          static_cast<int>(moleculeList.size()),
+          0 /* ifaces not needed for propagation */);
+      gpuManager.uploadComplexData(complexList);
+      gpuManager.launchPropagationKernel();
+      gpuManager.downloadPropagationResults(complexList);
+
+      // Mark all active molecules so CPU propagation calls are skipped.
+      // The vectors are already in complexList[].trajTrans/trajRot.
+      // Boundary reflection will still be applied during the overlap phase.
+      for (auto &mol : moleculeList) {
+        if (mol.isEmpty || mol.isImplicitLipid) continue;
+        if (mol.trajStatus == TrajStatus::none) {
+          mol.trajStatus = TrajStatus::canBeResampled;
+        }
+      }
+    }
+#endif
 
     /*Now that separations and reaction probabilities are calculated, decide
      * whether to perform reactions for each protein.*/

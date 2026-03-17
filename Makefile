@@ -57,6 +57,12 @@ ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 	INCLUDE_FOLDERS += debug io_mpi mpi
 endif
 
+ifneq (,$(filter cuda,$(MAKECMDGOALS)))
+	_EXEC = nerdss_cuda
+	DEFS = -DNERDSS_CUDA
+	INCLUDE_FOLDERS += gpu
+endif
+
 ifneq (,$(filter clean,$(MAKECMDGOALS)))
 	MAKECMDGOALS = dummy
 endif
@@ -113,28 +119,59 @@ ifdef ENABLE_PROFILING
 	LIBS += $(shell pkg-config --libs libprofiler)
 endif
 
+# ---------------- CUDA SETUP
+ifneq (,$(filter cuda,$(MAKECMDGOALS)))
+	hasNVCC = $(shell type nvcc >/dev/null 2>&1; echo $$?)
+	ifeq ($(hasNVCC),1)
+		$(error "CUDA requested but nvcc not found. Install CUDA toolkit and add nvcc to PATH.")
+	endif
+	NVCC = nvcc
+	NVCC_FLAGS = -std=c++11 -O3 -DNERDSS_CUDA
+	CUDA_ARCH = -gencode arch=compute_60,code=sm_60 \
+	            -gencode arch=compute_70,code=sm_70 \
+	            -gencode arch=compute_75,code=sm_75 \
+	            -gencode arch=compute_80,code=sm_80
+	CUDA_SRCS = $(wildcard $(SDIR)/gpu/*.cu)
+	CUDA_OBJS = $(patsubst $(SDIR)/%.cu,$(ODIR)/%.o,$(CUDA_SRCS))
+	CUDA_LIBS = -lcudart -lcurand
+else
+	CUDA_OBJS =
+	CUDA_LIBS =
+endif
+
 # ---------------- OBJECT FILES
 OBJS = $(patsubst $(SDIR)/%.cpp,$(ODIR)/%.o,$(SRCS))
 
 # ---------------- RULES
 syntax:
 	@echo "------------------------------------"
-	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi [debug] [profile]"
+	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi|cuda [debug] [profile]"
 	@echo "------------------------------------"
 	exit 0
 
 $(MAKECMDGOALS): $(EXEC)
 	@echo "Finished making (re-)building $(MAKECMDGOALS) version, $(EXEC)."
 
-$(EXEC): $(OBJS)
+$(EXEC): $(OBJS) $(CUDA_OBJS)
 	@echo "Compiling $(EDIR)/$(@F).cpp"
+ifneq (,$(filter cuda,$(MAKECMDGOALS)))
+	$(NVCC) $(NVCC_FLAGS) $(CUDA_ARCH) $(INCS) $(PROF) -o $@ $(EDIR)/nerdss.cpp $(OBJS) $(CUDA_OBJS) $(LIBS) $(CUDA_LIBS) -Xcompiler "$(CXXFLAGS) $(DEFS)"
+else
 	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
+endif
 	@echo "------------"
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	@echo "Compiling $< to $@"
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -c $< -o $@ $(PLANG) $(DEFS)
+	@echo "------------"
+
+# CUDA compilation rule
+$(ODIR)/%.o: $(SDIR)/%.cu
+	@echo "Compiling CUDA $< to $@"
+	@mkdir -p $(@D)
+	$(NVCC) $(NVCC_FLAGS) $(CUDA_ARCH) $(INCS) -c $< -o $@
 	@echo "------------"
 
 clean:
