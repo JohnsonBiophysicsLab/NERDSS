@@ -109,6 +109,9 @@ int main(int argc, char *argv[]) {
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
 
+  // json output for bdfafsm
+  mkdir("DATA/COMPLEXES", 0777);
+
   // TODO: change these to open and close as needed
   std::string observablesFileName{"DATA/observables_time.dat"};
   std::string trajFileName{"DATA/trajectory.xyz"};
@@ -1628,6 +1631,13 @@ int main(int argc, char *argv[]) {
       restartFile.close();
     }
 
+    // write bonded complex data
+    if ( (params.bondedComplexWrite >= 0) && (simItr % params.bondedComplexWrite == 0) )
+    {
+        std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
+        write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
+    }
+
     // write check point
     if (simItr % params.checkPoint == 0) {
       snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld.dat", simItr);
@@ -1663,9 +1673,9 @@ int main(int argc, char *argv[]) {
            i++) {
         number_of_lipids += membraneObject.numberOfFreeLipidsEachState[i];
       }
-      meanComplexSize =
-          print_complex_hist(complexList, assemblyfile, simItr, params,
-                             molTemplateList, moleculeList, number_of_lipids);
+      meanComplexSize = print_complex_hist(complexList, assemblyfile, simItr, params,
+                                        molTemplateList, moleculeList, number_of_lipids);
+      
       auto endTime = MDTimer::now();
       auto endTimeFormat = MDTimer::to_time_t(endTime);
       std::cout << "System time: ";
@@ -1754,6 +1764,14 @@ int main(int argc, char *argv[]) {
                   createDestructRxns, transmissionRxns, observablesList,
                   membraneObject, counterArrays);
     restartFile.close();
+
+    // write bonded complex data
+    if (params.bondedComplexWrite >= 0)
+    {
+        std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
+        write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
+    }
+    
 
     // std::cout << "Writing trajectory..." << '\n';
     std::ofstream trajFile{trajFileName, std::ios::app}; // for append

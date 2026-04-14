@@ -1,0 +1,10 @@
+
+python pull_2col.py histogram_complexes_time_rank0.dat 0
+mv memloc_rank0.dat mem_save.dat
+
+for i in `seq 1 1 47`; do python pull_1col.py histogram_complexes_time_rank$i.dat $i ; done
+for i in `seq 1 1 47`; do wc -l memloc_rank$i.dat  ; done >nline
+cat nline | awk '{print $1}' | sort >sortedlines
+keep=`head -1 sortedlines`
+for i in `seq 1 1 47`; do paste mem_save.dat memloc_rank$i.dat >tmp ; mv tmp mem_save.dat ; done
+head -$keep mem_save.dat >square.dat
