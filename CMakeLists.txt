@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 project(nerdss)
 
@@ -31,7 +31,23 @@ include_directories(include)
 
 #add_definitions(-D_DEBUG) # comment this line if no need _DEBUG
 
-file(GLOB SOURCES "src/*/*.cpp")
+set(SOURCE_DIRS
+    boundary_conditions
+    classes
+    error
+    math
+    parser
+    reactions
+    system_setup
+    trajectory_functions
+    io
+)
+
+foreach(SOURCE_DIR ${SOURCE_DIRS})
+    file(GLOB DIR_SOURCES "src/${SOURCE_DIR}/*.cpp")
+    list(APPEND SOURCES ${DIR_SOURCES})
+endforeach()
+
 add_executable(nerdss ${SOURCES} EXEs/nerdss.cpp)
 
 # Set up external libraries

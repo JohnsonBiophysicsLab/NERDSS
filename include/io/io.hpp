@@ -70,6 +70,14 @@ void write_xyz_assoc_cout(const Complex& reactCom1, const Complex& reactCom2,
 void write_complex_crds(
     std::string name, const Complex& complex1, const Complex& complex2, std::vector<Molecule>& moleculeList);
 
+void write_bonded_complex_json(const std::string filename,
+    std::vector<Molecule>& moleculeList,
+    const std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList,
+    const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns,
+    const Membrane& membraneObject);
+
 /*! \ingroup IO
  * \brief Writes out timestep information, such as the different molecular types in the system.
  *
