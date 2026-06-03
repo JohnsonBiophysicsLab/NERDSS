@@ -56,6 +56,7 @@ enum class ParamKeyword : int {
     clusterOverlapCheck = 17, //!< is overlap checked by cluster
     assocDissocWrite = 18, //!< write association and dissociation to a file
     rngwrite = 19, //!< is overlap checked by cluster 
+    bondedComplexWrite = 20 //!< timestep interval to write bonded complex data to JSON file
 };
 
 /*! \enum MolKeyword
@@ -197,6 +198,7 @@ struct Parameters {
     long long int pdbWrite { -1 }; //!< interval to write pdb
     long long int checkPoint { -1 }; //!< interval to write checkpoint
     long long int transitionWrite { -1 }; //!< timestep interval to write transition matrix
+    long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON file
     bool clusterOverlapCheck { false }; //!< is overlap checked by cluster 
     bool rngwrite { false }; //!< whether to write rng state along with restart files (checkpoints)
                             // Normally we do not need to restart with the same rng
