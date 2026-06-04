@@ -1,0 +1,29 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies (GSL and MPI)
+      run: sudo apt-get update && sudo apt-get install -y openmpi-bin libopenmpi-dev libgsl-dev
+
+    - name: Clean before serial build
+      run: make clean
+    
+    - name: make serial
+      run: make serial
+    
+    - name: Clean before MPI build
+      run: make clean
+    
+    - name: make mpi
+      run: make mpi

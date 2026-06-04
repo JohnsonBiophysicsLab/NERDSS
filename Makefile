@@ -81,7 +81,7 @@ CXXFLAGS = -std=c++0x
 LIBS     = $(shell gsl-config --libs)
 
 # ---------------- COMPILER SETUP
-override PROF   =
+PROF   =
 
 ifeq ($(GCC),0)
 	CC      = g++
