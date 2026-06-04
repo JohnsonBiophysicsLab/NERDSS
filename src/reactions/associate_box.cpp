@@ -160,19 +160,27 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       } else {
         double sigmaMag = sqrt((sigma.x * sigma.x));
         if (!reactMol1.isPromoter && reactMol2.isPromoter) {
-          // if one of the proteins is a promoter
+          // if one of the molecules is a promoter
           // Move two molecules to the same x coordinate
           is1DSiteBinding = true;
           displaceFrac = 1.0;
         } else if (reactMol1.isPromoter && !reactMol2.isPromoter) {
           is1DSiteBinding = true;
           displaceFrac = 1.0;
+        } else if (reactMol1.isPromoter && reactMol2.isPromoter) {
+          // if both molecules are promoters
+          // This happens when users set molecules as promoters to perform 1D binding
+          //   In this case, we don't need to shuffle the relative position of two molecules
+          displaceFrac = (sigmaMag - currRxn.bindRadius) / sigmaMag;
+          // std::cout << "frac: " << displaceFrac << " rand: " << randDouble << std::endl;
         } else {
-          // both proteins are not promoters
+          // both molecules are not promoters
           // randomly move to the left or the right side
+          // This makes it possible for a dimer forming on fiber to bind two bindings ites
+          //   without this, the second molecule has to come at the same side to be able to bind to a 
+          //   bidning site when it forms a dimer. 
           double randDouble = rand_gsl() < 0.5 ? 1.0 : -1.0;
           displaceFrac = (sigmaMag - randDouble * currRxn.bindRadius) / sigmaMag;
-          // displaceFrac = (sigmaMag - currRxn.bindRadius) / sigmaMag;
           // std::cout << "frac: " << displaceFrac << " rand: " << randDouble << std::endl;
         }
       }
@@ -211,16 +219,16 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
 
     if (isOnFiber == true) {
       if (is1DSiteBinding) {
-        // if one of the proteins is a promoter
+        // if one of the molecules is a promoter
         // Move two molecules to the same x coordinate
         transVec1.x = -sigma.x * (reactCom1.D.x / DxSum) * displaceFrac;
         transVec2.x = sigma.x * (reactCom2.D.x / DxSum) * displaceFrac;
       } else{
         // Complex conformation has first priority. Fiber binding is relaxed.
-        // keep the slow protein on fiber (only move along x direction)
-        // move the other reactant (fast protein) freely in 3 dimension
-        // The fast protein will be pushed back to fiber in orientation correction.
-        //TODO: For explicit model, if the Complex conformation requires one protein to detach from the fiber,
+        // keep the slow molecule on fiber (only move along x direction)
+        // move the other reactant (fast molecule) freely in 3 dimension
+        // The fast molecule will be pushed back to fiber in orientation correction.
+        //TODO: For explicit model, if the Complex conformation requires one molecule to detach from the fiber,
         //      the binding site (which should be always on fiber) will also be moved away
         if (slowPro == reactMol1.index){
           if (abs(reactCom1.D.x)<1e-6){
@@ -425,6 +433,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         Coord pivot;
         // also translate the slowPro back to its same COM.
         // This step may report warning of "Attempted dot product with vector of magnitude 0."
+        /*
+        TODO: for fibers, this can be redundant and cause zero vector issue. 
+          Actually, for associations only on fibers (isOnFiber), we can skip this step.
+          However, we have to make sure the orientations of two proteins before association are correct,
+          otherwise the binding site may be facing the wrong direction and cause failed association.
+          For now, we keep this for all cases to make sure the orientation is correct, but we can optimize this in the future.
+        */ 
         if (slowPro == reactMol1.index) {
           memRot = save_mem_orientation(
               memProtein, reactMol1, molTemplateList[reactMol1.molTypeIndex]);

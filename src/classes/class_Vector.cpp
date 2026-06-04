@@ -93,7 +93,7 @@ double Vector::dot_theta(const Vector& vec) const
         cTheta = -1;
 
     if (this->magnitude < 1E-8 || vec.magnitude < 1E-8) {
-        std::cout << "WARNING: Attempted dot product with vector of magnitude 0.\n";
+        std::cout << "WARNING: Attempted to find angle between vectors with at least one of magnitude 0.\n";
         return 0.0;
     } else
         return acos(cTheta);

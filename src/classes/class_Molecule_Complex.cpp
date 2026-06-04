@@ -993,7 +993,7 @@ void Complex::put_back_into_SimulVolume(
 // }
 
 void Complex::propagate(std::vector<Molecule> &moleculeList,
-                        const Membrane membraneObject,
+                        const Membrane& membraneObject,
                         const std::vector<MolTemplate> &molTemplateList) {
   ++propCalled;
 
@@ -1038,49 +1038,62 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
     this->update_properties(moleculeList, molTemplateList);
     trajStatus = TrajStatus::propagated;
   } else { // for the complex in solution or on box surface
-    // Create the quaternion
-    double cosZ{cos(trajRot.z * 0.5)};
-    double sinZ{sin(trajRot.z * 0.5)};
-    double cosY{cos(trajRot.y * 0.5)};
-    double sinY{sin(trajRot.y * 0.5)};
-    double cosX{cos(trajRot.x * 0.5)};
-    double sinX{sin(trajRot.x * 0.5)};
-
-    Quat rotQuat{};
-    rotQuat.x = (sinX * cosY * cosZ) - (cosX * sinY * sinZ);
-    rotQuat.y = (cosX * sinY * cosZ) + (sinX * cosY * sinZ);
-    rotQuat.z = (cosX * cosY * sinZ) - (sinX * sinY * cosZ);
-    rotQuat.w = (cosX * cosY * cosZ) + (sinX * sinY * sinZ);
-    rotQuat.unit();
-
-    // update the member proteins
-    for (auto mol : memberList) {
-      Vector comVec{moleculeList[mol].comCoord - this->comCoord};
-      rotQuat.rotate(comVec);
-      moleculeList[mol].comCoord =
-          Coord{comVec.x, comVec.y, comVec.z} + this->comCoord + trajTrans;
-
-      // now rotate each member molecule of the complex
-      for (auto &iface : moleculeList[mol].interfaceList) {
-        // get the vector from the interface to the target interface
-        Vector ifaceVec{iface.coord - comCoord};
-        // rotate
-        rotQuat.rotate(ifaceVec);
-        iface.coord =
-            Coord{ifaceVec.x, ifaceVec.y, ifaceVec.z} + comCoord + trajTrans;
+    // If there is no rotational motion (e.g. Dr = 0 for all members, so
+    // trajRot is exactly zero), the rotation quaternion is the identity and
+    // every Quat::rotate() call is a no-op. Skip the rotation math entirely
+    // and only apply the translation. This is bit-for-bit identical to the
+    // full rotation path when trajRot == (0,0,0).
+    if (trajRot.x == 0.0 && trajRot.y == 0.0 && trajRot.z == 0.0) {
+      for (auto mol : memberList) {
+        moleculeList[mol].comCoord = moleculeList[mol].comCoord + trajTrans;
+        for (auto &iface : moleculeList[mol].interfaceList) {
+          iface.coord = iface.coord + trajTrans;
+        }
+        moleculeList[mol].trajStatus = TrajStatus::propagated;
+        moleculeList[mol].need_to_send = true;
       }
-      moleculeList[mol].trajStatus = TrajStatus::propagated;
-      moleculeList[mol].need_to_send = true;
-    }
+      this->update_properties(moleculeList, molTemplateList);
+      trajStatus = TrajStatus::propagated;
+    } else {
+      // Create the quaternion
+      double cosZ{cos(trajRot.z * 0.5)};
+      double sinZ{sin(trajRot.z * 0.5)};
+      double cosY{cos(trajRot.y * 0.5)};
+      double sinY{sin(trajRot.y * 0.5)};
+      double cosX{cos(trajRot.x * 0.5)};
+      double sinX{sin(trajRot.x * 0.5)};
 
-    // propagate the complex's center of mass
-    // std::cout << "comCoord: " << std::fixed << std::setprecision(20) <<
-    // comCoord.x << " " << comCoord.y << " " << comCoord.z << std::endl;
-    // comCoord += trajTrans;
-    this->update_properties(moleculeList, molTemplateList);
-    trajStatus = TrajStatus::propagated;
-    // std::cout << "comCoord: " << std::setprecision(20) << comCoord.x << " "
-    // << comCoord.y << " " << comCoord.z << std::endl;
+      Quat rotQuat{};
+      rotQuat.x = (sinX * cosY * cosZ) - (cosX * sinY * sinZ);
+      rotQuat.y = (cosX * sinY * cosZ) + (sinX * cosY * sinZ);
+      rotQuat.z = (cosX * cosY * sinZ) - (sinX * sinY * cosZ);
+      rotQuat.w = (cosX * cosY * cosZ) + (sinX * sinY * sinZ);
+      rotQuat.unit();
+
+      // update the member proteins
+      for (auto mol : memberList) {
+        Vector comVec{moleculeList[mol].comCoord - this->comCoord};
+        rotQuat.rotate(comVec);
+        moleculeList[mol].comCoord =
+            Coord{comVec.x, comVec.y, comVec.z} + this->comCoord + trajTrans;
+
+        // now rotate each member molecule of the complex
+        for (auto &iface : moleculeList[mol].interfaceList) {
+          // get the vector from the interface to the target interface
+          Vector ifaceVec{iface.coord - comCoord};
+          // rotate
+          rotQuat.rotate(ifaceVec);
+          iface.coord =
+              Coord{ifaceVec.x, ifaceVec.y, ifaceVec.z} + comCoord + trajTrans;
+        }
+        moleculeList[mol].trajStatus = TrajStatus::propagated;
+        moleculeList[mol].need_to_send = true;
+      }
+
+      // propagate the complex's center of mass
+      this->update_properties(moleculeList, molTemplateList);
+      trajStatus = TrajStatus::propagated;
+    }
   }
   // zero the propagation values
   trajTrans.zero_crds();

@@ -85,4 +85,4 @@ void reflect_traj_tmp_crds_sphere(const Parameters& params, std::vector<Molecule
 void reflect_traj_tmp_crds_compartment(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput);
 
 // function to calculate the position of one interface after translation and rotation on sphere surface
-Coord calculate_update_position_interface(const Complex targCom, const Coord ifacecrds); // iface is cardesian coords
+Coord calculate_update_position_interface(const Complex& targCom, const Coord ifacecrds); // iface is cardesian coords

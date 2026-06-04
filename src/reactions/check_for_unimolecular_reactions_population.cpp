@@ -447,7 +447,7 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 														oneRxn, moleculeList, complexList, molTemplateList, membraneObject.implicitlipidIndex, 
                                                         forwardRxns[oneRxn.conjForwardRxnIndex], breakLinkComplex, params.timeStep, assocDissocFile);
 
-								if(cancelDissociation) std::cout <<" Canceled dissociation! "<<std::endl;
+								// if(cancelDissociation) std::cout <<" Canceled dissociation! "<<std::endl;
                                 
                                 if(cancelDissociation == false){
                                     //std::cout <<" Returned to check_for_unimolecular_reactions_population after break_interactino "<<std::endl;
@@ -614,7 +614,9 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 								--numEvents;//even cancelled dissociation counts as an event
 							}
                             else {
-                                std::cout << "'result' does not fulfill the request." << std::endl;
+                                // Debug: the randomly selected A-B pair was already chosen for
+                                // dissociation in this timestep. Skip it and resample (rejection sampling).
+                                // std::cout << "'result' does not fulfill the request." << std::endl;
                             }
 					  }
 					  // remove the A-B from the bindPairList because they are seperated

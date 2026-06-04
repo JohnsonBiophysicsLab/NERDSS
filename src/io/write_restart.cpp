@@ -50,6 +50,7 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         restartFile << "transitionWrite = " << params.transitionWrite << '\n';
         restartFile << "clusterOverlapCheck = " << params.clusterOverlapCheck << '\n';
         restartFile << "RNGwrite = " << params.rngwrite << '\n';
+        restartFile << "bondedComplexWrite = " << params.bondedComplexWrite << '\n';
 
         restartFile << Parameters::lastUpdateTransition.size();
         for (auto& index : Parameters::lastUpdateTransition)

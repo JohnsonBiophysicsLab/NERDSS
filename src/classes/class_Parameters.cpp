@@ -29,6 +29,7 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numtotalcomplex", ParamKeyword::numTotalComplex },
     { "mass", ParamKeyword::mass }, { "restartwrite", ParamKeyword::restartWrite },
     { "pdbwrite", ParamKeyword::pdbWrite },
+    { "bondedcomplexwrite", ParamKeyword::bondedComplexWrite },
     { "overlapseplimit", ParamKeyword::overlapSepLimit }, { "name", ParamKeyword::name },
     { "checkpoint", ParamKeyword::checkPoint }, { "scalemaxdisplace", ParamKeyword::scaleMaxDisplace },
     { "transitionwrite", ParamKeyword::transitionWrite }, 
@@ -56,8 +57,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in numTotalSpecies: " << this->numTotalSpecies << std::endl;
             break;
         case 2:
-            temp = std::stod(value);
-            this->nItr = (long long)(temp); // std::stoi(value);
+            this->nItr = std::stoll(value);
             std::cout << "Read in nItr: " << this->nItr << " timeSteps" << std::endl;
             break;
         case 3:
@@ -65,13 +65,11 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in fromRestart: " << std::boolalpha << this->fromRestart << std::endl;
             break;
         case 4:
-            temp = std::stod(value);
-            this->timeWrite = (long long)(temp);
+            this->timeWrite = std::stoll(value);
             std::cout << "Read in timeWrite: " << this->timeWrite << " timeSteps" << std::endl;
             break;
         case 5:
-            temp = std::stod(value);
-            this->trajWrite = (long long)(temp);
+            this->trajWrite = std::stoll(value);
             std::cout << "Read in trajWrite: " << this->trajWrite << " timeSteps" << std::endl;
             break;
         case 6:
@@ -87,13 +85,11 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in mass: " << this->mass << std::endl;
             break;
         case 10:
-            temp = std::stod(value);
-            this->restartWrite = (long long)(temp);
+            this->restartWrite = std::stoll(value);
             std::cout << "Read in restartWrite: " << this->restartWrite << " timeSteps" << std::endl;
             break;
         case 11:
-            temp = std::stod(value);
-            this->pdbWrite = (long long)(temp);
+            this->pdbWrite = std::stoll(value);
             std::cout << "Read in pdbWrite: " << this->pdbWrite << " timeSteps" << std::endl;
             break;
         case 12:
@@ -105,8 +101,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in name: " << value << std::endl;
             break;
         case 14:
-            checkit = std::stod(value);
-            this->checkPoint = (long long)(checkit);
+            this->checkPoint = std::stoll(value);
             std::cout << "Read in checkPoint: " << this->checkPoint << " timeSteps" << std::endl;
             break;
         case 15:
@@ -114,8 +109,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in scaleMaxDisplace: " << this->scaleMaxDisplace << std::endl;
             break;
         case 16:
-            transitionit = std::stod(value);
-            this->transitionWrite = (long long)(transitionit);
+            this->transitionWrite = std::stoll(value);
             std::cout << "Read in transitionWrite: " << this->transitionWrite << " timeSteps" << std::endl;
             break;
         case 17:
@@ -129,6 +123,10 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
         case 19:
             this->rngwrite = read_boolean(value);
             std::cout << "Read in RNGwrite: " << std::boolalpha << this->rngwrite << std::endl;
+            break;
+        case 20:
+            this->bondedComplexWrite = std::stoll(value);
+            std::cout << "Read in bondedComplexWrite: " << this->bondedComplexWrite << " timeSteps" << std::endl;
             break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
@@ -204,6 +202,7 @@ void Parameters::display()
     std::cout << "Transition matrix write interval: " << transitionWrite << " timesteps\n";
     std::cout << "ClusterOverlapCheck: " << clusterOverlapCheck << "\n";
     std::cout << "RNGwrite: " << rngwrite << "\n";
+    std::cout << "bondedComplexWrite: " << bondedComplexWrite << "\n";
 
     std::cout << "Molecule specific parameters:\n";
     std::cout << "Number of unique molecule types: " << numMolTypes << '\n';

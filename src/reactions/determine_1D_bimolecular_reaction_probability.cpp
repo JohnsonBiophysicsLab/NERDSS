@@ -118,10 +118,16 @@ void determine_1D_bimolecular_reaction_probability(
 
       // declare intrinsic binding rate of 1D->1D case.
       double kact{forwardRxns[rxnIndex].rateList[rateIndex].rate / forwardRxns[rxnIndex].area3Dto1D};
-      if (forwardRxns[rxnIndex].isSymmetric == false)
-        kact /= 2.0; // for A(a)+B(b)->A(a!).B(b!) case
-        // This is different from 3D case since molecules can only approach from one side in 1D
-        // This is irrelevant of bypassing is allowed or not.
+      // if (forwardRxns[rxnIndex].isSymmetric == false)
+      //   kact /= 2.0; 
+      // Our model is excact for 1D semi-infinite associations
+      //   Suppose A and B molecules
+      //   1) One A at the end and all B molecules can only approach from one side => correct
+      //   2) One A in the middle and B molecules can approach from two sieds => kon * 2
+      //   3) Symmetric case A + A => A-A, molecules are approached two-sided => kon * 2,
+      //      but the combination factor requires [A]/2, so the overall reaction rate is still kon * [A] * [A], which is correct.
+      // This is different from 3D case since molecules can only approach from one side in 1D
+      // TODO: Is this irrelevant of bypassing is allowed or not?
 
       double currnorm{1.0};
       double p0_ratio{1.0};

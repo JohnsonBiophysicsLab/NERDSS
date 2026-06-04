@@ -12,7 +12,7 @@
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
-Coord calculate_update_position_interface(const Complex targCom, const Coord ifacecrds) // iface is cardesian coords
+Coord calculate_update_position_interface(const Complex& targCom, const Coord ifacecrds) // iface is cardesian coords
 {
     Coord finalcrds; // for output
     Coord trajTrans = targCom.trajTrans;

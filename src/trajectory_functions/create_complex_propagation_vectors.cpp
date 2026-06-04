@@ -25,14 +25,20 @@ void create_complex_propagation_vectors(const Parameters& params, Complex& targC
         targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
 
     } else { // box system or inside the sphere (not on the sphere)
-        // Create Gaussian distributed random translational motion
-        targCom.trajTrans.x = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
-        targCom.trajTrans.y = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
-        targCom.trajTrans.z = sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV();
+        // Create Gaussian distributed random translational motion.
+        // Only draw a random number when the corresponding diffusion constant
+        // is nonzero: when D (or Dr) is exactly zero the displacement is
+        // sqrt(2*dt*0)*GaussV() == 0 regardless of the draw, so the GaussV()
+        // call is pure waste. Skipping it avoids hundreds of millions of
+        // unnecessary GaussV() evaluations for systems with frozen
+        // translational/rotational degrees of freedom.
+        targCom.trajTrans.x = (targCom.D.x != 0.0) ? sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV() : 0.0;
+        targCom.trajTrans.y = (targCom.D.y != 0.0) ? sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV() : 0.0;
+        targCom.trajTrans.z = (targCom.D.z != 0.0) ? sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV() : 0.0;
         // create Gaussian distributed random rotational motion
-        targCom.trajRot.x = sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV();
-        targCom.trajRot.y = sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV();
-        targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
+        targCom.trajRot.x = (targCom.Dr.x != 0.0) ? sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV() : 0.0;
+        targCom.trajRot.y = (targCom.Dr.y != 0.0) ? sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV() : 0.0;
+        targCom.trajRot.z = (targCom.Dr.z != 0.0) ? sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV() : 0.0;
     }
 
     //determine RS3Dinput

@@ -8,7 +8,7 @@ double pirr_pfree_ratio_psF_1D(
         /*
         This follows the solution of "semi-permeable boundary condition" for co-localized proteins.
         The PDE should be rewritten as:
-            dp/dt = D d2p/dx2 - kact delta(x) p(x,t)
+            dp/dt = D d2p/dx2 - ka delta(x) p(x,t)
         with initial condition 
             p(x,0) = delta(x - r0)
         The solution is
