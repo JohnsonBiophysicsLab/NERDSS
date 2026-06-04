@@ -33,3 +33,15 @@ rng_state*
 *#
 .ipynb_checkpoints/
 OUTPUT
+
+# Generated outputs inside sample input examples.
+/sample_inputs/**/DATA/**
+!/sample_inputs/**/DATA/.gitkeep
+/sample_inputs/**/PDB/**
+!/sample_inputs/**/PDB/.gitkeep
+/sample_inputs/**/PDBS/**
+!/sample_inputs/**/PDBS/.gitkeep
+/sample_inputs/**/RESTART/**
+!/sample_inputs/**/RESTART/.gitkeep
+/sample_inputs/**/RESTARTS/**
+!/sample_inputs/**/RESTARTS/.gitkeep
