@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NERDSS Association Angle Explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f1eb;
+      --panel: #fffdf9;
+      --panel-2: #f8f5ef;
+      --ink: #1d252b;
+      --muted: #667178;
+      --line: #d8d2c8;
+      --accent: #0b7d77;
+      --accent-soft: #d9efec;
+      --mol1: #d9574f;
+      --mol2: #3478b9;
+      --sigma: #9a6c1f;
+      --normal1: #4b8f52;
+      --normal2: #8961aa;
+      --warn: #a35008;
+      --danger: #a43838;
+      --shadow: 0 14px 36px rgba(35, 42, 47, 0.10);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15191c;
+        --panel: #1d2327;
+        --panel-2: #242b30;
+        --ink: #edf2f4;
+        --muted: #aab5bb;
+        --line: #39444a;
+        --accent: #55c7bf;
+        --accent-soft: #173f3c;
+        --mol1: #f07870;
+        --mol2: #6fa9dc;
+        --sigma: #d0a352;
+        --normal1: #80bc86;
+        --normal2: #b18bd0;
+        --warn: #f0a85f;
+        --danger: #f08a8a;
+        --shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--accent); }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+    .app { max-width: 1440px; margin: 0 auto; padding: 24px; }
+    .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 18px; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    h1 { font-size: clamp(25px, 3vw, 40px); line-height: 1.08; letter-spacing: -.03em; margin: 5px 0 8px; }
+    .subtitle { max-width: 810px; color: var(--muted); margin: 0; }
+    .revision { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); background: var(--panel); font-size: 12px; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(330px, .72fr); gap: 18px; align-items: start; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+    .stage-card { overflow: hidden; }
+    .stage-toolbar { min-height: 58px; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab, .preset, .plain-button {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: var(--panel-2);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .tab[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+    @media (prefers-color-scheme: dark) { .tab[aria-pressed="true"] { color: #102220; } }
+    .plain-button { background: transparent; }
+    .stage-wrap { position: relative; min-height: 570px; background: radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--accent-soft) 42%, transparent), transparent 62%); }
+    canvas { width: 100%; height: 570px; display: block; touch-action: none; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    .webgl-label-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .label-3d { position: absolute; transform: translate(-50%, -50%); padding: 2px 5px; border-radius: 6px; color: var(--ink); background: color-mix(in srgb, var(--panel) 82%, transparent); border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); font-size: 12px; font-weight: 650; white-space: nowrap; box-shadow: 0 2px 7px color-mix(in srgb, var(--ink) 12%, transparent); transition: opacity .12s linear; }
+    .label-3d.axis { padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--muted); }
+    .canvas-help { position: absolute; left: 14px; bottom: 12px; color: var(--muted); font-size: 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; pointer-events: none; }
+    .branch-badge { position: absolute; right: 14px; top: 14px; border-radius: 999px; padding: 7px 10px; background: var(--accent-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); font-size: 12px; }
+    .branch-badge.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 15px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 18px; height: 3px; border-radius: 9px; background: currentColor; }
+    .side { display: grid; gap: 18px; }
+    .section { padding: 17px; }
+    .section h2 { font-size: 16px; margin: 0 0 12px; }
+    .preset-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .preset { font-size: 12px; padding: 7px 9px; }
+    .control { padding: 10px 0; border-top: 1px solid var(--line); }
+    .control:first-of-type { border-top: 0; padding-top: 0; }
+    .control-head { display: grid; grid-template-columns: 54px 1fr auto; gap: 9px; align-items: baseline; margin-bottom: 6px; }
+    .symbol { font-weight: 750; }
+    .meaning { color: var(--muted); font-size: 12px; }
+    .number { font-variant-numeric: tabular-nums; font-size: 12px; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .readout-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+    .readout { padding: 9px 7px; background: var(--panel-2); border-radius: 10px; text-align: center; border: 1px solid transparent; }
+    .readout.active { border-color: var(--accent); background: var(--accent-soft); }
+    .readout .r-label { display: block; color: var(--muted); font-size: 11px; }
+    .readout .r-value { display: block; font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .readout.mismatch .r-value { color: var(--warn); }
+    .trace { background: var(--panel-2); border-radius: 12px; padding: 13px; }
+    .trace-title { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+    .trace-title strong { font-size: 14px; }
+    .trace-title span { color: var(--muted); font-size: 11px; }
+    .equation { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+    .trace-numbers { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+    .trace-numbers b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .notice { margin-top: 11px; padding: 10px 11px; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--ink); font-size: 12px; }
+    .notice.danger { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+    .footer-note { color: var(--muted); font-size: 12px; margin: 12px 2px 0; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .side { grid-template-columns: 1fr 1fr; }
+      .side .wide { grid-column: 1 / -1; }
+    }
+    @media (max-width: 680px) {
+      .app { padding: 14px; }
+      .header { display: block; }
+      .revision { display: inline-block; margin-top: 12px; }
+      .side { grid-template-columns: 1fr; }
+      .side .wide { grid-column: auto; }
+      .stage-wrap { min-height: 430px; }
+      canvas { height: 430px; }
+      .readout-grid { grid-template-columns: repeat(3, 1fr); }
+      .canvas-help { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <div class="eyebrow">Source-derived geometry</div>
+        <h1>NERDSS association angle explorer</h1>
+        <p class="subtitle">Inspect θ₁, θ₂, φ₁, φ₂, and ω using the ordered vectors and cross-product sign test in the live C++ source. Drag the scene to orbit; select an angle to expose its exact operands.</p>
+      </div>
+      <a class="revision" href="https://github.com/JohnsonBiophysicsLab/NERDSS/tree/260f6e2a861bd666cbeb6e54cd760d96947820ae">master · 260f6e2</a>
+    </header>
+
+    <div class="workspace">
+      <section class="card stage-card" aria-label="Interactive three-dimensional association geometry">
+        <div class="stage-toolbar">
+          <div class="tabs" role="group" aria-label="Select angle">
+            <button class="tab" data-angle="theta1" aria-pressed="true">θ₁</button>
+            <button class="tab" data-angle="theta2" aria-pressed="false">θ₂</button>
+            <button class="tab" data-angle="phi1" aria-pressed="false">φ₁</button>
+            <button class="tab" data-angle="phi2" aria-pressed="false">φ₂</button>
+            <button class="tab" data-angle="omega" aria-pressed="false">ω</button>
+          </div>
+          <button id="resetView" class="plain-button" type="button">Reset view</button>
+        </div>
+        <div class="stage-wrap">
+          <canvas id="scene" aria-label="Three-dimensional diagram of two reactants, interfaces, normals, sigma, and the selected association angle"></canvas>
+          <div id="labelLayer" class="webgl-label-layer" aria-hidden="true"></div>
+          <div id="branchBadge" class="branch-badge">ordinary COM–interface branch</div>
+          <div class="canvas-help">WebGL · drag to orbit · wheel to zoom</div>
+        </div>
+        <div class="legend" aria-label="Diagram legend">
+          <span style="color:var(--mol1)"><i class="swatch"></i>reactant 1 / b₁</span>
+          <span style="color:var(--mol2)"><i class="swatch"></i>reactant 2 / b₂</span>
+          <span style="color:var(--sigma)"><i class="swatch"></i>sigma (I₂ → I₁)</span>
+          <span style="color:var(--normal1)"><i class="swatch"></i>normal n₁</span>
+          <span style="color:var(--normal2)"><i class="swatch"></i>normal n₂</span>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card section wide">
+          <h2>Geometry presets</h2>
+          <div class="preset-row">
+            <button class="preset" data-preset="general">General 3D</button>
+            <button class="preset" data-preset="signed">Negative signs</button>
+            <button class="preset" data-preset="pi">θ ≈ π fallback</button>
+            <button class="preset" data-preset="zero">θ = 0 singularity</button>
+          </div>
+        </section>
+
+        <section class="card section" id="controls">
+          <h2>Target angles</h2>
+          <div class="control">
+            <div class="control-head"><label class="symbol" for="theta1">θ₁</label><span class="meaning">s₁ versus b₁</span><span class="number" id="theta1Value"></span></div>
+            <input id="theta1" type="range" min="0" max="180" step="0.1" value="58">
+          </div>
+          <div class="control">
+            <div class="control-head"><label class="symbol" for="theta2">θ₂</label><span class="meaning">s₂ versus b₂</span><span class="number" id="theta2Value"></span></div>
+            <input id="theta2" type="range" min="0" max="180" step="0.1" value="72">
+          </div>
+          <div class="control">
+            <div class="control-head"><label class="symbol" for="phi1">φ₁</label><span class="meaning">s₁ → n₁ about b₁</span><span class="number" id="phi1Value"></span></div>
+            <input id="phi1" type="range" min="-180" max="180" step="1" value="45">
+          </div>
+          <div class="control">
+            <div class="control-head"><label class="symbol" for="phi2">φ₂</label><span class="meaning">s₂ → n₂ about b₂</span><span class="number" id="phi2Value"></span></div>
+            <input id="phi2" type="range" min="-180" max="180" step="1" value="-35">
+          </div>
+          <div class="control">
+            <div class="control-head"><label class="symbol" for="omega">ω</label><span class="meaning">b₁ → b₂ about s₁</span><span class="number" id="omegaValue"></span></div>
+            <input id="omega" type="range" min="-180" max="180" step="1" value="70">
+          </div>
+        </section>
+
+        <section class="card section">
+          <h2>Code-reported values</h2>
+          <div id="readouts" class="readout-grid"></div>
+          <p class="footer-note">A highlighted mismatch is expected when the selected preset enters a source singularity or omega's normal-vector fallback.</p>
+        </section>
+
+        <section class="card section wide">
+          <h2>Selected-angle trace</h2>
+          <div class="trace">
+            <div class="trace-title"><strong id="traceName"></strong><span id="traceRange"></span></div>
+            <div class="equation" id="traceEquation"></div>
+            <div class="trace-numbers" id="traceNumbers"></div>
+          </div>
+          <div id="notice" class="notice" hidden></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+    const PI = Math.PI;
+    const RAD = PI / 180;
+    const ids = ['theta1', 'theta2', 'phi1', 'phi2', 'omega'];
+    const labels = {theta1:'θ₁', theta2:'θ₂', phi1:'φ₁', phi2:'φ₂', omega:'ω'};
+    const colors = {};
+    const rootStyle = getComputedStyle(document.documentElement);
+    ['ink','muted','line','accent','mol1','mol2','sigma','normal1','normal2','panel'].forEach(k => colors[k] = rootStyle.getPropertyValue('--' + k).trim());
+
+    const canvas = document.getElementById('scene');
+    const labelLayer = document.getElementById('labelLayer');
+    const gl = canvas.getContext('webgl', {antialias:true, alpha:true, premultipliedAlpha:false});
+    if (!gl) {
+      labelLayer.innerHTML = '<div class="label-3d" style="left:50%;top:50%">WebGL is unavailable in this browser.</div>';
+      return;
+    }
+    canvas.dataset.renderer = 'webgl-depth-tested';
+    const state = { selected: 'theta1', yaw: -0.66, pitch: 0.36, zoom: 1, dragging: false, lastX: 0, lastY: 0 };
+    const V = {
+      add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+      sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+      mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+      dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+      cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+      mag:a=>Math.hypot(a[0],a[1],a[2]),
+      unit:a=>{ const m=Math.hypot(a[0],a[1],a[2]); return m<1e-14?[0,0,0]:[a[0]/m,a[1]/m,a[2]/m]; },
+      project:(a,k)=>{ const u=V.unit(k); return V.sub(a,V.mul(u,V.dot(a,u))); }
+    };
+    const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
+    const angle = (a,b) => {
+      const ma=V.mag(a), mb=V.mag(b);
+      if (ma<1e-8 || mb<1e-8) return {value:0, zero:true};
+      return {value:Math.acos(clamp(V.dot(a,b)/(ma*mb),-1,1)), zero:false};
+    };
+    const rodrigues = (v, axis, a) => {
+      const k=V.unit(axis), c=Math.cos(a), s=Math.sin(a);
+      return V.add(V.add(V.mul(v,c),V.mul(V.cross(k,v),s)),V.mul(k,V.dot(k,v)*(1-c)));
+    };
+    function cppTransform(v, axis) {
+      const z=[0,0,1], u=V.unit(axis);
+      const ang=angle(z,u).value;
+      if (Math.abs(ang)<1e-14 || Math.abs(ang-PI)<1e-14) return v.slice();
+      const rotAxis=V.unit(V.cross(z,u));
+      return rodrigues(v,rotAxis,-ang);
+    }
+    function signedProjectedCpp(a,b,axis,tol) {
+      const ta=cppTransform(a,axis), tb=cppTransform(b,axis);
+      const pa=[ta[0],ta[1],0], pb=[tb[0],tb[1],0];
+      const unsigned=angle(pa,pb);
+      const crossZ=V.cross(pa,pb)[2];
+      let value=unsigned.value;
+      if (crossZ>0 && Math.abs(value)>tol && PI-Math.abs(value)>tol) value=-value;
+      return {value, unsigned:unsigned.value, crossZ, magA:V.mag(pa), magB:V.mag(pb), zero:unsigned.zero};
+    }
+    function safePlaneDirection(v,axis) {
+      let p=V.project(v,axis);
+      if (V.mag(p)<1e-8) {
+        const candidate=Math.abs(V.unit(axis)[0])<0.9?[1,0,0]:[0,1,0];
+        p=V.cross(axis,candidate);
+      }
+      return V.unit(p);
+    }
+    function inputs() {
+      return Object.fromEntries(ids.map(id=>[id,Number(document.getElementById(id).value)*RAD]));
+    }
+    function geometry() {
+      const q=inputs(), I1=[0,0,1.25], I2=[0,0,-1.25], s1=V.sub(I1,I2), s2=V.mul(s1,-1);
+      const b1=V.unit([Math.sin(q.theta1),0,Math.cos(q.theta1)]);
+      const az=-q.omega;
+      const b2=V.unit([Math.sin(q.theta2)*Math.cos(az),Math.sin(q.theta2)*Math.sin(az),-Math.cos(q.theta2)]);
+      const C1=V.sub(I1,V.mul(b1,1.7)), C2=V.sub(I2,V.mul(b2,1.7));
+      const p1=safePlaneDirection(s1,b1), p2=safePlaneDirection(s2,b2);
+      const n1=V.unit(rodrigues(p1,b1,-q.phi1));
+      const n2=V.unit(rodrigues(p2,b2,-q.phi2));
+      const theta1=angle(s1,b1), theta2=angle(s2,b2);
+      const phi1=signedProjectedCpp(s1,n1,b1,1e-12);
+      const phi2=signedProjectedCpp(s2,n2,b2,1e-12);
+      const special=Math.abs(q.theta1-PI)<1e-4 || Math.abs(q.theta2-PI)<1e-4;
+      const omega=special?signedProjectedCpp(n1,n2,s1,1e-11):signedProjectedCpp(b1,b2,s1,1e-11);
+      return {q,I1,I2,s1,s2,b1,b2,C1,C2,n1,n2,p1,p2,special,calc:{theta1:{value:theta1.value,zero:theta1.zero},theta2:{value:theta2.value,zero:theta2.zero},phi1,phi2,omega}};
+    }
+    function compileShader(type, source) {
+      const shader=gl.createShader(type); gl.shaderSource(shader,source); gl.compileShader(shader);
+      if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+    function createProgram(vertexSource, fragmentSource) {
+      const program=gl.createProgram();
+      gl.attachShader(program,compileShader(gl.VERTEX_SHADER,vertexSource));
+      gl.attachShader(program,compileShader(gl.FRAGMENT_SHADER,fragmentSource));
+      gl.linkProgram(program);
+      if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+      return program;
+    }
+    const webglProgram=createProgram(
+      'attribute vec3 aPosition; attribute vec3 aNormal; attribute vec4 aColor; uniform mat4 uView; uniform mat4 uProjection; varying vec3 vNormal; varying vec3 vViewPos; varying vec4 vColor; void main(){vec4 vp=uView*vec4(aPosition,1.0);vViewPos=vp.xyz;vNormal=mat3(uView)*aNormal;vColor=aColor;gl_Position=uProjection*vp;}',
+      'precision mediump float; varying vec3 vNormal; varying vec3 vViewPos; varying vec4 vColor; void main(){vec3 n=normalize(vNormal);vec3 l=normalize(vec3(-0.35,0.75,0.65));vec3 viewDir=normalize(-vViewPos);float diffuse=max(dot(n,l),0.0);float spec=pow(max(dot(n,normalize(l+viewDir)),0.0),28.0)*0.28;float rim=pow(1.0-max(dot(n,viewDir),0.0),2.0)*0.18;float light=0.40+0.60*diffuse+spec+rim;gl_FragColor=vec4(vColor.rgb*light,vColor.a);}'
+    );
+    const webglLoc={
+      position:gl.getAttribLocation(webglProgram,'aPosition'), normal:gl.getAttribLocation(webglProgram,'aNormal'), color:gl.getAttribLocation(webglProgram,'aColor'),
+      view:gl.getUniformLocation(webglProgram,'uView'), projection:gl.getUniformLocation(webglProgram,'uProjection')
+    };
+    const webglBuffers={position:gl.createBuffer(),normal:gl.createBuffer(),color:gl.createBuffer(),index:gl.createBuffer()};
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+
+    function color4(value,alpha=1) {
+      const s=value.trim();
+      if(s[0]==='#') {
+        const h=s.length===4?s.slice(1).split('').map(x=>x+x).join(''):s.slice(1);
+        return [parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255,alpha];
+      }
+      const m=s.match(/[\d.]+/g); return m?[+m[0]/255,+m[1]/255,+m[2]/255,alpha]:[.6,.6,.6,alpha];
+    }
+    function perspective(fovy,aspect,near,far) {
+      const f=1/Math.tan(fovy/2), nf=1/(near-far);
+      return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*nf,-1,0,0,2*far*near*nf,0]);
+    }
+    function lookAt(eye,target,up) {
+      const z=V.unit(V.sub(eye,target)), x=V.unit(V.cross(up,z)), y=V.cross(z,x);
+      return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-V.dot(x,eye),-V.dot(y,eye),-V.dot(z,eye),1]);
+    }
+    function multiply4(a,b) {
+      const out=new Float32Array(16);
+      for(let c=0;c<4;c++) for(let r=0;r<4;r++) out[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
+      return out;
+    }
+    function cameraMatrices() {
+      const distance=7.2/state.zoom, cp=Math.cos(state.pitch);
+      const eye=[distance*cp*Math.sin(state.yaw),distance*Math.sin(state.pitch),distance*cp*Math.cos(state.yaw)];
+      const view=lookAt(eye,[0,0,-.15],[0,1,0]);
+      const projection=perspective(42*RAD,Math.max(1e-4,canvas.width/canvas.height),.1,50);
+      return {eye,view,projection,mvp:multiply4(projection,view)};
+    }
+    function newMesh(){return {positions:[],normals:[],colors:[],indices:[]};}
+    function vertex(mesh,p,n,c){const i=mesh.positions.length/3;mesh.positions.push(...p);mesh.normals.push(...n);mesh.colors.push(...c);return i;}
+    function addSphere(mesh,center,radius,color,lat=12,lon=18) {
+      const c=color4(color);
+      for(let i=0;i<=lat;i++){
+        const t=i*PI/lat, st=Math.sin(t), ct=Math.cos(t);
+        for(let j=0;j<=lon;j++){
+          const p=j*2*PI/lon, n=[st*Math.cos(p),st*Math.sin(p),ct]; vertex(mesh,V.add(center,V.mul(n,radius)),n,c);
+        }
+      }
+      const start=mesh.positions.length/3-(lat+1)*(lon+1);
+      for(let i=0;i<lat;i++)for(let j=0;j<lon;j++){const a=start+i*(lon+1)+j,b=a+lon+1;mesh.indices.push(a,b,a+1,b,b+1,a+1);}
+    }
+    function frameFor(axis) {
+      const u=V.unit(axis), ref=Math.abs(u[2])<.88?[0,0,1]:[0,1,0], e1=V.unit(V.cross(u,ref)), e2=V.cross(u,e1);
+      return {u,e1,e2};
+    }
+    function addCylinder(mesh,a,b,radius,color,segments=14,alpha=1) {
+      const d=V.sub(b,a), len=V.mag(d); if(len<1e-8)return;
+      const {e1,e2}=frameFor(d), c=color4(color,alpha), start=mesh.positions.length/3;
+      for(let ring=0;ring<2;ring++)for(let i=0;i<=segments;i++){
+        const q=i*2*PI/segments, n=V.add(V.mul(e1,Math.cos(q)),V.mul(e2,Math.sin(q)));
+        vertex(mesh,V.add(ring?b:a,V.mul(n,radius)),n,c);
+      }
+      for(let i=0;i<segments;i++){const p=start+i,q=p+segments+1;mesh.indices.push(p,q,p+1,q,q+1,p+1);}
+    }
+    function addCone(mesh,base,tip,radius,color,segments=16) {
+      const d=V.sub(tip,base), h=V.mag(d); if(h<1e-8)return;
+      const {u,e1,e2}=frameFor(d), c=color4(color), start=mesh.positions.length/3;
+      for(let i=0;i<segments;i++){
+        const q=i*2*PI/segments, radial=V.add(V.mul(e1,Math.cos(q)),V.mul(e2,Math.sin(q)));
+        const n=V.unit(V.add(V.mul(radial,h),V.mul(u,radius)));
+        vertex(mesh,V.add(base,V.mul(radial,radius)),n,c); vertex(mesh,tip,n,c);
+      }
+      for(let i=0;i<segments;i++){const ni=(i+1)%segments;mesh.indices.push(start+i*2,start+ni*2,start+i*2+1);}
+    }
+    function addArrow(mesh,a,b,color,radius=.025) {
+      const d=V.sub(b,a), len=V.mag(d); if(len<1e-8)return;
+      const u=V.unit(d), head=Math.min(.24,len*.28), base=V.sub(b,V.mul(u,head));
+      addCylinder(mesh,a,base,radius,color); addCone(mesh,base,b,radius*2.7,color);
+    }
+    function addArc(mesh,center,u,axis,standardAngle,radius,color) {
+      if(!Number.isFinite(standardAngle)||V.mag(u)<1e-8)return;
+      let k=axis;
+      if(V.mag(k)<1e-8){const uu=V.unit(u),ref=Math.abs(uu[0])<.9?[1,0,0]:[0,1,0];k=V.cross(uu,ref);}
+      let prev=V.add(center,V.mul(V.unit(u),radius));
+      const steps=Math.max(8,Math.ceil(Math.abs(standardAngle)*22));
+      for(let i=1;i<=steps;i++){
+        const next=V.add(center,V.mul(rodrigues(V.unit(u),k,standardAngle*i/steps),radius));
+        addCylinder(mesh,prev,next,.036,color,10); prev=next;
+      }
+      if(steps>1){const before=V.add(center,V.mul(rodrigues(V.unit(u),k,standardAngle*(steps-1)/steps),radius));addCone(mesh,V.sub(prev,V.mul(V.unit(V.sub(prev,before)),.13)),prev,.085,color,12);}
+    }
+    function addPlane(mesh,z,color) {
+      const c=color4(color,.24), n=[0,0,1], s=3.05, start=mesh.positions.length/3;
+      vertex(mesh,[-s,-s,z],n,c);vertex(mesh,[s,-s,z],n,c);vertex(mesh,[s,s,z],n,c);vertex(mesh,[-s,s,z],n,c);mesh.indices.push(start,start+1,start+2,start,start+2,start+3);
+    }
+    function addGrid(mesh) {
+      addPlane(mesh,-1.59,colors.panel);
+      for(let i=-3;i<=3;i++){addCylinder(mesh,[-3,i,-1.56],[3,i,-1.56],.007,colors.line,8,.5);addCylinder(mesh,[i,-3,-1.56],[i,3,-1.56],.007,colors.line,8,.5);}
+      addArrow(mesh,[0,0,-1.52],[1.15,0,-1.52],colors.muted,.015);addArrow(mesh,[0,0,-1.52],[0,1.15,-1.52],colors.muted,.015);addArrow(mesh,[0,0,-1.52],[0,0,.12],colors.muted,.015);
+    }
+    function uploadAttribute(buffer,location,size,data) {
+      gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,0,0);
+    }
+    function renderMesh(mesh,matrices) {
+      gl.useProgram(webglProgram);uploadAttribute(webglBuffers.position,webglLoc.position,3,mesh.positions);uploadAttribute(webglBuffers.normal,webglLoc.normal,3,mesh.normals);uploadAttribute(webglBuffers.color,webglLoc.color,4,mesh.colors);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,webglBuffers.index);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(mesh.indices),gl.DYNAMIC_DRAW);
+      gl.uniformMatrix4fv(webglLoc.view,false,matrices.view);gl.uniformMatrix4fv(webglLoc.projection,false,matrices.projection);gl.drawElements(gl.TRIANGLES,mesh.indices.length,gl.UNSIGNED_SHORT,0);
+    }
+    const labelNodes=new Map();
+    function clipPoint(v,m) {
+      const x=v[0],y=v[1],z=v[2],cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cz=m[2]*x+m[6]*y+m[10]*z+m[14],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
+      return [cx/cw,cy/cw,cz/cw,cw];
+    }
+    function placeLabels(g,mvp) {
+      const list=[['C1','C₁',g.C1,colors.mol1,'',18,-16],['C2','C₂',g.C2,colors.mol2,'',18,-16],['I1','I₁',g.I1,colors.mol1,'',16,-14],['I2','I₂',g.I2,colors.mol2,'',16,-14],['sigma','σ · I₂ → I₁',V.add(g.I2,V.mul(g.s1,.52)),colors.sigma,'',0,-18],['x','x',[1.23,0,-1.52],colors.muted,'axis',8,-7],['y','y',[0,1.23,-1.52],colors.muted,'axis',8,-7],['z','z',[0,0,.2],colors.muted,'axis',8,-7]];
+      const rect=canvas.getBoundingClientRect(), active=new Set();
+      for(const [key,textValue,p,color,kind,dx,dy] of list){active.add(key);let node=labelNodes.get(key);if(!node){node=document.createElement('span');labelNodes.set(key,node);labelLayer.appendChild(node);}node.className='label-3d'+(kind?' '+kind:'');node.textContent=textValue;node.style.color=color;const q=clipPoint(p,mvp),visible=q[3]>0&&q[2]>-1&&q[2]<1;node.style.display=visible?'block':'none';if(visible){node.style.left=((q[0]*.5+.5)*rect.width+dx)+'px';node.style.top=((1-(q[1]*.5+.5))*rect.height+dy)+'px';const scale=clamp(1.08-q[2]*.18,.78,1.16);node.style.transform='translate(-50%, -50%) scale('+scale+')';node.style.zIndex=String(Math.round(1000-q[2]*400));node.style.opacity=String(clamp(1.08-q[2]*.25,.62,1));}}
+      for(const [key,node] of labelNodes)if(!active.has(key))node.remove();
+    }
+    function resize() {
+      const rect=canvas.getBoundingClientRect(), dpr=Math.min(devicePixelRatio||1,2);
+      canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);gl.viewport(0,0,canvas.width,canvas.height);draw();
+    }
+    function draw() {
+      const g=geometry(),sel=state.selected,mesh=newMesh(),gridMesh=newMesh(),matrices=cameraMatrices();addGrid(gridMesh);
+      addCylinder(mesh,g.C1,g.I1,(sel==='theta1'||sel==='omega')?.055:.038,colors.mol1);addCylinder(mesh,g.C2,g.I2,(sel==='theta2'||sel==='omega')?.055:.038,colors.mol2);
+      addArrow(mesh,g.I2,g.I1,colors.sigma,(sel.startsWith('theta')||sel.startsWith('phi')||sel==='omega')?.045:.03);
+      addArrow(mesh,g.I1,V.add(g.I1,V.mul(g.n1,1.15)),colors.normal1,(sel==='phi1'||(sel==='omega'&&g.special))?.043:.028);
+      addArrow(mesh,g.I2,V.add(g.I2,V.mul(g.n2,1.15)),colors.normal2,(sel==='phi2'||(sel==='omega'&&g.special))?.043:.028);
+      addSphere(mesh,g.C1,.15,colors.mol1);addSphere(mesh,g.C2,.15,colors.mol2);addSphere(mesh,g.I1,.115,colors.mol1);addSphere(mesh,g.I2,.115,colors.mol2);
+      if(sel==='theta1')addArc(mesh,g.I1,g.s1,V.cross(g.s1,g.b1),g.calc.theta1.value,.5,colors.accent);
+      if(sel==='theta2')addArc(mesh,g.I2,g.s2,V.cross(g.s2,g.b2),g.calc.theta2.value,.5,colors.accent);
+      if(sel==='phi1'&&!g.calc.phi1.zero)addArc(mesh,g.I1,V.project(g.s1,g.b1),g.b1,-g.calc.phi1.value,.52,colors.accent);
+      if(sel==='phi2'&&!g.calc.phi2.zero)addArc(mesh,g.I2,V.project(g.s2,g.b2),g.b2,-g.calc.phi2.value,.52,colors.accent);
+      if(sel==='omega'&&!g.calc.omega.zero){const a=g.special?g.n1:g.b1;addArc(mesh,[0,0,0],V.project(a,g.s1),g.s1,-g.calc.omega.value,.75,colors.accent);}
+      gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+      renderMesh(mesh,matrices);
+      gl.depthMask(false);renderMesh(gridMesh,matrices);gl.depthMask(true);
+      placeLabels(g,matrices.mvp);updateUI(g);
+    }
+    function fmtDeg(x) { return (x/RAD).toFixed(Math.abs(x/RAD)<10?1:0)+'°'; }
+    function fmtRad(x) { return x.toFixed(4); }
+    function fmtNum(x) { return Math.abs(x)<5e-13?'0.0000':x.toFixed(4); }
+    function updateUI(g) {
+      ids.forEach(id=>document.getElementById(id+'Value').textContent=fmtDeg(g.q[id])+' · '+fmtRad(g.q[id])+' rad');
+      const readouts=document.getElementById('readouts'); readouts.innerHTML='';
+      ids.forEach(id=>{
+        const calc=g.calc[id].value, mismatch=Math.abs(Math.atan2(Math.sin(calc-g.q[id]),Math.cos(calc-g.q[id])))>.002;
+        const d=document.createElement('div'); d.className='readout'+(id===state.selected?' active':'')+(mismatch?' mismatch':'');
+        d.innerHTML='<span class="r-label">'+labels[id]+'</span><span class="r-value">'+fmtDeg(calc)+'</span>'; readouts.appendChild(d);
+      });
+      const badge=document.getElementById('branchBadge');
+      const anyZero=Object.values(g.calc).some(x=>x.zero);
+      badge.textContent=g.special?'ω uses n₁ / n₂ (θ ≈ π)':(anyZero?'zero projection → C++ returns 0':'ordinary COM–interface branch');
+      badge.className='branch-badge'+(anyZero?' warn':'');
+      updateTrace(g);
+    }
+    function updateTrace(g) {
+      const id=state.selected, c=g.calc[id], title=document.getElementById('traceName'), range=document.getElementById('traceRange');
+      const eq=document.getElementById('traceEquation'), nums=document.getElementById('traceNumbers'), notice=document.getElementById('notice');
+      title.textContent=labels[id]+' source trace'; notice.hidden=true; notice.className='notice';
+      if(id.startsWith('theta')) {
+        const i=id.endsWith('1')?'1':'2', s=i==='1'?g.s1:g.s2, b=i==='1'?g.b1:g.b2;
+        const cos=V.dot(s,b)/(V.mag(s)*V.mag(b)); range.textContent='unsigned · [0, π]';
+        eq.innerHTML='s<sub>'+i+'</sub> = I<sub>'+i+'</sub> − I<sub>'+(i==='1'?'2':'1')+'</sub><br>b<sub>'+i+'</sub> = I<sub>'+i+'</sub> − C<sub>'+i+'</sub><br>'+labels[id]+' = acos((s<sub>'+i+'</sub> · b<sub>'+i+'</sub>)/(|s<sub>'+i+'</sub>||b<sub>'+i+'</sub>|))';
+        nums.innerHTML='<span>normalized dot</span><b>'+fmtNum(cos)+'</b><span>reported</span><b>'+fmtDeg(c.value)+' / '+fmtRad(c.value)+' rad</b>';
+      } else {
+        let a,b,k,an,bn,kn,branch='project → acos → cross-z sign';
+        if(id==='phi1'){a=g.s1;b=g.n1;k=g.b1;an='s₁';bn='n₁';kn='b₁';}
+        if(id==='phi2'){a=g.s2;b=g.n2;k=g.b2;an='s₂';bn='n₂';kn='b₂';}
+        if(id==='omega'){
+          a=g.special?g.n1:g.b1; b=g.special?g.n2:g.b2; k=g.s1;
+          an=g.special?'n₁':'b₁'; bn=g.special?'n₂':'b₂'; kn='s₁'; branch=g.special?'θ target near π → use both normals':'ordinary → use both COM–interface arms';
+        }
+        range.textContent='signed · [−π, π], endpoint +π';
+        eq.innerHTML='axis '+kn+' → +z; project '+an+', '+bn+' to xy<br>α = acos('+an+'⊥ · '+bn+'⊥ / magnitudes)<br>if (('+an+'⊥ × '+bn+'⊥)<sub>z</sub> &gt; 0) return −α; else +α';
+        nums.innerHTML='<span>branch</span><b>'+branch+'</b><span>projected |a| / |b|</span><b>'+fmtNum(c.magA)+' / '+fmtNum(c.magB)+'</b><span>cross z</span><b>'+fmtNum(c.crossZ)+'</b><span>unsigned α</span><b>'+fmtDeg(c.unsigned)+'</b><span>reported</span><b>'+fmtDeg(c.value)+' / '+fmtRad(c.value)+' rad</b>';
+        if(c.zero) {
+          notice.hidden=false; notice.className='notice danger';
+          notice.textContent='Singularity: at least one projected vector is shorter than 1E−8. The mathematical dihedral is undefined, but Vector::dot_theta warns and the live C++ returns 0.0.';
+        } else if(id==='omega'&&g.special) {
+          notice.hidden=false; notice.textContent='Special branch: areSameAngle compares each target θ to π with tolerance 1E−4 rad. If either matches, calculate_omega substitutes both oriented normals for b₁ and b₂.';
+        }
+      }
+    }
+    document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+      state.selected=btn.dataset.angle; document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-pressed',String(b===btn))); draw();
+    }));
+    ids.forEach(id=>document.getElementById(id).addEventListener('input',draw));
+    const presets={
+      general:{theta1:58,theta2:72,phi1:45,phi2:-35,omega:70},
+      signed:{theta1:65,theta2:48,phi1:-70,phi2:-110,omega:-95},
+      pi:{theta1:179.999,theta2:76,phi1:0,phi2:35,omega:80},
+      zero:{theta1:0,theta2:62,phi1:80,phi2:-30,omega:50}
+    };
+    document.querySelectorAll('.preset').forEach(btn=>btn.addEventListener('click',()=>{
+      const p=presets[btn.dataset.preset]; ids.forEach(id=>document.getElementById(id).value=p[id]); draw();
+    }));
+    document.getElementById('resetView').addEventListener('click',()=>{ state.yaw=-.66; state.pitch=.36; state.zoom=1; draw(); });
+    canvas.addEventListener('pointerdown',e=>{state.dragging=true;state.lastX=e.clientX;state.lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
+    canvas.addEventListener('pointermove',e=>{if(!state.dragging)return;state.yaw+=(e.clientX-state.lastX)*.008;state.pitch=clamp(state.pitch+(e.clientY-state.lastY)*.008,-1.25,1.25);state.lastX=e.clientX;state.lastY=e.clientY;draw();});
+    canvas.addEventListener('pointerup',()=>state.dragging=false); canvas.addEventListener('pointercancel',()=>state.dragging=false);
+    canvas.addEventListener('wheel',e=>{e.preventDefault();state.zoom=clamp(state.zoom*Math.exp(-e.deltaY*.001),.65,1.6);draw();},{passive:false});
+    new ResizeObserver(resize).observe(canvas); resize();
+  })();
+  </script>
+</body>
+</html>
