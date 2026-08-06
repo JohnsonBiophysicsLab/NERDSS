@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <random>
@@ -165,6 +166,18 @@ double relativeError(double actual, double expected) {
   return std::fabs(actual - expected) / std::max(1.0, std::fabs(expected));
 }
 
+std::uint64_t doubleBits(double value) {
+  static_assert(sizeof(double) == sizeof(std::uint64_t),
+                "bitwise validation requires a 64-bit double");
+  std::uint64_t bits = 0;
+  std::memcpy(&bits, &value, sizeof(bits));
+  return bits;
+}
+
+std::size_t bitMismatch(double actual, double expected) {
+  return doubleBits(actual) != doubleBits(expected);
+}
+
 std::vector<ReactionPair> makePairs(std::size_t n) {
   std::mt19937_64 generator(0x4e4552445353ULL);
   std::uniform_real_distribution<double> coordinate(-500, 500), offset(-12, 12);
@@ -249,12 +262,14 @@ std::vector<int> threadCounts() {
 
 void printRow(const char* stage, std::size_t n, int threads, int reps,
               int trials, double serialMs, double openMpMs, double maxError,
-              std::size_t mismatches) {
+              std::size_t numericValues, std::size_t bitMismatches,
+              std::size_t discreteValues, std::size_t discreteMismatches) {
   std::cout << stage << ',' << n << ',' << threads << ',' << reps << ','
             << trials << ',' << serialMs << ',' << openMpMs << ','
             << serialMs / openMpMs << ','
             << serialMs / openMpMs / threads << ',' << maxError << ','
-            << mismatches << '\n';
+            << numericValues << ',' << bitMismatches << ',' << discreteValues
+            << ',' << discreteMismatches << '\n';
 }
 
 void benchmarkReaction(std::size_t n, const std::vector<int>& threads,
@@ -271,18 +286,26 @@ void benchmarkReaction(std::size_t n, const std::vector<int>& threads,
     const double openMpMs = medianMilliseconds(
         [&] { reactionOpenMp(input, parallel, .1, count); }, reps, trials);
     double maxError = 0;
-    std::size_t mismatches = 0;
+    std::size_t bitMismatches = 0;
+    std::size_t discreteMismatches = 0;
     for (std::size_t k = 0; k < n; ++k) {
       maxError = std::max({maxError,
           relativeError(parallel[k].distance, serial[k].distance),
           relativeError(parallel[k].separation, serial[k].separation),
           relativeError(parallel[k].effectiveDiffusion,
                         serial[k].effectiveDiffusion)});
-      mismatches += parallel[k].withinRmax != serial[k].withinRmax;
+      bitMismatches += bitMismatch(parallel[k].distance, serial[k].distance);
+      bitMismatches += bitMismatch(parallel[k].separation, serial[k].separation);
+      bitMismatches += bitMismatch(parallel[k].effectiveDiffusion,
+                                   serial[k].effectiveDiffusion);
+      discreteMismatches += parallel[k].withinRmax != serial[k].withinRmax;
     }
     printRow("reaction", n, count, reps, trials, serialMs, openMpMs,
-             maxError, mismatches);
-    if (maxError > 1e-12 || mismatches != 0) std::exit(3);
+             maxError, 3 * n, bitMismatches, n, discreteMismatches);
+    if (maxError > 1e-12 || bitMismatches != 0 ||
+        discreteMismatches != 0) {
+      std::exit(3);
+    }
   }
 }
 
@@ -307,24 +330,40 @@ void benchmarkPropagation(std::size_t n, const std::vector<int>& threads,
                                 count); },
         reps, trials);
     double maxError = 0;
-    std::size_t mismatches = 0;
+    std::size_t bitMismatches = 0;
+    std::size_t discreteMismatches = 0;
     for (std::size_t k = 0; k < motions.size(); ++k) {
       maxError = std::max({maxError,
           relativeError(parallelQuaternions[k].x, serialQuaternions[k].x),
           relativeError(parallelQuaternions[k].y, serialQuaternions[k].y),
           relativeError(parallelQuaternions[k].z, serialQuaternions[k].z),
           relativeError(parallelQuaternions[k].w, serialQuaternions[k].w)});
+      bitMismatches += bitMismatch(parallelQuaternions[k].x,
+                                   serialQuaternions[k].x);
+      bitMismatches += bitMismatch(parallelQuaternions[k].y,
+                                   serialQuaternions[k].y);
+      bitMismatches += bitMismatch(parallelQuaternions[k].z,
+                                   serialQuaternions[k].z);
+      bitMismatches += bitMismatch(parallelQuaternions[k].w,
+                                   serialQuaternions[k].w);
     }
     for (std::size_t k = 0; k < n; ++k) {
       maxError = std::max({maxError,
           relativeError(parallel[k].x, serial[k].x),
           relativeError(parallel[k].y, serial[k].y),
           relativeError(parallel[k].z, serial[k].z)});
-      mismatches += parallel[k].complex != serial[k].complex;
+      bitMismatches += bitMismatch(parallel[k].x, serial[k].x);
+      bitMismatches += bitMismatch(parallel[k].y, serial[k].y);
+      bitMismatches += bitMismatch(parallel[k].z, serial[k].z);
+      discreteMismatches += parallel[k].complex != serial[k].complex;
     }
     printRow("propagation", n, count, reps, trials, serialMs, openMpMs,
-             maxError, mismatches);
-    if (maxError > 1e-12 || mismatches != 0) std::exit(3);
+             maxError, 4 * motions.size() + 3 * n, bitMismatches, n,
+             discreteMismatches);
+    if (maxError > 1e-12 || bitMismatches != 0 ||
+        discreteMismatches != 0) {
+      std::exit(3);
+    }
   }
 }
 
@@ -347,7 +386,9 @@ int main(int argc, char** argv) {
             << ",schedule=static,trials=" << trials
             << ",precision=double,points_per_complex=4\n"
             << "stage,n,threads,repetitions,trials,serial_ms,openmp_ms,"
-               "speedup,efficiency,max_relative_error,id_or_flag_mismatches\n";
+               "speedup,efficiency,max_relative_error,numeric_values_checked,"
+               "numeric_bit_mismatches,discrete_values_checked,"
+               "id_or_flag_mismatches\n";
   for (const auto n : sizes) benchmarkReaction(n, threads, trials);
   for (const auto n : sizes) benchmarkPropagation(n, threads, trials);
 }
