@@ -20,7 +20,10 @@
 #include "parser/parser_functions.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -36,6 +39,20 @@ std::vector<int> Molecule::emptyMolList{};
 std::vector<int> Complex::obs{};
 
 int propCalled = 0;
+
+#ifdef NERDSS_USE_OPENMP
+namespace {
+std::size_t propagation_openmp_threshold() {
+  static const std::size_t value = [] {
+    const char* text = std::getenv("NERDSS_OMP_MIN_COMPLEX_MEMBERS");
+    if (text == nullptr || *text == '\0') return std::size_t{32};
+    const unsigned long parsed = std::strtoul(text, nullptr, 10);
+    return std::max<std::size_t>(1, parsed);
+  }();
+  return value;
+}
+}  // namespace
+#endif
 
 bool skipLine(std::string line) {
   // check if the line is a comment or empty. I can't get regex to work with
@@ -1020,7 +1037,14 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
     double Rotangle = trajRot.x; // we select the rotation angle x as the angle
                                  // that the complex rotate on the sphere
     // update the member proteins
-    for (auto mol : memberList) {
+    const std::int64_t memberCount =
+        static_cast<std::int64_t>(memberList.size());
+#ifdef NERDSS_USE_OPENMP
+#pragma omp parallel for schedule(static) if(memberList.size() >= propagation_openmp_threshold())
+#endif
+    for (std::int64_t memberIndex = 0; memberIndex < memberCount;
+         ++memberIndex) {
+      const int mol = memberList[static_cast<std::size_t>(memberIndex)];
       Coord targmol = moleculeList[mol].comCoord;
       targmol = translate_on_sphere(targmol, COM, COMnew, Crdset, Crdsetnew);
       moleculeList[mol].comCoord =
@@ -1044,7 +1068,14 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
     // and only apply the translation. This is bit-for-bit identical to the
     // full rotation path when trajRot == (0,0,0).
     if (trajRot.x == 0.0 && trajRot.y == 0.0 && trajRot.z == 0.0) {
-      for (auto mol : memberList) {
+      const std::int64_t memberCount =
+          static_cast<std::int64_t>(memberList.size());
+#ifdef NERDSS_USE_OPENMP
+#pragma omp parallel for schedule(static) if(memberList.size() >= propagation_openmp_threshold())
+#endif
+      for (std::int64_t memberIndex = 0; memberIndex < memberCount;
+           ++memberIndex) {
+        const int mol = memberList[static_cast<std::size_t>(memberIndex)];
         moleculeList[mol].comCoord = moleculeList[mol].comCoord + trajTrans;
         for (auto &iface : moleculeList[mol].interfaceList) {
           iface.coord = iface.coord + trajTrans;
@@ -1071,7 +1102,14 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
       rotQuat.unit();
 
       // update the member proteins
-      for (auto mol : memberList) {
+      const std::int64_t memberCount =
+          static_cast<std::int64_t>(memberList.size());
+#ifdef NERDSS_USE_OPENMP
+#pragma omp parallel for schedule(static) if(memberList.size() >= propagation_openmp_threshold())
+#endif
+      for (std::int64_t memberIndex = 0; memberIndex < memberCount;
+           ++memberIndex) {
+        const int mol = memberList[static_cast<std::size_t>(memberIndex)];
         Vector comVec{moleculeList[mol].comCoord - this->comCoord};
         rotQuat.rotate(comVec);
         moleculeList[mol].comCoord =

@@ -41,6 +41,38 @@ struct BiMolData {
     }
 };
 
+struct BimolecularDistance {
+    double separation { 0 };
+    double distance { 0 };
+    bool withinRmax { false };
+
+    BimolecularDistance() = default;
+    BimolecularDistance(double newSeparation, double newDistance,
+        bool newWithinRmax)
+        : separation(newSeparation), distance(newDistance),
+          withinRmax(newWithinRmax) {}
+};
+
+struct Bimolecular3DParameters {
+    double effectiveDiffusion { 0 };
+    double rMax { 0 };
+
+    Bimolecular3DParameters() = default;
+    Bimolecular3DParameters(double newEffectiveDiffusion, double newRMax)
+        : effectiveDiffusion(newEffectiveDiffusion), rMax(newRMax) {}
+};
+
+/*! \brief Pure distance calculation used by serial and OpenMP pair lanes. */
+BimolecularDistance calculate_bimolecular_distance(
+    int pro1, int pro2, int iface1, int iface2, double Rmax,
+    const std::vector<Complex>& complexList, const ForwardRxn& currRxn,
+    const std::vector<Molecule>& moleculeList, bool isSphere);
+
+/*! \brief Pure rotational-diffusion/Rmax prefix for a 3D candidate pair. */
+Bimolecular3DParameters calculate_3D_bimolecular_parameters(
+    const BiMolData& biMolData, const Parameters& params,
+    const std::vector<Complex>& complexList, const ForwardRxn& forwardRxn);
+
 /*!
  * \brief Gets the distance between two Molecule's Interfaces and determines if they are within Rmax, and can therefore
  * react.

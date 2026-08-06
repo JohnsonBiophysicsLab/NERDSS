@@ -36,10 +36,13 @@
 //   return coordx;
 // }
 
-bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
-    double& sep, double& R1, double Rmax, std::vector<Complex>& complexList, const ForwardRxn& currRxn,
-    std::vector<Molecule>& moleculeList, bool isSphere)
+BimolecularDistance calculate_bimolecular_distance(
+    int pro1, int pro2, int iface1, int iface2, double Rmax,
+    const std::vector<Complex>& complexList, const ForwardRxn& currRxn,
+    const std::vector<Molecule>& moleculeList, bool isSphere)
 {
+    double sep {};
+    double R1 {};
     bool is2D = false;
     bool is1D = false;
     if (complexList[moleculeList[pro1].myComIndex].onFiber && complexList[moleculeList[pro2].myComIndex].onFiber) {
@@ -97,7 +100,19 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
     }
     /*Rmax should be the binding radius plus ~max diffusion distance, using
    * 3*sqrt(6*Dtot*deltat)*/
-    if (R1 < Rmax) {
+    return { sep, R1, R1 < Rmax };
+}
+
+bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
+    double& sep, double& R1, double Rmax, std::vector<Complex>& complexList, const ForwardRxn& currRxn,
+    std::vector<Molecule>& moleculeList, bool isSphere)
+{
+    const BimolecularDistance distance = calculate_bimolecular_distance(
+        pro1, pro2, iface1, iface2, Rmax, complexList, currRxn,
+        moleculeList, isSphere);
+    sep = distance.separation;
+    R1 = distance.distance;
+    if (distance.withinRmax) {
         /*in this case we evaluate the probability of this reaction*/
         moleculeList[pro1].crossbase.push_back(pro2);
         moleculeList[pro2].crossbase.push_back(pro1);
@@ -111,5 +126,5 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
         ++complexList[moleculeList[pro2].myComIndex].ncross;
         return true;
     }
-    return false;
+    return distance.withinRmax;
 }

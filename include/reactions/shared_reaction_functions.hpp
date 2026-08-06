@@ -87,6 +87,15 @@ std::array<int, 2> find_which_reaction(int ifaceIndex, const Molecule& reactMol,
 // double passocF(double r0, double tCurr, double Dtot, double bindRadius, double alpha, double cof);
 
 extern int evalBindNum;
+
+struct BimolecularReactionPair {
+    int pro1Index { -1 };
+    int pro2Index { -1 };
+
+    BimolecularReactionPair() = default;
+    BimolecularReactionPair(int pro1, int pro2)
+        : pro1Index(pro1), pro2Index(pro2) {}
+};
 /*!
  * \brief Main function for evaluating the potential interactions between two Molecules.
  *
@@ -111,6 +120,25 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
     std::vector<gsl_matrix*>& pirMatrices, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, copyCounters& counterArrays, Membrane& membraneObject);
+
+/*! \brief Evaluate an ordered batch of candidate pairs.
+ *
+ * The OpenMP build partitions the batch into deterministic conflict waves.
+ * Pairs in one wave never share a molecule or complex. 1D, 2D, implicit,
+ * within-complex, and exclude-volume cases additionally retain a global serial
+ * dependency because they can mutate shared lookup tables or counters.
+ */
+void check_bimolecular_reaction_pairs(
+    const std::vector<BimolecularReactionPair>& reactionPairs, int simItr,
+    double* tableIDs, unsigned& DDTableIndex, const Parameters& params,
+    std::vector<gsl_matrix*>& normMatrices,
+    std::vector<gsl_matrix*>& survMatrices,
+    std::vector<gsl_matrix*>& pirMatrices,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList,
+    const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, copyCounters& counterArrays,
+    Membrane& membraneObject);
 
 /*!
  * \brief Determines if binding of two molecules within the same complex can occur.
@@ -187,4 +215,3 @@ void remove_empty_slots(
     std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
     Membrane& membraneObject, MpiContext& mpiContext);
-    

@@ -884,7 +884,17 @@ int main(int argc, char *argv[]) {
 
     // Measure separations between proteins in neighboring cells to identify all
     // possible reactions.
-    for (unsigned cellItr{0}; cellItr < simulVolume.subCellList.size();
+    if (!membraneObject.hasCompartment) {
+      measure_separations_to_identify_possible_reactions(
+          simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
+          backRxns, createDestructRxns, molTemplateList, observablesList,
+          counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
+          ILTableIDs, normMatrices, survMatrices, pirMatrices,
+          implicitlipidIndex, tableIDs, DDTableIndex);
+    } else {
+      // Compartment reactions require transmissionRxns, which are not part of
+      // the shared measure function. Preserve the original serial traversal.
+      for (unsigned cellItr{0}; cellItr < simulVolume.subCellList.size();
          ++cellItr) {
       for (unsigned memItr{0};
            memItr < simulVolume.subCellList[cellItr].memberMolList.size();
@@ -950,7 +960,8 @@ int main(int argc, char *argv[]) {
           }   // loop over all neighbor cells
         }     // if protein i is free to bind
       }       // loop over all proteins in initial cell
-    }         // End looping over all cells.
+      }         // End looping over all cells.
+    }
 
     // if (simItr == monitor_iter) {
     //   debug_print_wrong_Mol(moleculeList, "before binding", monitor_mol);

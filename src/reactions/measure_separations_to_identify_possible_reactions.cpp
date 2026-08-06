@@ -49,6 +49,63 @@ void measure_separations_to_identify_possible_reactions(
     std::vector<gsl_matrix*>& survMatrices,
     std::vector<gsl_matrix*>& pirMatrices, int implicitlipidIndex,
     double* tableIDs, unsigned& DDTableIndex) {
+#ifdef NERDSS_USE_OPENMP
+  bool requiresSerialImplicitLane = false;
+  for (const auto& cell : simulVolume.subCellList) {
+    for (const int moleculeIndex : cell.memberMolList) {
+      if (moleculeList[moleculeIndex].isImplicitLipid ||
+          moleculeList[moleculeIndex].isGhosted)
+        continue;
+      const int moleculeType = moleculeList[moleculeIndex].molTypeIndex;
+      if (molTemplateList[moleculeType].bindToSurface) {
+        requiresSerialImplicitLane = true;
+        break;
+      }
+    }
+    if (requiresSerialImplicitLane) break;
+  }
+
+  if (!requiresSerialImplicitLane) {
+    std::vector<BimolecularReactionPair> reactionPairs;
+    for (unsigned cellItr = 0; cellItr < simulVolume.subCellList.size();
+         ++cellItr) {
+      const auto& cell = simulVolume.subCellList[cellItr];
+      for (unsigned memItr = 0; memItr < cell.memberMolList.size(); ++memItr) {
+        const int targMolIndex = cell.memberMolList[memItr];
+        if (moleculeList[targMolIndex].isImplicitLipid ||
+            moleculeList[targMolIndex].isGhosted)
+          continue;
+        if (moleculeList[targMolIndex].freelist.empty() &&
+            !molTemplateList[moleculeList[targMolIndex].molTypeIndex]
+                 .excludeVolumeBound)
+          continue;
+
+        for (unsigned memItr2 = memItr + 1;
+             memItr2 < cell.memberMolList.size(); ++memItr2) {
+          reactionPairs.push_back(
+              {targMolIndex, cell.memberMolList[memItr2]});
+        }
+        for (const auto neighCellItr : cell.neighborList) {
+          if (DEBUG && neighCellItr > simulVolume.subCellList.size())
+            error("neighCellItr is higher than subCellList size!");
+          for (const int partMolIndex :
+               simulVolume.subCellList[neighCellItr].memberMolList) {
+            if (DEBUG && partMolIndex > moleculeList.size())
+              error("partMolIndex is higher than moleculeList size!");
+            reactionPairs.push_back({targMolIndex, partMolIndex});
+          }
+        }
+      }
+    }
+
+    check_bimolecular_reaction_pairs(
+        reactionPairs, simItr, tableIDs, DDTableIndex, params, normMatrices,
+        survMatrices, pirMatrices, moleculeList, complexList, molTemplateList,
+        forwardRxns, backRxns, counterArrays, membraneObject);
+    return;
+  }
+#endif
+
   for (unsigned cellItr{0}; cellItr < simulVolume.subCellList.size();
        ++cellItr) {
     for (unsigned memItr{0};

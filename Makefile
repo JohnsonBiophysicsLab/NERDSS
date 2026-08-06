@@ -33,7 +33,7 @@ EDIR   = EXEs
 
 PROF   =
 
-.PHONY: any debug profile clean
+.PHONY: any serial omp mpi debug profile clean
 
 # ---------------- REQUIREMENTS: gsl and directories
 hasGSL = $(shell type gsl-config >/dev/null 2>&1; echo $$?)
@@ -49,10 +49,22 @@ INCLUDE_FOLDERS = boundary_conditions classes error math parser reactions system
 
 ifneq (,$(filter serial,$(MAKECMDGOALS)))
 	_EXEC = nerdss
+	ODIR = obj_serial
+	EXEC_SOURCE = nerdss.cpp
+endif
+
+ifneq (,$(filter omp,$(MAKECMDGOALS)))
+	_EXEC = nerdss_omp
+	ODIR = obj_omp
+	EXEC_SOURCE = nerdss.cpp
+	DEFS = -DNERDSS_USE_OPENMP
+	OPENMP_FLAGS = -fopenmp
 endif
 
 ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 	_EXEC = nerdss_mpi
+	ODIR = obj_mpi
+	EXEC_SOURCE = nerdss_mpi.cpp
 	DEFS = -Dmpi_
 	INCLUDE_FOLDERS += debug io_mpi mpi
 endif
@@ -79,6 +91,8 @@ GCC   = $(shell type g++   >/dev/null 2>&1; echo $$?)
 INCS    = $(shell gsl-config --cflags) -Iinclude
 CXXFLAGS = -std=c++0x
 LIBS     = $(shell gsl-config --libs)
+CXXFLAGS += $(OPENMP_FLAGS)
+LIBS += $(OPENMP_FLAGS)
 
 # ---------------- COMPILER SETUP
 PROF   =
@@ -119,16 +133,16 @@ OBJS = $(patsubst $(SDIR)/%.cpp,$(ODIR)/%.o,$(SRCS))
 # ---------------- RULES
 syntax:
 	@echo "------------------------------------"
-	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi [debug] [profile]"
+	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|omp|mpi [debug] [profile]"
 	@echo "------------------------------------"
 	exit 0
 
 $(MAKECMDGOALS): $(EXEC)
 	@echo "Finished making (re-)building $(MAKECMDGOALS) version, $(EXEC)."
 
-$(EXEC): $(OBJS)
-	@echo "Compiling $(EDIR)/$(@F).cpp"
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
+$(EXEC): $(OBJS) $(EDIR)/$(EXEC_SOURCE)
+	@echo "Compiling $(EDIR)/$(EXEC_SOURCE)"
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEFS) -o $@ $(EDIR)/$(EXEC_SOURCE) $(OBJS) $(LIBS) $(PLANG)
 	@echo "------------"
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
@@ -138,7 +152,7 @@ $(ODIR)/%.o: $(SDIR)/%.cpp
 	@echo "------------"
 
 clean:
-	rm -rf $(ODIR) bin
+	rm -rf obj obj_serial obj_omp obj_mpi bin
 
 
 # Reference: https://www.gnu.org/software/make/manual/html_node/Quick-Reference.html
