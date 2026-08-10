@@ -56,7 +56,11 @@ struct Interface {
         std::vector<unsigned> myForwardRxns {}; //!< indices of the reactions in which the state is a reactant (ForwardRxn)
         std::vector<unsigned> myCreateDestructRxns {}; //!< indices of the reactions in which the state is created or destroyed (CreateDestructRxn)
         std::vector<unsigned> rxnPartners {};
-        std::vector<std::pair<int, int>> stateChangeRxns {}; //!< indices of state change reactions (forward, back)
+        //! indices of state change reactions as (forward, back): first indexes
+        //! forwardRxns, second indexes backRxns and is -1 when the reaction is
+        //! irreversible.  Both states of a reversible pair record the same
+        //! ordered pair, whichever side of the reaction the state sits on.
+        std::vector<std::pair<int, int>> stateChangeRxns {};
         static int totalNumOfStates; //!< total number of states in the system (should be same as totalIfaceNum provided in Parameter file
 
         State() = default;

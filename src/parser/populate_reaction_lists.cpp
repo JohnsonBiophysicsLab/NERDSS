@@ -64,7 +64,7 @@ void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const s
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.reactantListNew[0].absIfaceIndex);
                 } else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[1].absIfaceIndex) {
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
+                    oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.productListNew[0].absIfaceIndex);
                 }
@@ -76,7 +76,7 @@ void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const s
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.reactantListNew[1].absIfaceIndex);
                 } else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex) {
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
+                    oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.productListNew[1].absIfaceIndex);
                 }
@@ -104,11 +104,13 @@ void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const s
                                         .interfaceList[forwardRxn.reactantListNew[0].relIfaceIndex];
 
             // add state change reactions only to the stateChangeRxns list, not myForwardRxns
+            // Both states of a reversible pair record the same (forward, back)
+            // pair; find_which_state_change_reaction() recovers the direction by
+            // testing the molecule's state against the reactant and the product.
             for (auto& oneState : reactIface.stateList) {
-                if (oneState.index == forwardRxn.reactantListNew[0].absIfaceIndex)
+                if (oneState.index == forwardRxn.reactantListNew[0].absIfaceIndex
+                    || (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex))
                     oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
-                else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex)
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
             }
         }
     }
@@ -187,7 +189,7 @@ void populate_reaction_lists_for_add(const std::vector<ForwardRxn>& forwardRxns,
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.reactantListNew[0].absIfaceIndex);
                 } else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[1].absIfaceIndex) {
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
+                    oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.productListNew[0].absIfaceIndex);
                 }
@@ -199,7 +201,7 @@ void populate_reaction_lists_for_add(const std::vector<ForwardRxn>& forwardRxns,
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.reactantListNew[1].absIfaceIndex);
                 } else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex) {
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
+                    oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.productListNew[1].absIfaceIndex);
                 }
@@ -227,11 +229,13 @@ void populate_reaction_lists_for_add(const std::vector<ForwardRxn>& forwardRxns,
                                         .interfaceList[forwardRxn.reactantListNew[0].relIfaceIndex];
 
             // add state change reactions only to the stateChangeRxns list, not myForwardRxns
+            // Both states of a reversible pair record the same (forward, back)
+            // pair; find_which_state_change_reaction() recovers the direction by
+            // testing the molecule's state against the reactant and the product.
             for (auto& oneState : reactIface.stateList) {
-                if (oneState.index == forwardRxn.reactantListNew[0].absIfaceIndex)
+                if (oneState.index == forwardRxn.reactantListNew[0].absIfaceIndex
+                    || (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex))
                     oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
-                else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex)
-                    oneState.stateChangeRxns.emplace_back(forwardRxn.conjBackRxnIndex, forwardRxn.relRxnIndex);
             }
         }
     }

@@ -1,0 +1,24 @@
+##
+# B molecule information file
+##
+
+Name    = B
+
+# translational diffusion constants
+D       = [10.0,10.0,10.0]
+
+# rotational diffusion constants
+Dr      = [0,0,0]
+
+# Coordinates
+COM     0.0000    0.0000    0.0000
+site    0.0000    0.0000   -1.0000
+thr     0.0000   -1.0000    0.0000
+
+#bonds for visualization
+bonds = 2
+COM site
+COM thr
+
+#State definitions
+state = thr~U~P

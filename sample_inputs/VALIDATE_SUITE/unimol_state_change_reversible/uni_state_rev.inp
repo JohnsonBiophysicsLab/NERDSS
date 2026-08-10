@@ -1,0 +1,73 @@
+# Reversible unimolecular state change with offset forward/back index spaces.
+#
+# The reaction order below is the whole point of the model.  backRxns gains one
+# entry per *reversible* forward reaction, in forward order, so the irreversible
+# reaction at forward index 1 shifts every later back index down by one:
+#
+#   forwardRxns[0]  A(site) + B(site) <-> A(site!1).B(site!1)   backRxns[0]
+#   forwardRxns[1]  A(tag~U) -> A(tag~P)                        (irreversible)
+#   forwardRxns[2]  A(ser~U) <-> A(ser~P)                       backRxns[1]
+#   forwardRxns[3]  B(thr~U) <-> B(thr~P)                       backRxns[2]
+#
+# So the two reversible state changes have forward index 2 and 3 but back index
+# 1 and 2.  Any code that confuses the two lists picks the wrong reaction here,
+# whereas with a single reversible pair (forward 0, back 0) it would not.
+#
+# The bimolecular association is required, not decoration: set_rMaxLimit() only
+# inspects ReactionType::bimolecular, so a model with no association leaves
+# rMaxLimit at 0 and SimulVolume::Dimensions divides the box length by it.  That
+# is why VALIDATE_SUITE/unimolecular_reverse cannot run at all.
+#
+# The `tag` reaction has rate 0 and never fires; it exists only to offset the
+# two index spaces, so the observable dynamics are the two reversible state
+# changes plus association.
+#
+# Expected behavior: each state change relaxes to kf/(kf+kb) in the P state,
+# that is 1000/(1000+3000) = 0.25, from an all-U start.  Relaxation time is
+# 1/(kf+kb) = 250 us, so 20000 iterations at 0.1 us is roughly 8 relaxation
+# times.  With the reverse path broken, P is absorbing and both species run to
+# 1.00 instead.
+
+start parameters
+    nItr = 20000
+    timeStep = 0.1
+    timeWrite = 100
+    trajWrite = 1000000
+    restartWrite = 1000000
+    checkPoint = 1000000
+end parameters
+
+start boundaries
+    waterBox = [100.0,100.0,100.0] #in nm
+end boundaries
+
+start molecules
+    A : 200 (ser~U), 0 (ser~P)
+    B : 200 (thr~U), 0 (thr~P)
+end molecules
+
+start reactions
+    # forwardRxns[0] / backRxns[0]: association, present so rMaxLimit is nonzero
+    A(site) + B(site) <-> A(site!1).B(site!1)
+    onRate3Dka = 1.0    # nm3/us
+    offRatekb = 100.0   # s-1
+    sigma = 1.0
+    norm1=[0,0,1]
+    norm2=[0,0,1]
+    assocAngles=[nan, nan, nan, nan, nan]
+
+    # forwardRxns[1]: irreversible, rate 0, never fires.  Offsets the two lists.
+    A(tag~U) -> A(tag~P)
+    rate = 0.0   # s-1
+
+    # forwardRxns[2] / backRxns[1]: reversible unimolecular state change
+    A(ser~U) <-> A(ser~P)
+    rate = 1000.0        # s-1, U -> P
+    offRatekb = 3000.0   # s-1, P -> U
+
+    # forwardRxns[3] / backRxns[2]: second reversible pair, different molecule
+    B(thr~U) <-> B(thr~P)
+    rate = 1000.0        # s-1, U -> P
+    offRatekb = 3000.0   # s-1, P -> U
+
+end reactions

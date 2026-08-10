@@ -1,0 +1,70 @@
+Reversible unimolecular state change
+====================================
+
+Two independent reversible unimolecular state changes, A(ser~U) <-> A(ser~P) and
+B(thr~U) <-> B(thr~P), plus an A + B association that exists only so the model
+can run at all.
+
+This is the only model in the repository that declares a unimolecular state
+change with `<->`.  Every other one (VALIDATE_SUITE/michaelis_menten,
+VALIDATE_SUITE/unimolecular_reverse, auto_phos, enzyme) writes two separate `->`
+reactions instead, which leaves conjBackRxnIndex at -1 and never reaches the
+product-matching path in find_which_state_change_reaction().
+
+What it is built to exercise
+----------------------------
+
+Two things that a single reversible pair cannot distinguish:
+
+1. The product-matching (reverse) path of find_which_state_change_reaction().
+   Reached only when a molecule carries the *product* state of a reversible
+   unimolecular state change.
+
+2. Forward and back reaction indices that differ.  backRxns gains one entry per
+   reversible forward reaction, in forward order, so the irreversible reaction at
+   forward index 1 shifts every later back index down by one:
+
+     forwardRxns[0]  A(site) + B(site) <-> A(site!1).B(site!1)   backRxns[0]
+     forwardRxns[1]  A(tag~U) -> A(tag~P)                        (irreversible)
+     forwardRxns[2]  A(ser~U) <-> A(ser~P)                       backRxns[1]
+     forwardRxns[3]  B(thr~U) <-> B(thr~P)                       backRxns[2]
+
+   The two reversible state changes have forward index 2 and 3 but back index 1
+   and 2.  Code that confuses the two lists reads the wrong reaction here; with a
+   single reversible pair (forward 0, back 0) the same bug is invisible.
+
+   The `tag` reaction has rate 0 and never fires, so A(tag~P) must stay at 0 for
+   the whole run.  It is present only to offset the two index spaces.
+
+Why the association reaction is required
+---------------------------------------
+
+set_rMaxLimit() only inspects ReactionType::bimolecular.  With no association,
+rMaxLimit stays 0 and SimulVolume::Dimensions divides the box length by it,
+giving a negative cell count and an endless "CELL PAIR MAX EXCEEDED" rescale that
+never advances.  That is why VALIDATE_SUITE/unimolecular_reverse cannot run, and
+it is listed in benchmarks/nerdss_optimized/known_broken.tsv for that reason.
+
+Expected result
+---------------
+
+Each state change relaxes to a fraction kf/(kf+kb) in the P state,
+1000/(1000+3000) = 0.25, independently of the other and of the association.  With
+200 copies each that is 50 in A(ser~P) and 50 in B(thr~P), with binomial spread
+sqrt(200*0.25*0.75) = 6.1.
+
+The relaxation time is 1/(kf+kb) = 250 us; the run is 20000 steps of 0.1 us =
+2000 us, about 8 relaxation times, so the second half of the trajectory is
+equilibrated and can be time-averaged.
+
+Run it with:
+
+    mkdir -p /tmp/unimolrev && cp *.mol *.inp /tmp/unimolrev && cd /tmp/unimolrev
+    <path-to>/nerdss -f uni_state_rev.inp -s 20260810
+
+then read DATA/copy_numbers_time.dat.  A build in which the reverse path does not
+fire shows P growing monotonically toward 200 instead of settling near 50, because
+P becomes absorbing.
+
+benchmarks/nerdss_optimized/regression/unimol_state_change_reversible/check.sh
+does this automatically and compares against the predicted 0.25.

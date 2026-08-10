@@ -220,3 +220,133 @@ nItr 1000 with a 30 s cap:
 `optB` with seeds 1 through 5, and crashes on master with seed 20260810. `optB`
 surviving that particular seed is a consequence of different initial
 orientations, not a fix. Nothing here is caused or repaired by this branch.
+
+## 8. Reverse unimolecular state change
+
+Measured 2026-08-10, same host and compiler as above, seed 20260810 unless
+stated. This is a follow-on correction, not part of issues #8-#12: it was
+recorded as a known defect and left alone at the time because the path was
+believed reachable from existing models.
+
+Unlike sections 1-7, which compare against `master`, this section's baseline is
+`nerdss-optimized` at `dbb5cbf`, the branch tip these changes apply to. That is
+three commits past the `optB` of section 1, so the binary hashes differ from the
+ones there. Two builds:
+
+| Label | Contents | Binary SHA-256 (first 16) |
+| --- | --- | --- |
+| `prechange` | `nerdss-optimized` at `dbb5cbf`, unmodified | `2b23b2da88e15e2a` |
+| `fixed` | `prechange` plus the four corrections in this section | `1c044a13c233de94` |
+
+A third build isolates one of them, because the display crash otherwise stops the
+new model before the simulation begins:
+
+| Label | Contents | Binary SHA-256 (first 16) |
+| --- | --- | --- |
+| `displayfix` | `prechange` plus the `BackRxn::display()` fix only | `20c79d910a2e9c88` |
+
+The measurements below were first taken against `4f3cb39` and then repeated
+against `dbb5cbf` after rebasing. Every number was unchanged, including the
+per-species equilibrium fractions, so the intervening math-function commits do
+not touch this path or its random stream.
+
+### 8.1 No existing model changes
+
+**All 13 suite cases are byte-identical between `prechange` and `fixed`.** 268
+files hashed per build under `DATA/`, `RESTARTS/` and `PDB/`; the two
+`manifest.sha256` files are byte-identical as whole files, and every case exited
+0. `michaelis_menten` is one of the 13 and does use a unimolecular state change.
+
+`auto_phos` is not in the suite. Run separately at nItr 200,000, all 14 `DATA/`
+files and all `RESTARTS/` files are byte-identical between the two builds.
+
+That is expected rather than lucky, and the reason is checkable: **no input under
+`sample_inputs/` declares a unimolecular state change with `<->`.**
+`michaelis_menten`, `unimolecular_reverse` and `auto_phos` write theirs as separate
+`->` reactions, so `conjBackRxnIndex` is `-1` and the reverse branch is never
+entered. (`enzyme` has no unimolecular state change at all; its one state change
+is bimolecular - see section 8.4.) The earlier note that this path was "reachable
+from existing models" was too pessimistic: the *function* is reached constantly,
+but its reverse branch is not reached by anything in the repository.
+
+No timing claim is made here. The suite ran while other measurements shared the
+machine, and the per-case numbers from that pass are load noise, not signal.
+
+### 8.2 The new model, and what it separates
+
+[`sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible`](../../sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible)
+holds two reversible unimolecular state changes with `kf = 1000` and
+`kb = 3000` s-1, so each must equilibrate at `kf/(kf+kb) = 0.25` in the P state.
+An irreversible rate-0 reaction at forward index 1 offsets the two index spaces,
+putting the state changes at forward 2 and 3 but back 1 and 2 - an arrangement a
+single reversible pair cannot produce.
+
+Time-averaged over the equilibrated second half of the run:
+
+| build | A(ser~P) | B(thr~P) | A(tag~P) | expected | verdict |
+| --- | --- | --- | --- | --- | --- |
+| `prechange` | - | - | - | 0.25 | SIGSEGV during reaction display |
+| `displayfix` | 0.765 | 0.753 | 0 | 0.25 | FAIL, P is absorbing |
+| `fixed` | 0.229 | 0.269 | 0 | 0.25 | PASS |
+
+The middle row is the informative one. With the crash removed but the index
+assignments untouched, the model runs and the reverse direction simply never
+fires: the populations decay one way from 200 U toward 200 P, and 0.765 is where
+that decay has got to after about 8 time constants, not an equilibrium. The
+corrected build instead settles at the predicted fraction, a factor of four away.
+
+`A(tag~P)` staying at 0 on every build confirms the rate-0 offset reaction never
+fires, so it perturbs only the index spaces and not the dynamics.
+
+Across seeds 20260810, 1, 2, 3 and 7 the corrected build gives P fractions of
+0.229/0.269, 0.229/0.260, 0.224/0.249, 0.257/0.241 and 0.254/0.233 against a
+predicted 0.25, with a binomial spread of 0.031 on 200 copies. The agreement is
+not seed-specific. The mean of those ten values is 0.244.
+
+Reproduce with:
+
+```bash
+./benchmarks/nerdss_optimized/regression/unimol_state_change_reversible/check.sh bin/nerdss
+```
+
+which exits 0 only if both state changes reach `kf/(kf+kb)` and the rate-0
+reaction stayed silent. It exits 1 on `displayfix` and on `prechange`.
+
+### 8.3 The display crash was flaky, which is worth recording
+
+`BackRxn::display()` read one element past the end of `rate.otherIfaceLists`.
+On the new model that crashed 4 runs in 5 with an identical seed and identical
+inputs, and completed the fifth, because whether the read lands on mapped memory
+depends on heap layout. It also completed every time under `lldb`. A defect that
+disappears under a debugger and passes one run in five is the kind that gets
+attributed to the model rather than the code, so it is called out here
+explicitly.
+
+### 8.4 Two models outside the suite, and a correction to section 6
+
+`auto_phos` and `enzyme` both use interface states and neither is in
+`cases.tsv`, so both were run separately against `prechange` and `fixed`:
+
+| model | nItr | outputs compared | result |
+| --- | --- | --- | --- |
+| `sample_inputs/auto_phos/autophos_D10.inp` | 200,000 | 14 `DATA/` files + `RESTARTS/` | byte-identical |
+| `sample_inputs/enzyme/parms_clat_enzyme.inp` | 20,000 | all `DATA/` + `RESTARTS/` | byte-identical |
+
+`enzyme` also corrects section 6 and the corresponding claim in
+`docs/nerdss_optimized.md`. Both said no input under `sample_inputs/` contains a
+bimolecular state change. `parms_clat_enzyme.inp` line 116,
+`syn(pi) + pip2(head~U) -> syn(pi) + pip2(head~P)`, is one; the build's own
+reaction dump reports `Type: Bimolecular state change` for it, alongside 22
+bimolecular associations.
+
+It does not change section 6's conclusion. The reaction is irreversible, so
+`conjBackRxnIndex == -1`, the corrected reverse gate rejects it, and the
+`perform_bimolecular_state_change_*` change is inside the `isStateChangeBackRxn`
+branch, which that reaction cannot reach. The issue #8 corrections stay inert for
+it, which the byte-identical run above confirms directly. What was wrong was the
+justification, not the verdict.
+
+The reason it went unnoticed is worth recording: `enzyme` appears in neither
+`cases.tsv` nor `known_broken.tsv`, so the one sample input that exercises the
+forward bimolecular state-change path is not covered by the suite. It runs clean
+for 20,000 iterations, so adding it to `cases.tsv` is cheap.
