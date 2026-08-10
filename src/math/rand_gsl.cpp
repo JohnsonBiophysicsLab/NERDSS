@@ -1,11 +1,125 @@
-#include "gsl/gsl_rng.h"
 #include "math/rand_gsl.hpp"
+
+#include <cerrno>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
-//static gsl_rng* the_generator = nullptr;
+namespace {
+
+enum class ReadResult {
+    success,
+    notFound,
+    failed,
+};
+
+void report_io_error(const char* message, const std::string& filename, int errorNumber)
+{
+    std::cerr << message << " '" << filename << "'";
+    if (errorNumber != 0) {
+        std::cerr << ": " << std::strerror(errorNumber);
+    }
+    std::cerr << '\n';
+}
+
+[[noreturn]] void fail_rng_state_write(const std::string& filename, const char* message, int errorNumber)
+{
+    report_io_error(message, filename, errorNumber);
+    std::exit(EXIT_FAILURE);
+}
+
+void write_rng_state_file(const std::string& filename)
+{
+    if (r == nullptr) {
+        fail_rng_state_write(filename, "ERROR: RNG is not initialized; cannot write", 0);
+    }
+
+    errno = 0;
+    FILE* stateOut = std::fopen(filename.c_str(), "wb");
+    if (stateOut == nullptr) {
+        fail_rng_state_write(filename, "ERROR: Could not open RNG state file for writing", errno);
+    }
+
+    const std::size_t stateSize = gsl_rng_size(r);
+    errno = 0;
+    const bool writeSucceeded = std::fwrite(gsl_rng_state(r), stateSize, 1, stateOut) == 1;
+    int errorNumber = writeSucceeded ? 0 : errno;
+
+    errno = 0;
+    const bool closeSucceeded = std::fclose(stateOut) == 0;
+    if (!closeSucceeded && errorNumber == 0) {
+        errorNumber = errno;
+    }
+
+    if (!writeSucceeded || !closeSucceeded) {
+        fail_rng_state_write(filename, "ERROR: Could not write RNG state file", errorNumber);
+    }
+}
+
+ReadResult read_rng_state_file(const std::string& filename)
+{
+    if (r == nullptr) {
+        report_io_error("ERROR: RNG is not initialized; cannot read", filename, 0);
+        return ReadResult::failed;
+    }
+
+    errno = 0;
+    FILE* stateIn = std::fopen(filename.c_str(), "rb");
+    if (stateIn == nullptr) {
+        const int errorNumber = errno;
+        if (errorNumber == ENOENT) {
+            return ReadResult::notFound;
+        }
+        report_io_error("ERROR: Could not open RNG state file for reading", filename, errorNumber);
+        return ReadResult::failed;
+    }
+
+    const std::size_t stateSize = gsl_rng_size(r);
+    std::vector<unsigned char> savedState(stateSize);
+
+    errno = 0;
+    const bool readSucceeded = std::fread(savedState.data(), stateSize, 1, stateIn) == 1;
+    int errorNumber = readSucceeded ? 0 : errno;
+
+    errno = 0;
+    const bool closeSucceeded = std::fclose(stateIn) == 0;
+    if (!closeSucceeded && errorNumber == 0) {
+        errorNumber = errno;
+    }
+
+    if (!readSucceeded || !closeSucceeded) {
+        report_io_error("ERROR: Could not read complete RNG state from", filename, errorNumber);
+        return ReadResult::failed;
+    }
+
+    std::memcpy(gsl_rng_state(r), savedState.data(), stateSize);
+    return ReadResult::success;
+}
+
+double inverse_rng_range(const gsl_rng* generator)
+{
+    static const gsl_rng_type* cachedType = nullptr;
+    static double cachedInverseRange = 0.0;
+
+    if (generator->type != cachedType) {
+        cachedType = generator->type;
+        cachedInverseRange = 1.0
+            / (static_cast<double>(cachedType->max) - static_cast<double>(cachedType->min) + 1.0);
+    }
+
+    return cachedInverseRange;
+}
+
+void report_rng_state_read_failure()
+{
+    std::cerr << "RNG state was not restored; continuing with the current initialized RNG state.\n";
+}
+
+} // namespace
 
 double rand_gsl()
 {
@@ -14,111 +128,56 @@ double rand_gsl()
 
 double rand_gsl64()
 {
-    return gsl_rng_uniform(r) + 1.0 / (gsl_rng_max(r) + 1.0) * gsl_rng_uniform(r);
+    const double high = gsl_rng_uniform(r);
+    const double low = gsl_rng_uniform(r);
+    const double result = high + inverse_rng_range(r) * low;
+
+    return result < 1.0 ? result : std::nextafter(1.0, 0.0);
 }
 
 void srand_gsl(int num)
 {
-    //if (!the_generator)
-    //    the_generator = gsl_rng_alloc(gsl_rng_taus);
     gsl_rng_set(r, num);
 }
 
 void write_rng_state()
 {
-    FILE* stateOut = fopen("DATA/rng_state", "w");
-    if (ferror(stateOut)) {
-        std::cerr << "ERROR: Could not open RNG state file for writing. Exiting.\n";
-        exit(1);
-    }
-
-    int stateWriteState = gsl_rng_fwrite(stateOut, r);
-    if (stateWriteState == GSL_EFAILED) {
-        std::cerr << "ERROR: Could not write RNG state file. Exiting.\n";
-        exit(1);
-    }
-    fclose(stateOut);
+    write_rng_state_file("DATA/rng_state");
 }
 
-void write_rng_state(int rank) {
-  std::string rngFileName{"DATA/rng_state_" + std::to_string(rank)};
-  char charArray[rngFileName.size() + 1];
-
-  std::strcpy(charArray, rngFileName.c_str());
-
-  FILE* stateOut = fopen(charArray, "w");
-  if (ferror(stateOut)) {
-    std::cerr << "ERROR: Could not open RNG state file for writing. Exiting.\n";
-    exit(1);
-  }
-
-  int stateWriteState = gsl_rng_fwrite(stateOut, r);
-  if (stateWriteState == GSL_EFAILED) {
-    std::cerr << "ERROR: Could not write RNG state file. Exiting.\n";
-    exit(1);
-  }
-  fclose(stateOut);
+void write_rng_state(int rank)
+{
+    write_rng_state_file("DATA/rng_state_" + std::to_string(rank));
 }
 
 void write_rng_state_simItr(int simItr)
 {
-    char fnameProXYZ[100];
-    snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/rng_state%d", simItr);
-    FILE* stateOut = fopen(fnameProXYZ, "w");
-    if (ferror(stateOut)) {
-        std::cerr << "ERROR: Could not open RNG state file for writing. Exiting.\n";
-        exit(1);
-    }
-
-    int stateWriteState = gsl_rng_fwrite(stateOut, r);
-    if (stateWriteState == GSL_EFAILED) {
-        std::cerr << "ERROR: Could not write RNG state file. Exiting.\n";
-        exit(1);
-    }
-    fclose(stateOut);
+    write_rng_state_file("RESTARTS/rng_state" + std::to_string(simItr));
 }
 
 void read_rng_state()
 {
-    //std::cout << "Reading RNG state file.\n";
-    FILE* stateIn = fopen("rng_state", "r");
-    if (stateIn == nullptr || ferror(stateIn)) {
-        std::cout << "Could not find RNG state file, initializing new RNG..\n";
-        return;
+    ReadResult result = read_rng_state_file("DATA/rng_state");
+    if (result == ReadResult::notFound) {
+        result = read_rng_state_file("rng_state");
     }
 
-    int stateReadStatus = gsl_rng_fread(stateIn, r);
-    if (stateReadStatus == GSL_EFAILED) {
-        std::cout << "Could not read RNG state file, initializing new RNG..\n";
-        return;
-    }
-    try{
-        fclose(stateIn);
-    } catch (std::exception& e){
-        std::cout << "Could not close rng_state.\n";
+    if (result != ReadResult::success) {
+        report_rng_state_read_failure();
     }
 }
 
-void read_rng_state(int rank) {
-  // std::cout << "Reading RNG state file.\n";
-  std::string rngFileName{"rng_state_" + std::to_string(rank)};
-  char charArray[rngFileName.size() + 1];
+void read_rng_state(int rank)
+{
+    const std::string rankedFilename = "rng_state_" + std::to_string(rank);
+    ReadResult result = read_rng_state_file("DATA/" + rankedFilename);
+    if (result == ReadResult::notFound) {
+        result = read_rng_state_file(rankedFilename);
+    }
 
-  std::strcpy(charArray, rngFileName.c_str());
-  FILE* stateIn = fopen(charArray, "r");
-  if (stateIn == nullptr || ferror(stateIn)) {
-    std::cerr << "Could not find RNG state file, initializing new RNG..\n";
-    fclose(stateIn);
-    return;
-  }
-
-  int stateReadStatus = gsl_rng_fread(stateIn, r);
-  if (stateReadStatus == GSL_EFAILED) {
-    std::cerr << "Could not read RNG state file, initializing new RNG..\n";
-    fclose(stateIn);
-    return;
-  }
-  fclose(stateIn);
+    if (result != ReadResult::success) {
+        report_rng_state_read_failure();
+    }
 }
 
 double GaussV()
