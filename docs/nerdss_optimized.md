@@ -64,9 +64,23 @@ files now resolve the conjugate back reaction through the forward reaction
 (`backRxns[forwardRxns[rxnIndex].conjBackRxnIndex]`), which is an identity in
 every model where the path worked before.
 
-No input under `sample_inputs/` contains a bimolecular state change, so this path
-has its own regression model at
+No input under `sample_inputs/` contains a *reversible* bimolecular state change,
+so this path has its own regression model at
 [`benchmarks/nerdss_optimized/regression/bimol_state_change`](../benchmarks/nerdss_optimized/regression/bimol_state_change).
+
+> **Correction.** This section previously said no input contains a bimolecular
+> state change at all. That is wrong: `sample_inputs/enzyme/parms_clat_enzyme.inp`
+> line 116, `syn(pi) + pip2(head~U) -> syn(pi) + pip2(head~P)`, parses as one, as
+> the build's own reaction dump confirms. It is irreversible, so
+> `conjBackRxnIndex == -1`: the reverse branch is gated off by the corrected
+> `conjBackRxnIndex != -1` test, and the `perform_bimolecular_state_change_*`
+> change only applies when `isStateChangeBackRxn` is true, which that reaction can
+> never set. So the conclusion that these corrections are inert for existing
+> models still holds; only the justification given for it was wrong. `enzyme` is
+> in neither `cases.tsv` nor `known_broken.tsv`, so the forward bimolecular
+> state-change path it does exercise is untested by the suite - which is how the
+> mistake survived. It is byte-identical over 20,000 iterations across the builds
+> compared here.
 That model showed the path cannot be exercised end to end on this codebase: the
 machinery around it fails on `master` for three further reasons, all outside the
 scope of issues #8-#12 and all left alone here. See the regression model's README
@@ -187,6 +201,86 @@ samples outside the unit disc. `GaussV()` is now
 This changes both the values and the number of uniforms consumed per call, so
 trajectories differ.
 
+### Reverse unimolecular state change
+
+This one is not part of issues #8-#12. It was recorded as a known defect and left
+alone when they were done, on the assumption that the path was reachable from
+existing models and that touching it could move results. Establishing that it is
+*not* reachable is what made it safe to fix, and that is the first result below.
+
+`find_which_state_change_reaction()` has the same forward/reverse shape as
+`find_which_reaction()`, and its reverse branch had the unimolecular versions of
+the same defects:
+
+1. `rateIndex` was computed correctly inside the rate loop and then overwritten
+   after it with `backRxns[...].relRxnIndex` - a reaction index written into a
+   rate index - while `rxnIndex` was never assigned on that path at all. Both
+   callers require `rxnIndex != -1`, so every reverse unimolecular state change
+   was discarded before it could fire; had one survived, it would have indexed a
+   rate list with a reaction index. Both the `matches > 1` and `matches == 1`
+   branches did this, and the two were otherwise identical, so they are now one
+   branch.
+2. `backRxns[oneRxn.conjBackRxnIndex]` was read without testing the `-1`
+   sentinel. The branch is entered on a product-state match, which does not imply
+   the reaction is reversible, so an irreversible state change whose product
+   state matched read out of bounds. The gate is now `conjBackRxnIndex != -1`,
+   the same correction made to the bimolecular gate.
+
+**`rxnIndex` indexes `backRxns` here, unlike the bimolecular case.** The two
+paths have genuinely different conventions, so this was established from the
+callers rather than assumed. `check_for_unimolecular_reactions.cpp` and
+`check_for_unimolstatechange_reactions.cpp` both read
+`backRxns[rxnIndex].rateList[rateIndex]`, `backRxns[rxnIndex].productListNew[0]`
+and `backRxns[rxnIndex].observeLabel` when `isStateChangeBackRxn` is set, and
+nothing on this path tests `forwardRxns[rxnIndex].rxnType`. The bimolecular path
+needs the opposite because `perform_bimolecular_reactions()` selects the
+state-change case by testing `forwardRxns[rxnIndex[0]].rxnType`, which is why
+`perform_bimolecular_state_change_*` was corrected to resolve the back reaction
+through `forwardRxns[rxnIndex].conjBackRxnIndex` instead. `relRxnIndex` on the
+`BackRxn` equals `conjBackRxnIndex` by construction, so the value the original
+code computed was right; only the variable it was assigned to was wrong.
+
+**A third defect, in the parser.** `class_MolTemplate.hpp` documents
+`stateChangeRxns` as `(forward, back)` and `find_which_state_change_reaction()`
+indexes `forwardRxns[rxnItr.first]` on that basis, but
+`populate_reaction_lists.cpp` stored `(back, forward)` for the state on the
+*product* side, in all six places it builds the list. With a single reversible
+pair the forward and back indices are both 0 and the two orderings coincide,
+which is why this never surfaced. With the index spaces offset it silently
+selects an unrelated reaction. Fixed at the population site so the documented
+invariant holds; the direction is recovered where it always was, by testing the
+molecule's state against the reactant and the product. That also makes the two
+branches identical, so each is now a single condition.
+
+**A fourth defect blocked the model from running at all.**
+`BackRxn::display()` read `rate.otherIfaceLists[1]` whenever the list was
+non-empty. `otherIfaceLists` holds one entry per reactant, so the conjugate of a
+unimolecular state change has one entry and element 1 is past the end. It
+crashed four runs in five on the same seed, depending on heap layout.
+`ForwardRxn::display()` avoids this by skipping the block for
+`uniMolStateChange`; the back version now iterates the list it actually has, so
+its output is unchanged wherever the old code was well defined. Display-only, and
+the bitwise suite confirms it.
+
+**No existing model is affected, and this was checked rather than argued.** No
+input under `sample_inputs/` declares a unimolecular state change with `<->`:
+`michaelis_menten`, `unimolecular_reverse` and `auto_phos` write theirs as
+separate `->` reactions, which leaves `conjBackRxnIndex` at `-1` so the reverse
+branch is never entered. All 13 suite cases stay byte-identical, including
+`michaelis_menten`. Two models that use states but are not in the suite were
+checked separately and are also byte-identical: `auto_phos` over 200,000
+iterations and `enzyme` over 20,000.
+
+Because nothing existing reaches the path, it has its own model at
+[`sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible`](../sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible),
+with a pass/fail check at
+[`benchmarks/nerdss_optimized/regression/unimol_state_change_reversible`](../benchmarks/nerdss_optimized/regression/unimol_state_change_reversible).
+It deliberately offsets the forward and back index spaces, which a single
+reversible pair cannot do. Unlike the bimolecular model, this path does work end
+to end once corrected: both state changes reach `kf/(kf+kb)` within statistical
+error, against a factor-of-four different answer before. See section 8 of
+`RESULTS.md`.
+
 ## Reproducing the measurements
 
 ```bash
@@ -238,11 +332,13 @@ Each of these is a live or pre-existing defect discovered while doing the work
 above. None is part of issues #8-#12, and every one needs its own model and its
 own validation, so all are left untouched here.
 
-- `find_which_state_change_reaction()` (unimolecular state change) assigns
-  `rateIndex = backRxns[...].relRxnIndex` on its reverse path - a reaction index
-  written into a rate index - and never assigns `rxnIndex` there at all. This is
-  the unimolecular sibling of the issue #8 reverse-branch defects, but unlike
-  that branch it is reachable from existing models.
+- ~~`find_which_state_change_reaction()` (unimolecular state change) assigns
+  `rateIndex = backRxns[...].relRxnIndex` on its reverse path.~~ **Fixed** - see
+  [Reverse unimolecular state change](#reverse-unimolecular-state-change) above.
+  The reason it was deferred, that the path is reachable from existing models,
+  turned out not to hold: no input under `sample_inputs/` declares a unimolecular
+  state change with `<->`, so the reverse branch is unreachable and all 13 suite
+  cases stay byte-identical.
 - `set_rMaxLimit()` inspects only `ReactionType::bimolecular`. A model whose only
   bimolecular reaction is a state change therefore keeps `rMaxLimit == 0`, and
   `SimulVolume::Dimensions` divides the box length by it, producing a negative
@@ -259,3 +355,107 @@ own validation, so all are left untouched here.
 
 The optimized build reproduces every one of these identically where the random
 stream is unchanged.
+
+## Candidate corrections and optimizations
+
+Filed issues that are not part of #8-#12 and have not been worked yet. Each entry
+records what was established by reading the code, so the work can be scoped
+without rediscovering it. Nothing here is implemented.
+
+### Suite coverage gap - `sample_inputs/enzyme` (validation)
+
+`enzyme` is in neither `cases.tsv` nor `known_broken.tsv`, so it is neither
+validated nor recorded as broken. It is the only sample input holding a
+bimolecular state change (irreversible), so it is the only one exercising the
+forward `perform_bimolecular_state_change_*` path. It runs to completion for
+20,000 iterations and is byte-identical across the builds compared here, so the
+cheap fix is to add it to `cases.tsv` with a calibrated `nItr`. Doing so would
+have caught the incorrect claim corrected above at the time it was written.
+
+### Issue #4 - false out-of-bounds abort (correction)
+
+[Issue #4](https://github.com/JohnsonBiophysicsLab/NERDSS/issues/4) reports a run
+aborting with `Cannot fit complex 1 into simulation volume. Exiting...` for a
+molecule at `[-63.8805, 81.449, -250]` in a `[166.9, 166.9, 500.0]` box, which is
+inside the box. The reporter notes it is intermittent across replicates.
+
+The message the reporter quotes is the one without a named dimension, so the
+branch that fired is the `currBin` test at
+[`class_SimulVolume.cpp:416`](../src/classes/class_SimulVolume.cpp), not one of
+the three coordinate tests. That is the whole problem, and it does not need the
+model to see:
+
+- `SimulVolume::update_memberMolLists()` tests the three dimensions first and the
+  bin index last, as an `if / else if` chain. So the `currBin` branch is reached
+  **only when all three coordinate tests have already passed**, that is, only for
+  a molecule the same function considers inside the box.
+- All four branches then call the same corrector,
+  `Complex::put_back_into_SimulVolume()`, whose translation is derived purely
+  from the three coordinate tests: `transVec.x` is nonzero only if
+  `x > waterBox.x/2` or `x < -waterBox.x/2`, and likewise for y and z. Those are
+  the conditions the caller just ruled out.
+- So on the `currBin` path the translation is exactly `(0, 0, 0)`. The complex
+  does not move, `update_properties()` recomputes the same bin, the caller
+  restarts its scan, and this repeats until the corrector's own counter reaches
+  1000 and calls `exit(1)`. The abort is guaranteed, not probabilistic; what is
+  intermittent is only whether a molecule ever lands in that state.
+
+`z = -250` is exactly `-waterBox.z/2`, the lower face, and the reporter's model
+pins lipids there (`isLipid = true`, `D = [1.0, 1.0, 0.0]`), which is consistent
+with a boundary-coincidence case rather than a genuine escape.
+
+Two further discrepancies in the same code are worth folding into the fix, since
+they concern the same predicate:
+
+- The coordinate tests allow `1E-6` of slack on the lower face
+  (`comCoord.z + 1E-6 < -(waterBox.z / 2)`) but none on the upper face
+  (`comCoord.z > (waterBox.z / 2)`), and the binning adds its own `1E-6` only in
+  z. The corrector's `else if (zDiff < -waterBox.z)` is strict, so a coordinate
+  sitting exactly on a face is treated as inside by one predicate and outside by
+  another depending on which one asks.
+- The bin guard is `currBin > numSubCells.tot`, so `currBin == numSubCells.tot`
+  passes the guard and is then used to index `subCellList`, one past the end. The
+  `xItr`/`yItr`/`zItr` clamps just above only repair the exact values `-1` and
+  `numSubCells.<dim>`, not larger overshoots.
+
+Scoping note: a fix has to make the four out-of-bounds predicates and the
+corrector agree on a single convention, and needs a model that puts a molecule
+exactly on a face. Because it changes what happens on the boundary, it is a
+result-changing correction and needs the statistical comparison rather than the
+bitwise one.
+
+### Issue #7 - `Quat` const-correctness and batch rotation (optimization)
+
+[Issue #7](https://github.com/JohnsonBiophysicsLab/NERDSS/issues/7) asks for
+`const`/`noexcept`/`[[nodiscard]]` on the read-only `Quat` operations, separation
+of copy-returning from in-place forms, conventional compound operators, explicit
+zero-quaternion handling, and - the one change with a measurable payoff - hoisting
+the inverse out of loops that rotate many vectors with one quaternion, optionally
+behind a prepared-rotation type.
+
+Two things to weigh before starting:
+
+- The API cleanups touch every call site of `Quat` and are mostly mechanical, but
+  `CMakeLists.txt` sets `CMAKE_CXX_STANDARD 11` and the Makefile passes
+  `-std=c++0x`, so `[[nodiscard]]` needs a standard bump or has to be dropped from
+  the scope.
+- Issue #9, already done, is a symptom of exactly what issue #7 asks for. The
+  `rotQuat.unit()` call it removed was a no-op because `Quat::unit()` returns the
+  normalized quaternion instead of normalizing in place - the confusion between
+  copy-returning and in-place forms that issue #7's `normalized()` / `normalize()`
+  split is meant to prevent. So the API change has a demonstrated defect behind
+  it, not just style.
+- The inverse-hoist has a concrete target. `Quat::rotate()` builds
+  `this->inverse()` on every call
+  ([`class_Quat.cpp:57`](../src/classes/class_Quat.cpp)), and it is called once
+  per interface inside loops that reuse a single `rotQuat`: `rotate.cpp:18`,
+  `class_Molecule_Complex.cpp:409`, `:540` and `:1087`. So the redundant work is
+  proportional to interfaces per complex, which is also the axis along which
+  issue #8 produced its largest wins.
+- It should still be measured before being assumed worthwhile. The per-case
+  speedups this branch reports come from reaction matching, not from rotation, and
+  the profiling behind issues #8-#12 did not isolate the rotation paths.
+
+Both parts are expected to be bit-for-bit result-preserving, so the 13-case
+bitwise suite is the right check, which makes this the cheaper of the two to
+validate.

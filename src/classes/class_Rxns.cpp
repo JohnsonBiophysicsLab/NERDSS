@@ -333,13 +333,15 @@ void BackRxn::display() const
     std::cout << "\nRate(s):\n";
     for (auto& rate : rateList) {
         std::cout << "Rate " << &rate - &rateList[0] << ": " << rate.rate << '\n';
-        if (!rate.otherIfaceLists.empty()) {
-            std::cout << "Reactant 1 requires interfaces:\n";
-            for (auto& iface : rate.otherIfaceLists[0]) {
-                std::cout << ' ' << iface << '\n';
-            }
-            std::cout << "Reactant 2 requires interfaces:\n";
-            for (auto& iface : rate.otherIfaceLists[1]) {
+        // otherIfaceLists holds one entry per reactant, so element 1 exists only
+        // for a bimolecular reaction.  This used to read element 1 whenever the
+        // list was non-empty, which for the conjugate of a reversible
+        // unimolecular state change - one reactant, so one entry - read out of
+        // bounds and crashed depending on the heap layout.  ForwardRxn::display()
+        // avoids it by skipping this block for uniMolStateChange entirely.
+        for (std::size_t reactItr { 0 }; reactItr < rate.otherIfaceLists.size(); ++reactItr) {
+            std::cout << "Reactant " << reactItr + 1 << " requires interfaces:\n";
+            for (auto& iface : rate.otherIfaceLists[reactItr]) {
                 std::cout << ' ' << iface << '\n';
             }
         }
