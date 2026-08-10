@@ -1,4 +1,4 @@
-#include "math/Faddeeva.hpp"
+#include "math/erflike.hpp"
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "tracing.hpp"
 
@@ -16,30 +16,27 @@ double pirr_pfree_ratio_psF(
     double sep, dist;
     double sqrt_t = sqrt(tCurr);
     double a2 = alpha * alpha;
-    double r1, term1, term2, e1, ef1, sum;
+    double r1, term1, term2, sum;
 
     r1 = rCurr;
     sep = r1 + r0 - 2.0 * bindrad;
     dist = r1 - r0;
     term1 = f1 * (exp(-dist * dist / fDt) + exp(-sep * sep / fDt));
-    double a = sep / sq_fDt;
-    double b = sqrt_t * alpha;
-    e1 = 2.0 * a * b + a2 * tCurr;
-    ef1 = a + b;
-    double ep1 = exp(e1);
-    if (std::isinf(ep1)) {
-        std::complex<double> z;
-        z.real(0.0); // = 0.0;
-        z.imag(ef1); // = ef1;
-        // cout <<"Complex number: "<<z<<endl;
-        std::complex<double> value;
-        double relerr = 0;
-        value = Faddeeva::w(z, relerr);
-        double ea2 = exp(-a * a);
-        term2 = ea2 * real(value);
-
+    const double a = sep / sq_fDt;
+    const double b = sqrt_t * alpha;
+    const double e1 = 2.0 * a * b + a2 * tCurr;
+    const double ef1 = a + b;
+    const double ep1 = exp(e1);
+    // erfc(ef1) can underflow before the complete product does. Use the
+    // scaled form if that happens, as well as when exp(e1) overflows.
+    if (!std::isinf(ep1)) {
+        const double erfc1 = erfc(ef1);
+        if (erfc1 != 0.0)
+            term2 = ep1 * erfc1;
+        else
+            term2 = exp(-a * a) * erflike::erfcx(ef1);
     } else {
-        term2 = exp(e1) * erfc(ef1);
+        term2 = exp(-a * a) * erflike::erfcx(ef1);
     }
 
     // term2=alpha*exp(e1)*erfc(ef1);

@@ -1,4 +1,4 @@
-#include "math/Faddeeva.hpp"
+#include "math/erflike.hpp"
 #include "tracing.hpp"
 
 double pirr_pfree_ratio_psF_1D(
@@ -27,7 +27,7 @@ double pirr_pfree_ratio_psF_1D(
         const double sq_scale_t{ka * sqrt(tCurr / Dtot)};  
         double ep1 = exp(-dx_m * dx_m / fDt);
         double ep2 = exp(-dx_p * dx_p / fDt);
-        double p_irr = (ep1) / sq_pifDt - ka / Dtot * ep2 * Faddeeva::erfcx( dx_p / sq_fDt + sq_scale_t );
+        double p_irr = (ep1) / sq_pifDt - ka / Dtot * ep2 * erflike::erfcx( dx_p / sq_fDt + sq_scale_t );
         // normalized p_free
         double p_free_norm = (ep1) / sq_pifDt; 
         // reweighting ratio
@@ -64,7 +64,7 @@ double pirr_pfree_ratio_psF_1D(
         // p_irr
         double ep3 = exp(-dx_sigma * dx_sigma / fDt);
         double sep = dx_sigma / sq_fDt + sq_scale_t;
-        double p_irr = (ep1 + ep3) / sq_pifDt - ka / Dtot * ep3 * Faddeeva::erfcx(sep);
+        double p_irr = (ep1 + ep3) / sq_pifDt - ka / Dtot * ep3 * erflike::erfcx(sep);
 
         // reweighting ratio
         double ratio = p_irr / ps_prev / p_free_norm;
