@@ -5,12 +5,14 @@
 #include <cmath>
 #include <iostream>
 
+[[deprecated("Avoid using factorial, especially for combinatorial number. Not efficient for large n.")]] 
 long double MathFuncs::factorial(unsigned n)
 {
     return (n == 0) ? 1 : n * factorial(n - 1);
 }
 
 // Following from Numerical Recipes, ch. 6
+[[deprecated("Avoid using gammln, especially for combinatorial number. Not efficient for large n.")]] 
 double MathFuncs::gammln(double n)
 {
     double x { 0 };
@@ -29,6 +31,7 @@ double MathFuncs::gammln(double n)
     return -tmp + log(2.5066282746310005 * ser / x);
 }
 
+[[deprecated("Avoid using gammFactorial, especially for combinatorial number. Not efficient for large n.")]] 
 double MathFuncs::gammFactorial(int n)
 {
     static int ntop = 4;

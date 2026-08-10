@@ -36,12 +36,12 @@ void clear_reweight_vecs(Molecule& oneMol)
     //     }
     // }
     /* Curr values as prev values and clear curr values */
-    oneMol.prevlist = oneMol.currlist;
-    oneMol.prevmyface = oneMol.currmyface;
-    oneMol.prevpface = oneMol.currpface;
-    oneMol.prevnorm = oneMol.currprevnorm;
-    oneMol.ps_prev = oneMol.currps_prev;
-    oneMol.prevsep = oneMol.currprevsep;
+    oneMol.prevlist.swap(oneMol.currlist);
+    oneMol.prevmyface.swap(oneMol.currmyface);
+    oneMol.prevpface.swap(oneMol.currpface);
+    oneMol.prevnorm.swap(oneMol.currprevnorm);
+    oneMol.ps_prev.swap(oneMol.currps_prev);
+    oneMol.prevsep.swap(oneMol.currprevsep);
     oneMol.currlist.clear();
     oneMol.currmyface.clear();
     oneMol.currpface.clear();
