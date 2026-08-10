@@ -1,6 +1,5 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/constants.hpp"
-#include "math/math_functions.hpp"
 #include "math/rand_gsl.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
@@ -50,7 +49,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 				/* Poisson sampling				
                 while (rNum > prob) {
                     ++numEvents;
-                    //prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
 					//this method is much faster, same accuracy
 					prob += explam *lampow /factor;
 					lampow = lampow*lambda;// accumulate the powers
@@ -144,7 +142,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                 /* Poisson
                 while (rNum > prob) {
                     ++numEvents;
-                    //prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
 					//this method is much faster, same accuracy
 					prob += explam *lampow /factor;
 					lampow = lampow*lambda;// accumulate the powers
@@ -210,7 +207,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
             /* Poisson
             while (rNum > prob) {
                 ++numEvents;
-				// prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
 				//this method is much faster, same accuracy
 				prob += explam *lampow /factor;
 				lampow = lampow*lambda;// accumulate the powers
@@ -338,7 +334,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                     /* Poisson
                     while (rNum > prob) {
                         ++numEvents;
-						// prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
 						//this method is much faster, same accuracy
 						prob += explam *lampow /factor;
 						lampow = lampow*lambda;// accumulate the powers

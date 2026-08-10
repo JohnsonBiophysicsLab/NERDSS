@@ -1,5 +1,4 @@
 #include "math/constants.hpp"
-//#include "math/math_functions.hpp"
 #include "math/rand_gsl.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"

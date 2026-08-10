@@ -1,5 +1,4 @@
 #include "math/constants.hpp"
-#include "math/math_functions.hpp"
 #include "math/rand_gsl.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "tracing.hpp"
@@ -57,19 +56,11 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                 double explam = exp(-lambda);
                 // double rNum2 { rNum + rand_gsl() * Constants::iRandMax }; // to get higher resolution
 
-                /*
-                while (rNum > prob) {
-                    ++numEvents;
-                    prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
-                }
-                */
-
                 // recursive poisson
                
                 while (rNum > prob)
                 {
                     ++numEvents;
-                    // prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
                     // this method is much faster, same accuracy
                     prob += explam * lampow / factor;
                     lampow = lampow * lambda;  // accumulate the powers
@@ -149,7 +140,6 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                 while (rNum > prob)
                 {
                     ++numEvents;
-                    // prob += (exp(-lambda) * pow(lambda, numEvents)) / MathFuncs::gammFactorial(numEvents);
                     // this method is much faster, same accuracy
                     prob += explam * lampow / factor;
                     lampow = lampow * lambda;  // accumulate the powers
