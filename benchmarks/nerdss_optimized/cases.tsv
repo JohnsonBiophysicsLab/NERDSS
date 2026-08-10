@@ -1,0 +1,24 @@
+# Validation and benchmark cases for the nerdss-optimized branch.
+#
+# Columns: id <TAB> input directory (under sample_inputs/) <TAB> parm file <TAB> nItr
+#
+# nItr is overridden per case so each one runs for roughly ten seconds on the
+# reference host.  The reduced count is recorded in every result file, because a
+# bitwise or timing claim only means something together with the number of
+# iterations it was measured over.
+#
+# Three VALIDATE_SUITE cases and the Gag example are deliberately absent; see
+# known_broken.tsv for why.
+rev_3D	VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	20000
+rev_2D	VALIDATE_SUITE/bimolecular_reversible/rev_2D	parms2D.inp	200
+rev_3Dto2D	VALIDATE_SUITE/bimolecular_reversible/rev_3Dto2D	parms3dto2d.inp	8000
+homoTrimer	VALIDATE_SUITE/homoTrimer	parmTri6.inp	6000
+closed_homoTrimer	VALIDATE_SUITE/closed_homoTrimer	parmTri6.inp	6000
+hetTrimer	VALIDATE_SUITE/hetTrimer	parm_autodiff_hetTri.inp	8000
+trimer	VALIDATE_SUITE/trimer	parm_hetTri.inp	8000
+hexamer	VALIDATE_SUITE/hexamer	parms_phex.inp	25000
+clathrin	VALIDATE_SUITE/clathrin	parms_clath_kon1uM.inp	150000
+implicit_lipid	VALIDATE_SUITE/implicit_lipid	parms.inp	100000
+sphere	VALIDATE_SUITE/sphere	parms_sphere.inp	40000
+michaelis_menten	VALIDATE_SUITE/michaelis_menten	michaelis.inp	150000
+mem_localization	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	2000

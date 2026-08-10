@@ -1,0 +1,18 @@
+# Sample inputs that already fail on master, verified with the master build at
+# commit 260f6e2 (Apple M5, Apple clang 21, -O3, seed 20260810, nItr 1000).
+# They are kept out of cases.tsv because a crashed or hung run produces truncated
+# output whose hash depends on where it stopped, which would make the bitwise
+# comparison meaningless rather than informative.
+#
+# None of these are caused or fixed by the nerdss-optimized changes.  The
+# result-preserving subset of the branch reproduces each failure identically; the
+# full branch reproduces the same failure mode at a different point, because the
+# random stream differs.  Reproduce any of them by moving the row into cases.tsv
+# and running:
+#   CASE_TIMEOUT=60 SUITE_NITR=1000 ./run_suite.sh <binary> probe 1
+#
+# id <TAB> input directory <TAB> parm file <TAB> failure
+create_destroy	VALIDATE_SUITE/create_destroy	create.inp	SIGSEGV after ~11 output blocks of zeroth-order creation (NULL -> A(ser)) from A:0. Master and the result-preserving build fail at the same point; the full branch fails later on the same fault.
+unimolecular_reverse	VALIDATE_SUITE/unimolecular_reverse	uni_reverse.inp	No bimolecular association reaction, so set_rMaxLimit() leaves rMaxLimit at 0 and SimulVolume::Dimensions divides the box length by it. Cell count goes negative and the run prints "CELL PAIR MAX EXCEEDED / Current number of cells: -4" indefinitely (~110M messages in 30 s) without advancing. Identical on all three builds.
+clock_model	VALIDATE_SUITE/clock_model	clock_model.inp	SIGSEGV immediately after "BEGIN SIMULATION", seed-dependent: it crashes on master and on the result-preserving build with seed 20260810 but completes on both with seeds 1-5. A latent memory error, not a systematic failure. The full branch happens to survive seed 20260810 because its initial orientations differ; that is luck, not a fix.
+gag	Gag	parm.inp	Runs correctly, but the model holds a single molecule (A:1) so no reaction path is exercised. Excluded as a benchmark, not as a failure.

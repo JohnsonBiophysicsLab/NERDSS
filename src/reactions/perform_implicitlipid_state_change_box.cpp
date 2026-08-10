@@ -20,6 +20,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     bool isStateChangeBackRxn { static_cast<bool>(rxnItr[2]) };
     int rxnIndex { rxnItr[0] };
     int forwardRxnIndex { rxnIndex };
+    int backRxnIndex { rxnIndex };
     RxnIface newState {};
     ForwardRxn::Angles assocAngles {};
     if (!isStateChangeBackRxn) {
@@ -27,9 +28,15 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         newState = forwardRxns[rxnIndex].productListNew[1];
         assocAngles = forwardRxns[rxnIndex].assocAngles;
     } else {
-        forwardRxnIndex = backRxns[rxnIndex].conjForwardRxnIndex;
+        // rxnItr[0] is an index into forwardRxns: perform_bimolecular_reactions()
+        // selects this function by testing forwardRxns[rxnItr[0]].rxnType.  The
+        // conjugate BackRxn must therefore be reached through the forward
+        // reaction.  Indexing backRxns with the forward index only happened to
+        // work while both lists held a single entry (issue #8).
+        backRxnIndex = forwardRxns[rxnIndex].conjBackRxnIndex;
+        forwardRxnIndex = backRxns[backRxnIndex].conjForwardRxnIndex;
         bindRadius = forwardRxns[forwardRxnIndex].bindRadius;
-        newState = backRxns[rxnIndex].productListNew[1];
+        newState = backRxns[backRxnIndex].productListNew[1];
         assocAngles = forwardRxns[forwardRxnIndex].assocAngles;
     }
     const ForwardRxn& currRxn = forwardRxns[forwardRxnIndex];
@@ -452,8 +459,8 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         } else {
             ++observeItr->second;
         }
-    } else if (isStateChangeBackRxn && backRxns[rxnIndex].isObserved) {
-        auto observeItr = observablesList.find(backRxns[rxnIndex].observeLabel);
+    } else if (isStateChangeBackRxn && backRxns[backRxnIndex].isObserved) {
+        auto observeItr = observablesList.find(backRxns[backRxnIndex].observeLabel);
         if (observeItr == observablesList.end()) {
             // std::cerr << "WARNING: Observable " << backRxns[rxnIndex].observeLabel << " not defined.\n";
         } else {

@@ -1,0 +1,26 @@
+##
+# K molecule information file
+# Facilitator (enzyme) for the bimolecular state change.
+#
+# The kd interface exists only to give the model one ordinary bimolecular
+# association reaction.  set_rMaxLimit() in master only inspects
+# ReactionType::bimolecular, so a model whose sole bimolecular reaction is a
+# state change ends up with rMaxLimit == 0, and the cell length derived from it
+# divides by zero.  See the note in parms.inp.
+##
+
+Name    = K
+
+# translational diffusion constants
+D       = [25.0,25.0,25.0]
+
+# rotational diffusion constants
+Dr      = [0.01,0.01,0.01]
+
+COM      0.0000    0.0000    0.0000
+k        1.0000    0.0000    0.0000
+kd      -1.0000    0.0000    0.0000
+
+bonds = 2
+COM k
+COM kd

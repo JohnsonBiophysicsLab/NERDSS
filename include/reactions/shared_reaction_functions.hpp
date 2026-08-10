@@ -45,6 +45,52 @@ bool hasIntangibles(int reactIndex1, int reactIndex2, const Molecule& reactMol1,
  */
 bool hasIntangibles(int reactantIndex, const Molecule& reactMol, const RxnBase::RateState& currRxnState);
 
+/*!
+ * \brief The single best matching RxnBase::RateState found in a rate list.
+ *
+ * \var matches how many rate states accepted the reactant pair
+ * \var bestRateIndex index into the scanned rate list, -1 when nothing matched
+ * \var mostAncillaryIfaces ancillary-interface count of the selected match
+ */
+struct RateMatch {
+    int matches { 0 };
+    int bestRateIndex { -1 };
+    std::size_t mostAncillaryIfaces { 0 };
+};
+
+/*!
+ * \brief Scans a rate list once and keeps only the best matching rate state.
+ *
+ * When several rate states accept the reactant pair, the one requiring the most
+ * ancillary interfaces wins, because it is the most specific description of the
+ * pair.  The comparison is strict, so the first of several equally specific
+ * matches is kept.
+ *
+ * This replaces the temporary match vector that find_which_reaction() and
+ * find_reaction_rate_state() used to build and then rescan.  Both are called
+ * once per candidate interface pair per timestep, so the vector cost a heap
+ * allocation on a hot path to hold information that a running best already
+ * carries.
+ */
+inline RateMatch best_matching_rate(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2,
+    const Molecule& reactMol1, const Molecule& reactMol2)
+{
+    RateMatch result {};
+    for (std::size_t rateItr { 0 }; rateItr < rateList.size(); ++rateItr) {
+        const RxnBase::RateState& oneRate = rateList[rateItr];
+        if (!hasIntangibles(reactIndex1, reactIndex2, reactMol1, reactMol2, oneRate))
+            continue;
+
+        ++result.matches;
+        const std::size_t ancillaryCount { oneRate.otherIfaceLists[0].size() + oneRate.otherIfaceLists[1].size() };
+        if (result.bestRateIndex == -1 || ancillaryCount > result.mostAncillaryIfaces) {
+            result.bestRateIndex = static_cast<int>(rateItr);
+            result.mostAncillaryIfaces = ancillaryCount;
+        }
+    }
+    return result;
+}
+
 /* FUNCTIONS TO DETERMINE WHICH REACTION TO PERFORM */
 
 /*!

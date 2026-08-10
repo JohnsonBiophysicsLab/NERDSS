@@ -14,143 +14,40 @@
 #include <vector>
 
 // CONSTRUCTORS //
-Coord::Coord(std::array<double, 3>& arr)
-    : x(arr[0])
-    , y(arr[1])
-    , z(arr[2])
+Coord::Coord(const std::vector<double>& vals)
 {
-}
-
-Coord::Coord(double x, double y, double z)
-    : x(x)
-    , y(y)
-    , z(z)
-{
-}
-
-Coord::Coord(std::vector<double> vals)
-    : x(vals[0])
-    , y(vals[1])
-    , z(vals[2])
-{
-    if (vals.size() > 3) {
-        std::cout << "Coordinate cannot have more than 3 points. Exiting." << '\n';
+    // Validate before reading, rather than initializing from vals[0..2] and
+    // checking the size afterwards: a shorter vector used to be indexed out of
+    // range before the check could reject it.
+    if (vals.size() != 3) {
+        std::cout << "Coordinate must have exactly 3 points, got " << vals.size() << ". Exiting." << '\n';
         exit(1);
     }
-}
-
-Coord round(const Coord& c) { return { roundv(c.x), roundv(c.y), roundv(c.z) }; }
-
-double roundv(double var)
-{
-    // if-else is because neg and pos values will round differently
-    double val = (int)(var > 0 ? var * 10000 + 0.5 : var * 10000 - 0.5);
-    return val / 10000;
+    x = vals[0];
+    y = vals[1];
+    z = vals[2];
 }
 
 bool is_co_linear(const Coord& c1, const Coord& c2, const Coord& c3)
 {
-    bool isCoLinear { false };
-    //Heron's formula: S^2=p(p-a)(p-b)(p-c); if the three points co-linear, the S^2 == 0
-    double a { 0.0 };
-    double b { 0.0 };
-    double c { 0.0 };
-    a = pow((c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y) + (c1.z - c2.z) * (c1.z - c2.z), 0.5);
-    b = pow((c1.x - c3.x) * (c1.x - c3.x) + (c1.y - c3.y) * (c1.y - c3.y) + (c1.z - c3.z) * (c1.z - c3.z), 0.5);
-    c = pow((c3.x - c2.x) * (c3.x - c2.x) + (c3.y - c2.y) * (c3.y - c2.y) + (c3.z - c2.z) * (c3.z - c2.z), 0.5);
-    double p { (a + b + c) / 2.0 };
-    double S { pow(p * (p - a) * (p - b) * (p - c), 0.5) };
-    if (std::abs(S - 0.0) < 1E-8) {
-        isCoLinear = true;
-    }
-    return isCoLinear;
+    // The three points are co-linear when the triangle they span has zero area.
+    // Heron's formula needs three square roots to get the side lengths and is
+    // badly conditioned for exactly the sliver triangles this test cares about,
+    // so use the cross product instead: |u x v| is twice the triangle area, and
+    // comparing squared quantities keeps the same 1E-8 area threshold without
+    // taking any square root.
+    const Coord u { c2 - c1 };
+    const Coord v { c3 - c1 };
+
+    const Coord crossProduct { (u.y * v.z) - (u.z * v.y), (u.z * v.x) - (u.x * v.z), (u.x * v.y) - (u.y * v.x) };
+
+    // area = |u x v| / 2, so area < 1E-8 is |u x v|^2 < 4E-16.
+    return crossProduct.magnitude_squared() < 4E-16;
 }
 
 // OPERATORS //
-bool operator==(const Coord& c1, const Coord& c2)
-{
-    return (bool { roundv(c1.x) == roundv(c2.x) } * bool { roundv(c1.y) == roundv(c2.y) }
-        * bool { roundv(c1.z) == roundv(c2.z) });
-}
-
-bool operator!=(const Coord& c1, const Coord& c2)
-{
-    return (bool { roundv(c1.x) != roundv(c2.x) } || bool { roundv(c1.y) != roundv(c2.y) }
-        || bool { roundv(c1.z) != roundv(c2.z) });
-}
-
 std::ostream& operator<<(std::ostream& os, const Coord& c)
 {
     os << std::setprecision(6) << std::setw(12) << c.x << " " << std::setw(12) << c.y << " " << std::setw(12) << c.z;
     return os;
-}
-
-Coord operator+(const std::array<double, 3>& arr, const Coord& c)
-{
-    double x { arr[0] + c.x };
-    double y { arr[1] + c.y };
-    double z { arr[2] + c.z };
-    return { x, y, z };
-}
-
-Coord operator+(const Coord& c1, const Coord& c2)
-{
-    double x { c1.x + c2.x };
-    double y { c1.y + c2.y };
-    double z { c1.z + c2.z };
-    return { x, y, z };
-}
-
-Coord operator-(const Coord& c1, const double val) { return Coord { c1.x - val, c1.y - val, c1.z - val }; }
-
-void Coord::operator+=(const Coord& coord)
-{
-    x += coord.x;
-    y += coord.y;
-    z += coord.z;
-}
-
-void operator/=(Coord& c, double& scal)
-{
-    c.x = c.x / scal;
-    c.y = c.y / scal;
-    c.z = c.z / scal;
-}
-
-Coord operator+=(Coord& c, const std::array<double, 3>& arr)
-{
-    double x { c.x + arr[0] };
-    double y { c.y + arr[1] };
-    double z { c.z + arr[2] };
-    return { x, y, z };
-}
-
-// MEMBER FUNCTIONS //
-void Coord::zero_crds()
-{
-    /// Just sets all values to zero
-    x = 0;
-    y = 0;
-    z = 0;
-}
-
-bool Coord::isOutOfBox(const Membrane& membraneObject)
-{
-    /*!
-     * \brief Checks if the coordinate is outside the waterbox. Only used in reflecting boundary conditions.
-     */
-
-    if ((x > (membraneObject.waterBox.x / 2.0)) || (x < -(membraneObject.waterBox.x / 2.0)))
-        return true;
-    if ((y > (membraneObject.waterBox.y / 2.0)) || (y < -(membraneObject.waterBox.y / 2.0)))
-        return true;
-    if ((z > (membraneObject.waterBox.z / 2.0)) || (z < -(membraneObject.waterBox.z / 2.0)))
-        return true;
-
-    return false;
-}
-
-double Coord::get_magnitude()
-{
-    return sqrt(x * x + y * y + z * z);
 }

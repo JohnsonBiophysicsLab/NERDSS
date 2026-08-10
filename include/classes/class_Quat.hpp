@@ -44,3 +44,19 @@ struct Quat {
     {
     }
 };
+
+/*!
+ * \brief Returns a unit quaternion drawn uniformly over all orientations.
+ *
+ * Normalizing four independent U(-1,1) components, which is what the random
+ * orientation code used to do, does not sample rotations uniformly: it samples
+ * uniformly inside a 4-cube and then projects onto the unit 3-sphere, so
+ * directions towards the corners of the cube receive more probability mass than
+ * directions towards its face centers (issue #10).
+ *
+ * This uses Shoemake's subgroup algorithm, which is exactly uniform on the
+ * 3-sphere and therefore on the rotation group.  It draws exactly three uniform
+ * variates with no rejection, and the result is a unit quaternion by
+ * construction: r1^2 + r2^2 = (1 - u1) + u1 = 1.
+ */
+Quat rand_unit_quat();

@@ -43,7 +43,12 @@ void write_rng_state(int rank);
 void write_rng_state_simItr(int simItr);
 
 /*!
- * \brief Uses Box-Mueller method to greate Gaussian-distributed random numbers from a uniform random number generator.
+ * \brief Returns a standard-normal random number (mean 0, variance 1).
+ *
+ * Backed by GSL's ziggurat sampler.  This replaced a hand-written Marsaglia
+ * polar (rejection Box-Muller) implementation, which was slower and consumed a
+ * variable number of uniform variates per call.
+ *
  * \param[out] double Gaussian-distributed random double.
  */
 double GaussV();

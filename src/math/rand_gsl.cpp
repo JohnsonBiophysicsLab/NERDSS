@@ -123,13 +123,10 @@ void read_rng_state(int rank) {
 
 double GaussV()
 {
-    double R { 2.0 };
-    double V1 {};
-
-    while (R >= 1.0) {
-        V1 = 2.0 * gsl_rng_uniform(r) - 1.0;
-        double V2 = 2.0 * gsl_rng_uniform(r) - 1.0;
-        R = (V1 * V1) + (V2 * V2);
-    }
-    return (V1 * sqrt(-2.0 * log(R) / R));
+    // The Marsaglia polar method this used to implement draws ~2.55 uniforms on
+    // average, takes a log, a sqrt and a division, and branches unpredictably
+    // because it rejects samples outside the unit disc.  GSL's ziggurat sampler
+    // answers from a table lookup about 98% of the time and only evaluates a
+    // logarithm in the tail (issue #12).
+    return gsl_ran_gaussian_ziggurat(r, 1.0);
 }

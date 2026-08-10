@@ -1,0 +1,21 @@
+##
+# A molecule information file
+# Substrate whose interface state is switched by K.
+##
+
+Name    = A
+
+# translational diffusion constants
+D       = [25.0,25.0,25.0]
+
+# rotational diffusion constants
+Dr      = [0.01,0.01,0.01]
+
+COM     0.0000    0.0000    0.0000
+a       1.0000    0.0000    0.0000
+
+bonds = 1
+COM a
+
+#State definitions
+state = a~X~Y

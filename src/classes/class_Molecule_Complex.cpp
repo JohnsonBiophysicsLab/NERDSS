@@ -399,11 +399,9 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
     {
 
       // set interface coordinates, with a random rotation on the entire
-      // molecule
-      // TODO: Commented this out for testing against old version
-      Quat rotQuat{rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1,
-                   rand_gsl() * 2 - 1};
-      rotQuat = rotQuat.unit();
+      // molecule.  rand_unit_quat() samples orientations uniformly and returns
+      // a unit quaternion, so it needs no normalization (issue #10).
+      Quat rotQuat{rand_unit_quat()};
       for (unsigned int ifaceItr{0};
            ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
       {
@@ -532,10 +530,10 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
           }
         }
 
-        // set interface coordinates, with a random rotation on the entire molecule
-        // TODO: Commented this out for testing against old version
-        Quat rotQuat{rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1, rand_gsl() * 2 - 1};
-        rotQuat = rotQuat.unit();
+        // set interface coordinates, with a random rotation on the entire
+        // molecule.  rand_unit_quat() samples orientations uniformly and returns
+        // a unit quaternion, so it needs no normalization (issue #10).
+        Quat rotQuat{rand_unit_quat()};
         for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
         {
           Vector ifaceVec{Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord} - comCoord};
@@ -1063,12 +1061,16 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
       double cosX{cos(trajRot.x * 0.5)};
       double sinX{sin(trajRot.x * 0.5)};
 
+      // This is the unit quaternion of the ZYX Euler rotation by trajRot, so it
+      // needs no normalization: the four half-angle products above satisfy
+      // w^2 + x^2 + y^2 + z^2 == 1 to within double rounding.  The call that
+      // used to sit here was also a no-op, because Quat::unit() returns the
+      // normalized quaternion instead of normalizing in place (issue #9).
       Quat rotQuat{};
       rotQuat.x = (sinX * cosY * cosZ) - (cosX * sinY * sinZ);
       rotQuat.y = (cosX * sinY * cosZ) + (sinX * cosY * sinZ);
       rotQuat.z = (cosX * cosY * sinZ) - (sinX * sinY * cosZ);
       rotQuat.w = (cosX * cosY * cosZ) + (sinX * sinY * sinZ);
-      rotQuat.unit();
 
       // update the member proteins
       for (auto mol : memberList) {

@@ -1,0 +1,74 @@
+# Regression model for the reverse bimolecular state-change corrections in
+# issue #8.  No input under sample_inputs/ contains a bimolecular state change,
+# so that code path is not covered by the validation suite.
+#
+# The reaction order matters.  The first reaction is irreversible, so it takes
+# forwardRxns[0] without creating a BackRxn.  The bimolecular state change is
+# therefore forwardRxns[1] with conjBackRxnIndex == 0 -- precisely the
+# arrangement the master code could not handle:
+#
+#   * its gate required conjBackRxnIndex > 0, and 0 fails that test, so the
+#     reverse (Y -> X) state change was never even considered;
+#   * had the gate passed, it recovered the rate index by subtracting pointers
+#     into two unrelated vectors, never assigned rateIndex on a single match,
+#     and read element 0 of an empty match list when nothing matched;
+#   * downstream, perform_bimolecular_state_change_* indexed backRxns with the
+#     forward index, which is backRxns[1] here and out of range.
+#
+# Expected outcome: under the master build A(a~Y) only grows, because just the
+# forward X -> Y direction can fire.  Under the corrected build the two states
+# reach a steady state set by onRate3Dka and offRatekb.
+#
+# The K(kd) + K(kd) association at the end is scaffolding, not part of the test.
+# set_rMaxLimit() in master only inspects ReactionType::bimolecular, so a model
+# whose only bimolecular reaction is a state change leaves rMaxLimit at 0, and
+# SimulVolume::Dimensions then divides the box length by that zero, producing a
+# negative cell count and an endless "CELL PAIR MAX EXCEEDED" rescale.  This
+# reaction gives rMaxLimit a sane value.  Its rates are low enough that it stays
+# a minor perturbation, and it is listed last so the state-change reaction keeps
+# indices 1 and 0.
+
+start parameters
+    nItr = 200000
+    timeStep = 0.1
+
+    timeWrite = 500
+    trajWrite = 1000000
+    restartWrite = 1000000
+    pdbWrite = 1000000
+end parameters
+
+start boundaries
+    WaterBox = [100.0,100.0,100.0] #nm
+end boundaries
+
+start molecules
+    K : 30
+    A : 200 (a~X)
+end molecules
+
+start reactions
+    # forwardRxns[0], irreversible, so no BackRxn is created and the forward and
+    # back index spaces diverge from here on.  Rate 0 keeps it from firing, so it
+    # only shifts the indices.
+    A(a~X) -> A(a~Y)
+    rate = 0.0
+
+    # forwardRxns[1] / backRxns[0]: enzyme-facilitated state change.
+    K(k) + A(a~X) <-> K(k) + A(a~Y)
+    onRate3Dka = 10.0
+    offRatekb = 50.0
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+
+    # forwardRxns[2] / backRxns[1]: scaffolding, see the note above.
+    K(kd) + K(kd) <-> K(kd!1).K(kd!1)
+    onRate3Dka = 0.01
+    offRatekb = 100.0
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+end reactions

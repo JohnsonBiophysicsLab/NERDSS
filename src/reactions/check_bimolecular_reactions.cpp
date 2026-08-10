@@ -21,18 +21,18 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
      if(pro1Index== track2)
        std::cout <<"In check bimolecular Reaction for protein track2 !" <<track2<< " to "<<pro2Index<<" mytype: "<<pro1MolType<<" pro2type: "<<moleculeList[pro2Index].molTypeIndex<<std::endl;
     */
-    bool canInteract { false };
-    for (auto partner : molTemplateList[pro1MolType].rxnPartners) {
-        if (partner == moleculeList[pro2Index].molTypeIndex) {
-            canInteract = true;
-            break;
-        }
-    }
-
-    // only consider when pro2 is NOT implicit-lipid
+    // only consider when pro2 is NOT implicit-lipid.  This rules the pair out on
+    // its own and is a single flag test, so it is checked before scanning pro1's
+    // partner list rather than after.
+    bool canInteract { !moleculeList[pro2Index].isImplicitLipid };
     if (canInteract) {
-        if (moleculeList[pro2Index].isImplicitLipid)
-            canInteract = false;
+        canInteract = false;
+        for (auto partner : molTemplateList[pro1MolType].rxnPartners) {
+            if (partner == moleculeList[pro2Index].molTypeIndex) {
+                canInteract = true;
+                break;
+            }
+        }
     }
 
     bool canExclude { false };
@@ -46,22 +46,26 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
         /*If this pair of proteins are already bound together, don't test for binding OR overlap, set canInteract=0*/
         if (moleculeList[pro1Index].bndlist.size() > 0 && moleculeList[pro2Index].bndlist.size() > 0) {
             bool boundPro1 { false };
-            bool boundPro2 { false };
             for (auto& partner : moleculeList[pro1Index].bndpartner) {
                 if (partner == pro2Index) {
                     boundPro1 = true;
                     break;
                 }
             }
-            for (auto& partner : moleculeList[pro2Index].bndpartner) {
-                if (partner == pro1Index) {
-                    boundPro2 = true;
-                    break;
+            // pro2's partner list only matters when pro1 already named pro2, so
+            // it is not scanned otherwise.
+            if (boundPro1) {
+                bool boundPro2 { false };
+                for (auto& partner : moleculeList[pro2Index].bndpartner) {
+                    if (partner == pro1Index) {
+                        boundPro2 = true;
+                        break;
+                    }
                 }
+                // TODO: add other case
+                if (boundPro2)
+                    canInteract = false;
             }
-            // TODO: add other case
-            if (boundPro1 && boundPro2)
-                canInteract = false;
         }
     }
 
@@ -111,19 +115,26 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                         find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex, isStateChangeBackRxn, state,
                             moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns, backRxns, molTemplateList);
                         if (rxnIndex != -1 && rateIndex != -1) {
-                            //int com1Index { moleculeList[pro1Index].myComIndex };
-                            //int com2Index { moleculeList[pro2Index].myComIndex };
+                            // Read each molecule's complex index once.  Nothing
+                            // below changes it, and it was previously reloaded
+                            // roughly twenty times per candidate pair, which the
+                            // compiler cannot elide across the calls that take
+                            // moleculeList by non-const reference.
+                            const int com1Index { moleculeList[pro1Index].myComIndex };
+                            const int com2Index { moleculeList[pro2Index].myComIndex };
 
-                            if (moleculeList[pro1Index].myComIndex == moleculeList[pro2Index].myComIndex) {
+                            if (com1Index == com2Index) {
                                 evaluate_binding_within_complex(pro1Index, pro2Index, relIface1, relIface2, rxnIndex,
                                     rateIndex, isStateChangeBackRxn, params, moleculeList,
                                     complexList, molTemplateList,
                                     forwardRxns[rxnIndex], backRxns, membraneObject, counterArrays);
                             } else {
+                                const Complex& com1 = complexList[com1Index];
+                                const Complex& com2 = complexList[com2Index];
                                 Vector ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
-                                    - complexList[moleculeList[pro1Index].myComIndex].comCoord };
+                                    - com1.comCoord };
                                 Vector ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
-                                    - complexList[moleculeList[pro2Index].myComIndex].comCoord };
+                                    - com2.comCoord };
                                 double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
                                     + ifaceVec.z * ifaceVec.z };
                                 double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
@@ -131,12 +142,12 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                 // binding with explicit-lipid model.
                                 //write_rng_state();
-                                if (complexList[moleculeList[pro1Index].myComIndex].onFiber && complexList[moleculeList[pro2Index].myComIndex].onFiber) {
+                                if (com1.onFiber && com2.onFiber) {
                                     // both complexes are on the fiber
                                     // Assume diffusion only occurs in x direction (1 D)
-                                    double Dtot = complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x;
+                                    double Dtot = com1.D.x + com2.D.x;
 
-                                    BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
+                                    BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
                                     // std::cout << "Evaluate 1-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
                                     determine_1D_bimolecular_reaction_probability(
@@ -145,14 +156,13 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         moleculeList, complexList, forwardRxns,
                                         backRxns);
                                 }
-                                // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                else if (complexList[moleculeList[pro1Index].myComIndex].OnSurface && 
-                                        complexList[moleculeList[pro2Index].myComIndex].OnSurface) {
+                                // else if (std::abs(com1.D.z) < 1E-16 && std::abs(com2.D.z) < 1E-16) {
+                                else if (com1.OnSurface && com2.OnSurface) {
                                     // both Complexes are on the membrane, evaluate as 2D reaction
-                                    double Dtot = 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                        + 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y);
+                                    double Dtot = 1.0 / 2.0 * (com1.D.x + com2.D.x)
+                                        + 1.0 / 2.0 * (com1.D.y + com2.D.y);
 
-                                    BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
+                                    BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
                                     // std::cout << "Evaluate 2-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
                                     determine_2D_bimolecular_reaction_probability(
@@ -162,14 +172,14 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         moleculeList, complexList, forwardRxns,
                                         backRxns, membraneObject, normMatrices,
                                         survMatrices, pirMatrices);
-                                } 
+                                }
                                 else {
                                     //3D reaction
-                                    double Dtot = 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                        + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y)
-                                        + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.z + complexList[moleculeList[pro2Index].myComIndex].D.z);
+                                    double Dtot = 1.0 / 3.0 * (com1.D.x + com2.D.x)
+                                        + 1.0 / 3.0 * (com1.D.y + com2.D.y)
+                                        + 1.0 / 3.0 * (com1.D.z + com2.D.z);
 
-                                    BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
+                                    BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
                                     // std::cout << "Evaluate 3-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
                                     determine_3D_bimolecular_reaction_probability(
@@ -194,7 +204,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
             for (int relIface1Itr { 0 }; relIface1Itr < moleculeList[pro1Index].bndlist.size(); ++relIface1Itr) {
                 int relIface1 { moleculeList[pro1Index].bndlist[relIface1Itr] };
                 int absIface1 { moleculeList[pro1Index].interfaceList[relIface1].index };
-                int molTypeIndex1 { moleculeList[pro1Index].molTypeIndex };
                 if (moleculeList[pro1Index].interfaceList[relIface1].isBound && molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundList.empty() == false) { // make sure it's actually bound and need excludeVolumeBound
                     // loop the interfaceList of pro2
                     for (int relIface2Idx = 0; relIface2Idx < moleculeList[pro2Index].interfaceList.size(); ++relIface2Idx) {
