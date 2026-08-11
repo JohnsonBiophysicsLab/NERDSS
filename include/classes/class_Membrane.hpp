@@ -104,24 +104,30 @@ struct Membrane {
     WaterBox waterBox; //!< water box x, y, z. used to be xboxl, yboxl, zboxl
     double sphereR = 0; //!< for sphere, value of radius in nm.
     double sphereVol = 0;
-    int nSites;
+    // The initializers below matter beyond hygiene: write_restart() prints
+    // nSites, No_free_lipids, No_protein and totalSA unconditionally, so
+    // without them a run that never sets these members writes indeterminate
+    // values into DATA/restart.dat.  That made restart files differ between any
+    // two builds of the same source, which in turn made bitwise output
+    // comparison useless for every model that does not use implicit lipids.
+    int nSites { 0 };
     int nStates { 0 }; // number of the states of implict lipid
-    int No_free_lipids;
+    int No_free_lipids { 0 };
     std::vector<int> numberOfFreeLipidsEachState {}; // record the free lipids of each state for IL, updated each step in main function
-    int No_protein; // use for implicit-lipid model;
+    int No_protein { 0 }; // use for implicit-lipid model;
     std::vector<int> numberOfProteinEachState {}; // record the number of proteins that can bound to each state for IL
     int implicitlipidIndex { -1 };
     std::vector<double> RS3Dvect; //this is the look-up table for RS3D, which is the reflecting-surface for 3D-->2D reaction of implicit-lipid case
 
     //    double RD2D = 0; // block-distance for 2D->2D reaction of implicit-lipid case
-    double totalSA;
-    double Dx;
-    double Dy;
-    double Dz;
-    double Drx;
-    double Dry;
-    double Drz;
-    double offset;
+    double totalSA { 0 };
+    double Dx { 0 };
+    double Dy { 0 };
+    double Dz { 0 };
+    double Drx { 0 };
+    double Dry { 0 };
+    double Drz { 0 };
+    double offset { 0 };
     double lipidLength { 0.0 };
     bool implicitLipid = false;
     bool TwoD = false;

@@ -79,6 +79,10 @@ GCC   = $(shell type g++   >/dev/null 2>&1; echo $$?)
 INCS    = $(shell gsl-config --cflags) -Iinclude
 CXXFLAGS = -std=c++0x
 LIBS     = $(shell gsl-config --libs)
+# Emit a .d file beside each .o listing the headers it included, so that editing
+# a header triggers a rebuild of the objects that use it.  -MP adds phony targets
+# for those headers so a deleted or renamed header does not wedge the build.
+DEPFLAGS = -MMD -MP
 
 # ---------------- COMPILER SETUP
 PROF   =
@@ -134,11 +138,20 @@ $(EXEC): $(OBJS)
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	@echo "Compiling $< to $@"
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -c $< -o $@ $(PLANG) $(DEFS)
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -c $< -o $@ $(PLANG) $(DEFS)
 	@echo "------------"
 
 clean:
 	rm -rf $(ODIR) bin
+
+# ---------------- HEADER DEPENDENCIES
+# Without these, editing a header rebuilt nothing: make only compared each .o
+# against its .cpp.  Adding a member to a struct in a header therefore produced
+# a binary in which some translation units used the new layout and the rest
+# still used the old one -- it linked, and then misbehaved at run time.  The
+# generated .d files list every header each object actually included, so a
+# header edit now recompiles exactly the objects that read it.
+-include $(OBJS:.o=.d)
 
 
 # Reference: https://www.gnu.org/software/make/manual/html_node/Quick-Reference.html
