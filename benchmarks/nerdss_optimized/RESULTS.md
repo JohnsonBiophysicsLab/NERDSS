@@ -497,3 +497,19 @@ reallocates and the swap saves nothing. Reverted.
 The allocator traffic is therefore still unexplained and still worth about 5-6%.
 It sits in two adjacent call sites inlined into `main`, which a `-g` build would
 resolve to source lines. That is the next thing to scope, not to assume.
+
+### 9.7 The committed state reproduces the measured state
+
+Section 9.3's comparison was made in a worktree, so it is worth confirming that
+what landed on the branch is what was measured. Built from committed
+`nerdss-optimized` (`0784dd8`) and re-run over `cases.tsv`: **byte-identical to
+the validated candidate binary on all 13 cases.**
+
+That comparison also crosses a second variable, incidentally. The validated
+candidate was built from `4baa42f` and contains none of the `Quat` rewrite in
+`aea2003`/`656a2d9`/`cd22362`; the committed build contains all of it. Their
+outputs match byte-for-byte on all 13 cases, so that rewrite is result-preserving
+as well, at least at this seed and these iteration counts. That was not expected:
+replacing `inverse()` with the conjugate for a unit quaternion drops a division
+by a `norm()` that is only 1 to within rounding, which would normally perturb low
+bits. Worth a separate look rather than being taken as general.
