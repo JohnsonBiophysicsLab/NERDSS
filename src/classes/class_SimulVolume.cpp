@@ -245,14 +245,23 @@ void SimulVolume::create_cell_neighbor_list_cubic() {
   }     // end looping over x cells
 }
 
+void SimulVolume::clear_member_lists() {
+  for (int cellIndex : occupiedSubCells)
+    subCellList[cellIndex].memberMolList.clear();
+  occupiedSubCells.clear();
+}
+
 void SimulVolume::update_memberMolLists(
     const Parameters &params, std::vector<Molecule> &moleculeList,
     std::vector<Complex> &complexList,
     std::vector<MolTemplate> &molTemplateList, const Membrane &membraneObject,
     int simItr) {
-  // make sure the list of member molecules is empty
-  for (auto &subBox : subCellList)
-    subBox.memberMolList.clear();
+  // make sure the list of member molecules is empty.  Sweeping all of
+  // subCellList here would cost time proportional to the cell count on every
+  // timestep no matter how few molecules there are, and the cell count is
+  // typically far larger: a 494 nm box with a 33.7 nm interaction limit holds
+  // 2744 cells, which a hundred-molecule system leaves almost entirely empty.
+  clear_member_lists();
 
   int itrCheck =
       1000; // no need to check every step if it violates box boundaries.
@@ -303,6 +312,8 @@ void SimulVolume::update_memberMolLists(
                   << mol.comCoord << "].\n";
         exit(1);
       }
+      if (subCellList[currBin].memberMolList.empty())
+        occupiedSubCells.push_back(currBin);
       subCellList[currBin].memberMolList.push_back(mol.index);
     }
   } else {
@@ -387,8 +398,7 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto &subBox : subCellList)
-          subBox.memberMolList.clear();
+        clear_member_lists();
       } else if (mol.comCoord.y > (membraneObject.waterBox.y / 2) ||
                  mol.comCoord.y + 1E-6 < -(membraneObject.waterBox.y / 2)) {
         std::cout << "Molecule " << mol.index
@@ -399,8 +409,7 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto &subBox : subCellList)
-          subBox.memberMolList.clear();
+        clear_member_lists();
       } else if (mol.comCoord.x > (membraneObject.waterBox.x / 2) ||
                  mol.comCoord.x + 1E-6 < -(membraneObject.waterBox.x / 2)) {
         std::cout << "Molecule " << mol.index
@@ -411,8 +420,7 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto &subBox : subCellList)
-          subBox.memberMolList.clear();
+        clear_member_lists();
       } else if (currBin > (numSubCells.tot) || currBin < 0) {
         std::cout
             << "Molecule " << mol.index
@@ -422,11 +430,12 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto &subBox : subCellList)
-          subBox.memberMolList.clear();
+        clear_member_lists();
       } else {
         // The Molecule is in the simulation volume, okay to proceed
         mol.mySubVolIndex = currBin;
+        if (subCellList[currBin].memberMolList.empty())
+          occupiedSubCells.push_back(currBin);
         subCellList[currBin].memberMolList.push_back(mol.index);
       }
     } // loop over all molecules.

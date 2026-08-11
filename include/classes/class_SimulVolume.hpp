@@ -102,6 +102,20 @@ struct SimulVolume {
     Dimensions numSubCells{}; //!< number of SubBoxes in each dimension
     Coord subCellSize{}; //!< dimensions of each SubBox in nanometers
     std::vector<SubVolume> subCellList; //!< list of all the SubBoxes in the SimulBox. Size == numSubBoxes.tot
+    /*! \brief Indices of the SubBoxes whose memberMolList is currently non-empty.
+     *
+     * Only ever a few hundred entries even when subCellList holds thousands of
+     * SubBoxes, which lets update_memberMolLists() empty the member lists in
+     * time proportional to the number of occupied SubBoxes rather than to the
+     * total.  Derived from subCellList, so it is not part of the MPI wire
+     * format.
+     *
+     * Maintained by the serial update_memberMolLists() only.  The MpiContext
+     * overload keeps its original sweep over all of subCellList and never reads
+     * this list, because the MPI ranks also mutate memberMolList directly from
+     * prepare.cpp and deserialize.cpp, and that path is untested here.
+     */
+    std::vector<int> occupiedSubCells {};
 
     /*!
      * \brief Main function for the creation of the SubBoxes in the SimulBox.
@@ -135,6 +149,16 @@ struct SimulVolume {
     void update_memberMolLists(const Parameters &params, std::vector<Molecule> &moleculeList,
                     std::vector<Complex> &complexList, std::vector<MolTemplate> &molTemplateList, const Membrane &membraneObject, int simItr,
                     MpiContext &mpiContext);  // For parallel programming
+
+    /*!
+     * \brief Empties every non-empty memberMolList, using occupiedSubCells.
+     *
+     * Equivalent to clearing every SubBox in subCellList, but touches only the
+     * SubBoxes that actually hold members.  Leaves occupiedSubCells empty, so
+     * the "occupiedSubCells lists exactly the non-empty SubBoxes" invariant
+     * still holds afterwards.
+     */
+    void clear_member_lists();
 
     void display();
 

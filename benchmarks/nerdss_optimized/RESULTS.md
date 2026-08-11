@@ -350,3 +350,150 @@ The reason it went unnoticed is worth recording: `enzyme` appears in neither
 `cases.tsv` nor `known_broken.tsv`, so the one sample input that exercises the
 forward bimolecular state-change path is not covered by the suite. It runs clean
 for 20,000 iterations, so adding it to `cases.tsv` is cheap.
+
+## 9. Profile-driven follow-up batch: three result-preserving optimizations
+
+A CPU profile of the branch (not of `master`) put most of the remaining time in
+places none of issues #8-#12 touch. Three of them were addressed as one batch.
+All three are result-preserving, and the suite confirms that directly.
+
+### 9.1 What changed
+
+| # | Change | Files |
+| --- | --- | --- |
+| 1 | Cache `1/cbrt(Dr)` per axis on `MolTemplate` as `invCbrtDr`, instead of calling `pow(Dr, 1.0/3.0)` for every member molecule of every complex on every timestep. `MolTemplate::Dr` is written only by `set_value()` at parse time, so the quantity is a per-template constant. `cache_diffusion_derivatives()` refreshes it, and is called from both `set_value()` and `deserialize()`; the value is derived, so it is deliberately not added to the MPI wire format. The cached expression is written exactly as the inline one was, so the stored double is bit-for-bit what was computed before. | `class_MolTemplate.{hpp,cpp}`, `class_Molecule_Complex.cpp` |
+| 2 | `SimulVolume::update_memberMolLists()` emptied every sub-cell on every timestep. Added `occupiedSubCells` plus `clear_member_lists()`, so only sub-cells that actually hold members are cleared. For `clathrin` that is 100 molecules against 2744 cells: a 494 nm box divided by a 33.7 nm interaction limit gives 14^3 cells, so the old sweep did 27 cell-clears per molecule. Serial overload only -- the `MpiContext` overload keeps its full sweep, because the MPI ranks also mutate `memberMolList` directly from `prepare.cpp` and `deserialize.cpp` and that path is not exercised here. | `class_SimulVolume.{hpp,cpp}` |
+| 3 | Issue #11's treatment applied to `Vector`, which never received it: trivial constructors, `dot`, `cross`, `calc_magnitude` and `normalize` moved into the header so they inline; `Vector(Coord)` takes `const Coord&` rather than a by-value copy; read-only operators marked `const`; `operator/=` now modifies `*this` and returns a reference. | `class_Vector.{hpp,cpp}` |
+
+`operator+(const Coord&)` was deliberately left non-`const`. The free
+`operator+(const Vector&, const Coord&)` is an equally exact match for a `const
+Vector` but returns `Coord` rather than `Vector`, so which overload a call site
+selects -- and therefore the type of the result -- is currently decided by
+whether the left operand is `const`. Marking the member `const` makes the two
+ambiguous, which is how the pair was found. Untangling it changes result types at
+call sites, so it does not belong in a result-preserving change.
+
+### 9.2 Two defects that had to be fixed first
+
+Neither is part of the batch; both blocked measuring it.
+
+**The Makefile did not track header dependencies.** `make` compared each `.o`
+only against its `.cpp`, so editing a header rebuilt nothing. Because candidates
+1 and 2 add a member to a struct declared in a header, an incremental build
+produced an executable in which some translation units used the new layout and
+the rest still used the old one. It linked, and the first test binary built that
+way was discarded. Fixed by adding `-MMD -MP` and `-include $(OBJS:.o=.d)`. Any
+header change made before this fix was silently at risk.
+
+**`Membrane` had uninitialized members that `write_restart()` prints.**
+`nSites`, `No_free_lipids`, `No_protein`, `totalSA`, `Dx`-`Drz` and `offset` had
+no initializers, and line 31 of `write_restart.cpp` prints four of them
+unconditionally. Measured behaviour: the indeterminate values are *deterministic
+for a given binary* -- the same executable run twice produces byte-identical
+`restart.dat` -- but they change whenever a code change perturbs memory layout.
+
+That is why the first isolated comparison of this batch reported
+`bitwise_identical NO` for all 13 cases while every other output file was
+byte-identical: the only file that differed was `DATA/restart.dat`, in the
+`membrane = ` line, e.g. `-1 -492228480 0 -492309832 -208766624 244036` against
+`-1 -490136896 0 -492229096 -2023371160 244036`. The three differing fields are
+exactly the three uninitialized ints.
+
+The consequence for the harness is worth stating plainly: **before this fix,
+`compare_suites.sh` would report a false `NO` for any change that shifts memory
+layout, including a purely result-preserving one.** Fixed with `{ 0 }`
+initializers. Both fixes are applied to the reference and the candidate build
+alike, so they cancel out of the comparison below.
+
+### 9.3 Bitwise identity
+
+Reference: `4baa42f` + the two section 9.2 fixes. Candidate: the same, plus
+candidates 1-3. Both built with Apple clang 21, `-O3`, seed 20260810, in a
+dedicated `git worktree` so that unrelated concurrent edits in the main working
+tree could not contaminate either binary.
+
+`run_suite.sh` + `compare_suites.sh`, all 13 cases in `cases.tsv`, comparing
+every file under `DATA/`, `PDB/` and `RESTARTS/` (PDB from line 2, since line 1
+carries a wall-clock timestamp):
+
+| case | nItr | bitwise identical |
+| --- | --- | --- |
+| `clathrin` | 150,000 | yes |
+| `closed_homoTrimer` | 6,000 | yes |
+| `hetTrimer` | 8,000 | yes |
+| `hexamer` | 25,000 | yes |
+| `homoTrimer` | 6,000 | yes |
+| `implicit_lipid` | 100,000 | yes |
+| `mem_localization` | 2,000 | yes |
+| `michaelis_menten` | 150,000 | yes |
+| `rev_2D` | 200 | yes |
+| `rev_3D` | 20,000 | yes |
+| `rev_3Dto2D` | 8,000 | yes |
+| `sphere` | 40,000 | yes |
+| `trimer` | 8,000 | yes |
+
+13 of 13 byte-identical.
+
+### 9.4 Timing
+
+`interleaved_timing.sh`, 5 repetitions, median per case. The interleaved harness
+is used rather than `run_suite.sh`'s own timings, which are quantized to roughly
+a second on this host and produced a non-credible 1.998x for `clathrin`.
+
+| case | nItr | ref (s) | candidate (s) | speedup |
+| --- | --- | --- | --- | --- |
+| `clathrin` | 150,000 | 3.979 | 3.538 | 1.125 |
+| `closed_homoTrimer` | 6,000 | 6.581 | 6.468 | 1.017 |
+| `hetTrimer` | 8,000 | 5.870 | 5.760 | 1.019 |
+| `hexamer` | 25,000 | 6.025 | 5.437 | 1.108 |
+| `homoTrimer` | 6,000 | 6.403 | 6.089 | 1.052 |
+| `implicit_lipid` | 100,000 | 3.261 | 2.797 | 1.166 |
+| `mem_localization` | 2,000 | 2.569 | 2.458 | 1.045 |
+| `michaelis_menten` | 150,000 | 4.407 | 4.390 | 1.004 |
+| `rev_2D` | 200 | 43.057 | 40.658 | 1.059 |
+| `rev_3D` | 20,000 | 5.514 | 4.990 | 1.105 |
+| `rev_3Dto2D` | 8,000 | 5.934 | 5.632 | 1.054 |
+| `sphere` | 40,000 | 9.161 | 6.070 | 1.509 |
+| `trimer` | 8,000 | 6.121 | 5.879 | 1.041 |
+| **total** | | **108.882** | **100.166** | **1.087** |
+
+`sphere` gains most (1.509x) because it has the largest cell-count-to-molecule
+ratio, which is what candidate 2 addresses. `michaelis_menten` is flat (1.004x),
+as expected: it is dominated by reaction bookkeeping rather than by cell
+maintenance or diffusion-constant updates.
+
+### 9.5 The speedup is where the profile said it would be
+
+`sample(1)` on `clathrin`, 8 s window, 1 ms period, same seed and input for both
+builds. Self-time share of total samples:
+
+| frame | ref (6344 samples) | candidate (5493 samples) |
+| --- | --- | --- |
+| `pow` | 4.2% | absent |
+| `SimulVolume::update_memberMolLists` | 6.3% | 2.1% |
+| `Vector::Vector(Coord)` | 3.1% | absent |
+| `Complex::update_properties` | 3.4% | 3.3% |
+
+Candidate 1 removes `pow` entirely; `update_properties` barely moves, so its
+remaining cost is the rest of the function rather than the cube root. Candidate 2
+cuts cell maintenance by three times. Candidate 3 inlines `Vector`'s constructor
+out of existence.
+
+The three eliminated shares sum to about 11.5 points of the `clathrin` profile,
+against a measured 11.1% wall-clock gain on the same case. The profile and the
+clock agree.
+
+### 9.6 One hypothesis that was tested and rejected
+
+The profile showed roughly 7% of runtime in `malloc`/`free`. The obvious suspect
+was `clear_reweight_vecs()`, which copy-assigns six `std::vector`s per molecule
+per timestep and then clears the source -- the canonical case for swapping
+instead of copying, and provably result-preserving.
+
+Implemented and benchmarked across all 13 cases: **0.990x**, i.e. no gain, within
+noise. The vectors are almost always empty, so the copy-assignment never
+reallocates and the swap saves nothing. Reverted.
+
+The allocator traffic is therefore still unexplained and still worth about 5-6%.
+It sits in two adjacent call sites inlined into `main`, which a `-g` build would
+resolve to source lines. That is the next thing to scope, not to assume.
