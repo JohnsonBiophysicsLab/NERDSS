@@ -400,9 +400,35 @@ model to see:
   1000 and calls `exit(1)`. The abort is guaranteed, not probabilistic; what is
   intermittent is only whether a molecule ever lands in that state.
 
+Everything above concerns what happens *after* the branch is entered, and it is
+settled by reading the control flow. **Why `currBin` was out of range in the first
+place is not settled, and one obvious explanation has been ruled out.** Replaying
+the serial binning arithmetic on the reported coordinates over every grid from
+2x2x2 to 30x30x30 - `subCellSize` is exactly `waterBox / numSubCells`, set
+together in `create_simulation_volume()`, and `waterBox` is never reassigned
+afterwards - yields an in-range `currBin` in all 24,389 cases, including `z`
+exactly on the lower face and within `1E-6` either side of it. For in-bounds
+coordinates the `int()` truncation and the two exact-value clamps keep every index
+inside its dimension. So the reported coordinates alone do not reproduce the
+trigger on this code.
+
+Candidates for the trigger, none verified:
+
+- A degenerate grid. `Dimensions()` sets `x = floor(waterBox.x / rMaxLimit)`,
+  which is `0` if `rMaxLimit` exceeds a box dimension, and `check_dimensions()`
+  then guards with `waterBox.x / (x * 1.0) < cellLength`, which is `inf < c`, so
+  `0` survives and `tot` becomes `0`. Every bin index is then `> tot`.
+- NaN coordinates. All three coordinate tests are `>` and `<` comparisons, so a
+  NaN passes every one of them, and `int(NaN / subCellSize)` is undefined. This
+  branch already records that executing a bimolecular state change produces NaN
+  coordinates, and the reporter's model has bimolecular state changes. Against it:
+  the log would print `nan`, not `-250`.
+- A different code version than this branch. The issue does not record a commit.
+
 `z = -250` is exactly `-waterBox.z/2`, the lower face, and the reporter's model
-pins lipids there (`isLipid = true`, `D = [1.0, 1.0, 0.0]`), which is consistent
-with a boundary-coincidence case rather than a genuine escape.
+pins lipids there (`isLipid = true`, `D = [1.0, 1.0, 0.0]`, matching the `D: 1 1 0`
+in the log), so a boundary-coincidence case is the natural suspicion - but the
+arithmetic above says the boundary alone is not sufficient.
 
 Two further discrepancies in the same code are worth folding into the fix, since
 they concern the same predicate:
@@ -418,11 +444,16 @@ they concern the same predicate:
   `xItr`/`yItr`/`zItr` clamps just above only repair the exact values `-1` and
   `numSubCells.<dim>`, not larger overshoots.
 
-Scoping note: a fix has to make the four out-of-bounds predicates and the
-corrector agree on a single convention, and needs a model that puts a molecule
-exactly on a face. Because it changes what happens on the boundary, it is a
-result-changing correction and needs the statistical comparison rather than the
-bitwise one.
+Scoping note: there are two separable pieces of work here. Making the corrector
+unable to spin - it should either translate or report that it cannot, never loop
+1000 times on a zero translation - needs no reproducer and would turn a silent
+abort into a diagnosable one. Finding what puts `currBin` out of range does need
+a reproducer, and the first step is cheap: print `xItr`, `yItr`, `zItr`, `currBin`
+and `numSubCells` in that branch, which is exactly the information the MPI
+overload already prints at `class_SimulVolume.cpp:511` and the serial one does
+not. Making the four predicates and the corrector agree on one boundary
+convention changes behavior on the face, so that part is result-changing and needs
+the statistical comparison rather than the bitwise one.
 
 ### Issue #7 - `Quat` const-correctness and batch rotation (optimization)
 
