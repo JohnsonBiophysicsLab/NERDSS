@@ -1,4 +1,4 @@
-#include "math/erflike.hpp"
+#include "math/Faddeeva.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 
 /**
@@ -29,7 +29,7 @@ double passocF_1D(double r0, double tCurr, double Dtot, double bindRadius, doubl
   const double sep{(r0 - bindRadius) / sqrtfDt}; 
 
   const double efc1{erfc(sep)};
-  const double efcx1{erflike::erfcx(sep + sq_scale_t)};
+  const double efcx1{Faddeeva::erfcx(sep + sq_scale_t)};
   const double ep1 = exp(-sep * sep);
 
   return efc1 - ep1 * efcx1;

@@ -1,4 +1,4 @@
-#include "math/erflike.hpp"
+#include "math/Faddeeva.hpp"
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "tracing.hpp"
 
@@ -34,9 +34,9 @@ double pirr_pfree_ratio_psF(
         if (erfc1 != 0.0)
             term2 = ep1 * erfc1;
         else
-            term2 = exp(-a * a) * erflike::erfcx(ef1);
+            term2 = exp(-a * a) * Faddeeva::erfcx(ef1);
     } else {
-        term2 = exp(-a * a) * erflike::erfcx(ef1);
+        term2 = exp(-a * a) * Faddeeva::erfcx(ef1);
     }
 
     // term2=alpha*exp(e1)*erfc(ef1);

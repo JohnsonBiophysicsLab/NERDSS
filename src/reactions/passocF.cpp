@@ -1,4 +1,4 @@
-#include "math/erflike.hpp"
+#include "math/Faddeeva.hpp"
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 
 double passocF(double r0, double tCurr, double Dtot, double bindRadius, double alpha, double cof)
@@ -25,9 +25,9 @@ double passocF(double r0, double tCurr, double Dtot, double bindRadius, double a
         if (erfc1 != 0.0)
             term2 = ep1 * erfc1;
         else
-            term2 = exp(-sep * sep) * erflike::erfcx(ef1);
+            term2 = exp(-sep * sep) * Faddeeva::erfcx(ef1);
     } else {
-        term2 = exp(-sep * sep) * erflike::erfcx(ef1);
+        term2 = exp(-sep * sep) * Faddeeva::erfcx(ef1);
     }
 
     return (term1 - term2) * f1;
