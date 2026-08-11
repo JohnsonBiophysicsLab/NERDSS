@@ -401,13 +401,13 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
       // set interface coordinates, with a random rotation on the entire
       // molecule.  rand_unit_quat() samples orientations uniformly and returns
       // a unit quaternion, so it needs no normalization (issue #10).
-      Quat rotQuat{rand_unit_quat()};
+      const QuatRotation rot{rand_unit_quat()};
       for (unsigned int ifaceItr{0};
            ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
       {
-        Vector ifaceVec{Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord} - comCoord};
-        rotQuat.rotate(ifaceVec);
-        interfaceList[ifaceItr].coord = Coord{comCoord + ifaceVec};
+        interfaceList[ifaceItr].coord = rot.rotate_about(
+            Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
+            comCoord);
 
         // TODO: Commented out for testing
         Coord iCoord = interfaceList[ifaceItr].coord;
@@ -533,12 +533,12 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         // set interface coordinates, with a random rotation on the entire
         // molecule.  rand_unit_quat() samples orientations uniformly and returns
         // a unit quaternion, so it needs no normalization (issue #10).
-        Quat rotQuat{rand_unit_quat()};
+        const QuatRotation rot{rand_unit_quat()};
         for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
         {
-          Vector ifaceVec{Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord} - comCoord};
-          rotQuat.rotate(ifaceVec);
-          interfaceList[ifaceItr].coord = Coord{comCoord + ifaceVec};
+          interfaceList[ifaceItr].coord = rot.rotate_about(
+              Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
+              comCoord);
 
           // TODO: Commented out for testing
           if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
@@ -735,10 +735,11 @@ void Complex::update_properties(
   for (int memMol : memberList) {
     const MolTemplate &oneTemp{
         molTemplateList[moleculeList[memMol].molTypeIndex]};
-    // Rotational diffusion constants
-    sumDr.x += (oneTemp.Dr.x != 0) ? (1.0 / pow(oneTemp.Dr.x, 1.0 / 3.0)) : inf;
-    sumDr.y += (oneTemp.Dr.y != 0) ? (1.0 / pow(oneTemp.Dr.y, 1.0 / 3.0)) : inf;
-    sumDr.z += (oneTemp.Dr.z != 0) ? (1.0 / pow(oneTemp.Dr.z, 1.0 / 3.0)) : inf;
+    // Rotational diffusion constants.  invCbrtDr holds 1/cbrt(Dr) per axis,
+    // cached on the template because Dr is fixed for the whole run.
+    sumDr.x += (oneTemp.Dr.x != 0) ? oneTemp.invCbrtDr.x : inf;
+    sumDr.y += (oneTemp.Dr.y != 0) ? oneTemp.invCbrtDr.y : inf;
+    sumDr.z += (oneTemp.Dr.z != 0) ? oneTemp.invCbrtDr.z : inf;
 
     // Translational diffusion constants
     sumD.x += (oneTemp.D.x != 0) ? (1.0 / oneTemp.D.x) : inf;
@@ -751,9 +752,9 @@ void Complex::update_properties(
     //"<<linksToSurface<<std::endl; find the protein that is the Implicit Lipid.
     const MolTemplate &oneTemp{
         molTemplateList[moleculeList[iLipidIndex].molTypeIndex]};
-    sumDr.x += (oneTemp.Dr.x != 0) ? (1.0 / pow(oneTemp.Dr.x, 1.0 / 3.0)) : inf;
-    sumDr.y += (oneTemp.Dr.y != 0) ? (1.0 / pow(oneTemp.Dr.y, 1.0 / 3.0)) : inf;
-    sumDr.z += (oneTemp.Dr.z != 0) ? (1.0 / pow(oneTemp.Dr.z, 1.0 / 3.0)) : inf;
+    sumDr.x += (oneTemp.Dr.x != 0) ? oneTemp.invCbrtDr.x : inf;
+    sumDr.y += (oneTemp.Dr.y != 0) ? oneTemp.invCbrtDr.y : inf;
+    sumDr.z += (oneTemp.Dr.z != 0) ? oneTemp.invCbrtDr.z : inf;
 
     // Translational diffusion constants
     sumD.x += (oneTemp.D.x != 0) ? (1.0 / oneTemp.D.x) : inf;
@@ -1072,21 +1073,22 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
       rotQuat.z = (cosX * cosY * sinZ) - (sinX * sinY * cosZ);
       rotQuat.w = (cosX * cosY * cosZ) + (sinX * sinY * sinZ);
 
+      // The inverse of the rotation quaternion is built once per complex here.
+      // Quat::rotate() rebuilt it on every call, which on this path meant once
+      // per member molecule plus once per interface of each of them, every
+      // timestep.  The per-vector arithmetic is unchanged.
+      const QuatRotation rot{rotQuat};
+
       // update the member proteins
       for (auto mol : memberList) {
-        Vector comVec{moleculeList[mol].comCoord - this->comCoord};
-        rotQuat.rotate(comVec);
         moleculeList[mol].comCoord =
-            Coord{comVec.x, comVec.y, comVec.z} + this->comCoord + trajTrans;
+            rot.rotate_about(moleculeList[mol].comCoord, this->comCoord) +
+            trajTrans;
 
         // now rotate each member molecule of the complex
         for (auto &iface : moleculeList[mol].interfaceList) {
-          // get the vector from the interface to the target interface
-          Vector ifaceVec{iface.coord - comCoord};
-          // rotate
-          rotQuat.rotate(ifaceVec);
-          iface.coord =
-              Coord{ifaceVec.x, ifaceVec.y, ifaceVec.z} + comCoord + trajTrans;
+          // rotate the vector from the interface to the target interface
+          iface.coord = rot.rotate_about(iface.coord, comCoord) + trajTrans;
         }
         moleculeList[mol].trajStatus = TrajStatus::propagated;
         moleculeList[mol].need_to_send = true;

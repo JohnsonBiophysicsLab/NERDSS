@@ -12,19 +12,34 @@
  */
 #pragma once
 
+#include "attributes.hpp"
 #include "classes/class_Vector.hpp"
 
 /*!
  * \brief Rotate a vector using a rotation matrix (LEGACY).
+ *
+ * Defined inline because it is called once per interface inside the
+ * reflect_traj_* and sweep_separation_* loops, and with the definition in
+ * matrix_functions.cpp every one of those was an out-of-line call with the nine
+ * matrix entries reloaded from memory; there is no link-time optimization in
+ * either build file.  The arithmetic is unchanged.
+ *
+ * Both arguments used to be taken by non-const reference even though neither is
+ * written, which meant a caller with a `const` matrix could not use it.
  */
-Vector matrix_rotate(Vector& vec, std::array<double, 9>& M);
+NERDSS_NODISCARD inline Vector matrix_rotate(const Vector& vec, const std::array<double, 9>& M)
+{
+    return { M[0] * vec.x + M[1] * vec.y + M[2] * vec.z,
+             M[3] * vec.x + M[4] * vec.y + M[5] * vec.z,
+             M[6] * vec.x + M[7] * vec.y + M[8] * vec.z };
+}
 
 /*!
  * \brief Create an Euler (Tait-Bryan angles) rotation matrix from x, y, z values.
  */
-std::array<double, 9> create_euler_rotation_matrix(double x, double y, double z);
+NERDSS_NODISCARD std::array<double, 9> create_euler_rotation_matrix(double x, double y, double z);
 
 /*!
  * \brief Create an Euler (Tait–Bryan angles) rotation matrix from a Coord containing angles of rotation.
  */
-std::array<double, 9> create_euler_rotation_matrix(const Coord& angles);
+NERDSS_NODISCARD std::array<double, 9> create_euler_rotation_matrix(const Coord& angles);

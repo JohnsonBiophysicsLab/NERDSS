@@ -27,7 +27,7 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
         double sa = sin(angle / 2);
         firstRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
             sa * rotAxis.z };
-        firstRot = firstRot.unit();
+        firstRot.normalize();
         {
             Vector tmpVec { targMol.tmpICoords[0] - targMol.tmpComCoord };
             firstRot.rotate(tmpVec);
@@ -36,13 +36,15 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
                 sa = sin(angle / 2);
                 firstRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
                     sa * rotAxis.z };
-                firstRot = firstRot.unit();
+                firstRot.normalize();
             }
         }
 
+        // One inverse for every interface, rather than one per interface.
+        const QuatRotation firstPrep { firstRot };
         for (auto& iface : targMol.tmpICoords) {
             Vector tmpVec { iface - targMol.tmpComCoord };
-            firstRot.rotate(tmpVec);
+            firstPrep.rotate(tmpVec);
             iface = Coord { tmpVec.x, tmpVec.y, tmpVec.z };
         }
     }
@@ -116,7 +118,7 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
 
             double sa { std::sin(angle / 2) };
             secondRot = Quat(cos(angle / 2), sin(angle / 2) * rotAxis.x, sin(angle / 2) * rotAxis.y, sin(angle / 2) * rotAxis.z);
-            secondRot = secondRot.unit();
+            secondRot.normalize();
 
             //        {
             //            Vector tmpVec { targMol.tmpICoords[ifaceIndex] - targMol.tmpComCoord };
@@ -126,15 +128,16 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
             //                sa = sin(angle/2);
             //                secondRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
             //                                  sa * rotAxis.z };
-            //                secondRot = secondRot.unit();
+            //                secondRot.normalize();
             //            }
             //        }
 
             // might not need this, but good for a check after
             // to make sure it worked
+            const QuatRotation secondPrep { secondRot };
             for (auto& iface : targMol.tmpICoords) {
                 Vector tmpVec { iface - targMol.tmpComCoord };
-                secondRot.rotate(tmpVec);
+                secondPrep.rotate(tmpVec);
                 iface = Coord { tmpVec.x, tmpVec.y, tmpVec.z };
             }
         }

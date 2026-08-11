@@ -24,30 +24,23 @@ void transform(Coord& reactIface, Molecule& reactMol1, Molecule& reactMol2, cons
     Quat rotQuat(
         cos(-theta / 2), sin(-theta / 2) * rotAxis.x, sin(-theta / 2) * rotAxis.y, sin(-theta / 2) * rotAxis.z);
 
+    // One inverse for both molecules and all of their interfaces, instead of one
+    // per rotated vector.
+    const QuatRotation rot { rotQuat };
+
     { // base1
         // rotate COM
-        Vector comVec { reactMol1.tmpComCoord - reactIface };
-        rotQuat.rotate(comVec);
-        reactMol1.tmpComCoord = Coord(comVec.x, comVec.y, comVec.z) + reactIface;
+        reactMol1.tmpComCoord = rot.rotate_about(reactMol1.tmpComCoord, reactIface);
 
         // rotate all the other interfaces
-        for (auto& coord : reactMol1.tmpICoords) {
-            Vector ifaceVec { coord - reactIface };
-            // rotate the vector
-            rotQuat.rotate(ifaceVec);
-            coord = Coord(ifaceVec.x, ifaceVec.y, ifaceVec.z) + reactIface;
-        }
+        for (auto& coord : reactMol1.tmpICoords)
+            coord = rot.rotate_about(coord, reactIface);
     }
     { // base2
-        Vector comVec { reactMol2.tmpComCoord - reactIface };
-        rotQuat.rotate(comVec);
-        reactMol2.tmpComCoord = Coord(comVec.x, comVec.y, comVec.z) + reactIface;
+        reactMol2.tmpComCoord = rot.rotate_about(reactMol2.tmpComCoord, reactIface);
 
         // rotate the ifaces
-        for (auto& coord : reactMol2.tmpICoords) {
-            Vector ifaceVec { coord - reactIface };
-            rotQuat.rotate(ifaceVec);
-            coord = Coord(ifaceVec.x, ifaceVec.y, ifaceVec.z) + reactIface;
-        }
+        for (auto& coord : reactMol2.tmpICoords)
+            coord = rot.rotate_about(coord, reactIface);
     }
 }

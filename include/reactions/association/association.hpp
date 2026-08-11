@@ -184,7 +184,7 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol);
  * TODO: Write how
  *
  */
-void rotate(Coord& rotOrigin, Quat& rotQuat, Complex& targCom, std::vector<Molecule>& moleculeList);
+void rotate(const Coord& rotOrigin, const Quat& rotQuat, Complex& targCom, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
  * \brief This function is meant to rotate a Molecule in the reverse direction.

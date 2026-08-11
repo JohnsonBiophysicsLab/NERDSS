@@ -250,7 +250,7 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
         double sa = sin(angle / 2);
         firstRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
             sa * rotAxis.z };
-        firstRot = firstRot.unit();
+        firstRot.normalize();
         {
             Vector tmpVec { vec2 };
             firstRot.rotate(tmpVec);
@@ -259,14 +259,15 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
                 sa = sin(angle / 2);
                 firstRot = Quat { cos(angle / 2), sa * rotAxis.x, sa * rotAxis.y,
                     sa * rotAxis.z };
-                firstRot = firstRot.unit();
+                firstRot.normalize();
             }
         }
         // generate intermediate interface coordinates after first rotation
+        const QuatRotation firstPrep { firstRot };
         for (size_t i = 0; i < targMol.interfaceList.size(); i++)
         {
             Vector tmpVec { targMol.interfaceList[i].coord - targMol.comCoord };
-            firstRot.rotate(tmpVec);
+            firstPrep.rotate(tmpVec);
             tempIfaceCoords[i] = tmpVec;
         }
     }
@@ -321,7 +322,7 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
 
             double sa { std::sin(angle / 2) };
             secondRot = Quat(cos(angle / 2), sin(angle / 2) * rotAxis.x, sin(angle / 2) * rotAxis.y, sin(angle / 2) * rotAxis.z);
-            secondRot = secondRot.unit();
+            secondRot.normalize();
         }
     }
 

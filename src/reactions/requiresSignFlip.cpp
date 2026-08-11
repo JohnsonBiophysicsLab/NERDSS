@@ -19,20 +19,26 @@ bool requiresSignFlip(Vector axis, Vector v1, Vector v2)
 
     // rotate
     Quat rot(cos(theta / 2), sin(theta / 2) * u.x, sin(theta / 2) * u.y, sin(theta / 2) * u.z);
-    rot = rot.unit();
-    rot.rotate(v1);
-    rot.rotate(v2);
-    rot.rotate(axis);
+    rot.normalize();
+
+    // Each of these rotations used to rebuild the inverse of the same
+    // quaternion; it is built once per quaternion instead.
+    QuatRotation prep { rot };
+    prep.rotate(v1);
+    prep.rotate(v2);
+    prep.rotate(axis);
 
     // if we rotated wrong way, reverse and rotate the other way
     // TODO: check this 0.01 business
     if ((zAxis.dot_theta(axis) > 0.01 && !useXAxis) || (useXAxis && xAxis.dot_theta(axis) < 0.01)) {
-        rot = rot.inverse();
-        rot.rotate(v1);
-        rot.rotate(v2);
+        rot.invert();
+        prep = QuatRotation { rot };
+        prep.rotate(v1);
+        prep.rotate(v2);
         rot = Quat(cos(-theta / 2), sin(-theta / 2) * u.x, sin(-theta / 2) * u.y, sin(-theta / 2) * u.z);
-        rot.rotate(v1);
-        rot.rotate(v2);
+        prep = QuatRotation { rot };
+        prep.rotate(v1);
+        prep.rotate(v2);
     }
 
     Vector projectedVec1;
