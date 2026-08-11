@@ -513,3 +513,231 @@ as well, at least at this seed and these iteration counts. That was not expected
 replacing `inverse()` with the conjugate for a unit quaternion drops a division
 by a `norm()` that is only 1 to within rounding, which would normally perturb low
 bits. Worth a separate look rather than being taken as general.
+
+## 10. Pairwise serial benchmark of current branch against mainline
+
+Measured on 2026-08-11 on the same Apple M5 host, with Apple clang 21.0.0,
+GSL 2.8 and the Makefile's serial `-O3 -std=c++0x` build. This repository calls
+its mainline branch `master`; there is no `main` ref, so `master` is the baseline
+for this comparison.
+
+| Label | Revision | Binary SHA-256 (first 16) |
+| --- | --- | --- |
+| `master` | `260f6e2a861b` | `ef0c0153ef2aa54d` |
+| `optimized` | `a7435a0690ab` | `4f981984ef6833a9` |
+
+Both revisions were exported into isolated temporary source trees and compiled
+from committed files. The unrelated uncommitted reaction-table work in the main
+working tree was therefore excluded.
+
+### 10.1 Paired total runtime
+
+Three inputs were selected to cover ordinary 3-D reversible binding,
+mixed-dimensional implicit-lipid binding, and state-change chemistry. Each pair
+used the same input, iteration count and seed (`20260810`). Runtime is external
+wall time for the entire serial process, including initialization, simulation
+and output.
+
+There were 10 adjacent pairs per case. Five pairs ran `master` first and five ran
+`optimized` first, balancing order effects. Speedup is `master / optimized` for
+each pair. The table reports the median paired ratio as the robust point estimate
+and, separately, the geometric mean with a two-sided 95% Student-t interval on
+the 10 log ratios.
+
+| Case | nItr | master median (s) | optimized median (s) | median paired speedup | geometric mean speedup (95% CI) | optimized faster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `rev_3D` | 60,000 | 19.200 | 13.429 | **1.403x** | 1.417x (1.375x-1.460x) | 10/10 |
+| `implicit_lipid` | 100,000 | 5.716 | 3.695 | **1.557x** | 1.560x (1.544x-1.576x) | 10/10 |
+| `michaelis_menten` | 150,000 | 6.389 | 5.463 | **1.186x** | 1.220x (1.107x-1.346x) | 10/10 |
+| **three-case total** | | **31.087** | **22.426** | **1.379x** | **1.396x (1.355x-1.438x)** | **10/10** |
+
+For each model, 10/10 paired wins has an exact two-sided sign-test `p = 0.00195`.
+The total row sums the three model times within each repetition before forming
+its paired ratio; it also has 10/10 wins and the same sign-test result.
+
+One `master` Michaelis-Menten repetition took 10.062 s while its other nine took
+5.446-6.770 s. No run failed and its adjacent optimized run was normal. It was
+retained as scheduling noise rather than deleted. The median estimate is robust
+to it, while the wider geometric-mean interval transparently includes its
+effect.
+
+The six independent-seed runs used for the output comparison below also report
+NERDSS's internal whole-program wall time, measured from before input parsing to
+the end of the simulation. Extracting those values gives a second timing result
+in which every pair follows a different stochastic trajectory. The interval is
+again computed on paired log ratios, now with six seed pairs.
+
+| Case | Seeds | master median (s) | optimized median (s) | median paired speedup | geometric mean speedup (95% CI) | optimized faster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `rev_3D` | 6 | 17.655 | 12.722 | **1.389x** | 1.383x (1.345x-1.422x) | 6/6 |
+| `implicit_lipid` | 6 | 5.135 | 3.289 | **1.549x** | 1.553x (1.511x-1.596x) | 6/6 |
+| `michaelis_menten` | 6 | 6.839 | 5.173 | **1.301x** | 1.282x (1.170x-1.405x) | 6/6 |
+| **three-case total** | **6** | **29.538** | **21.195** | **1.381x** | **1.384x (1.360x-1.409x)** | **6/6** |
+
+Six wins out of six gives an exact two-sided sign-test `p = 0.03125` per model
+and for the total. More importantly, the independent-seed total (1.381x median)
+agrees with the balanced fixed-seed timing result (1.379x median). The speedup is
+therefore not an artifact of one unusually cheap trajectory from the changed
+random stream.
+
+### 10.2 Stochastic-output comparison
+
+Bitwise output comparison is not appropriate because the orientation and
+Gaussian samplers intentionally change the random stream. Instead, each build
+ran each model with six independent seeds (`20260811` through `20260816`). For
+each run, every reported species copy number was averaged over the second half
+of the trajectory. The table combines those six per-seed averages as mean +-
+SEM and reports `(optimized - master) / sqrt(SEM_master^2 + SEM_optimized^2)`.
+
+| Model | Species | master mean +- SEM | optimized mean +- SEM | standardized difference |
+| --- | --- | ---: | ---: | ---: |
+| `implicit_lipid` | `IL(m)` | 342.302 +- 1.119 | 341.642 +- 0.848 | -0.47 |
+| | `B(b)` | 200.000 +- 0.000 | 200.000 +- 0.000 | 0.00 |
+| | `B(m)` | 42.302 +- 1.119 | 41.642 +- 0.848 | -0.47 |
+| | `B(m!1).IL(m!1)` | 157.698 +- 1.119 | 158.358 +- 0.848 | 0.47 |
+| `michaelis_menten` | `S(ser~U)` | 103.954 +- 0.276 | 104.024 +- 0.425 | 0.14 |
+| | `S(ser~P)` | 0.859 +- 0.300 | 0.934 +- 0.196 | 0.21 |
+| | `E(kin)` | 5.812 +- 0.370 | 5.958 +- 0.515 | 0.23 |
+| | `E(kin!1).S(ser~U!1)` | 3.188 +- 0.370 | 3.042 +- 0.515 | -0.23 |
+| `rev_3D` | `A(a)` | 337.396 +- 5.037 | 333.604 +- 3.675 | -0.61 |
+| | `R(r)` | 337.396 +- 5.037 | 333.604 +- 3.675 | -0.61 |
+| | `A(a!1).R(r!1)` | 662.604 +- 5.037 | 666.396 +- 3.675 | 0.61 |
+
+The largest absolute standardized difference is **0.61**. No observable is near
+the conventional magnitude-2 screening threshold, so this sample finds no
+measurable shift in the simulated species distributions. Six seeds per build is
+a useful regression check, not proof that the full stochastic processes are
+identical; more seeds would narrow the SEMs if tighter equivalence bounds are
+needed.
+
+The focused timing list is in `pairwise_cases.tsv`. Reproduce either execution
+order by setting `CASES_FILE` when invoking `interleaved_timing.sh`; reproduce
+the ensemble comparison with `statistical_check.sh`.
+
+## 10. `find_which_reaction()`: attempted, measured, reverted
+
+`find_which_reaction()` was the largest remaining self-time entry not addressed by
+sections 1-9. An attempt to optimize it produced correct code with no speedup,
+and was reverted. Recorded because the reason it failed is more useful than the
+attempt, and because the same reasoning error had already occurred once in
+section 9.6.
+
+### 10.1 Where the time actually goes
+
+Built with `-O3 -g` and profiled with `sample(1)` on `clathrin`, then mapped
+offsets to lines with `atos`. `find_which_reaction()` held 582 of 5436 samples,
+10.7% of self time, distributed as:
+
+| line | samples | statement |
+| --- | --- | --- |
+| 18 | 67 | `const ForwardRxn& oneRxn = forwardRxns[rxnItr];` |
+| 30 | 66 | `if (absIface1 == oneReactant.absIfaceIndex)` |
+| 17 | 45 | `for (auto rxnItr : currState.myForwardRxns)` |
+| 22 | 43 | `reactItr < oneRxn.reactantListNew.size()` |
+| 24 | 36 | `molTemplateList[oneReactant.molTypeIndex].isImplicitLipid` |
+| 121 | 61+51 | `best_matching_rate(...)`, inlined |
+| 78-79 | 52+21 | reverse state-change gate, never taken for this model |
+| 120, 140, 144 | 33+8+52 | match test and return |
+| prologue | 55+24 | |
+
+Grouped: the reactant-matching scan is about 55% of the function, the rate
+selection about 33%, and the reverse state-change gate about 12% -- the last
+being pure cost for `clathrin`, which has no bimolecular state change but still
+tests for one on every call.
+
+### 10.2 The attempt
+
+The three hottest lines each dereference something: into the large `ForwardRxn`,
+out of it into `reactantListNew`'s own heap block, and into the much larger
+`MolTemplate` for one bool. That reads like a memory-latency problem, so the scan
+was given a compact side table: `CompactReactant` holding just
+`{absIfaceIndex, isImplicitLipid}` at 8 bytes, eight to a cache line, with all of
+a state's reactant slots stored end to end, plus per-candidate copies of the
+static fields the gates read (`conjBackRxnIndex`, `rxnType`, `relRxnIndex`, and
+the symmetric-bimolecular test). `ForwardRxn` was then touched only when a
+reaction had already matched, or when the reverse branch was entered. The scan's
+comparisons were left textually unchanged so it selects the same reactant slots.
+
+The table was keyed on `Interface::State::index`, built on first use, and
+rebuilt if a state's `myForwardRxns` length ever changed. Reaction lists are
+final before the timestep loop -- the add-file path runs at `nerdss.cpp:400`, the
+loop at line 811 -- so a table built lazily cannot go stale mid-run.
+
+### 10.3 Result: correct, and no faster
+
+Bitwise: **13 of 13 cases byte-identical**, so the rewrite preserved behavior.
+
+Timing, CPU time (user+sys) rather than wall clock, interleaved, 7 repetitions,
+median per case:
+
+| case | nItr | base (s) | table (s) | ratio | base sd | table sd |
+| --- | --- | --- | --- | --- | --- | --- |
+| `clathrin` | 150,000 | 4.440 | 4.500 | 0.987 | 0.050 | 0.033 |
+| `homoTrimer` | 6,000 | 8.720 | 8.790 | 0.992 | 0.298 | 0.144 |
+| `michaelis_menten` | 150,000 | 4.930 | 4.880 | 1.010 | 0.208 | 0.233 |
+| `rev_3D` | 20,000 | 5.510 | 5.450 | 1.011 | 0.254 | 0.188 |
+| **total** | | **23.600** | **23.620** | **0.999** | | |
+
+Every ratio is inside one standard deviation. The decisive measurement is the
+function's own share: `find_which_reaction()` went from 582/5436 samples (10.7%)
+to 622/5532 (11.2%). The table made the function it was meant to speed up
+slightly *slower*.
+
+An intermediate version was genuinely wrong and was fixed before this
+measurement: the table accessor lived in its own translation unit and neither
+build file enables link-time optimization, so it compiled to an out-of-line call
+added to the hottest path in the program. Splitting it into an inlinable fast
+path in the header and an out-of-line builder changed nothing measurable, which
+is what settled the question.
+
+### 10.4 Why it failed, and what that says about reading profiles
+
+Line-level sample attribution shows which instructions **retire**, not which ones
+**stall**. This model has one or two candidate reactions per state, each with two
+reactant slots, and `find_which_reaction()` is called millions of times per
+timestep against that same handful of bytes. The reaction data is therefore
+L1-resident in steady state: the loads on lines 18, 24 and 30 were already hits,
+so making them contiguous removed no latency while the table lookup added work.
+
+This is the same error as section 9.6's `clear_reweight_vecs()` hypothesis --
+inferring a memory bottleneck from the fact that the hot lines contain
+dereferences. Both times the fix was cheap to build and the measurement took
+longer than the implementation. The pattern worth keeping: a line-level profile
+localizes cost, it does not explain it, and on this codebase the explanation has
+been wrong twice.
+
+### 10.5 What would actually help
+
+`find_which_reaction()` is **call-count-bound, not per-call-cost-bound**. There is
+no per-call fat left worth removing; the lever is to call it less.
+
+The opening is structural. `check_bimolecular_reactions.cpp:96` already tests
+`absIface2 == statePartner` before calling, so the caller knows *which* partner
+matched -- and then `find_which_reaction()` re-derives which reaction that partner
+belongs to by scanning. If `State::rxnPartners` were parallel to
+`State::myForwardRxns`, the caller could pass the reaction index and the scan
+would disappear rather than get cheaper, moving the work to parse time with no
+table and no lifetime question.
+
+They are currently **not** parallel, which is what makes this a real change rather
+than a cleanup: `populate_reaction_lists.cpp` pushes to `myForwardRxns` alone at
+lines 17 and 24, pushes to `rxnPartners` alone at lines 39 and 48, and pushes to
+both together at lines 64-65, 68-69, 76-77 and 80-81. Establishing and maintaining
+the parallel invariant is the work, and it belongs in its own issue with its own
+verification, because getting it wrong silently mis-selects reactions.
+
+### 10.6 A measurement caveat worth recording
+
+The first timing pass for this attempt reported 0.821x aggregate with `rev_2D` at
+133 s against 43 s in section 9.4. That was contamination, not a regression: load
+average 7.9 on a ten-core host, with an unrelated application at 96% CPU, a
+`python3` process at 96%, and a second concurrent NERDSS benchmark at 86%. It was
+discarded and re-measured on CPU time, which is far less sensitive to competing
+load than wall clock.
+
+Separately, `interleaved_timing.sh` aborted mid-run with
+`line 69: 5: command not found` because the script was being edited in another
+working session while it ran; it has since gained a `CASES_FILE` override. The
+medians were recovered from the raw `timings.tsv` rather than by re-running. Both
+incidents argue for checking `uptime` before trusting a wall-clock number on a
+shared machine.
