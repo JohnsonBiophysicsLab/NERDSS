@@ -557,7 +557,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       /*axis of rotation is the normal to the plane, at the origin position*/
       Vector rotAxis{0, 0, 1}; // For a Box, we can just use the z-axis.
       Quat rotQuatPos(cos(rotAng / 2), sin(rotAng / 2) * rotAxis.x, sin(rotAng / 2) * rotAxis.y, sin(rotAng / 2) * rotAxis.z);
-      rotQuatPos = rotQuatPos.unit();
+      rotQuatPos.normalize();
 
       // rotate the two complexes, using same angle here, so no orientations should change!
       rotate(origin, rotQuatPos, reactCom1, moleculeList);

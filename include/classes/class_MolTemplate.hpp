@@ -222,6 +222,16 @@ struct MolTemplate {
     Coord D { 0, 0, 0 }; //!< the molecule's xyz translational diffusion constants
     /**< Einstein-Stokes Equation: \f$ D = \frac{k_B T}{6 \pi \eta \mu r}\f$ */
     Coord Dr { 0, 0, 0 }; //!< the molecule's xyz rotational diffusion constants
+    /*! \brief Per axis \f$ 1/\sqrt[3]{D_r} \f$, cached because
+     * Complex::update_properties() needs it for every member molecule on every
+     * timestep while Dr itself never changes after parsing.  A component is
+     * left at zero when the matching Dr component is zero, because
+     * update_properties() substitutes its own large-value sentinel in that case
+     * and never reads this one.  Derived, so it is deliberately not part of the
+     * MPI wire format; cache_diffusion_derivatives() refreshes it wherever Dr
+     * is set instead.
+     */
+    Coord invCbrtDr { 0, 0, 0 };
     std::string molName; //!< the name of the molecule this is the template for
     std::vector<Interface> interfaceList {}; //!< list of all interfaces on this molecule
     std::vector<int> rxnPartners {}; //!< list of MolTemplate indices that this molecule can react with
@@ -254,6 +264,13 @@ struct MolTemplate {
     int find_relIndex_from_absIndex(int targStateIndex) const;
     int find_absIndex_from_relIndex(int relIndex, char state) const;
     void set_value(std::string& line, MolKeyword molKeyword);
+
+    /*! \brief Refreshes invCbrtDr from the current Dr.
+     *
+     * Call this after any assignment to Dr.  set_value() and deserialize() are
+     * the only two places that set Dr today and both already call it.
+     */
+    void cache_diffusion_derivatives();
 
     MolTemplate() = default;
     MolTemplate(Coord& comCoord, std::vector<Interface>& Interfaces);
@@ -316,6 +333,9 @@ struct MolTemplate {
         POP(radius);
         D.deserialize(arrayRank, nArrayRank);
         Dr.deserialize(arrayRank, nArrayRank);
+        // invCbrtDr is derived from Dr and is not transmitted, so recompute it
+        // here to keep the two consistent on the receiving rank.
+        cache_diffusion_derivatives();
         deserialize_string(molName, arrayRank, nArrayRank);
         deserialize_abstract_vector<Interface>(interfaceList, arrayRank, nArrayRank);
         deserialize_primitive_vector<int>(rxnPartners, arrayRank, nArrayRank);

@@ -14,6 +14,8 @@
 #include "classes/class_MolTemplate.hpp"
 #include "parser/parser_functions.hpp"
 
+#include <cmath>
+
 #include <iostream>
 
 /* INTERFACE */
@@ -199,6 +201,25 @@ int MolTemplate::find_absIndex_from_relIndex(int relIndex, char state) const
     exit(1);
 }
 
+void MolTemplate::cache_diffusion_derivatives()
+{
+    /*! \brief Precomputes the per-axis inverse cube root of Dr.
+     *
+     * Complex::update_properties() sums this quantity over the member molecules
+     * of a complex on every timestep, and Dr is fixed for the whole run, so
+     * evaluating pow() there repeats the same handful of results millions of
+     * times.  The expression below is written exactly as update_properties()
+     * used to write it so the cached double is bit-for-bit the value that used
+     * to be computed inline.
+     *
+     * A zero Dr component is left as zero: update_properties() guards on
+     * Dr != 0 and substitutes its own sentinel, so it never reads this value.
+     */
+    invCbrtDr.x = (Dr.x != 0) ? (1.0 / pow(Dr.x, 1.0 / 3.0)) : 0.0;
+    invCbrtDr.y = (Dr.y != 0) ? (1.0 / pow(Dr.y, 1.0 / 3.0)) : 0.0;
+    invCbrtDr.z = (Dr.z != 0) ? (1.0 / pow(Dr.z, 1.0 / 3.0)) : 0.0;
+}
+
 void MolTemplate::set_value(std::string& line, MolKeyword molKeyword)
 {
     /*! \ingroup Parser
@@ -231,6 +252,7 @@ void MolTemplate::set_value(std::string& line, MolKeyword molKeyword)
     }
     case 5: {
         Dr = Coord(parse_input_array(line));
+        cache_diffusion_derivatives();
         std::cout << "Read in Dr: [" << Dr.x << "rad^2s^-1, " << Dr.y << "rad^2s^-1, " << Dr.z << "rad^2s^-1]" << std::endl;
         break;
     }
