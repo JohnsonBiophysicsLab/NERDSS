@@ -34,6 +34,9 @@ rng_state*
 .ipynb_checkpoints/
 OUTPUT
 
+# Object file folders
+obj/
+
 # Generated outputs inside sample input examples.
 /sample_inputs/**/DATA/**
 !/sample_inputs/**/DATA/.gitkeep
