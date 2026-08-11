@@ -741,3 +741,93 @@ working session while it ran; it has since gained a `CASES_FILE` override. The
 medians were recovered from the raw `timings.tsv` rather than by re-running. Both
 incidents argue for checking `uptime` before trusting a wall-clock number on a
 shared machine.
+
+## 11. How much of section 9's speedup is an artifact of small test cases
+
+Section 9.4 reports 1.087x aggregate over `cases.tsv`. That number is partly a
+property of the suite rather than of the code, and this section quantifies which
+part.
+
+### 11.1 The suite's cases are dilute, and that is what candidate 2 rewards
+
+Candidate 2 replaced an O(sub-cells) sweep with an O(occupied sub-cells) one, so
+its benefit is governed by sub-cells per molecule. Measured per case, against the
+section 9.4 speedups:
+
+| case | reactions | molecules | sub-cells | cells/mol | speedup |
+| --- | --- | --- | --- | --- | --- |
+| `clathrin` | 7 | 100 | 2744 | 27.44 | 1.125 |
+| `implicit_lipid` | 1 | 201 | 3375 | 16.79 | 1.166 |
+| `sphere` | 1 | 501 | 8000 | 15.97 | 1.509 |
+| `rev_3D` | 1 | 2000 | 27000 | 13.50 | 1.105 |
+| `hexamer` | 1 | 1000 | 10648 | 10.65 | 1.108 |
+| `rev_3Dto2D` | 1 | 3850 | 27000 | 7.01 | 1.054 |
+| `mem_localization` | 3 | 3955 | 10830 | 2.74 | 1.045 |
+| `rev_2D` | 1 | 1600 | 3600 | 2.25 | 1.059 |
+| `homoTrimer` | 1 | 1000 | 1000 | 1.00 | 1.052 |
+| `closed_homoTrimer` | 1 | 1000 | 1000 | 1.00 | 1.017 |
+| `michaelis_menten` | 2 | 117 | 64 | 0.55 | 1.004 |
+| `hetTrimer` | 3 | 999 | 512 | 0.51 | 1.019 |
+| `trimer` | 3 | 300 | 36 | 0.12 | 1.041 |
+
+The six cases at cells/mol >= 7 span 1.054-1.509x; the seven at <= 2.74 span
+1.004-1.059x. Six of thirteen cases hold 1000 molecules or fewer.
+
+### 11.2 Direct test: same model, same box, twenty times the molecules
+
+`clathrin` with the copy number raised from 100 to 2000, everything else
+unchanged, so the sub-cell count stays at 2744 and only density moves. 4000
+iterations, CPU time, 5 repetitions, median:
+
+| copies | molecules | sub-cells | cells/mol | ref (s) | candidates 1-3 (s) | speedup |
+| --- | --- | --- | --- | --- | --- | --- |
+| 100 | 100 | 2744 | 27.44 | 0.130 | 0.110 | **1.182** |
+| 2000 | 2000 | 2744 | 1.37 | 24.650 | 24.030 | **1.026** |
+
+Same code, same model, same box: the gain falls from 18% to 2.6% on density
+alone. The 1.182x at 100 copies also cross-checks section 9.4's 1.125x for the
+same model at 150,000 iterations, so it is not a start-up artifact, and the
+2000-copy runs are 24 s of CPU, far past any parse overhead.
+
+This is structural, not incidental. `class_SimulVolume.cpp:80-85` caps each
+dimension at 30, so the sub-cell count cannot exceed 27,000 however large the
+system gets, while molecule count scales with the model. Sub-cells per molecule is
+therefore bounded by 27000/N and falls as N grows. A production run of 10^4 to
+10^5 molecules sits near or below 1 cell per molecule, i.e. in the ~1.02x regime,
+not the ~1.2x one.
+
+### 11.3 What does carry over
+
+The residual 1.026x at 2000 copies is candidates 1 and 3 still working. Both cost
+scale per molecule per timestep rather than per sub-cell: candidate 1 removes one
+`pow` per member molecule of every moved complex, candidate 3 removes an
+out-of-line call per `Vector` construction. Their share of runtime is roughly
+independent of N, so they should hold at production scale. Candidate 2 is the one
+that should be expected to fade.
+
+The honest summary of section 9.4 is therefore: **about 1.02-1.03x is robust to
+system size, and the remainder is a dilute-system effect that the suite
+over-represents.**
+
+### 11.4 The same question applied to section 10's failure
+
+For `find_which_reaction()` the relevant notion of "small" is the reaction
+network, not the molecule count. The scan's per-call cost depends on
+`myForwardRxns.size()` and `reactantListNew.size()` (always 2), and neither
+depends on molecule count or iteration count -- a larger system makes more calls
+at the same cost each. So section 10's verdict is unaffected by N.
+
+It is affected by network size, and the suite is small there too: nine of thirteen
+cases define a single reaction, `clathrin` defines 7, and the richest input in the
+entire `sample_inputs` tree, `enzyme`, defines 12 across 4 molecule types. The
+working set the scan touches is a few hundred bytes. Pushing it out of L1 would
+take on the order of hundreds of reactions per interface state, which is a
+different class of model than anything in this repository.
+
+One caveat is worth stating rather than glossing: at high density the pair loop
+streams through a much larger `moleculeList`, and `hasIntangibles()` reads each
+molecule's `interfaceList`, so the reaction data could plausibly be evicted
+between calls in a way it is not at 100 molecules. That is the one condition under
+which the reverted table might pay off, and it was **not** tested -- the density
+experiment in 11.2 was run against the reverted tree. Anyone revisiting section 10
+should start there, with a 2000-copy case rather than the suite defaults.

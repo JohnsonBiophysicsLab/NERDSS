@@ -41,6 +41,8 @@ obj/
 benchmarks/erflike_benchmark.cpp
 benchmarks/erflike_sample_inputs/
 benchmarks/quat_benchmark.cpp
+/benchmarks/nerdss_optimized/results/
+benchmarks/nerdss_optimized/interleaved_timing.sh
 
 # Generated outputs inside sample input examples.
 /sample_inputs/**/DATA/**
