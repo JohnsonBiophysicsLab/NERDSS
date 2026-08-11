@@ -49,8 +49,8 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
         Quat omegaNeg(cos(negOmegaRotAngle / 2), sin(negOmegaRotAngle / 2) * rotAxis.x,
             sin(negOmegaRotAngle / 2) * rotAxis.y, sin(negOmegaRotAngle / 2) * rotAxis.z);
         // make them unit quaternions
-        omegaPos = omegaPos.unit();
-        omegaNeg = omegaNeg.unit();
+        omegaPos.normalize();
+        omegaNeg.normalize();
 
         // rotate the two molecules
         rotate(reactIface2, omegaNeg, reactCom2, moleculeList);
@@ -87,8 +87,8 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
                 sin(posOmegaRotAngle / 2) * rotAxis.y, sin(posOmegaRotAngle / 2) * rotAxis.z);
             omegaNeg = Quat(cos(negOmegaRotAngle / 2), sin(negOmegaRotAngle / 2) * rotAxis.x,
                 sin(negOmegaRotAngle / 2) * rotAxis.y, sin(negOmegaRotAngle / 2) * rotAxis.z);
-            omegaPos = omegaPos.unit();
-            omegaNeg = omegaNeg.unit();
+            omegaPos.normalize();
+            omegaNeg.normalize();
 
             rotate(reactIface2, omegaPos, reactCom2, moleculeList);
             rotate(reactIface2, omegaNeg, reactCom1, moleculeList);

@@ -56,8 +56,8 @@ void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1,
         // }
 
         // make them unit quaternions
-        rotQuatPos = rotQuatPos.unit();
-        rotQuatNeg = rotQuatNeg.unit();
+        rotQuatPos.normalize();
+        rotQuatNeg.normalize();
 
         // if (reactMol1.index == 29 || reactMol2.index == 29) {
         //   std::cout << "before rotation for theta" << std::endl;

@@ -70,8 +70,8 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
             sin(posPhiRotAng / 2) * rotAxis.z);
         Quat rotQuatNeg(cos(negPhiRotAng / 2), sin(negPhiRotAng / 2) * rotAxis.x, sin(negPhiRotAng / 2) * rotAxis.y,
             sin(negPhiRotAng / 2) * rotAxis.z);
-        rotQuatPos = rotQuatPos.unit();
-        rotQuatNeg = rotQuatNeg.unit();
+        rotQuatPos.normalize();
+        rotQuatNeg.normalize();
 
         // if (reactMol1.index == 11 || reactMol2.index == 11){
         //   std::cout << "beofre first rotation for phi" << std::endl;
@@ -135,8 +135,8 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
                 sin(posPhiRotAng / 2) * rotAxis.y, sin(posPhiRotAng / 2) * rotAxis.z);
             rotQuatNeg = Quat(cos(negPhiRotAng / 2), sin(negPhiRotAng / 2) * rotAxis.x,
                 sin(negPhiRotAng / 2) * rotAxis.y, sin(negPhiRotAng / 2) * rotAxis.z);
-            rotQuatPos = rotQuatPos.unit();
-            rotQuatNeg = rotQuatNeg.unit();
+            rotQuatPos.normalize();
+            rotQuatNeg.normalize();
 
             // rotate the two complexes
             rotate(reactIface1, rotQuatNeg, reactCom1, moleculeList);
