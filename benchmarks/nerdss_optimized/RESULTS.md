@@ -831,3 +831,117 @@ between calls in a way it is not at 100 molecules. That is the one condition und
 which the reverted table might pay off, and it was **not** tested -- the density
 experiment in 11.2 was run against the reverted tree. Anyone revisiting section 10
 should start there, with a 2000-copy case rather than the suite defaults.
+
+## 12. Is any profile frame worth parallelizing with OpenMP?
+
+Asked of the section 10.1 profile, and answered by measuring both sides of the
+trade rather than by inspection. Conclusion: **no frame on this workload**, and for
+the one frame with clean inner parallelism the ceiling is too low to matter even
+in the limit. This branch contains no OpenMP and none was added; the investigation
+ran in a detached worktree and no source file changed.
+
+### 12.1 Self time on the current branch
+
+`clathrin`, 150,000 iterations, `sample(1)`, 5436 samples:
+
+| frame | self | parallel over | verdict |
+| --- | --- | --- | --- |
+| `check_bimolecular_reactions` | 19.6% | candidate pairs | already built on `openmp-production-lane`; 0.72x at 8 workers, 0.54x at 10, on this host |
+| `main` (self) | 14.7% | per-molecule bookkeeping | independent, but one region per timestep x 150,000 |
+| `find_which_reaction` | 10.7% | none inside (1-7 reactions) | pair level only, i.e. frame 1 |
+| `Complex::propagate` | 8.2% | complex members | analysed below |
+| allocator | ~8.0% | none | threads increase contention |
+| RNG (`ziggurat` + `mt_get`) | 5.7% | none | changes the stream; ends reproducibility |
+| `get_distance` | 5.0% | per pair | frame 1 |
+| libm `cos`/`exp` | ~4.7% | per complex | SIMD, not OpenMP |
+| `determine_3D_bimolecular_reaction_probability` | 3.2% | per pair | frame 1 |
+| `Complex::update_properties` | 3.0% | per complex | inside propagate |
+| `clear_reweight_vecs` | 2.2% | per molecule | as `main` |
+
+Frames 1, 3, 7 and 9 are one opportunity, not four: all sit inside the same pair
+loop, which needs conflict-free scheduling to stay deterministic because pairs
+share molecules and complexes. That is what `openmp-production-lane` implements,
+and it measured a regression on this host. `Complex::propagate`'s member loop is
+the only frame whose inner iterations are independent with no shared writes, no
+RNG and no ordering constraint.
+
+### 12.2 Cost of a parallel region on this host
+
+`#pragma omp parallel for reduction`, Apple M5, Apple clang 21, Homebrew `libomp`,
+200,000 repetitions per row, overhead measured against the identical serial loop:
+
+| threads | wait policy | width 8 | width 128 | width 2048 |
+| --- | --- | --- | --- | --- |
+| 10 | `passive` (default) | 55,866 ns | 55,694 ns | 80,114 ns |
+| 10 | `active` | 6,777 ns | 10,166 ns | 4,891 ns |
+| 4 | `active` | 624 ns | 630 ns | **-211 ns** |
+| 2 | `active` | 388 ns | 396 ns | **-59 ns** |
+
+The negative entries are real wins: at width 2048 two or four threads beat serial.
+The crossover exists, it is simply far above the widths this program produces.
+
+### 12.3 Cost of one member iteration
+
+`Complex::propagate` is 8.19% of `clathrin`'s 4.44 s of CPU, so 0.364 s, spread
+over roughly 100 molecules x 150,000 timesteps = 1.5e7 member iterations, giving
+**about 24 ns per member**. This is an order-of-magnitude figure: it assumes every
+complex propagates on every timestep, and if fewer do then the true per-member
+cost is higher, which raises the break-even width and strengthens the conclusion.
+
+Solving `24W = overhead + 24W/T` for the break-even width `W`:
+
+| threads | wait policy | break-even width |
+| --- | --- | --- |
+| 2 | `active` | ~32 members |
+| 4 | `active` | ~34 members |
+| 10 | `active` | ~231 members |
+| 10 | `passive` | ~2600 members |
+
+### 12.4 How wide the loop actually gets
+
+`gagsphere` -- 2500 gag molecules, 436 nm box, timestep 0.1, the most
+assembly-heavy input in `sample_inputs` -- run for 300,000 iterations. Percentages
+are of total propagate work, i.e. weighted by member count:
+
+| sim time (s) | complexes | max size | mean width | %work >=8 | >=32 | >=128 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.0000 | 2500 | 1 | 1.00 | 0.0 | 0.0 | 0.0 |
+| 0.0072 | 1288 | 23 | 1.94 | 2.2 | 0.0 | 0.0 |
+| 0.0120 | 1020 | 30 | 2.45 | 12.2 | 0.0 | 0.0 |
+| 0.0168 | 818 | 36 | 3.06 | 26.8 | 1.4 | 0.0 |
+| 0.0240 | 646 | 39 | 3.87 | 41.2 | 2.8 | 0.0 |
+| 0.0300 | 552 | 43 | 4.53 | 51.4 | 3.0 | 0.0 |
+
+Complexes grow steadily and had not plateaued at 300,000 iterations, but the mean
+loop is 4.53 members wide and the largest complex holds 43. Only 3.0% of propagate
+work is at or above the 4-thread break-even and none is above the 10-thread one.
+Against an 8.19% frame that caps the achievable gain at roughly **0.18% of total
+runtime**.
+
+For contrast, `clathrin` at 150,000 iterations ends with its largest complex at 5
+members, and the 2000-copy variant from section 11.2 at 4.
+
+### 12.5 The bound that does not depend on complex size
+
+`Complex::propagate` is 8.19% of runtime, so even with perfect scaling and zero
+overhead the whole idea is worth at most 8.19% x (1 - 1/4) = **6.1% at four
+threads**, 7.4% at ten -- and only if nearly all of that time sat in very wide
+loops. The asymptotic case, all 2500 gag molecules coalesced into a single sphere,
+is also the case where every other source of parallelism has disappeared, because
+there is then one complex to propagate.
+
+### 12.6 What generalizes: the runtime configuration dominates
+
+The most useful result here is not about complex size. Default `passive` waiting
+costs 56-80 us per parallel region, **90 times** the 620 ns of four threads with
+`active` waiting, and ten threads costs eight times more per region than four
+because `OMP_PROC_BIND=spread` places workers on the M5's efficiency cores.
+
+That shape -- per-region cost rising with thread count -- matches the
+`openmp-production-lane` measurements on this host exactly: 1.05x at two workers,
+0.72x at eight, 0.54x at ten. Some or all of that regression may be a runtime
+configuration artifact rather than a limit of the wave scheduling. Before writing
+further OpenMP anywhere in NERDSS, that lane is worth re-measuring with
+`OMP_WAIT_POLICY=active` and a two-to-four worker cap. Note that lane's own
+recorded diagnosis, ~2459 waves of ~41 pairs per timestep, is a wave-occupancy
+problem that a cheaper barrier would mitigate but not remove.
