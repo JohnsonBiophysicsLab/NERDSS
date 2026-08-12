@@ -614,7 +614,7 @@ The focused timing list is in `pairwise_cases.tsv`. Reproduce either execution
 order by setting `CASES_FILE` when invoking `interleaved_timing.sh`; reproduce
 the ensemble comparison with `statistical_check.sh`.
 
-## 10. `find_which_reaction()`: attempted, measured, reverted
+## 11. `find_which_reaction()`: attempted, measured, reverted
 
 `find_which_reaction()` was the largest remaining self-time entry not addressed by
 sections 1-9. An attempt to optimize it produced correct code with no speedup,
@@ -622,7 +622,7 @@ and was reverted. Recorded because the reason it failed is more useful than the
 attempt, and because the same reasoning error had already occurred once in
 section 9.6.
 
-### 10.1 Where the time actually goes
+### 11.1 Where the time actually goes
 
 Built with `-O3 -g` and profiled with `sample(1)` on `clathrin`, then mapped
 offsets to lines with `atos`. `find_which_reaction()` held 582 of 5436 samples,
@@ -645,7 +645,7 @@ selection about 33%, and the reverse state-change gate about 12% -- the last
 being pure cost for `clathrin`, which has no bimolecular state change but still
 tests for one on every call.
 
-### 10.2 The attempt
+### 11.2 The attempt
 
 The three hottest lines each dereference something: into the large `ForwardRxn`,
 out of it into `reactantListNew`'s own heap block, and into the much larger
@@ -663,7 +663,7 @@ rebuilt if a state's `myForwardRxns` length ever changed. Reaction lists are
 final before the timestep loop -- the add-file path runs at `nerdss.cpp:400`, the
 loop at line 811 -- so a table built lazily cannot go stale mid-run.
 
-### 10.3 Result: correct, and no faster
+### 11.3 Result: correct, and no faster
 
 Bitwise: **13 of 13 cases byte-identical**, so the rewrite preserved behavior.
 
@@ -690,7 +690,7 @@ added to the hottest path in the program. Splitting it into an inlinable fast
 path in the header and an out-of-line builder changed nothing measurable, which
 is what settled the question.
 
-### 10.4 Why it failed, and what that says about reading profiles
+### 11.4 Why it failed, and what that says about reading profiles
 
 Line-level sample attribution shows which instructions **retire**, not which ones
 **stall**. This model has one or two candidate reactions per state, each with two
@@ -706,7 +706,7 @@ longer than the implementation. The pattern worth keeping: a line-level profile
 localizes cost, it does not explain it, and on this codebase the explanation has
 been wrong twice.
 
-### 10.5 What would actually help
+### 11.5 What would actually help
 
 `find_which_reaction()` is **call-count-bound, not per-call-cost-bound**. There is
 no per-call fat left worth removing; the lever is to call it less.
@@ -726,7 +726,7 @@ both together at lines 64-65, 68-69, 76-77 and 80-81. Establishing and maintaini
 the parallel invariant is the work, and it belongs in its own issue with its own
 verification, because getting it wrong silently mis-selects reactions.
 
-### 10.6 A measurement caveat worth recording
+### 11.6 A measurement caveat worth recording
 
 The first timing pass for this attempt reported 0.821x aggregate with `rev_2D` at
 133 s against 43 s in section 9.4. That was contamination, not a regression: load
@@ -742,13 +742,13 @@ medians were recovered from the raw `timings.tsv` rather than by re-running. Bot
 incidents argue for checking `uptime` before trusting a wall-clock number on a
 shared machine.
 
-## 11. How much of section 9's speedup is an artifact of small test cases
+## 12. How much of section 9's speedup is an artifact of small test cases
 
 Section 9.4 reports 1.087x aggregate over `cases.tsv`. That number is partly a
 property of the suite rather than of the code, and this section quantifies which
 part.
 
-### 11.1 The suite's cases are dilute, and that is what candidate 2 rewards
+### 12.1 The suite's cases are dilute, and that is what candidate 2 rewards
 
 Candidate 2 replaced an O(sub-cells) sweep with an O(occupied sub-cells) one, so
 its benefit is governed by sub-cells per molecule. Measured per case, against the
@@ -773,7 +773,7 @@ section 9.4 speedups:
 The six cases at cells/mol >= 7 span 1.054-1.509x; the seven at <= 2.74 span
 1.004-1.059x. Six of thirteen cases hold 1000 molecules or fewer.
 
-### 11.2 Direct test: same model, same box, twenty times the molecules
+### 12.2 Direct test: same model, same box, twenty times the molecules
 
 `clathrin` with the copy number raised from 100 to 2000, everything else
 unchanged, so the sub-cell count stays at 2744 and only density moves. 4000
@@ -796,7 +796,7 @@ therefore bounded by 27000/N and falls as N grows. A production run of 10^4 to
 10^5 molecules sits near or below 1 cell per molecule, i.e. in the ~1.02x regime,
 not the ~1.2x one.
 
-### 11.3 What does carry over
+### 12.3 What does carry over
 
 The residual 1.026x at 2000 copies is candidates 1 and 3 still working. Both cost
 scale per molecule per timestep rather than per sub-cell: candidate 1 removes one
@@ -809,13 +809,13 @@ The honest summary of section 9.4 is therefore: **about 1.02-1.03x is robust to
 system size, and the remainder is a dilute-system effect that the suite
 over-represents.**
 
-### 11.4 The same question applied to section 10's failure
+### 12.4 The same question applied to section 11's failure
 
 For `find_which_reaction()` the relevant notion of "small" is the reaction
 network, not the molecule count. The scan's per-call cost depends on
 `myForwardRxns.size()` and `reactantListNew.size()` (always 2), and neither
 depends on molecule count or iteration count -- a larger system makes more calls
-at the same cost each. So section 10's verdict is unaffected by N.
+at the same cost each. So section 11's verdict is unaffected by N.
 
 It is affected by network size, and the suite is small there too: nine of thirteen
 cases define a single reaction, `clathrin` defines 7, and the richest input in the
@@ -829,18 +829,18 @@ streams through a much larger `moleculeList`, and `hasIntangibles()` reads each
 molecule's `interfaceList`, so the reaction data could plausibly be evicted
 between calls in a way it is not at 100 molecules. That is the one condition under
 which the reverted table might pay off, and it was **not** tested -- the density
-experiment in 11.2 was run against the reverted tree. Anyone revisiting section 10
+experiment in 12.2 was run against the reverted tree. Anyone revisiting section 11
 should start there, with a 2000-copy case rather than the suite defaults.
 
-## 12. Is any profile frame worth parallelizing with OpenMP?
+## 13. Is any profile frame worth parallelizing with OpenMP?
 
-Asked of the section 10.1 profile, and answered by measuring both sides of the
+Asked of the section 11.1 profile, and answered by measuring both sides of the
 trade rather than by inspection. Conclusion: **no frame on this workload**, and for
 the one frame with clean inner parallelism the ceiling is too low to matter even
 in the limit. This branch contains no OpenMP and none was added; the investigation
 ran in a detached worktree and no source file changed.
 
-### 12.1 Self time on the current branch
+### 13.1 Self time on the current branch
 
 `clathrin`, 150,000 iterations, `sample(1)`, 5436 samples:
 
@@ -865,7 +865,7 @@ and it measured a regression on this host. `Complex::propagate`'s member loop is
 the only frame whose inner iterations are independent with no shared writes, no
 RNG and no ordering constraint.
 
-### 12.2 Cost of a parallel region on this host
+### 13.2 Cost of a parallel region on this host
 
 `#pragma omp parallel for reduction`, Apple M5, Apple clang 21, Homebrew `libomp`,
 200,000 repetitions per row, overhead measured against the identical serial loop:
@@ -880,7 +880,7 @@ RNG and no ordering constraint.
 The negative entries are real wins: at width 2048 two or four threads beat serial.
 The crossover exists, it is simply far above the widths this program produces.
 
-### 12.3 Cost of one member iteration
+### 13.3 Cost of one member iteration
 
 `Complex::propagate` is 8.19% of `clathrin`'s 4.44 s of CPU, so 0.364 s, spread
 over roughly 100 molecules x 150,000 timesteps = 1.5e7 member iterations, giving
@@ -897,7 +897,7 @@ Solving `24W = overhead + 24W/T` for the break-even width `W`:
 | 10 | `active` | ~231 members |
 | 10 | `passive` | ~2600 members |
 
-### 12.4 How wide the loop actually gets
+### 13.4 How wide the loop actually gets
 
 `gagsphere` -- 2500 gag molecules, 436 nm box, timestep 0.1, the most
 assembly-heavy input in `sample_inputs` -- run for 300,000 iterations. Percentages
@@ -919,9 +919,9 @@ Against an 8.19% frame that caps the achievable gain at roughly **0.18% of total
 runtime**.
 
 For contrast, `clathrin` at 150,000 iterations ends with its largest complex at 5
-members, and the 2000-copy variant from section 11.2 at 4.
+members, and the 2000-copy variant from section 12.2 at 4.
 
-### 12.5 The bound that does not depend on complex size
+### 13.5 The bound that does not depend on complex size
 
 `Complex::propagate` is 8.19% of runtime, so even with perfect scaling and zero
 overhead the whole idea is worth at most 8.19% x (1 - 1/4) = **6.1% at four
@@ -930,7 +930,7 @@ loops. The asymptotic case, all 2500 gag molecules coalesced into a single spher
 is also the case where every other source of parallelism has disappeared, because
 there is then one complex to propagate.
 
-### 12.6 What generalizes: the runtime configuration dominates
+### 13.6 What generalizes: the runtime configuration dominates
 
 The most useful result here is not about complex size. Default `passive` waiting
 costs 56-80 us per parallel region, **90 times** the 620 ns of four threads with
