@@ -36,9 +36,9 @@ std::array<double, 9> create_euler_rotation_matrix(double x, double y, double z)
     return M;
 }
 
-// The Coord overload used to be a second, character-for-character copy of the
+// The Vec3D overload used to be a second, character-for-character copy of the
 // body above.
-std::array<double, 9> create_euler_rotation_matrix(const Coord& angles)
+std::array<double, 9> create_euler_rotation_matrix(const Vec3D& angles)
 {
     return create_euler_rotation_matrix(angles.x, angles.y, angles.z);
 }

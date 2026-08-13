@@ -1,7 +1,7 @@
 #include "reactions/association/association.hpp"
 #include "tracing.hpp"
 
-void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
+void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, double targOmega, const ForwardRxn& currRxn,
     std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList)
 {
@@ -20,10 +20,11 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
      * \param[in] moleculeList list of all Molecules in the system
      * \param[in] molTemplateList list of all MolTemplates
      */
-    Vector rotAxis { reactIface1 - reactIface2 };
+    Vec3D rotAxis { reactIface1 - reactIface2 };
     rotAxis.normalize();
 
-    double currOmega { calculate_omega(reactIface1, ifaceIndex2, rotAxis, currRxn, reactMol1, reactMol2, molTemplateList) };
+    double currOmega { calculate_omega(reactIface1, ifaceIndex2, rotAxis, rotAxis.length(), currRxn, reactMol1, reactMol2,
+        molTemplateList) };
 
     // double omega {dotproduct(norm1, norm2)};
     // std::cout << "Desired omega: " << targOmega << " current omega: " << currOmega << std::endl;
@@ -56,10 +57,11 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
         rotate(reactIface2, omegaNeg, reactCom2, moleculeList);
         rotate(reactIface2, omegaPos, reactCom1, moleculeList);
 
-        rotAxis = Vector { reactIface1 - reactIface2 };
+        rotAxis = Vec3D { reactIface1 - reactIface2 };
         rotAxis.normalize();
 
-        currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, currRxn, reactMol1, reactMol2, molTemplateList);
+        currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, rotAxis.length(), currRxn, reactMol1, reactMol2,
+        molTemplateList);
 
         if ((areSameAngle(targOmega, M_PI) || areSameAngle(targOmega, 0)) && areSameAngle(targOmega, currOmega)) {
             // std::cout << "Omega After: " << currOmega << std::endl;
@@ -75,7 +77,8 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
             // std::cout << "Rotated to omega in the wrong direction. " << currOmega << " Reversing and rotating the other way." << '\n';
             reverse_rotation(reactIface1, reactMol1, reactMol2, reactCom1, reactCom2, omegaPos, omegaNeg, moleculeList);
 
-            currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, currRxn, reactMol1, reactMol2, molTemplateList);
+            currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, rotAxis.length(), currRxn, reactMol1, reactMol2,
+        molTemplateList);
             // std::cout << "Omega after reset: " << currOmega << std::endl;
 
             determine_rotation_angles(targOmega, currOmega, posOmegaRotAngle, negOmegaRotAngle, reactCom2, reactCom1);
@@ -95,10 +98,11 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
 
             // check angle again, if not correct, cancel association
 
-            rotAxis = Vector { reactIface1 - reactIface2 };
+            rotAxis = Vec3D { reactIface1 - reactIface2 };
             rotAxis.normalize();
 
-            currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, currRxn, reactMol1, reactMol2, molTemplateList);
+            currOmega = calculate_omega(reactIface1, ifaceIndex2, rotAxis, rotAxis.length(), currRxn, reactMol1, reactMol2,
+        molTemplateList);
             if ((areSameAngle(targOmega, M_PI) || areSameAngle(targOmega, 0)) && areSameAngle(targOmega, currOmega)) {
                 // std::cout << "Omega After: " << currOmega << std::endl;
                 return;

@@ -1,7 +1,7 @@
 #include "reactions/association/association.hpp"
 #include "tracing.hpp"
 
-Vector determine_normal(Vector normal, const MolTemplate& molTemplate, Molecule oneMol)
+Vec3D determine_normal(Vec3D normal, const MolTemplate& molTemplate, Molecule oneMol)
 {
     // TRACE();
     if (oneMol.interfaceList.empty()) {
@@ -17,9 +17,8 @@ Vector determine_normal(Vector normal, const MolTemplate& molTemplate, Molecule 
     // see if it's already oriented, this is not necessary.
     /*  int numUnmatched { 0 };
     for (unsigned ifaceItr { 0 }; ifaceItr < oneMol.interfaceList.size(); ++ifaceItr) {
-        Vector diffVec {oneMol.tmpICoords[ifaceItr] - molTemplate.interfaceList[ifaceItr].iCoord};
-        diffVec.calc_magnitude();
-        if (std::abs(diffVec.magnitude) > 1E-8)
+        Vec3D diffVec {oneMol.tmpICoords[ifaceItr] - molTemplate.interfaceList[ifaceItr].iCoord};
+        if (std::abs(diffVec.length()) > 1E-8)
             ++numUnmatched;
 	    }*/
     //    if (numUnmatched != 0) {
@@ -34,9 +33,9 @@ Vector determine_normal(Vector normal, const MolTemplate& molTemplate, Molecule 
 
     { // check to make sure the rotations were successful
         for (unsigned ifaceIndex { 0 }; ifaceIndex < oneMol.tmpICoords.size(); ifaceIndex++) {
-            Vector tmpVec { oneMol.tmpICoords[ifaceIndex] - oneMol.tmpComCoord };
+            Vec3D tmpVec { oneMol.tmpICoords[ifaceIndex] - oneMol.tmpComCoord };
             totalRot.rotate(tmpVec);
-            oneMol.tmpICoords[ifaceIndex] = Coord(tmpVec.x, tmpVec.y, tmpVec.z);
+            oneMol.tmpICoords[ifaceIndex] = Vec3D(tmpVec.x, tmpVec.y, tmpVec.z);
             if (oneMol.tmpICoords[ifaceIndex] != tmpMol.tmpICoords[ifaceIndex]) {
                 // std::cout << "Backwards rotation unsuccessful on interface " << ifaceIndex << std::endl;
                 return { 0, 0, 0 };

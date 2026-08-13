@@ -143,11 +143,11 @@ void SimulVolume::create_simulation_volume(const Parameters &params,
 
   // Calculate the cells' dimensions in nanometers
   if (membraneObject.waterBox.z > 0)
-    subCellSize = Coord{membraneObject.waterBox.x / (numSubCells.x * 1.0),
+    subCellSize = Vec3D{membraneObject.waterBox.x / (numSubCells.x * 1.0),
                         membraneObject.waterBox.y / (numSubCells.y * 1.0),
                         membraneObject.waterBox.z / (numSubCells.z * 1.0)};
   else
-    subCellSize = Coord{membraneObject.waterBox.x / (numSubCells.x * 1.0),
+    subCellSize = Vec3D{membraneObject.waterBox.x / (numSubCells.x * 1.0),
                         membraneObject.waterBox.y / (numSubCells.y * 1.0), 1};
   // Create cell neighborlists.
   subCellList = std::vector<SubVolume>(numSubCells.tot);

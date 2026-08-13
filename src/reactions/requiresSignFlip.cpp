@@ -1,19 +1,24 @@
 #include "reactions/association/association.hpp"
 
-bool requiresSignFlip(Vector axis, Vector v1, Vector v2)
+bool requiresSignFlip(Vec3D axis, Vec3D v1, Vec3D v2)
 {
-    Vector zAxis { 0, 0, 1 };
-    Vector xAxis { 1, 0, 0};
-    zAxis.magnitude = 1.0;
-    xAxis.magnitude = 1.0;
-    Vector u { zAxis.cross(axis) };
-    u.calc_magnitude();
-    double theta { zAxis.dot_theta(axis) };
+    const Vec3D zAxis { 0, 0, 1 }; // length exactly one
+    const Vec3D xAxis { 1, 0, 0 }; // length exactly one
+
+    /* Measured once, on entry.  `axis` is rotated in place further down, and
+     * the rotation does not maintain a length, so every angle in this function
+     * - including the one taken *after* the rotation - is measured against the
+     * length the axis arrived with.  That was previously implicit in a
+     * `magnitude` cache the rotation left untouched.
+     */
+    const double axisLength { axis.length() };
+
+    Vec3D u { zAxis.unit_cross(axis) };
+    double theta { zAxis.angle_between(axis, 1.0, axisLength) };
     double useXAxis { false };
     if (std::abs(u.x) < 1E-8 && std::abs(u.y) < 1E-8 && std::abs(u.z) < 1E-8) {
-        u  = xAxis.cross(axis);
-        u.calc_magnitude();
-        theta = xAxis.dot_theta(axis);
+        u  = xAxis.unit_cross(axis);
+        theta = xAxis.angle_between(axis, 1.0, axisLength);
         useXAxis = true;
     }
 
@@ -30,7 +35,8 @@ bool requiresSignFlip(Vector axis, Vector v1, Vector v2)
 
     // if we rotated wrong way, reverse and rotate the other way
     // TODO: check this 0.01 business
-    if ((zAxis.dot_theta(axis) > 0.01 && !useXAxis) || (useXAxis && xAxis.dot_theta(axis) < 0.01)) {
+    if ((zAxis.angle_between(axis, 1.0, axisLength) > 0.01 && !useXAxis)
+        || (useXAxis && xAxis.angle_between(axis, 1.0, axisLength) < 0.01)) {
         rot.invert();
         prep = QuatRotation { rot };
         prep.rotate(v1);
@@ -41,16 +47,16 @@ bool requiresSignFlip(Vector axis, Vector v1, Vector v2)
         prep.rotate(v2);
     }
 
-    Vector projectedVec1;
-    Vector projectedVec2;
+    Vec3D projectedVec1;
+    Vec3D projectedVec2;
     if (!useXAxis) {
-        projectedVec1 = Vector{v1.x, v1.y, 0};
-        projectedVec2 = Vector{v2.x, v2.y, 0};
-        return projectedVec1.cross(projectedVec2).z > 0;
+        projectedVec1 = Vec3D{v1.x, v1.y, 0};
+        projectedVec2 = Vec3D{v2.x, v2.y, 0};
+        return projectedVec1.unit_cross(projectedVec2).z > 0;
     } else {
-        projectedVec1 = Vector(0, v1.y, v1.z);
-        projectedVec2 = Vector(0, v2.y, v2.z);
-        return projectedVec1.cross(projectedVec2).x > 0;
+        projectedVec1 = Vec3D(0, v1.y, v1.z);
+        projectedVec2 = Vec3D(0, v2.y, v2.z);
+        return projectedVec1.unit_cross(projectedVec2).x > 0;
     }
 
     // if the angle sign isn't correct, return true

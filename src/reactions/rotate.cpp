@@ -1,6 +1,6 @@
 #include "reactions/association/association.hpp"
 
-void rotate(const Coord& rotOrigin, const Quat& rotQuat, Complex& targCom,
+void rotate(const Vec3D& rotOrigin, const Quat& rotQuat, Complex& targCom,
     std::vector<Molecule>& moleculeList)
 {
     // The inverse is built once for the whole complex.  Quat::rotate() rebuilt

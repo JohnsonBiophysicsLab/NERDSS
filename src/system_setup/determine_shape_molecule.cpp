@@ -1,4 +1,4 @@
-#include "classes/class_Coord.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "system_setup/system_setup.hpp"
 
 void determine_shape_molecule(std::vector<MolTemplate>& molTemplateList)

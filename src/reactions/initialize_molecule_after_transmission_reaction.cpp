@@ -4,7 +4,7 @@
 #include <numeric>
 
 Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,
-    MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Coord& newPos, const bool plusRand, const Membrane& membraneObject)
+    MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject)
 {
     // TRACE();
     Molecule tmp {};
@@ -18,7 +18,7 @@ Molecule initialize_molecule_after_transmission_reaction(int index, const Molecu
     std::iota(tmp.freelist.begin(), tmp.freelist.end(), 0);
     tmp.interfaceList = std::vector<Molecule::Iface>(molTemplate.interfaceList.size());
 
-    Coord tempCoord { newPos };
+    Vec3D tempCoord { newPos };
     double molRadius = molTemplate.radius;
     if (plusRand) {
         bool retryNewPos = true;
@@ -30,11 +30,11 @@ Molecule initialize_molecule_after_transmission_reaction(int index, const Molecu
             double sinTheta { std::sin(theta) };
             double cosPhi { std::cos(phi) };
             double sinPhi { std::sin(phi) };
-            Coord transVec { molRadius * cosTheta * sinPhi, molRadius * sinTheta * sinPhi,
+            Vec3D transVec { molRadius * cosTheta * sinPhi, molRadius * sinTheta * sinPhi,
                 molRadius * cosPhi }; // use mol radius here to make sure that the mol has been moved further enough
             tempCoord = newPos + transVec;
             // get distance from origin to check if new position is outside compartment
-            double distanceToOrigin = tempCoord.get_magnitude();
+            double distanceToOrigin = tempCoord.length();
             if ((distanceToOrigin > membraneObject.compartmentR) && (molTemplate.outsideCompartment)) {
                 retryNewPos = false;
             } else if ((distanceToOrigin < membraneObject.compartmentR) && (molTemplate.insideCompartment)) {

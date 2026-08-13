@@ -55,9 +55,8 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
             const Complex& oneCom = complexList[moleculeList[memMol].myComIndex]; // legibility
 
             // check bounding sphere
-            Vector tmpVec { createdMol.comCoord - oneCom.comCoord };
-            tmpVec.calc_magnitude();
-            if (tmpVec.magnitude > (molTemplateList[createdMol.molTypeIndex].radius + oneCom.radius))
+            Vec3D tmpVec { createdMol.comCoord - oneCom.comCoord };
+            if (tmpVec.length() > (molTemplateList[createdMol.molTypeIndex].radius + oneCom.radius))
                 return false;
 
             // TODO: this is awful
@@ -72,11 +71,10 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
                                 && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[1])) {
 
                                 // if they're reactants, check if they're within the binding radius
-                                Vector ifaceVec { createdMol.interfaceList[iface1Itr].coord
+                                Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
                                     - partMol.interfaceList[iface2Itr].coord };
-                                ifaceVec.calc_magnitude();
 
-                                if (ifaceVec.magnitude < oneRxn.bindRadius) {
+                                if (ifaceVec.length() < oneRxn.bindRadius) {
                                     //    std::cerr << "line 76 in overlap" << std::endl;
                                     return true;
                                 }
@@ -85,11 +83,10 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
                                 && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[0])) {
 
                                 // if they're reactants, check if they're within the binding radius
-                                Vector ifaceVec { createdMol.interfaceList[iface1Itr].coord
+                                Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
                                     - partMol.interfaceList[iface2Itr].coord };
-                                ifaceVec.calc_magnitude();
 
-                                if (ifaceVec.magnitude < oneRxn.bindRadius) {
+                                if (ifaceVec.length() < oneRxn.bindRadius) {
                                     //    std::cerr << "line 89 in overlap" << std::endl;
                                     return true;
                                 }

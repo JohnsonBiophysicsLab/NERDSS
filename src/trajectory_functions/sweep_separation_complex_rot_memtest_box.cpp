@@ -112,7 +112,7 @@ void sweep_separation_complex_rot_memtest_box(int simItr, int pro1Index, Paramet
                     int rxnItr { moleculeList[pro1Index].crossrxn[crossMemItr][0] };
                     int relIface2 { ifaceList[maxRows * memMolItr + crossMemItr] };
 
-                    Vector iface1Vec { moleculeList[pro1Index].interfaceList[relIface1].coord - complexList[comIndex1].comCoord };
+                    Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[relIface1].coord - complexList[comIndex1].comCoord };
                     std::array<double, 9> M = create_euler_rotation_matrix(complexList[comIndex1].trajRot);
                     iface1Vec = matrix_rotate(iface1Vec, M);
 
@@ -126,7 +126,7 @@ void sweep_separation_complex_rot_memtest_box(int simItr, int pro1Index, Paramet
                     //     reflectList[comIndex2] = 1;
                     // }
 
-                    Vector iface2Vec { moleculeList[p2].interfaceList[relIface2].coord - complexList[comIndex2].comCoord };
+                    Vec3D iface2Vec { moleculeList[p2].interfaceList[relIface2].coord - complexList[comIndex2].comCoord };
                     std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[comIndex2].trajRot);
                     iface2Vec = matrix_rotate(iface2Vec, M2);
                     double dx2 { complexList[comIndex2].comCoord.x + iface2Vec.x + complexList[comIndex2].trajTrans.x };
@@ -248,6 +248,6 @@ void sweep_separation_complex_rot_memtest_box(int simItr, int pro1Index, Paramet
 
     // Reset displacements to zero so distance is measured to your current
     // updated position that won't change again this turn
-    complexList[comIndex1].trajTrans.zero_crds();
-    complexList[comIndex1].trajRot.zero_crds();
+    complexList[comIndex1].trajTrans.zero();
+    complexList[comIndex1].trajRot.zero();
 }

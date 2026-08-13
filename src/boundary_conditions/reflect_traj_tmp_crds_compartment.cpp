@@ -24,7 +24,7 @@ void reflect_traj_tmp_crds_compartment(
         RS3D = RS3Dinput;
     }
     double sphereR = membraneObject.compartmentR + RS3D;
-    Coord curr;
+    Vec3D curr;
     curr.x = targCom.tmpComCoord.x + traj[0];
     curr.y = targCom.tmpComCoord.y + traj[1];
     curr.z = targCom.tmpComCoord.z + traj[2];
@@ -39,13 +39,13 @@ void reflect_traj_tmp_crds_compartment(
     /*This is to test based on general size if it is close to boundaries, before doing detailed evaluation below.*/
 
     bool canBeInsphere { false };
-    if ((curr.get_magnitude() + targCom.radius) < sphereR)
+    if ((curr.length() + targCom.radius) < sphereR)
         canBeInsphere = true;
 
     /*Now evaluate all interfaces distance from boundaries.*/
     bool recheck { false };
     double dr = 0.0;
-    Coord targcrds;
+    Vec3D targcrds;
     if (canBeInsphere == true) {
 
         bool inside { false };
@@ -54,14 +54,14 @@ void reflect_traj_tmp_crds_compartment(
         due to translation and rotation are*/
         for (auto& memMol : targCom.memberList) {
             // measure each protein COM to z plane
-            Vector comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
+            Vec3D comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
             double dxrot { M[0] * comVec.x + M[1] * comVec.y + M[2] * comVec.z };
             double dyrot { M[3] * comVec.x + M[4] * comVec.y + M[5] * comVec.z };
             double dzrot { M[6] * comVec.x + M[7] * comVec.y + M[8] * comVec.z };
             curr.x = targCom.tmpComCoord.x + traj[0] + dxrot;
             curr.y = targCom.tmpComCoord.y + traj[1] + dyrot;
             curr.z = targCom.tmpComCoord.z + traj[2] + dzrot;
-            double drtmp = curr.get_magnitude() - sphereR;
+            double drtmp = curr.length() - sphereR;
             if (drtmp < dr) {
                 inside = true;
                 dr = drtmp;
@@ -70,14 +70,14 @@ void reflect_traj_tmp_crds_compartment(
 
             // measure each interface to x plane
             for (int ii = 0; ii < moleculeList[memMol].interfaceList.size(); ii++) {
-                Vector ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
+                Vec3D ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
                 dxrot = M[0] * ifaceVec.x + M[1] * ifaceVec.y + M[2] * ifaceVec.z;
                 dyrot = M[3] * ifaceVec.x + M[4] * ifaceVec.y + M[5] * ifaceVec.z;
                 dzrot = M[6] * ifaceVec.x + M[7] * ifaceVec.y + M[8] * ifaceVec.z;
                 curr.x = targCom.tmpComCoord.x + traj[0] + dxrot;
                 curr.y = targCom.tmpComCoord.y + traj[1] + dyrot;
                 curr.z = targCom.tmpComCoord.z + traj[2] + dzrot;
-                drtmp = curr.get_magnitude() - sphereR;
+                drtmp = curr.length() - sphereR;
                 if (drtmp < dr) {
                     inside = true;
                     dr = drtmp;
@@ -88,7 +88,7 @@ void reflect_traj_tmp_crds_compartment(
 
         if (inside) {
             // Put back inside the box
-            double lamda = -2.0 * (targcrds.get_magnitude() - sphereR) / targcrds.get_magnitude();
+            double lamda = -2.0 * (targcrds.length() - sphereR) / targcrds.length();
             traj[0] = lamda * targcrds.x;
             traj[1] = lamda * targcrds.y;
             traj[2] = lamda * targcrds.z;

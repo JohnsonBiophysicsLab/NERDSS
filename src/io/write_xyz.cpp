@@ -28,7 +28,7 @@ void write_xyz(std::string filename, const Parameters& params, const std::vector
         }
     }
     while (numWritten < params.numTotalUnits) {
-        out << std::setw(4) << "EMTY" << ' ' << std::fixed << Coord { 150.0, 150.0, 150.0 } << std::endl;
+        out << std::setw(4) << "EMTY" << ' ' << std::fixed << Vec3D { 150.0, 150.0, 150.0 } << std::endl;
         ++numWritten;
     }
 }

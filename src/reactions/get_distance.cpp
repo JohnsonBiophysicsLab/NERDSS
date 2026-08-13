@@ -1,6 +1,5 @@
-#include "classes/class_Coord.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Vector.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include <iostream>
 
@@ -19,9 +18,9 @@
 //         std::cout << "WRONG INTERFACE!" << std::endl;
 //       }
 //       int idx_iface_partner{iface_self.interaction.partnerIfaceIndex};
-//       Coord promoterIfaceCoord{moleculeList[idx_bndpartner].interfaceList[idx_iface_partner].coord};
+//       Vec3D promoterIfaceCoord{moleculeList[idx_bndpartner].interfaceList[idx_iface_partner].coord};
 //       ///// find the correct position of self interface
-//       Vector iface2iface;
+//       Vec3D iface2iface;
 //       iface2iface.x = iface_self.coord.x - promoterIfaceCoord.x;
 //       iface2iface.y = iface_self.coord.y - promoterIfaceCoord.y;
 //       iface2iface.z = iface_self.coord.z - promoterIfaceCoord.z;
@@ -53,10 +52,10 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
     }
 
     if (isSphere == true && is2D == true) {
-      Coord iface11 = moleculeList[pro1].interfaceList[iface1].coord;
-      Coord iface22 = moleculeList[pro2].interfaceList[iface2].coord;
-      double r1 = iface11.get_magnitude();
-      double r2 = iface22.get_magnitude();
+      Vec3D iface11 = moleculeList[pro1].interfaceList[iface1].coord;
+      Vec3D iface22 = moleculeList[pro2].interfaceList[iface2].coord;
+      double r1 = iface11.length();
+      double r2 = iface22.length();
       double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
       double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
       R1 = r * theta;

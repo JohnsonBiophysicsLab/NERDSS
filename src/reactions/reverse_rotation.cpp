@@ -1,6 +1,6 @@
 #include "reactions/association/association.hpp"
 
-void reverse_rotation(Coord& reactIface1, Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1, Complex& reactCom2, Quat rotQuatPos, Quat rotQuatNeg, std::vector<Molecule>& moleculeList)
+void reverse_rotation(Vec3D& reactIface1, Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1, Complex& reactCom2, Quat rotQuatPos, Quat rotQuatNeg, std::vector<Molecule>& moleculeList)
 {
     rotQuatPos.invert();
     rotQuatNeg.invert();

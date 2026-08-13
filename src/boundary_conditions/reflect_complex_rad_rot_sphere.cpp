@@ -26,8 +26,8 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
         sphereR = radius - RS3Dinput;
     }
 
-    Coord curr = targCom.comCoord;
-    double currR = curr.get_magnitude();
+    Vec3D curr = targCom.comCoord;
+    double currR = curr.length();
 
     bool canBeOutsideX { false };
     bool outside { false };
@@ -37,12 +37,12 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
 
     if (canBeOutsideX == true) {
         // find the farthest point
-        Coord targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
+        Vec3D targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
         double rtmp = sphereR; // to store the furthest point' distance to the sphere center.
         for (auto& memMol : targCom.memberList) {
             //measure each protein COM
             curr = moleculeList[memMol].comCoord;
-            currR = curr.get_magnitude();
+            currR = curr.length();
             if (currR > sphereR && currR > rtmp) {
                 targcrds = curr;
                 rtmp = currR;
@@ -52,7 +52,7 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
             // measure each interface
             for (auto& iface : moleculeList[memMol].interfaceList) {
                 curr = iface.coord;
-                currR = curr.get_magnitude();
+                currR = curr.length();
                 if (currR > sphereR && currR > rtmp) {
                     targcrds = curr;
                     rtmp = currR;
@@ -64,9 +64,9 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
         int times = 0; // to count the loop-times of 'while'
         while (outside == true) {
             times++;
-            rtmp = targcrds.get_magnitude();
+            rtmp = targcrds.length();
             double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-            Coord dtrans = lamda * targcrds;
+            Vec3D dtrans = lamda * targcrds;
             targCom.comCoord += dtrans;
             for (auto memMol : targCom.memberList) {
                 moleculeList[memMol].comCoord += dtrans;
@@ -77,12 +77,12 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
             // thus we need to recheck whether outside
             // initialize outside, targcrds;
             outside = false;
-            targcrds = Coord(0, 0, sphereR); // to store the furthest point' coords.
+            targcrds = Vec3D(0, 0, sphereR); // to store the furthest point' coords.
             rtmp = sphereR; // to store the furthest point' distance to the sphere center.
             for (auto& memMol : targCom.memberList) {
                 //measure each protein COM
                 curr = moleculeList[memMol].comCoord;
-                currR = curr.get_magnitude();
+                currR = curr.length();
                 if (currR > sphereR && currR > rtmp) {
                     targcrds = curr;
                     rtmp = currR;
@@ -92,7 +92,7 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
                 // measure each interface
                 for (auto& iface : moleculeList[memMol].interfaceList) {
                     curr = iface.coord;
-                    currR = curr.get_magnitude();
+                    currR = curr.length();
                     if (currR > sphereR && currR > rtmp) {
                         targcrds = curr;
                         rtmp = currR;
@@ -115,16 +115,16 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
     // ALSO, the position update may cause lipids off sphere, so adjust lipids back onto surface,
     int molnumber = -1;
     double dr = 0.0;
-    Coord dtrans;
+    Vec3D dtrans;
     for (auto& memMol : targCom.memberList) {
         if (moleculeList[memMol].isLipid == true) {
-            Coord targ = moleculeList[memMol].comCoord;
-            double rtmp = targ.get_magnitude();
-            double drtmp = std::abs(targ.get_magnitude() - membraneObject.sphereR);
+            Vec3D targ = moleculeList[memMol].comCoord;
+            double rtmp = targ.length();
+            double drtmp = std::abs(targ.length() - membraneObject.sphereR);
             if (drtmp > 1E-4 && drtmp > dr) {
                 dr = drtmp;
                 molnumber = memMol;
-                dtrans = (membraneObject.sphereR / targ.get_magnitude()) * targ - targ;
+                dtrans = (membraneObject.sphereR / targ.length()) * targ - targ;
             }
         }
     }

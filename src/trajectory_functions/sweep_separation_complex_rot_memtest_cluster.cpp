@@ -113,7 +113,7 @@ void sweep_separation_complex_rot_memtest_cluster(int simItr, int pro1Index, Par
 //                     int rxnItr { moleculeList[pro1Index].crossrxn[crossMemItr][0] };
 //                     int relIface2 { ifaceList[maxRows * memMolItr + crossMemItr] };
 
-//                     Vector iface1Vec { moleculeList[pro1Index].interfaceList[relIface1].coord
+//                     Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[relIface1].coord
 //                         - complexList[comIndex1].comCoord };
 //                     iface1Vec = matrix_rotate(iface1Vec, M);
 
@@ -125,7 +125,7 @@ void sweep_separation_complex_rot_memtest_cluster(int simItr, int pro1Index, Par
 //                     std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[comIndex2].trajRot);
 //                     reflect_traj_complex_rad_rot(params, moleculeList, complexList[comIndex2], M2, membraneObject, RS3Dinput);
 
-//                     Vector iface2Vec { moleculeList[p2].interfaceList[relIface2].coord
+//                     Vec3D iface2Vec { moleculeList[p2].interfaceList[relIface2].coord
 //                         - complexList[comIndex2].comCoord };
 //                     iface2Vec = matrix_rotate(iface2Vec, M2);
 //                     double dx2 { complexList[comIndex2].comCoord.x + iface2Vec.x + complexList[comIndex2].trajTrans.x };
@@ -242,6 +242,6 @@ void sweep_separation_complex_rot_memtest_cluster(int simItr, int pro1Index, Par
 
 //     // Reset displacements to zero so distance is measured to your current
 //     // updated position that won't change again this turn
-//     complexList[comIndex1].trajTrans.zero_crds();
-//     complexList[comIndex1].trajRot.zero_crds();
+//     complexList[comIndex1].trajTrans.zero();
+//     complexList[comIndex1].trajRot.zero();
 // }

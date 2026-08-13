@@ -2,19 +2,17 @@
 #include "reactions/association/association.hpp"
 #include "tracing.hpp"
 
-void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
+void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
     Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList)
 {
     // TRACE();
-    Vector v1 { reactIface1 - reactMol1.tmpComCoord };
-    Vector sigma { reactIface1 - reactIface2 };
-    v1.calc_magnitude();
-    if (v1.magnitude < 1E-12) {
+    Vec3D v1 { reactIface1 - reactMol1.tmpComCoord };
+    Vec3D sigma { reactIface1 - reactIface2 };
+    if (v1.length() < 1E-12) {
         // std::cout << "No theta rotation for a POINT particle \n";
         return;
     }
-    sigma.calc_magnitude();
-    double currTheta { sigma.dot_theta(v1) };
+    double currTheta { sigma.angle_between(v1) };
     //std::cout << "Desired theta: " << targAngle << " Current theta: " << currTheta << std::endl;
 
     // Determine if we even need to rotate (i.e. if the theta is already aligned )
@@ -29,7 +27,7 @@ void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1,
         // if sigma and v1 are parallel, rotation axis can't be determined by the cross product
         // so we need to find an arbitrary vector orthogonal to either. Choose either x or y axis,
         //whichever one is not parallel.
-        Vector rotAxis = (areParallel(currTheta)) ? create_arbitrary_vector(v1) : sigma.cross(v1);
+        Vec3D rotAxis = (areParallel(currTheta)) ? create_arbitrary_vector(v1) : sigma.unit_cross(v1);
         rotAxis.normalize();
 
         // Determine how far to rotate each Molecule, based on their respective rotation diffusion constants
@@ -74,11 +72,9 @@ void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1,
         //   moleculeList[11].display_assoc_icoords("mol");
         // }
 
-        v1 = Vector { reactIface1 - reactMol1.tmpComCoord };
-        sigma = Vector { reactIface1 - reactIface2 };
-        v1.calc_magnitude();
-        sigma.calc_magnitude();
-        currTheta = sigma.dot_theta(v1);
+        v1 = Vec3D { reactIface1 - reactMol1.tmpComCoord };
+        sigma = Vec3D { reactIface1 - reactIface2 };
+        currTheta = sigma.angle_between(v1);
 
         // if the angle between sigma and the rotated Molecule are correct, return.
         if ((areSameAngle(targAngle, M_PI) || areSameAngle(targAngle, 0)) && areSameAngle(currTheta, targAngle)) {

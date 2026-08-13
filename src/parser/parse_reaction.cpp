@@ -225,8 +225,6 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
         }
     }
 
-    parsedRxn.norm1.calc_magnitude();
-    parsedRxn.norm2.calc_magnitude();
 
     // get the indices of each iface in the reactants and products
     for (auto& reactant : parsedRxn.reactantList) {

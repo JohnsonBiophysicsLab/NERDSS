@@ -12,9 +12,9 @@ void read_internal_coordinates(std::ifstream& molFile, MolTemplate& molTemplate)
         std::string tmpIface { iface };
         std::transform(tmpIface.begin(), tmpIface.end(), tmpIface.begin(), ::tolower);
         if (tmpIface == "com")
-            molTemplate.comCoord = Coord { x, y, z };
+            molTemplate.comCoord = Vec3D { x, y, z };
         else {
-            molTemplate.interfaceList.emplace_back(iface, Coord { x, y, z });
+            molTemplate.interfaceList.emplace_back(iface, Vec3D { x, y, z });
         }
         std::cout << iface << ": [" << x << "nm, " << y << "nm, " << z << "nm]" << std::endl;
         molFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // ignore the comment

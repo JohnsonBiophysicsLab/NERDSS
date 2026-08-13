@@ -55,13 +55,13 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
         moleculeList[mol].set_tmp_association_coords();
 
     // create references to reacting interfaces
-    Coord& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
-    Coord& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
+    Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
+    Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
     //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
-    Coord startCOM; //=new double[3];
+    Vec3D startCOM; //=new double[3];
 
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, startCOM, moleculeList); //com of c1+c2 (original coordinates).
     //    std::cout <<"INITIAL COMPLEX PAIR COM: "<<startCOM.x<<' '<<startCOM.y<<' '<<startCOM.z<<std::endl;
@@ -77,10 +77,10 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
         double DySum { stateChangeCom.D.y + facilitatorCom.D.y };
         double DzSum { stateChangeCom.D.z + facilitatorCom.D.z };
 
-        Vector sigma { reactIface1 - reactIface2 };
+        Vec3D sigma { reactIface1 - reactIface2 };
 
-        Vector transVec1 {};
-        Vector transVec2 {};
+        Vec3D transVec1 {};
+        Vec3D transVec2 {};
         double displaceFrac {};
         double arc1Move, arc2Move;
         double sigmaMag;
@@ -105,23 +105,21 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
         }
 
         // now, calculate the transVec for each complex and move these two complexes
-        Coord target1Pos;
-        Coord target2Pos;
+        Vec3D target1Pos;
+        Vec3D target2Pos;
         if (isOnMembrane == true) { // both complexes are on the sphere
             target1Pos = find_position_after_association(arc1Move, reactIface1, reactIface2, sigmaMag, currRxn.bindRadius2D);
             target2Pos = find_position_after_association(arc2Move, reactIface2, reactIface1, sigmaMag, currRxn.bindRadius2D);
         // } else if (stateChangeCom.D.z < 1E-14) { //complex1 is on sphere
         } else if (stateChangeCom.OnSurface) { //complex1 is on sphere
-            transVec1 = Vector(0, 0, 0);
-            sigma.calc_magnitude();
-            double lamda = (sigma.magnitude - currRxn.bindRadius) / sigma.magnitude;
-            transVec2 = Vector(lamda * sigma);
+            transVec1 = Vec3D(0, 0, 0);
+            double lamda = (sigma.length() - currRxn.bindRadius) / sigma.length();
+            transVec2 = Vec3D(lamda * sigma);
         // } else if (facilitatorCom.D.z < 1E-14) { //complex2 is on sphere
         } else if (facilitatorCom.OnSurface) { //complex2 is on sphere
-            transVec2 = Vector(0, 0, 0);
-            sigma.calc_magnitude();
-            double lamda = (sigma.magnitude - currRxn.bindRadius) / sigma.magnitude;
-            transVec1 = Vector(-lamda * sigma);
+            transVec2 = Vec3D(0, 0, 0);
+            double lamda = (sigma.length() - currRxn.bindRadius) / sigma.length();
+            transVec1 = Vec3D(-lamda * sigma);
         } else { // both complexes are in solution
             transVec1.x = -sigma.x * (stateChangeCom.D.x / DxSum) * displaceFrac;
             transVec1.y = -sigma.y * (stateChangeCom.D.y / DySum) * displaceFrac;
@@ -213,7 +211,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
-    Coord finalCOM; //=new double[3];
+    Vec3D finalCOM; //=new double[3];
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     //   std::cout <<"Pre-MEMBRANE ROT: COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
 
@@ -222,7 +220,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     //     /*return orientation of normal back to starting position*/
     //     std::cout << " IS ON MEMBRANE, CORRECT ORIENTATION ! " << std::endl;
     //     Quat memRot;
-    //     Coord pivot;
+    //     Vec3D pivot;
 
     //     if (slowPro == facilitatorMol.index) {
     //         //	facilitatorMol.display_assoc_icoords("CURRORIENTATION_TOROTATE1");
@@ -250,11 +248,11 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
 
     //     //	    std::cout <<"CRDS after forcing back to membrane bound orientation: \n";*/
     // }
-    // //Coord finalCOM;//=new double[3];
+    // //Vec3D finalCOM;//=new double[3];
     // com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     // //std::cout <<"FINAL COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
     // /*Force finalCOM to startCOM, unless transitioning from 3D->2D*/
-    // Vector dtrans {};
+    // Vec3D dtrans {};
     // dtrans.x = startCOM.x - finalCOM.x;
     // dtrans.y = startCOM.y - finalCOM.y;
     // dtrans.z = startCOM.z - finalCOM.z;
@@ -319,13 +317,13 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     if (isOnMembrane == true || transitionToSurface == true) {
         // For explicit-lipid model, move the lipid onto sphere surface.
         // For implicit-lipid model, move the lipid-bound interface onto surface.
-        Vector dtrans { 0, 0, 0 };
+        Vec3D dtrans { 0, 0, 0 };
         if (membraneObject.implicitLipid == false) {
-            Coord targ { 0.0, 0.0, 0.0 };
+            Vec3D targ { 0.0, 0.0, 0.0 };
             double zchg = 0.0;
             for (auto& mp : stateChangeCom.memberList) {
                 if (moleculeList[mp].isLipid == true) { // this is a lipid
-                    double rtmp = moleculeList[mp].tmpComCoord.get_magnitude();
+                    double rtmp = moleculeList[mp].tmpComCoord.length();
                     double drtmp = std::abs(rtmp - membraneObject.sphereR); // lipid COM is off spherical membrane
                     if (drtmp > zchg) {
                         zchg = drtmp;
@@ -335,7 +333,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
             }
             for (auto& mp : facilitatorCom.memberList) {
                 if (moleculeList[mp].isLipid == true) { // this is a lipid
-                    double rtmp = moleculeList[mp].tmpComCoord.get_magnitude();
+                    double rtmp = moleculeList[mp].tmpComCoord.length();
                     double drtmp = std::abs(rtmp - membraneObject.sphereR); // lipid COM is off spherical membrane
                     if (drtmp > zchg) {
                         zchg = drtmp;
@@ -343,18 +341,18 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
                     }
                 } // this is a lipid
             }
-            if (targ.get_magnitude() > 1E-8) {
-                dtrans = Vector { (membraneObject.sphereR - targ.get_magnitude()) / targ.get_magnitude() * targ };
+            if (targ.length() > 1E-8) {
+                dtrans = Vec3D { (membraneObject.sphereR - targ.length()) / targ.length() * targ };
             }
         } else {
-            Coord targ { 0.0, 0.0, 0.0 };
+            Vec3D targ { 0.0, 0.0, 0.0 };
             double dr = 0;
             for (auto& mp : stateChangeCom.memberList) {
                 for (int i = 0; i < moleculeList[mp].interfaceList.size(); i++) {
                     if (moleculeList[mp].interfaceList[i].isBound == true) {
                         int index = moleculeList[mp].interfaceList[i].interaction.partnerIndex;
                         if (moleculeList[index].isImplicitLipid == true) {
-                            double drtmp = moleculeList[mp].tmpICoords[i].get_magnitude() - membraneObject.sphereR;
+                            double drtmp = moleculeList[mp].tmpICoords[i].length() - membraneObject.sphereR;
                             if (std::abs(drtmp) >= std::abs(dr)) {
                                 dr = drtmp;
                                 targ = moleculeList[mp].tmpICoords[i];
@@ -368,7 +366,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
                     if (moleculeList[mp].interfaceList[i].isBound == true) {
                         int index = moleculeList[mp].interfaceList[i].interaction.partnerIndex;
                         if (moleculeList[index].isImplicitLipid == true) {
-                            double drtmp = moleculeList[mp].tmpICoords[i].get_magnitude() - membraneObject.sphereR;
+                            double drtmp = moleculeList[mp].tmpICoords[i].length() - membraneObject.sphereR;
                             if (std::abs(drtmp) >= std::abs(dr)) {
                                 dr = drtmp;
                                 targ = moleculeList[mp].tmpICoords[i];
@@ -377,8 +375,8 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
                     }
                 }
             }
-            if (targ.get_magnitude() > 1E-8) {
-                dtrans = Vector { (membraneObject.sphereR - targ.get_magnitude()) / targ.get_magnitude() * targ };
+            if (targ.length() > 1E-8) {
+                dtrans = Vec3D { (membraneObject.sphereR - targ.length()) / targ.length() * targ };
             }
         }
 
@@ -390,7 +388,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
         for (auto& mp : facilitatorCom.memberList)
             moleculeList[mp].update_association_coords(dtrans);
     } else {
-        Vector dtrans;
+        Vec3D dtrans;
         dtrans.x = startCOM.x - finalCOM.x;
         dtrans.y = startCOM.y - finalCOM.y;
         dtrans.z = startCOM.z - finalCOM.z;
@@ -408,7 +406,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
 
     /*Reflect off the box.*/
-    //Vector traj {};
+    //Vec3D traj {};
     std::array<double, 3> traj; //=new double[3];
     for (int mm = 0; mm < 3; mm++)
         traj[mm] = 0;
@@ -425,7 +423,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-15) {
         // update the temporary coordinates for both complexes
-        Vector vtraj { traj[0], traj[1], traj[2] };
+        Vec3D vtraj { traj[0], traj[1], traj[2] };
         for (auto& mp : facilitatorCom.memberList)
             moleculeList[mp].update_association_coords(vtraj);
         for (auto& mp : stateChangeCom.memberList)

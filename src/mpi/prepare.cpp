@@ -327,10 +327,10 @@ int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
 
   // Cells for particular rank have different indices than initial cells
   // Before sending cells to a rank, neighborhood cell indices have to updated
-  // Vector mapSerialToParallelCell stores mapping from initial (serial) cells
+  // Vec3D mapSerialToParallelCell stores mapping from initial (serial) cells
   // to cells prepared for a tempRank:
   vector<int> mapSerialToParallelCell(simulVolume.subCellList.size());
-  // Vector mapParallelToSerialCell stores mapping from cells prepared for a
+  // Vec3D mapParallelToSerialCell stores mapping from cells prepared for a
   // tempRank to initial (serial) cells:
   vector<int> mapParallelToSerialCell(simulVolume.subCellList.size());
 
@@ -457,7 +457,7 @@ int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
 
   // Complexes for parallel have different indices than for serial complexList.
   // Before sending molecules to a rank, their myComIndex indices have to be
-  // updated: Vector mapSerialToParallelComplex stores mapping from serial
+  // updated: Vec3D mapSerialToParallelComplex stores mapping from serial
   // complex index to parallel complex index:
   vector<int> mapSerialToParallelComplex(complexList.size());
 

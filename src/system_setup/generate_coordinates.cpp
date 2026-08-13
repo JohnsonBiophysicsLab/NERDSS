@@ -1,6 +1,5 @@
-#include "classes/class_Coord.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Vector.hpp"
 #include "io/io.hpp"
 #include "parser/parser_functions.hpp"
 #include "system_setup/system_setup.hpp"
@@ -131,7 +130,7 @@ bool checkAndResolveOverlap(
       if (theyInteract)
       {
         // Calculate distance between interfaces
-        Vector tmpVec{iface1.coord - iface2.coord};
+        Vec3D tmpVec{iface1.coord - iface2.coord};
         double mag = tmpVec.x * tmpVec.x + tmpVec.y * tmpVec.y + tmpVec.z * tmpVec.z;
         
         // Check if interfaces are too close (overlap)
@@ -167,14 +166,14 @@ bool checkAndResolveOverlap(
 
 /**
  * @brief Updates the first N molecules of each type based on PDB file data
- * @return Vector of indices of molecules that were moved
+ * @return Vec3D of indices of molecules that were moved
  */
 std::vector<int> updateMoleculeCoordinates(
     std::vector<Molecule> &moleculeList,
     const std::vector<MolTemplate> &molTemplateList,
     const std::string &coordinateFileName)
 {
-  // Vector to store indices of modified molecules
+  // Vec3D to store indices of modified molecules
   std::vector<int> changedMoleculeIndex;
 
   // Open the PDB file for reading
@@ -188,7 +187,7 @@ std::vector<int> updateMoleculeCoordinates(
   
   // Create a map to store coordinates for each molecule type
   // Key: molecule name, Value: vector of coordinates from PDB
-  std::map<std::string, std::vector<Vector>> moleculeCoordinates;
+  std::map<std::string, std::vector<Vec3D>> moleculeCoordinates;
 
   // Parse the PDB file to extract COM coordinates
   std::string line;
@@ -224,7 +223,7 @@ std::vector<int> updateMoleculeCoordinates(
 
     // Store coordinates for this molecule type in a vector
     // Each entry in the vector represents one molecule of that type from the PDB
-    moleculeCoordinates[moleculeName].push_back(Vector{x, y, z});
+    moleculeCoordinates[moleculeName].push_back(Vec3D{x, y, z});
   }
 
   // Close the input file
@@ -245,7 +244,7 @@ std::vector<int> updateMoleculeCoordinates(
   {
     // Extract key and value from the map pair
     const std::string &molName = molCoordPair.first;
-    const std::vector<Vector> &coordinates = molCoordPair.second;
+    const std::vector<Vec3D> &coordinates = molCoordPair.second;
     // Skip if there are no molecules of this type in the system
     if (moleculeIndicesByType.find(molName) == moleculeIndicesByType.end())
     {
@@ -270,7 +269,7 @@ std::vector<int> updateMoleculeCoordinates(
       double targetZ = coordinates[i].z;
 
       // Calculate translation vector
-      Vector transVec{
+      Vec3D transVec{
           targetX - movingMol.comCoord.x,
           targetY - movingMol.comCoord.y,
           targetZ - movingMol.comCoord.z};

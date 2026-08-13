@@ -56,7 +56,7 @@ struct Membrane {
   struct WaterBox {
 	/*!
 	 * \brief Just a container for the water box dimensions
-	 * Only cubic at the moment. Not a Coord because then it'll be a circular include (since Coord needs Parameters)
+	 * Only cubic at the moment. Not a Vec3D because then it'll be a circular include (since Vec3D needs Parameters)
 	 */
 
 	      double x { 0 };

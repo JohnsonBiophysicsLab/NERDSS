@@ -68,7 +68,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
       }
     }
     // stateChangeMol is implicit-lipid, then we need to set its temporary position according to facilitatorMol.
-    // Coord displace = stateChangeMol.interfaceList[stateChangeIface].coord - stateChangeMol.comCoord;
+    // Vec3D displace = stateChangeMol.interfaceList[stateChangeIface].coord - stateChangeMol.comCoord;
     // double shift = 0.1; //do not put right underneath, so that sigma starts at non-zero.
     // stateChangeMol.comCoord.x = facilitatorMol.comCoord.x + shift;
     // stateChangeMol.comCoord.y = facilitatorMol.comCoord.y - shift;
@@ -98,14 +98,14 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     }
 
     // create references to reacting interfaces
-    Coord& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
-    Coord& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
-    Vector sigma { reactIface1 - reactIface2 };
+    Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
+    Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
+    Vec3D sigma { reactIface1 - reactIface2 };
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
     //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
-    Coord startCOM; //=new double[3];
+    Vec3D startCOM; //=new double[3];
 
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, startCOM, moleculeList); //com of c1+c2 (original coordinates).
 
@@ -128,10 +128,9 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
 
     // MOVE PROTEIN TO THE MEMBRANE, and place IL at sigma.
     {
-        sigma.calc_magnitude();
-        double sigmaMag = sigma.magnitude;
-        Vector transVec1 = Vector(-(sigmaMag - currRxn.bindRadius) / sigmaMag * sigma);
-        Vector transVec2 { 0.0, 0.0, 0.0 };
+        double sigmaMag = sigma.length();
+        Vec3D transVec1 = Vec3D(-(sigmaMag - currRxn.bindRadius) / sigmaMag * sigma);
+        Vec3D transVec2 { 0.0, 0.0, 0.0 };
         // std::cout << " translation1 to sigma: " << transVec1.x << ' ' << transVec1.y
         //           << ' ' << transVec1.z << std::endl;
 
@@ -212,7 +211,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
-    Coord finalCOM; //=new double[3];
+    Vec3D finalCOM; //=new double[3];
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     //   std::cout <<"Pre-MEMBRANE ROT: COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
     {
@@ -220,7 +219,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         /*return orientation of normal back to starting position*/
         // std::cout << " IS ON MEMBRANE, CORRECT ORIENTATION ! " << std::endl;
         Quat memRot;
-        Coord pivot;
+        Vec3D pivot;
 
         if (slowPro == facilitatorMol.index) {
             //	facilitatorMol.display_assoc_icoords("CURRORIENTATION_TOROTATE1");
@@ -248,11 +247,11 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
 
         //	    std::cout <<"CRDS after forcing back to membrane bound orientation: \n";*/
     }
-    //Coord finalCOM;//=new double[3];
+    //Vec3D finalCOM;//=new double[3];
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     //std::cout <<"FINAL COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
     /*Force finalCOM to startCOM, unless transitioning from 3D->2D*/
-    Vector dtrans {};
+    Vec3D dtrans {};
     dtrans.x = startCOM.x - finalCOM.x;
     dtrans.y = startCOM.y - finalCOM.y;
     dtrans.z = startCOM.z - finalCOM.z;
@@ -319,7 +318,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
 
     /*Reflect off the box.*/
-    //Vector traj {};
+    //Vec3D traj {};
     std::array<double, 3> traj; //=new double[3];
     for (int mm = 0; mm < 3; mm++)
         traj[mm] = 0;
@@ -336,7 +335,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-50) {
         // update the temporary coordinates for both complexes
-        Vector vtraj { traj[0], traj[1], traj[2] };
+        Vec3D vtraj { traj[0], traj[1], traj[2] };
         for (auto& mp : facilitatorCom.memberList)
             moleculeList[mp].update_association_coords(vtraj);
         for (auto& mp : stateChangeCom.memberList)

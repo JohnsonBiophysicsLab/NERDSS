@@ -377,8 +377,8 @@ public:
     double bindRadius { 1.0 };
     double bindRadius2D { 1.0 };
 
-    Vector norm1 { 0, 0, 1 }; //!< arbitrary 'normal' vector determined from an ancillary interface for reactant 1
-    Vector norm2 { 0, 0, 1 }; //!< arbitrary 'normal' vector determined from an ancillary interface for reactant 2
+    Vec3D norm1 { 0, 0, 1 }; //!< arbitrary 'normal' vector determined from an ancillary interface for reactant 1
+    Vec3D norm2 { 0, 0, 1 }; //!< arbitrary 'normal' vector determined from an ancillary interface for reactant 2
 
     Angles assocAngles { std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN() }; //!< Angles relative to sigma for association
 
@@ -399,7 +399,7 @@ public:
     {
     }
     ForwardRxn(
-        double bindRadius, const Angles& assocAngles, const double& sigma, const Vector& norm1, const Vector& norm2)
+        double bindRadius, const Angles& assocAngles, const double& sigma, const Vec3D& norm1, const Vec3D& norm2)
         : bindRadius(bindRadius)
         , norm1(norm1)
         , norm2(norm2)

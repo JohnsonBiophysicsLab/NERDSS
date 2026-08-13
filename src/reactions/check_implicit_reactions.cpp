@@ -117,10 +117,10 @@ void check_implicit_reactions(
                 // int com2Index { moleculeList[pro2Index].myComIndex };
 
                 {
-                  Vector ifaceVec{
+                  Vec3D ifaceVec{
                       moleculeList[pro1Index].interfaceList[relIface1].coord -
                       complexList[moleculeList[pro1Index].myComIndex].comCoord};
-                  Vector ifaceVec2{
+                  Vec3D ifaceVec2{
                       moleculeList[pro2Index].interfaceList[relIface2].coord -
                       complexList[moleculeList[pro2Index].myComIndex].comCoord};
                   double magMol1{ifaceVec.x * ifaceVec.x +

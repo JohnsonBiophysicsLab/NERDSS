@@ -8,18 +8,16 @@ double calc_one_angular_displacement(int ifaceIndex1, Molecule& reactMol1, Compl
 {
 
     double zero = 0.0;
-    Vector v1 { reactMol1.tmpICoords[ifaceIndex1] - reactMol1.tmpComCoord }; //temporary vector due to association moves.
+    Vec3D v1 { reactMol1.tmpICoords[ifaceIndex1] - reactMol1.tmpComCoord }; //temporary vector due to association moves.
 
-    Vector v2 { reactMol1.interfaceList[ifaceIndex1].coord - reactMol1.comCoord }; //original vector
-    v1.calc_magnitude();
-    if (v1.magnitude < 1E-12) {
+    Vec3D v2 { reactMol1.interfaceList[ifaceIndex1].coord - reactMol1.comCoord }; //original vector
+    if (v1.length() < 1E-12) {
         // std::cout << "No rotation for a POINT particle \n";
         return zero;
     }
-    v2.calc_magnitude();
 
-    double currTheta = v2.dot_theta(v1);
-    Vector test { v2.cross(v1) }; //original.cross.final
+    double currTheta = v2.angle_between(v1);
+    Vec3D test { v2.unit_cross(v1) }; //original.cross.final
     if (test.z > 0 && std::abs(currTheta) > 1E-12 && (M_PI - std::abs(currTheta)) > 1E-12) //positive z, flip currTheta
         currTheta = -currTheta;
 

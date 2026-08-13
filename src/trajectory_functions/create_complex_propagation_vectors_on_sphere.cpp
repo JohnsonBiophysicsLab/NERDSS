@@ -5,17 +5,17 @@
 
 
 // only works for complex on sphere surface
-Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom)
+Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom)
 {
     // TRACE();
-    Coord trajTrans;
+    Vec3D trajTrans;
 
     const double R_fixed = params.sphereR;
-    const Coord COM_original = targCom.comCoord;
+    const Vec3D COM_original = targCom.comCoord;
     const double COM_norm = radius(COM_original);
 
     // project COM onto the surface
-    Coord COM = Coord {
+    Vec3D COM = Vec3D {
         R_fixed * COM_original.x / COM_norm,
         R_fixed * COM_original.y / COM_norm,
         R_fixed * COM_original.z / COM_norm,
@@ -29,20 +29,20 @@ Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
         dangle = 2.0 * M_PI - dangle;
     } // propagation direction
     double rotangle = dangle - M_PI / 2.0;
-    Coord COMsphere = find_spherical_coords(COM);
+    Vec3D COMsphere = find_spherical_coords(COM);
     double dtheta = dl / COMsphere.z;
-    Coord COMnewtmp = Coord { COMsphere.x - dtheta, COMsphere.y, COMsphere.z };
+    Vec3D COMnewtmp = Vec3D { COMsphere.x - dtheta, COMsphere.y, COMsphere.z };
     COMnewtmp = find_cardesian_coords(COMnewtmp);
     // define the inner-coords-set
-    Vector i = Vector { COM.x, COM.y, COM.z };
+    Vec3D i = Vec3D { COM.x, COM.y, COM.z };
     i.normalize();
-    Vector temp = Vector { 0.0, 0.0, COM.get_magnitude() };
+    Vec3D temp = Vec3D { 0.0, 0.0, COM.length() };
     temp.normalize();
-    Vector j = temp.cross(i);
+    Vec3D j = temp.unit_cross(i);
     j.normalize();
-    Vector k = i.cross(j);
+    Vec3D k = i.unit_cross(j);
     k.normalize();
-    //std::vector<Vector> crdset;
+    //std::vector<Vec3D> crdset;
     std::array<double, 9> crdset;
     crdset[0] = i.x;
     crdset[1] = i.y;
@@ -53,7 +53,7 @@ Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
     crdset[6] = k.x;
     crdset[7] = k.y;
     crdset[8] = k.z;
-    Coord COMnew = rotate_on_sphere(COMnewtmp, COM, crdset, rotangle);
+    Vec3D COMnew = rotate_on_sphere(COMnewtmp, COM, crdset, rotangle);
 
     trajTrans.x = COMnew.x - COM.x;
     trajTrans.y = COMnew.y - COM.y;

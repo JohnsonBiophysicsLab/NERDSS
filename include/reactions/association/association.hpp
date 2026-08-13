@@ -84,7 +84,7 @@ bool areParallel(const double& angle);
 /*! \ingroup Associate
  * \brief Checks if the sign of the angle is the correct sign demanded by the desired angle.
  */
-bool angleSignIsCorrect(const Vector& vec1, const Vector& vec2);
+bool angleSignIsCorrect(const Vec3D& vec1, const Vec3D& vec2);
 
 /*!
  * \brief Checks the center of mass to interface vectors of the parent complex of an associating molecule to make sure
@@ -106,14 +106,14 @@ bool conservedRigid(const Complex& targCom, const std::vector<Molecule>& molecul
  * \brief A generic version of dihedral_projection and phi_projection, to project any arbitray axes onto a plane
  * TODO: Rename this
  */
-bool requiresSignFlip(Vector axis, Vector v1, Vector v2);
+bool requiresSignFlip(Vec3D axis, Vec3D v1, Vec3D v2);
 
 /* MATH FUNCTIONS */
 /*! \ingroup Associate
  * \brief Create an arbitrary vector orthogonal another vector, base on the cross product of it and either the x or
  * y axis.
  */
-Vector create_arbitrary_vector(Vector& vec);
+Vec3D create_arbitrary_vector(Vec3D& vec);
 
 /*! \ingroup Associate
  * \brief Transforms a molecule's interface and center of coordinates, used only by projection functions (project(),
@@ -123,12 +123,16 @@ Vector create_arbitrary_vector(Vector& vec);
  * \param[in] reactMol1 current molecule being rotated and transformed
  * \param[in] reactMol2 other molecule in the association event
  * \param[in] axis axis around which the molecules are rotating
+ * \param[in] axisLength length of `axis`.  Passed rather than measured because
+ *            callers disagree about which length they mean: check_bases.cpp
+ *            passes zero for an axis it never measured, which makes this
+ *            function a no-op, and that is the behaviour it relies on.
  *
  * NOTE: Only use this function if the calling function is passed reactMol1 and reactMol2 by value, NOT by
  * reference. This function alters the coordinates in a way that is not desired by association, but required in the
  * course of it.
  */
-void transform(Coord& reactIface, Molecule& reactMol1, Molecule& reactMol2, const Vector& axis);
+void transform(Vec3D& reactIface, Molecule& reactMol1, Molecule& reactMol2, const Vec3D& axis, double axisLength);
 
 /*! \ingroup Parser
  * \brief This subroutine determines the normal of the protein based on
@@ -151,7 +155,7 @@ void transform(Coord& reactIface, Molecule& reactMol1, Molecule& reactMol2, cons
  *   direction to determine the normal for the real coordinates of the protein
  *   5. normalize and pass back
  */
-Vector determine_normal(Vector normal, const MolTemplate& molTemplate, Molecule oneMol);
+Vec3D determine_normal(Vec3D normal, const MolTemplate& molTemplate, Molecule oneMol);
 
 /*! \ingroup Associate
  * \brief Determine the rotation angles for each Complex, according to their diffusion constants.
@@ -184,7 +188,7 @@ Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol);
  * TODO: Write how
  *
  */
-void rotate(const Coord& rotOrigin, const Quat& rotQuat, Complex& targCom, std::vector<Molecule>& moleculeList);
+void rotate(const Vec3D& rotOrigin, const Quat& rotQuat, Complex& targCom, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
  * \brief This function is meant to rotate a Molecule in the reverse direction.
@@ -194,7 +198,7 @@ void rotate(const Coord& rotOrigin, const Quat& rotQuat, Complex& targCom, std::
  * - \f$ Q^{-1} (Q(vec)Q^{-1})Q \f$
  *
  */
-void reverse_rotation(Coord& reactIface1, Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1,
+void reverse_rotation(Vec3D& reactIface1, Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1,
     Complex& reactCom2, Quat rotQuatPos, Quat rotQuatNeg, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
@@ -235,7 +239,7 @@ ForwardRxn& rxn, Complex& domCom, Complex& infCom, std::vector<Molecule>& molLis
  *   - For rotation we use half angles (ang/2), \f$Q = (sin(ang/2), cos(ang/2) * w.x, cos(ang/2) * w.y,
  * cos(ang/2) * w.z)\f$
  */
-void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
+void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
     Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
@@ -270,8 +274,8 @@ void theta_rotation(Coord& reactIface1, Coord& reactIface2, Molecule& reactMol1,
  * not change domIface or infIface, since they are references to different objects. Because of this, the creation of
  * the projected vectors in calculate_phi() will fail unless the index of infIface is passed to it.
  */
-void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
-    Complex& reactCom1, Complex& reactCom2, const Vector& normal, const double& targPhi, const ForwardRxn& currRxn,
+void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
+    Complex& reactCom1, Complex& reactCom2, const Vec3D& normal, const double& targPhi, const ForwardRxn& currRxn,
     std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup Associate
@@ -288,7 +292,7 @@ void phi_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molec
  * \param[in] moleculeList list of all Molecules in the system
  * \param[in] molTemplateList list of all MolTemplates
  */
-void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
+void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, double targOmega, const ForwardRxn& currRxn,
     std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
 
@@ -303,7 +307,7 @@ void omega_rotation(Coord& reactIface1, Coord& reactIface2, int ifaceIndex2, Mol
  *   3. determine omega between the com-iface, or the norm vectors, if one of the theta angles is M_PI
  *   4. return omega.
  */
-double calculate_omega(Coord reactIface1, int reactIface2, Vector& sigma,
+double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, double sigmaLength,
     const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2, const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup Associate
@@ -314,8 +318,8 @@ double calculate_omega(Coord reactIface1, int reactIface2, Vector& sigma,
  *   3. determine phi between sigma and norm.
  *   4. return phi.
  */
-double calculate_phi(Coord reactIface1, int ifaceIndex2, Molecule reactMol1, Molecule reactMol2, const Vector& normal,
-    Vector axis, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList);
+double calculate_phi(Vec3D reactIface1, int ifaceIndex2, Molecule reactMol1, Molecule reactMol2, const Vec3D& normal,
+    const Vec3D& axis, double axisLength, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList);
 
 /* OTHER */
 /*! \ingroup Associate
@@ -326,7 +330,7 @@ double calculate_phi(Coord reactIface1, int ifaceIndex2, Molecule reactMol1, Mol
  *   2. magnitude of the interface-center of mass vectors was conserved
  *   3. the rigitidy of the molecules was conserved
  */
-void check_bases(bool& cancelAssoc, const Coord& reactIface1, const Coord& reactIface2, int ifaceIndex1,
+void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& reactIface2, int ifaceIndex1,
     int ifaceIndex2, const Molecule& reactMol1, const Molecule& reactMol2, const Complex& reactCom1,
     const Complex& reactCom2, const ForwardRxn& currRxn, const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList);
@@ -401,7 +405,7 @@ Quat save_mem_orientation(Molecule baseTarget, Molecule base1, MolTemplate onePr
  *
  */
 
-void com_of_two_tmp_complexes(Complex& reactCom1, Complex& reactCom2, Coord& vectorCOM, std::vector<Molecule>& moleculeList);
+void com_of_two_tmp_complexes(Complex& reactCom1, Complex& reactCom2, Vec3D& vectorCOM, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
  * \brief update the COM of a complex, based on its tmpComCoord, and the members tmpComCoords as well (during association only!)
@@ -410,7 +414,7 @@ void com_of_two_tmp_complexes(Complex& reactCom1, Complex& reactCom2, Coord& vec
 
 void update_complex_tmp_com_crds(Complex& reactCom, std::vector<Molecule>& moleculeList);
 
-double get_geodesic_distance(Coord intFace1, Coord intFace2);
+double get_geodesic_distance(Vec3D intFace1, Vec3D intFace2);
 
 /*! \ingroup Associate
  * \brief keep track of any association event, based on the size of the smaller complex being added to the larger complex. If it is 1+1, specifically denotes dimerizaiton.

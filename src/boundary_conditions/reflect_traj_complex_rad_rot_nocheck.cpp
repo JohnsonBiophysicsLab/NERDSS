@@ -66,7 +66,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 //         // these need to be what current positions due to translation and rotation are
 //         for (auto& memMol : targCom.memberList) {
 //             // Measure each protein COM
-//             Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+//             Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
 
 //             // only need X component
 //             double dxrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
@@ -79,7 +79,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 
 //             // measure each interface
 //             for (const auto& iface : moleculeList[memMol].interfaceList) {
-//                 Vector ifaceVec { iface.coord - targCom.comCoord };
+//                 Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
 //                 // only need X component
 //                 dxrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
@@ -111,7 +111,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 
 //         for (auto& memMol : targCom.memberList) {
 //             // measure each protein COM
-//             Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+//             Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
 
 //             // only need y component
 //             double dyrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
@@ -124,7 +124,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 
 //             // measure each interface
 //             for (const auto& iface : moleculeList[memMol].interfaceList) {
-//                 Vector ifaceVec { iface.coord - targCom.comCoord };
+//                 Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
 //                 // only need y component
 //                 dyrot = (row[0] * ifaceVec.x) + (row[1] * ifaceVec.y) + (row[2] * ifaceVec.z);
@@ -156,7 +156,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 
 //         for (auto& memMol : targCom.memberList) {
 //             // measure each protein com
-//             Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+//             Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
 
 //             // only need z component
 //             double dzrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
@@ -169,7 +169,7 @@ void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& tar
 
 //             // measure each interface to z plane
 //             for (const auto& iface : moleculeList[memMol].interfaceList) {
-//                 Vector ifaceVec { iface.coord - targCom.comCoord };
+//                 Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
 //                 // only need z component
 //                 dzrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;

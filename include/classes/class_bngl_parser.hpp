@@ -130,7 +130,7 @@ struct ParsedRxn : public ForwardRxn {
     std::multimap<int, ParsedMol::IfaceInfo> noStateList; //!< list of ifaces which have states but do not declare them.
     //!< Form of the multimap is {index of ParsedMol the interface is on, index of the interface in ifaceList}
     bool includesIntCoords { false }; //!< does the file include internal coordinates
-    std::vector<Vector> norms;
+    std::vector<Vec3D> norms;
     double creationRadius { 1.0 }; //!< see CreateDesructRxn
 
     double onRate3Dka { std::numeric_limits<double>::quiet_NaN() }; //!< the forward rate of the reaction, micro
@@ -254,10 +254,10 @@ bool operator==(const std::vector<RxnIface>& rxnIfaceList, const std::vector<Par
 //     provided
 //     */
 //    struct Mol {
-//        Coord comCoord;
+//        Vec3D comCoord;
 //        int proType;
 //        int reactantIface;
-//        std::vector<Coord> ifaceCoords;
+//        std::vector<Vec3D> ifaceCoords;
 //    };
 //
 //    Mol reactant1;

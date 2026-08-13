@@ -27,8 +27,8 @@ void correct_structure(const std::vector<Molecule> &moleculeList, Complex &compl
       // std::cout << "Try to correct a sturcture!" << std::endl;
       int ifacePromoterIndex{ifaceProtein.interaction.partnerIfaceIndex};
       // std::cout << "Found interface " << ifacePromoterIndex << std::endl;
-      Coord ifacePromoterCoord{moleculeList[promoterIndex].interfaceList[ifacePromoterIndex].coord};
-      Vector iface2iface{};
+      Vec3D ifacePromoterCoord{moleculeList[promoterIndex].interfaceList[ifacePromoterIndex].coord};
+      Vec3D iface2iface{};
       iface2iface.x = ifacePromoterCoord.x - ifaceProtein.coord.x;
       iface2iface.y = ifacePromoterCoord.y - ifaceProtein.coord.y;
       iface2iface.z = ifacePromoterCoord.z - ifaceProtein.coord.z;
@@ -36,7 +36,7 @@ void correct_structure(const std::vector<Molecule> &moleculeList, Complex &compl
       double iface2ifaceMag{sqrt((iface2iface.x * iface2iface.x) +
                                  (iface2iface.y * iface2iface.y) +
                                  (iface2iface.z * iface2iface.z))};
-      Vector dispVec{};
+      Vec3D dispVec{};
       // std::cout << "Try to find the binding radius by bndRxnList" << std::endl;
       double bindRadius{forwardRxns[moleculeList[proteinIndex].bndRxnList[0]].bindRadius};
       // std::cout << "Got the binding radius of this bond." << std::endl;

@@ -83,7 +83,7 @@ Molecule initialize_molecule_after_uni_reaction(int index, const Molecule& paren
     double sinTheta { std::sin(theta) };
     double cosPhi { std::cos(phi) };
     double sinPhi { std::sin(phi) };
-    Coord transVec { currRxn.creationRadius * cosTheta * sinPhi, currRxn.creationRadius * sinTheta * sinPhi,
+    Vec3D transVec { currRxn.creationRadius * cosTheta * sinPhi, currRxn.creationRadius * sinTheta * sinPhi,
         currRxn.creationRadius * cosPhi };
 
     // create the coordinates

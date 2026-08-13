@@ -293,11 +293,11 @@ std::pair<bool, std::string> ParsedRxn::isComplete(const std::vector<MolTemplate
             return std::make_pair(false, "Sigma is not defined");
         if (!molTemplateList[reactantList[0].molTypeIndex].isPoint && !molTemplateList[reactantList[1].molTypeIndex].isPoint) {
             if (!molTemplateList.at(reactantList[0].molTypeIndex).isRod
-                && (norm1.magnitude == 0 || std::isnan(norm1.magnitude))) {
+                && (norm1.length() == 0 || std::isnan(norm1.length()))) {
                 return std::make_pair(false, "Norm1 is not set or is not a vector for reaction");
             }
             if (!molTemplateList.at(reactantList[1].molTypeIndex).isRod
-                && (norm2.magnitude == 0 || std::isnan(norm2.magnitude))) {
+                && (norm2.length() == 0 || std::isnan(norm2.length()))) {
                 return std::make_pair(false, "Norm2 is not set or is not a vector for reaction");
             }
         }
@@ -341,15 +341,15 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 4: {
-            norm1 = Vector { parse_input_array(line) };
-            norm1.calc_magnitude();
-            std::cout << "Read in value of norm1: " << norm1 << '\n';
+            norm1 = Vec3D { parse_input_array(line) };
+            std::cout << "Read in value of norm1: ";
+            write_ijk(std::cout, norm1) << '\n';
             break;
         }
         case 5: {
-            norm2 = Vector { parse_input_array(line) };
-            norm2.calc_magnitude();
-            std::cout << "Read in value of norm2: " << norm2 << '\n';
+            norm2 = Vec3D { parse_input_array(line) };
+            std::cout << "Read in value of norm2: ";
+            write_ijk(std::cout, norm2) << '\n';
             break;
         }
         case 6: {
@@ -470,8 +470,10 @@ void ParsedRxn::display() const
         display_angles();
         std::cout << "Association sigma vector:\n";
         std::cout << "Sigma: " << bindRadius << '\n';
-        std::cout << "Reactant 1 normal: " << norm1 << '\n';
-        std::cout << "Reactant 2 normal: " << norm2 << '\n';
+        std::cout << "Reactant 1 normal: ";
+        write_ijk(std::cout, norm1) << '\n';
+        std::cout << "Reactant 2 normal: ";
+        write_ijk(std::cout, norm2) << '\n';
     }
     std::cout << "\nOn membrane? " << std::boolalpha << isOnMem << '\n';
     std::cout << "bindRadSameCom " << bindRadSameCom << '\n';

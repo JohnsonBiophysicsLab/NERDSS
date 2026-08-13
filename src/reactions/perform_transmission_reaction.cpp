@@ -22,14 +22,14 @@ void perform_transmission_reaction(int moleculeIndex, std::vector<Molecule>& mol
 
     // Find distance between molecule's COM and compartment origin.
     bool isEntering = false;
-    double distanceToOrigin = moleculeList[moleculeIndex].comCoord.get_magnitude();
+    double distanceToOrigin = moleculeList[moleculeIndex].comCoord.length();
     int rxnIndex {molTemplateList[pro1MolType].transmissionRxnIndex};
     int molTypeIndex2 {transmissionRxns[rxnIndex].productMolList.back().molTypeIndex};
     double distToCompartment {distanceToOrigin - membraneObject.compartmentR};
     double displacement {2*distToCompartment};
-    Coord currPos {moleculeList[moleculeIndex].comCoord};
+    Vec3D currPos {moleculeList[moleculeIndex].comCoord};
     double scaler {(distanceToOrigin-displacement)/distanceToOrigin};
-    Coord newPos {scaler*currPos};
+    Vec3D newPos {scaler*currPos};
     MolTemplate& oneTemp = molTemplateList[pro1MolType];
 
     //create new molecule at newPos

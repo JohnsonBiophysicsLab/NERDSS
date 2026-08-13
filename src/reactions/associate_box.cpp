@@ -62,8 +62,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       moleculeList[mol].set_tmp_association_coords();
 
     // create references to reacting interfaces
-    Coord &reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
-    Coord &reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
+    Vec3D &reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
+    Vec3D &reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
 
     // orientation corrections for membrane bound components
     bool isOnMembrane = false;
@@ -89,11 +89,11 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     /* Calculate COM of the two complexes pre-association. The COM of the
      * new complex after should be close to this. Here, we will force it
      * back, as rotation can cause large displacements*/
-    Coord startCOM; // COM of two reactants
+    Vec3D startCOM; // COM of two reactants
     com_of_two_tmp_complexes(reactCom1, reactCom2, startCOM, moleculeList);
-    Coord startCOM1; // COM of protein 1
+    Vec3D startCOM1; // COM of protein 1
     com_of_two_tmp_complexes(reactCom1, reactCom1, startCOM1, moleculeList);
-    Coord startCOM2; // COM of protein 2
+    Vec3D startCOM2; // COM of protein 2
     com_of_two_tmp_complexes(reactCom2, reactCom2, startCOM2, moleculeList);
 
     double zCom1Temp{};
@@ -124,9 +124,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     double DySum{reactCom1.D.y + reactCom2.D.y};
     double DzSum{reactCom1.D.z + reactCom2.D.z};
 
-    Vector sigma{reactIface1 - reactIface2};
-    Vector transVec1{};
-    Vector transVec2{};
+    Vec3D sigma{reactIface1 - reactIface2};
+    Vec3D transVec1{};
+    Vec3D transVec2{};
     double displaceFrac{};
 
     double sigmaMag3D =
@@ -286,9 +286,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       moleculeList[mp].update_association_coords(transVec2);
 
     // matches move protein to sigma
-    Coord afterSigmaCOM1;
+    Vec3D afterSigmaCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, afterSigmaCOM1, moleculeList);
-    Coord afterSigmaCOM2;
+    Vec3D afterSigmaCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterSigmaCOM2, moleculeList);
 
     // std::cout << "Diplace during pushing to sigma: " << std::endl;
@@ -385,9 +385,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // Now the orientation of interfaces is correct. However, geometry
     // restrictions have been lifted and need correction.
 
-    Coord afterRotateCOM1;
+    Vec3D afterRotateCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, afterRotateCOM1, moleculeList);
-    Coord afterRotateCOM2;
+    Vec3D afterRotateCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterRotateCOM2, moleculeList);
   
 
@@ -407,11 +407,11 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // afterRotateCOM2.z)) << std::endl;
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE NOR FIBER REACTIONS*/
-    Coord finalCOM;
+    Vec3D finalCOM;
     com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList); 
     // com of c1+c2 (final (tmp) coordinates).
 
-    Coord preCOM;
+    Vec3D preCOM;
     if (isOnMembrane || transitionToSurface || isOnFiber || transitionToFiber) {
       // bool allpoints{true}; // check if all molecules are points
       // for (auto &mp : reactCom1.memberList){
@@ -430,7 +430,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         /*return orientation of normal back to starting position*/
         /*This part is equivalent for fiber and membrane*/
         Quat memRot;
-        Coord pivot;
+        Vec3D pivot;
         // also translate the slowPro back to its same COM.
         // This step may report warning of "Attempted dot product with vector of magnitude 0."
         /*
@@ -463,9 +463,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     }
 
     com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
-    Coord afterOrientationCOM1;
+    Vec3D afterOrientationCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, afterOrientationCOM1, moleculeList);
-    Coord afterOrientationCOM2;
+    Vec3D afterOrientationCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterOrientationCOM2, moleculeList);
 
     // if (MONITOR==true) {
@@ -479,7 +479,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
-    Coord postCOM;
+    Vec3D postCOM;
     if (slowPro == reactMol1.index) {
       postCOM = afterOrientationCOM1;
     } else {
@@ -497,7 +497,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // afterRotateCOM2.y) * (afterOrientationCOM2.y - afterRotateCOM2.y) +
     // (afterOrientationCOM2.z - afterRotateCOM2.z) * (afterOrientationCOM2.z -
     // afterRotateCOM2.z)) << std::endl;
-    Vector dtrans{};
+    Vec3D dtrans{};
     bool correctPosition{true};
     if (abs(DxSum)<1e-6 && isOnFiber){
       correctPosition = false;
@@ -530,9 +530,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         // reactMol1.display_assoc_icoords("mol1");
         // reactMol2.display_assoc_icoords("mol2");
       // }
-      Coord afterTranShiftCOM1;
+      Vec3D afterTranShiftCOM1;
       com_of_two_tmp_complexes(reactCom1, reactCom1, afterTranShiftCOM1, moleculeList);
-      Coord afterTranShiftCOM2;
+      Vec3D afterTranShiftCOM2;
       com_of_two_tmp_complexes(reactCom2, reactCom2, afterTranShiftCOM2, moleculeList);
 
       /*
@@ -552,30 +552,28 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
             ifaceIndex1, reactMol1, reactCom1); // pro1 is the one that moved
         determine_rotation_angles(0, dispAngle, skip, rotAng, reactCom1, reactCom2); // positive angle
       }
-      Coord origin{0.5 * (reactIface1 + reactIface2)}; // halfway along the sigma vector, or
+      Vec3D origin{0.5 * (reactIface1 + reactIface2)}; // halfway along the sigma vector, or
                                          // midway between the interfaces.
       /*axis of rotation is the normal to the plane, at the origin position*/
-      Vector rotAxis{0, 0, 1}; // For a Box, we can just use the z-axis.
+      Vec3D rotAxis{0, 0, 1}; // For a Box, we can just use the z-axis.
       Quat rotQuatPos(cos(rotAng / 2), sin(rotAng / 2) * rotAxis.x, sin(rotAng / 2) * rotAxis.y, sin(rotAng / 2) * rotAxis.z);
       rotQuatPos.normalize();
 
       // rotate the two complexes, using same angle here, so no orientations should change!
       rotate(origin, rotQuatPos, reactCom1, moleculeList);
       rotate(origin, rotQuatPos, reactCom2, moleculeList);
-      Coord afterRotShiftCOM1;
+      Vec3D afterRotShiftCOM1;
       com_of_two_tmp_complexes(reactCom1, reactCom1, afterRotShiftCOM1, moleculeList);
-      Coord afterRotShiftCOM2;
+      Vec3D afterRotShiftCOM2;
       com_of_two_tmp_complexes(reactCom2, reactCom2, afterRotShiftCOM2, moleculeList);
 
       //   std::cout << "Displace during rotation shift to move COM1: " <<
       //   std::endl; std::cout << "COM1: " << std::endl;
-      Vector d1{afterRotShiftCOM1 - afterTranShiftCOM1};
-      d1.calc_magnitude();
-      //   std::cout <<d1.magnitude<<std::endl;
+      Vec3D d1{afterRotShiftCOM1 - afterTranShiftCOM1};
+      //   std::cout <<d1.length()<<std::endl;
       //   std::cout << "COM2: " << std::endl;
-      Vector d2{afterRotShiftCOM2 - afterTranShiftCOM2};
-      d2.calc_magnitude();
-      //   std::cout <<d2.magnitude<<std::endl;
+      Vec3D d2{afterRotShiftCOM2 - afterTranShiftCOM2};
+      //   std::cout <<d2.length()<<std::endl;
       // if (iter == 818823) {
         // std::cout << "NEW AFTER ROTATIONAL ALIGN: " << std::endl;
         // reactMol1.display_assoc_icoords("mol1");
@@ -586,9 +584,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //     reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
     //     reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
-    Coord currCOM1;
+    Vec3D currCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, currCOM1, moleculeList);
-    Coord currCOM2;
+    Vec3D currCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, currCOM2, moleculeList);
 
     /*
@@ -598,14 +596,14 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     */
     for (auto &mp : reactCom2.memberList) {
       if (moleculeList[mp].isPromoter == true) {
-        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
+        Vec3D dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
         -moleculeList[mp].tmpComCoord.z + moleculeList[mp].comCoord.z};
         moleculeList[mp].update_association_coords(dtrans);
       }
     }
     for (auto &mp : reactCom1.memberList) {
       if (moleculeList[mp].isPromoter == true) {
-        Vector dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
+        Vec3D dtrans{0, -moleculeList[mp].tmpComCoord.y + moleculeList[mp].comCoord.y, 
         -moleculeList[mp].tmpComCoord.z + moleculeList[mp].comCoord.z};
         moleculeList[mp].update_association_coords(dtrans);
       }
@@ -731,9 +729,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         moleculeList[mp].update_association_coords(dtrans);
     } // is on membrane
 
-    Coord afterBackCOM1;
+    Vec3D afterBackCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, afterBackCOM1, moleculeList);
-    Coord afterBackCOM2;
+    Vec3D afterBackCOM2;
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterBackCOM2, moleculeList);
 
 
@@ -779,7 +777,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-15) {
       // update the temporary coordinates for both complexes
-      Vector vtraj{traj[0], traj[1], traj[2]};
+      Vec3D vtraj{traj[0], traj[1], traj[2]};
       for (auto &mp : reactCom1.memberList)
         moleculeList[mp].update_association_coords(vtraj);
       for (auto &mp : reactCom2.memberList)

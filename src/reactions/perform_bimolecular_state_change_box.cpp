@@ -54,13 +54,13 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
         moleculeList[mol].set_tmp_association_coords();
 
     // create references to reacting interfaces
-    Coord& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
-    Coord& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
+    Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
+    Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
     //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
-    Coord startCOM; //=new double[3];
+    Vec3D startCOM; //=new double[3];
 
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, startCOM, moleculeList); //com of c1+c2 (original coordinates).
     //    std::cout <<"INITIAL COMPLEX PAIR COM: "<<startCOM.x<<' '<<startCOM.y<<' '<<startCOM.z<<std::endl;
@@ -77,12 +77,12 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
         double DySum { facilitatorCom.D.y + stateChangeCom.D.y };
         double DzSum { facilitatorCom.D.z + stateChangeCom.D.z };
 
-        Vector sigma { reactIface1 - reactIface2 };
+        Vec3D sigma { reactIface1 - reactIface2 };
         //        std::cout<<" sigma: "<<sigma.x<<' '<<sigma.y<<' '<<sigma.z<<std::endl;
         //std::cout <<" Dsum and components: "<<DxSum<<' '<<DySum<<' '<<DzSum<<std::endl;
 
-        Vector transVec1 {};
-        Vector transVec2 {};
+        Vec3D transVec1 {};
+        Vec3D transVec2 {};
         double displaceFrac {};
 
         // if both in 2D, ignore the z-component
@@ -107,8 +107,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
                 displaceFrac = (sigmaMag - bindRadius) / sigmaMag;
             }
         } else {
-            sigma.calc_magnitude();
-            displaceFrac = (sigma.magnitude - bindRadius) / sigma.magnitude;
+            displaceFrac = (sigma.length() - bindRadius) / sigma.length();
             // if (stateChangeCom.D.z < tol || facilitatorCom.D.z < tol) {
             if (stateChangeCom.OnSurface || facilitatorCom.OnSurface) {
               transitionToSurface = true; // both can't be less than tol, or
@@ -213,7 +212,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
-    Coord finalCOM; //=new double[3];
+    Vec3D finalCOM; //=new double[3];
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     //   std::cout <<"Pre-MEMBRANE ROT: COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
 
@@ -222,7 +221,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
         /*return orientation of normal back to starting position*/
         // std::cout << " IS ON MEMBRANE, CORRECT ORIENTATION ! " << std::endl;
         Quat memRot;
-        Coord pivot;
+        Vec3D pivot;
 
         if (slowPro == facilitatorMol.index) {
             //	facilitatorMol.display_assoc_icoords("CURRORIENTATION_TOROTATE1");
@@ -250,11 +249,11 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
 
         //	    std::cout <<"CRDS after forcing back to membrane bound orientation: \n";*/
     }
-    //Coord finalCOM;//=new double[3];
+    //Vec3D finalCOM;//=new double[3];
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, finalCOM, moleculeList); //com of c1+c2 (final (tmp) coordinates).
     //std::cout <<"FINAL COMPLEX PAIR COM: "<<finalCOM.x<<' '<<finalCOM.y<<' '<<finalCOM.z<<std::endl;
     /*Force finalCOM to startCOM, unless transitioning from 3D->2D*/
-    Vector dtrans {};
+    Vec3D dtrans {};
     dtrans.x = startCOM.x - finalCOM.x;
     dtrans.y = startCOM.y - finalCOM.y;
     dtrans.z = startCOM.z - finalCOM.z;
@@ -321,7 +320,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
 
     /*Reflect off the box.*/
-    //Vector traj {};
+    //Vec3D traj {};
     std::array<double, 3> traj; //=new double[3];
     for (int mm = 0; mm < 3; mm++)
         traj[mm] = 0;
@@ -338,7 +337,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-15) {
         // update the temporary coordinates for both complexes
-        Vector vtraj { traj[0], traj[1], traj[2] };
+        Vec3D vtraj { traj[0], traj[1], traj[2] };
         for (auto& mp : facilitatorCom.memberList)
             moleculeList[mp].update_association_coords(vtraj);
         for (auto& mp : stateChangeCom.memberList)

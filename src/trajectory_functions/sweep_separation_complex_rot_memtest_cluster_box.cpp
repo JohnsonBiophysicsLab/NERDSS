@@ -122,7 +122,7 @@ void sweep_separation_complex_rot_memtest_cluster_box(int simItr, int pro1Index,
 
                         // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
                         if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                            Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
+                            Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
                             complexList[k].trajTrans.x = targTrans.x;
                             complexList[k].trajTrans.y = targTrans.y;
                             complexList[k].trajTrans.z = targTrans.z;
@@ -205,7 +205,7 @@ void sweep_separation_complex_rot_memtest_cluster_box(int simItr, int pro1Index,
                 continue;
             }
 
-            Vector iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
+            Vec3D iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
             std::array<double, 9> M = create_euler_rotation_matrix(complexList[k1].trajRot);
             iface1Vec = matrix_rotate(iface1Vec, M);
 
@@ -213,7 +213,7 @@ void sweep_separation_complex_rot_memtest_cluster_box(int simItr, int pro1Index,
             double dy1 { complexList[k1].comCoord.y + iface1Vec.y + complexList[k1].trajTrans.y };
             double dz1 { complexList[k1].comCoord.z + iface1Vec.z + complexList[k1].trajTrans.z };
 
-            Vector iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
+            Vec3D iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
             std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[k2].trajRot);
             iface2Vec = matrix_rotate(iface2Vec, M2);
             double dx2 { complexList[k2].comCoord.x + iface2Vec.x + complexList[k2].trajTrans.x };
@@ -327,7 +327,7 @@ void sweep_separation_complex_rot_memtest_cluster_box(int simItr, int pro1Index,
 
                             // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
                             if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                                Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
+                                Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
                                 complexList[k].trajTrans.x = targTrans.x;
                                 complexList[k].trajTrans.y = targTrans.y;
                                 complexList[k].trajTrans.z = targTrans.z;
@@ -360,16 +360,16 @@ void sweep_separation_complex_rot_memtest_cluster_box(int simItr, int pro1Index,
 
         moleculeList[p1].trajStatus = TrajStatus::propagated;
         moleculeList[p2].trajStatus = TrajStatus::propagated;
-        complexList[moleculeList[p1].myComIndex].trajTrans.zero_crds();
-        complexList[moleculeList[p1].myComIndex].trajRot.zero_crds();
-        complexList[moleculeList[p2].myComIndex].trajTrans.zero_crds();
-        complexList[moleculeList[p2].myComIndex].trajRot.zero_crds();
+        complexList[moleculeList[p1].myComIndex].trajTrans.zero();
+        complexList[moleculeList[p1].myComIndex].trajRot.zero();
+        complexList[moleculeList[p2].myComIndex].trajTrans.zero();
+        complexList[moleculeList[p2].myComIndex].trajRot.zero();
     }
     for (i = 0; i < partnerOfPairList.size(); i++) {
         int p = partnerOfPairList[i];
         moleculeList[p].trajStatus = TrajStatus::propagated;
-        complexList[moleculeList[p].myComIndex].trajTrans.zero_crds();
-        complexList[moleculeList[p].myComIndex].trajRot.zero_crds();
+        complexList[moleculeList[p].myComIndex].trajTrans.zero();
+        complexList[moleculeList[p].myComIndex].trajRot.zero();
     }
 
     params.timeStep = timeStepOrg; // recover timeStep

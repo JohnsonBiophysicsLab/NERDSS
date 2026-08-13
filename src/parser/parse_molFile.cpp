@@ -114,10 +114,9 @@ MolTemplate parse_molFile(std::string& mol)
 
     // calculate 'radius'
     for (auto& iface : tmpTemplate.interfaceList) {
-        Vector tmpVec { tmpTemplate.comCoord - iface.iCoord };
-        tmpVec.calc_magnitude();
-        if (tmpVec.magnitude > tmpTemplate.radius)
-            tmpTemplate.radius = tmpVec.magnitude;
+        Vec3D tmpVec { tmpTemplate.comCoord - iface.iCoord };
+        if (tmpVec.length() > tmpTemplate.radius)
+            tmpTemplate.radius = tmpVec.length();
     }
     std::cout << "radius calculated from the ifacesCoord: " << tmpTemplate.radius << " nm" << std::endl;
     // set mass to radius

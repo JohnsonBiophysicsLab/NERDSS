@@ -31,7 +31,7 @@ Interface::State::State(int index)
 {
 }
 
-Interface::Interface(std::string name, const Coord& iCoord)
+Interface::Interface(std::string name, const Vec3D& iCoord)
     : iCoord(iCoord)
     , name(std::move(name))
 {
@@ -49,7 +49,7 @@ Interface::State::State(const std::string& ifaceAndStateName, int index)
 {
 }
 
-Interface::Interface(std::string name, std::vector<Interface::State> states, Coord iCoord)
+Interface::Interface(std::string name, std::vector<Interface::State> states, Vec3D iCoord)
     : iCoord(iCoord)
     , name(name)
     , stateList(states)
@@ -80,7 +80,7 @@ MolTemplate::MolTemplate(std::string molName, std::vector<Interface>& interfaceL
 {
 }
 
-MolTemplate::MolTemplate(Coord& comCoord, std::vector<Interface>& Interfaces)
+MolTemplate::MolTemplate(Vec3D& comCoord, std::vector<Interface>& Interfaces)
     : comCoord(comCoord)
     , interfaceList(Interfaces)
 {
@@ -246,12 +246,12 @@ void MolTemplate::set_value(std::string& line, MolKeyword molKeyword)
         break;
     }
     case 4: {
-        D = Coord(parse_input_array(line));
+        D = Vec3D(parse_input_array(line));
         std::cout << "Read in D: [" << D.x << "um^2s^-1, " << D.y << "um^2s^-1, " << D.z << "um^2s^-1]" << std::endl;
         break;
     }
     case 5: {
-        Dr = Coord(parse_input_array(line));
+        Dr = Vec3D(parse_input_array(line));
         cache_diffusion_derivatives();
         std::cout << "Read in Dr: [" << Dr.x << "rad^2s^-1, " << Dr.y << "rad^2s^-1, " << Dr.z << "rad^2s^-1]" << std::endl;
         break;

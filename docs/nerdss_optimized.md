@@ -154,7 +154,12 @@ conditions and therefore trajectories. It does not change the dynamics.
 
 ### Issue #11 - `Coord` class
 
-[`class_Coord.hpp`](../include/classes/class_Coord.hpp) is now the definition
+> `class_Coord.hpp` has since been merged with `class_Vector.hpp` into
+> [`class_Vec3D.hpp`](../include/classes/class_Vec3D.hpp); see
+> [the `Vec3D` merge](#coord-and-vector-merged-into-vec3d) below. Everything in
+> this section still holds, under the new names.
+
+`class_Coord.hpp` is now the definition
 site for the arithmetic, which was the substantive change: `operator+`,
 `operator-`, `operator+=`, `zero_crds()`, `isOutOfBox()`, `get_magnitude()`,
 `round()` and `roundv()` all lived in `class_Coord.cpp`, so every use inside the
@@ -281,6 +286,53 @@ to end once corrected: both state changes reach `kf/(kf+kb)` within statistical
 error, against a factor-of-four different answer before. See section 8 of
 `RESULTS.md`.
 
+### `Coord` and `Vector` merged into `Vec3D`
+
+`Coord` and `Vector` were the same three doubles twice over: `Vector` derived
+from `Coord` and added a cached `magnitude`. They are now one type,
+[`class_Vec3D.hpp`](../include/classes/class_Vec3D.hpp), and
+`class_Coord.{hpp,cpp}` and `class_Vector.{hpp,cpp}` are gone.
+
+Having two types meant the type of an expression depended on which header its
+operands came from, and the two halves of the API had drifted apart. Both
+`operator+(Vector, Coord)` overloads existed, one returning `Vector` and one
+returning `Coord`, and which one a call site got was decided by whether its left
+operand happened to be const. Four spellings covered two length operations.
+`Vector::cross()` normalized its result, which a cross product does not do.
+`vector_projection()` returned the rejection, which is the other half of the
+decomposition. And reaching `dot`, `cross` or `normalize` from a `Coord`
+required a conversion, so the association code is full of `Vector { a - b }`
+round trips that existed only to change the type name.
+
+The standardized API is `length()` / `length_squared()`, `dot()`, `cross()` (the
+cross product) and `unit_cross()` (normalized, which is what `Vector::cross()`
+did), `normalize()` / `normalized()`, `angle_between()`, `rejection_from()`,
+`zero()`, and the full operator set - `+ - * /` with scalars on either side,
+compound assignment, unary minus, rounded `==` / `!=`.
+
+**The cached magnitude is gone, and that is the part that needed care.** It was
+written by `calc_magnitude()` and maintained by nothing: no operator that
+changed x, y or z updated it. Almost every read sat one or two lines below the
+`calc_magnitude()` that served it, and `length()` gives those the same bits.
+Four call sites depended on the cache holding something *other* than the current
+length - an unmeasured zero, or a pre-rotation length on a vector since rotated
+- and each of them decided a real branch, including one whole coordinate
+transform that `check_bases.cpp` has always skipped without meaning to. Those
+four now pass the length they mean as an argument to `angle_between()`, so the
+dependency is in the call rather than in an object's history. None of them was
+"corrected", because correcting any of them would change results; see section
+14.2 of `RESULTS.md` for what each one was.
+
+`Vector` was 32 bytes and `Vec3D` is 24; `Coord` was already 24, so the
+coordinate arrays that dominate a real run are unchanged in size and only
+transient vectors shrink. `normalize()` drops one of its two square roots - the
+second only refreshed the cache.
+
+All 13 suite cases stay byte-identical. Whole-simulation timing is unchanged
+(0.999x, inside the run-to-run spread); the operations themselves are 5-11%
+faster in isolation, which is a tenth off a fraction of a percent of runtime and
+so does not surface at the suite level. Sections 14.3-14.5 of `RESULTS.md`.
+
 ## Reproducing the measurements
 
 ```bash
@@ -298,6 +350,10 @@ make serial
   sample inputs excluded because they already fail on `master`.
 - [`rng_quality/run.sh`](../benchmarks/nerdss_optimized/rng_quality/run.sh)
   measures the samplers from issues #10 and #12 directly.
+- `benchmarks/vec3d_benchmark.cpp` measures the vector operations the `Vec3D`
+  merge changed against the pre-merge `Coord`/`Vector`, and checks that they
+  agree bit for bit. Build it with
+  `g++ -O3 -std=c++11 -Iinclude $(gsl-config --cflags) src/classes/class_Vec3D.cpp benchmarks/vec3d_benchmark.cpp -o vec3d_benchmark`.
 - [`statistical_check.sh`](../benchmarks/nerdss_optimized/statistical_check.sh)
   compares seed-averaged copy numbers between two builds.
 
@@ -312,7 +368,8 @@ methodology in
 [`benchmarks/nerdss_optimized/RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
 
 - **Bitwise:** all 13 cases byte-identical between `master` and the
-  result-preserving subset (issues #8 optimization, #9, #11).
+  result-preserving subset (issues #8 optimization, #9, #11), and again across
+  the `Vec3D` merge.
 - **Speed:** 1.091x over the suite for the result-preserving subset alone, 1.168x
   with issues #10 and #12 included. Per case, 1.13x to 1.56x for models with
   multiple interfaces per reaction; parity for the two single-interface models,
@@ -325,6 +382,10 @@ methodology in
 - **Statistical equivalence:** across three models and six seeds each, the
   largest Welch `|z|` between `master` and the full branch is 0.61, so the
   sampler replacements did not move the simulated physics.
+- **`Vec3D` merge:** 13 of 13 byte-identical, runtime 0.999x over the suite -
+  neutral, and within the run-to-run spread. In isolation `normalize()` is
+  1.096x, the angle between two vectors 1.109x, and streaming an array of
+  vectors 1.08x, from one square root removed and 32 bytes down to 24.
 
 ## Defects found but deliberately not changed
 

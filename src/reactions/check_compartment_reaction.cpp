@@ -28,7 +28,7 @@ void check_compartment_reaction(int pro1Index, int pro2Index, int simItr,
 
     // Find distance between molecule's COM and compartment origin.
     bool isEntering = false;
-    double distanceToOrigin = moleculeList[pro1Index].comCoord.get_magnitude();
+    double distanceToOrigin = moleculeList[pro1Index].comCoord.length();
     if (distanceToOrigin > membraneObject.compartmentR) {
         isEntering = true;
     }
@@ -43,9 +43,9 @@ void check_compartment_reaction(int pro1Index, int pro2Index, int simItr,
         double cf = cos(sqrt(4.0 * complexList[moleculeList[pro1Index].myComIndex].Dr.z * params.timeStep));
         double Dr1;
         int relIface1 {transmissionRxns[rxnIndex].reactantListNew[0].relIfaceIndex};
-        double relIfaceDistance = moleculeList[pro1Index].interfaceList[relIface1].coord.get_magnitude();
+        double relIfaceDistance = moleculeList[pro1Index].interfaceList[relIface1].coord.length();
 
-        Vector ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
+        Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
                         - complexList[moleculeList[pro1Index].myComIndex].comCoord };
         double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y + ifaceVec.z * ifaceVec.z };
         Dr1 = 2.0 * magMol1 * (1.0 - cf);
@@ -84,9 +84,9 @@ void check_compartment_reaction(int pro1Index, int pro2Index, int simItr,
         double cf = cos(sqrt(4.0 * complexList[moleculeList[pro1Index].myComIndex].Dr.z * params.timeStep));
         double Dr1;
         int relIface1{transmissionRxns[rxnIndex].reactantListNew[0].relIfaceIndex};
-        double relIfaceDistance = moleculeList[pro1Index].interfaceList[relIface1].coord.get_magnitude();
+        double relIfaceDistance = moleculeList[pro1Index].interfaceList[relIface1].coord.length();
 
-        Vector ifaceVec{moleculeList[pro1Index].interfaceList[relIface1].coord - complexList[moleculeList[pro1Index].myComIndex].comCoord};
+        Vec3D ifaceVec{moleculeList[pro1Index].interfaceList[relIface1].coord - complexList[moleculeList[pro1Index].myComIndex].comCoord};
         double magMol1{ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y + ifaceVec.z * ifaceVec.z};
         Dr1 = 2.0 * magMol1 * (1.0 - cf);
         Dtot += Dr1 / (6.0 * params.timeStep);

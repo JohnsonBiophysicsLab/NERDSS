@@ -40,7 +40,7 @@ void create_molecule_and_complex_from_transmission_rxn(int parentMolIndex, int &
                                                         MolTemplate &createdMolTemp, Parameters &params, const TransmissionRxn &currRxn, SimulVolume &simulVolume,
                                                         std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
                                                         std::vector<MolTemplate> &molTemplateList, const std::vector<ForwardRxn> &forwardRxns, const Membrane &membraneObject,
-                                                        const Coord &newPos);
+                                                        const Vec3D &newPos);
 
 void check_for_zeroth_order_creation(unsigned simItr, Parameters& params, SimulVolume& simulVolume,
     const std::vector<ForwardRxn>& forwardRxns,
@@ -105,7 +105,7 @@ Molecule initialize_molecule_after_uni_reaction(int index, const Molecule& paren
     MolTemplate& molTemplate, const CreateDestructRxn& currRxn);
 
 Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,
-														 MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Coord& newPos,
+														 MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos,
                                                          const bool plusRand, const Membrane& membraneObject);
 
 bool moleculeOverlaps(const Parameters &params, SimulVolume &simulVolume, Molecule &createdMol,

@@ -101,7 +101,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 //         due to translation and rotation are*/
 //         for (auto& memMol : targCom.memberList) {
 //             // measure each protein COM to z plane
-//             Vector comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
+//             Vec3D comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
 //             double dxrot { row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z };
 //             currx = targCom.tmpComCoord.x + traj[0] + dxrot;
 
@@ -112,7 +112,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 
 //             // measure each interface to x plane
 //             for (int ii = 0; ii < moleculeList[memMol].interfaceList.size(); ii++) {
-//                 Vector ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
+//                 Vec3D ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
 //                 dxrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
 //                 currx = targCom.tmpComCoord.x + traj[0] + dxrot;
 
@@ -177,7 +177,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 //         due to translation and rotation are*/
 //         for (auto& mp : targCom.memberList) {
 //             // measure each protein COM
-//             Vector comVec { moleculeList[mp].tmpComCoord - targCom.tmpComCoord };
+//             Vec3D comVec { moleculeList[mp].tmpComCoord - targCom.tmpComCoord };
 
 //             // only need y component
 //             double dyrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
@@ -190,7 +190,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 
 //             // measure each interface
 //             for (int ii = 0; ii < moleculeList[mp].interfaceList.size(); ii++) {
-//                 Vector ifaceVec { moleculeList[mp].tmpICoords[ii] - targCom.tmpComCoord };
+//                 Vec3D ifaceVec { moleculeList[mp].tmpICoords[ii] - targCom.tmpComCoord };
 
 //                 // only need y component
 //                 dyrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
@@ -257,7 +257,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 //           due to translation and rotation are*/
 //         for (auto& memMol : targCom.memberList) {
 //             // measure each protein COM
-//             Vector comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
+//             Vec3D comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
 //             double dzrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
 //             currz = targCom.tmpComCoord.z + traj[2] + dzrot;
 
@@ -268,7 +268,7 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
 
 //             // measure each interface
 //             for (int ii = 0; ii < moleculeList[memMol].interfaceList.size(); ii++) {
-//                 Vector ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
+//                 Vec3D ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
 //                 dzrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
 //                 currz = targCom.tmpComCoord.z + traj[2] + dzrot;
 

@@ -21,15 +21,15 @@ Quat save_mem_orientation(Molecule baseTarget, Molecule baseTmp, MolTemplate one
     std::string iface = "tmp";
     //std::cout << " IN SAVE MEM ORIENTATION TARGET COORDS: " << std::endl;
     //baseTarget.write_crd_file_cout();//iface coords
-    copy.comCoord = Coord { 0.0, 0.0, 0.0 };
+    copy.comCoord = Vec3D { 0.0, 0.0, 0.0 };
     for (int i = 0; i < baseTarget.interfaceList.size(); i++) {
-        copy.interfaceList.emplace_back(iface, Coord { baseTarget.interfaceList[i].coord - baseTarget.comCoord }); //subtract off com if non-zero
+        copy.interfaceList.emplace_back(iface, Vec3D { baseTarget.interfaceList[i].coord - baseTarget.comCoord }); //subtract off com if non-zero
     }
 
     for (int i = 0; i < baseTmp.interfaceList.size(); i++) {
         baseTmp.tmpICoords[i] = baseTmp.tmpICoords[i] - baseTmp.tmpComCoord; //subtract off com
     }
-    baseTmp.tmpComCoord = Coord { 0.0, 0.0, 0.0 };
+    baseTmp.tmpComCoord = Vec3D { 0.0, 0.0, 0.0 };
     // std::cout <<" IN SAVE MEM ORIENTATION MOVABLE COORDS: "<<std::endl;
     //baseTmp.display_assoc_icoords("temp coords");//tmp Iface coords
 

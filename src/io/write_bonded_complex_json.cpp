@@ -226,23 +226,21 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
     Quat firstRot {};
     Quat secondRot {};
     // make a temporary copy of the interface coordinates for us to modify
-    std::vector<Coord> tempIfaceCoords;
+    std::vector<Vec3D> tempIfaceCoords;
     for (auto& iface : targMol.interfaceList)
     {
-        tempIfaceCoords.push_back(Coord { iface.coord } );
+        tempIfaceCoords.push_back(Vec3D { iface.coord } );
     }
     { // first rotation
         // determine the interface-center of mass vector (v0, v1), the rotation vector (u), and the angle to rotate
         // (angle)
         // arbitrarily the center of mass to first interface of the MolTemplate
-        Vector vec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
+        Vec3D vec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
         // the center of mass to first interface of the target Molecule
-        Vector vec2 { targMol.interfaceList[0].coord - targMol.comCoord };
+        Vec3D vec2 { targMol.interfaceList[0].coord - targMol.comCoord };
         // the rotation vector formed by v0 cross v1
-        vec1.calc_magnitude();
-        vec2.calc_magnitude();
-        Vector rotAxis { vec1.cross(vec2) };
-        double angle { vec1.dot_theta(vec2) };
+        Vec3D rotAxis { vec1.unit_cross(vec2) };
+        double angle { vec1.angle_between(vec2) };
         // TODO: the above vectors are correct
         // determine if we need to flip the sign
         //        if (requiresSignFlip(rotAxis, vec1, vec2))
@@ -252,7 +250,7 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
             sa * rotAxis.z };
         firstRot.normalize();
         {
-            Vector tmpVec { vec2 };
+            Vec3D tmpVec { vec2 };
             firstRot.rotate(tmpVec);
             if (std::abs(tmpVec.x - oneTemplate.interfaceList[0].iCoord.x) > 1E-8 || std::abs(tmpVec.y - oneTemplate.interfaceList[0].iCoord.y) > 1E-8 || std::abs(tmpVec.z - oneTemplate.interfaceList[0].iCoord.z) > 1E-8) {
                 angle = -angle;
@@ -266,7 +264,7 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
         const QuatRotation firstPrep { firstRot };
         for (size_t i = 0; i < targMol.interfaceList.size(); i++)
         {
-            Vector tmpVec { targMol.interfaceList[i].coord - targMol.comCoord };
+            Vec3D tmpVec { targMol.interfaceList[i].coord - targMol.comCoord };
             firstPrep.rotate(tmpVec);
             tempIfaceCoords[i] = tmpVec;
         }
@@ -277,17 +275,15 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
         
         size_t ifaceIndex { 1 };
         
-        Vector ifaceVec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
-        ifaceVec1.calc_magnitude();
+        Vec3D ifaceVec1 { oneTemplate.interfaceList[0].iCoord - oneTemplate.comCoord };
 
         // First check to make sure they're not in a line. If so, use the last interface
 
         bool allcollinear{true};
         for (size_t tmpIndex=0; tmpIndex < oneTemplate.interfaceList.size(); tmpIndex++){
             // check all other interfaces to find one that is not collinear to the first one
-            Vector ifaceVec2 {oneTemplate.interfaceList[tmpIndex].iCoord - oneTemplate.comCoord };
-            ifaceVec2.calc_magnitude();
-            double ang1 { ifaceVec1.dot_theta(ifaceVec2) };
+            Vec3D ifaceVec2 {oneTemplate.interfaceList[tmpIndex].iCoord - oneTemplate.comCoord };
+            double ang1 { ifaceVec1.angle_between(ifaceVec2) };
             if (ang1 == 0 || ang1 == M_PI) {
                 // check next
             } else {
@@ -302,20 +298,16 @@ Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMo
             //   and I just preserved the logic. If this is a rod, just do what's remaining. 
             return firstRot;
         } else {
-            Vector v0 { oneTemplate.interfaceList[ifaceIndex].iCoord - oneTemplate.comCoord };
-            Vector v1 { tempIfaceCoords[ifaceIndex] - targMol.tmpComCoord };
-            Vector rotAxis { tempIfaceCoords[0] - targMol.tmpComCoord };
-            v0.calc_magnitude();
-            v1.calc_magnitude();
+            Vec3D v0 { oneTemplate.interfaceList[ifaceIndex].iCoord - oneTemplate.comCoord };
+            Vec3D v1 { tempIfaceCoords[ifaceIndex] - targMol.tmpComCoord };
+            Vec3D rotAxis { tempIfaceCoords[0] - targMol.tmpComCoord };
             rotAxis.normalize();
 
             // project the current and desired iface-com vectors
             // onto a plane of which the first iface-com vector is normal to
-            Vector projVec0(v0.vector_projection(rotAxis));
-            Vector projVec1(v1.vector_projection(rotAxis));
-            projVec0.calc_magnitude();
-            projVec1.calc_magnitude();
-            double angle { projVec0.dot_theta(projVec1) };
+            Vec3D projVec0(v0.rejection_from(rotAxis));
+            Vec3D projVec1(v1.rejection_from(rotAxis));
+            double angle { projVec0.angle_between(projVec1) };
 
             if (requiresSignFlip(rotAxis, projVec0, projVec1))
                 angle = -angle;

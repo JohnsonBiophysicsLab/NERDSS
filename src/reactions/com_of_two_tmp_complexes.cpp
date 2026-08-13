@@ -8,7 +8,7 @@
   applies to the temporrary protein coordinates, not final!
  */
 void com_of_two_tmp_complexes(
-    Complex& reactCom1, Complex& reactCom2, Coord& vectorCOM, std::vector<Molecule>& moleculeList)
+    Complex& reactCom1, Complex& reactCom2, Vec3D& vectorCOM, std::vector<Molecule>& moleculeList)
 {
 
     /*Calculate the COM of two separate complexes*/

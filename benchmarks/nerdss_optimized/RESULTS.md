@@ -945,3 +945,150 @@ further OpenMP anywhere in NERDSS, that lane is worth re-measuring with
 `OMP_WAIT_POLICY=active` and a two-to-four worker cap. Note that lane's own
 recorded diagnosis, ~2459 waves of ~41 pairs per timestep, is a wave-occupancy
 problem that a cheaper barrier would mitigate but not remove.
+
+## 14. Merging `Coord` and `Vector` into one `Vec3D`
+
+`Coord` and `Vector` were the same three doubles twice over: `Vector` derived
+from `Coord` and added a cached `magnitude`. They are now one type,
+[`Vec3D`](../../include/classes/class_Vec3D.hpp), with the two halves of the API
+reconciled onto one set of names and one set of operators.
+
+Reference: `324c02d`. Candidate: the merge. Both Apple clang 21, `-O3`, serial,
+seed 20260810, Apple M5.
+
+### 14.1 What the two types disagreed about
+
+Merging is not a rename, because the two halves behaved differently in ways call
+sites had come to depend on:
+
+| | `Coord` | `Vector` | `Vec3D` |
+| --- | --- | --- | --- |
+| size | 24 B | 32 B | 24 B |
+| length | `get_magnitude()`, `magnitude_squared()` | `calc_magnitude()` + `magnitude` field | `length()`, `length_squared()` |
+| `cross()` | absent | returns the *normalized* cross product | `cross()` is the cross product, `unit_cross()` normalizes |
+| angle | absent | `dot_theta()`, off two cached magnitudes | `angle_between()`, lengths measured or passed |
+| projection | absent | `vector_projection()`, returns the *rejection* | `rejection_from()` |
+| `operator<<` | `%12.6g` columns | `[xi + yj + zk]` | the columns; the other is `write_ijk()` |
+| `a + b` | `Coord` | `Vector` or `Coord`, decided by whether the left operand was const | `Vec3D` |
+| serialize | 3 doubles | 4 doubles | 3 doubles |
+
+### 14.2 The magnitude cache, and the four call sites that depended on it
+
+`Vector::magnitude` was written by `calc_magnitude()` and then maintained by
+nothing: no operator that changed x, y or z updated it. Of the 78
+`calc_magnitude()` calls in the tree, nearly all sat one or two lines above the
+read they served, and for those `length()` returns the same bits. Four sites
+depended on the cache holding something *other* than the current length, and
+each decided a real branch:
+
+- **`create_arbitrary_vector.cpp`** took an angle against a fresh
+  `Vector(1,0,0)` whose cache was never written. `dot_theta` returns 0 for any
+  operand with a cached magnitude under 1E-8, so the guard was `0 != 0` and the
+  x-axis arm of the function has never executed. Kept as the y-axis arm, written
+  out.
+- **`requiresSignFlip.cpp`** measured `axis` on entry, rotated it, and then took
+  another angle against the pre-rotation length. Now an explicit
+  `const double axisLength { axis.length() }` at the top.
+- **`transform.cpp`** read the caller's cached magnitude, and `check_bases.cpp`
+  reaches it through `calculate_phi()` with a vector it builds inline and never
+  measures - so `transform()` sees an angle of 0, concludes the axis is already
+  aligned, and returns without transforming anything. `transform()` and
+  `calculate_phi()` now take the length as an argument and `check_bases.cpp`
+  passes `0.0` with a comment saying why.
+- **`functions_for_spherical_system.cpp::rotate_on_sphere()`** rebuilt `targjk`
+  and then re-tested the cache the rebuild had reset to zero, which made its
+  NaN guard always take the first arm and its `exit(1)` arm dead.
+
+Reinstating the "correct" behaviour at any of these would change results, so
+none of them was reinstated. They are now visible in the source instead of
+implied by an object's history.
+
+### 14.3 Bitwise identity
+
+`run_suite.sh` + `compare_suites.sh`, all 13 cases in `cases.tsv`, every file
+under `DATA/`, `PDB/` and `RESTARTS/` (PDB from line 2).
+
+**13 of 13 byte-identical**: `clathrin`, `closed_homoTrimer`, `hetTrimer`,
+`hexamer`, `homoTrimer`, `implicit_lipid`, `mem_localization`,
+`michaelis_menten`, `rev_2D`, `rev_3D`, `rev_3Dto2D`, `sphere`, `trimer`.
+
+Two things had to be held fixed to get there, both because the host is arm64,
+where the compiler will fuse a multiply and an add into one `fmadd` within a
+single source expression:
+
+- every expression in `class_Vec3D.hpp` is character for character what the
+  corresponding `Coord` or `Vector` member computed, in the same order;
+- `rejection_from()` keeps `normal * coefficient` and the subtraction as two
+  statements. Written as one expression they contract into an `fmsub` and the
+  low bits move.
+
+### 14.4 Whole-simulation timing
+
+`interleaved_timing.sh`, 3 repetitions, median per case.
+
+| case | nItr | before (s) | after (s) | ratio |
+| --- | --- | --- | --- | --- |
+| `clathrin` | 150,000 | 3.548 | 3.586 | 0.989 |
+| `closed_homoTrimer` | 6,000 | 6.561 | 6.508 | 1.008 |
+| `hetTrimer` | 8,000 | 6.130 | 6.252 | 0.980 |
+| `hexamer` | 25,000 | 5.553 | 5.490 | 1.011 |
+| `homoTrimer` | 6,000 | 6.437 | 6.399 | 1.006 |
+| `implicit_lipid` | 100,000 | 2.883 | 2.876 | 1.002 |
+| `mem_localization` | 2,000 | 2.567 | 2.582 | 0.994 |
+| `michaelis_menten` | 150,000 | 4.596 | 4.513 | 1.018 |
+| `rev_2D` | 200 | 40.962 | 40.961 | 1.000 |
+| `rev_3D` | 20,000 | 4.391 | 4.482 | 0.980 |
+| `rev_3Dto2D` | 8,000 | 6.075 | 6.077 | 1.000 |
+| `sphere` | 40,000 | 6.252 | 6.404 | 0.976 |
+| `trimer` | 8,000 | 6.094 | 6.014 | 1.013 |
+| **total** | | **102.049** | **102.144** | **0.999** |
+
+Per-case geometric mean 0.998, range 0.976-1.018. Repetition spread *within* a
+single build reaches 8% (`implicit_lipid`) and exceeds 3% in five cases, so the
+whole ±2% band here is noise. Excluding `rev_2D`, which is 40% of the total and
+lands on exactly 1.000, the ratio is 0.998.
+
+**The change is runtime-neutral.** That is the result, not a hedge: no case
+moved outside its own run-to-run spread in either direction.
+
+### 14.5 Where the operations themselves did move
+
+`benchmarks/vec3d_benchmark.cpp` measures the three operations the merge
+altered, against the pre-merge `Coord`/`Vector` kept verbatim in the same binary.
+It also checks, over 500,000 random vectors, that both give bit-identical
+results: **0 mismatches** for `normalize()`'s x/y/z and **0** for the angle.
+
+| operation | legacy | `Vec3D` | ratio |
+| --- | --- | --- | --- |
+| `normalize()`, length not read after (the common call site) | 0.62 ns | 0.57 ns | 1.096 |
+| `normalize()`, length read after | 0.99 ns | 0.94 ns | 1.057 |
+| angle between two vectors, both lengths unknown | 4.75 ns | 4.28 ns | 1.109 |
+| streaming length sum, 4,096 elements (L1) | | | 1.075 |
+| streaming length sum, 131,072 elements (1 MiB) | | | 1.077 |
+| streaming length sum, 4,194,304 elements (128 MiB) | | | 1.098 |
+
+Two sources. `Vector::normalize()` took two square roots - one to measure, one
+to refresh the cache afterwards - and most call sites feed x, y and z straight
+into a quaternion and never ask for the length; that second root is now gone.
+And 32 bytes became 24, which shows up when an array of them is streamed.
+
+5-11% on these operations and 0% on the simulation is consistent, not
+contradictory: `Complex::propagate` is 8.19% of runtime (section 13.5) and the
+association angle code is a fraction of a percent, so a tenth off a tenth of a
+percent is not measurable at the suite level.
+
+### 14.6 What is not covered
+
+- The MPI build was not compiled: `mpicxx` is not installed on this host.
+  `Vector::serialize()` wrote a fourth double for the cache and now writes
+  three, which shrinks every serialized `Complex` by 8 bytes. Both ends of every
+  message are built from that one definition, the layout is written and read
+  purely sequentially through `PUSH`/`POP`, and there is no `sizeof`-based or
+  literal byte count anywhere in `src/mpi` or `include/mpi` that could go stale
+  - the buffers are fixed 100 MB and 50 MB slabs from `macro.hpp`. So the
+  shrink is safe by construction, but that is reasoned, not measured.
+- Two console lines changed. The reaction parser's normal echo keeps its
+  `[xi + yj + zk]` format through `write_ijk()`, but
+  `create_arbitrary_vector()` no longer prints a spurious "angle between vectors
+  with at least one of magnitude 0" warning per call, because it no longer takes
+  that angle. Neither is in a hashed output file.

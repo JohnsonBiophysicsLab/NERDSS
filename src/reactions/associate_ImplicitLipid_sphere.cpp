@@ -43,8 +43,8 @@ void associate_implicitlipid_sphere(
     // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
     // create references to reacting interfaces
-    Coord& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
-    Coord& reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
+    Vec3D& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
+    Vec3D& reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
 
     // orientation corrections for membrane bound components
     bool isOnMembrane = false;
@@ -52,8 +52,8 @@ void associate_implicitlipid_sphere(
 
     /* MOVE PROTEIN TO SIGMA */
     {
-        Vector sigma { reactIface1 - reactIface2 };
-        Vector transVec1 { 0.0, 0.0, 0.0 };
+        Vec3D sigma { reactIface1 - reactIface2 };
+        Vec3D transVec1 { 0.0, 0.0, 0.0 };
         double displaceFrac {};
         double sigmaMag;
         // if both in 2D, ignore the z-component
@@ -142,13 +142,13 @@ void associate_implicitlipid_sphere(
         set_memProtein_sphere(reactCom2, memProtein, moleculeList, membraneObject);
         find_Lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
-        Coord pivot = Lipid.tmpComCoord;
+        Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/
         rotate(pivot, memRot, reactCom1, moleculeList);
         rotate(pivot, memRot, reactCom2, moleculeList);
         //make sure reactIface1 is sticking on sphere.
-        double lamda = (membraneObject.sphereR - reactIface1.get_magnitude()) / reactIface1.get_magnitude();
-        Vector dtrans = Vector { lamda * reactIface1 };
+        double lamda = (membraneObject.sphereR - reactIface1.length()) / reactIface1.length();
+        Vec3D dtrans = Vec3D { lamda * reactIface1 };
         // std::cout << " In ImplicitLipid model, protein interface is off spherical membrane, shift up by: " << dtrans.x << " " << dtrans.y << " " << dtrans.z
         //           << std::endl;
         // update the temporary coordinates for both complexes
@@ -175,7 +175,7 @@ void associate_implicitlipid_sphere(
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-14) {
         // update the temporary coordinates for both complexes
-        Vector vtraj { traj[0], traj[1], traj[2] };
+        Vec3D vtraj { traj[0], traj[1], traj[2] };
         for (auto& mp : reactCom1.memberList)
             moleculeList[mp].update_association_coords(vtraj);
 

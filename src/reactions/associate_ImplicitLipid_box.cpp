@@ -58,9 +58,9 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
         // create references to reacting interfaces
-        Coord& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
-        Coord& reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
-        Vector sigma { reactIface1 - reactIface2 };
+        Vec3D& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
+        Vec3D& reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
+        Vec3D sigma { reactIface1 - reactIface2 };
         // orientation corrections for membrane bound components
         Molecule memProtein = reactMol2;
         int slowPro = reactMol2.index;
@@ -75,17 +75,16 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
          * new complex after should be close to this. Here, we will force it
          * back, as rotation can cause large displacements
          * */
-        Coord startCOM;
+        Vec3D startCOM;
         com_of_two_tmp_complexes(reactCom1, reactCom2, startCOM, moleculeList);
 
         // MOVE PROTEIN TO THE MEMBRANE.
         {
-            sigma.calc_magnitude();
-            double sigmaMag = sigma.magnitude;
-            Vector transVec1 = Vector(-(sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
-            Vector transVec2 { 0.0, 0.0, 0.0 };
+            double sigmaMag = sigma.length();
+            Vec3D transVec1 = Vec3D(-(sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
+            Vec3D transVec2 { 0.0, 0.0, 0.0 };
             if (reactMol1.isImplicitLipid == true) {
-                transVec2 = Vector((sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
+                transVec2 = Vec3D((sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
                 transVec1.x = 0;
                 transVec1.y = 0;
                 transVec1.z = 0;
@@ -149,7 +148,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             // std::cout << "P2 has no valid phi angle." << std::endl;
 
             /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
-            Coord finalCOM;
+            Vec3D finalCOM;
             com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
 
             // std::cout << "After rotation: " << std::endl;
@@ -158,7 +157,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             if (isOnMembrane == true || transitionToSurface == true) {
                 /*return orientation of normal back to starting position*/
                 Quat memRot;
-                Coord pivot;
+                Vec3D pivot;
                 if (slowPro == reactMol1.index) {
                     memRot = save_mem_orientation(memProtein, reactMol1, molTemplateList[reactMol1.molTypeIndex]);
                     pivot = reactMol1.tmpComCoord;
@@ -172,7 +171,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             }
 
             com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
-            Vector dtrans {};
+            Vec3D dtrans {};
             dtrans.x = startCOM.x - finalCOM.x;
             dtrans.y = startCOM.y - finalCOM.y;
             dtrans.z = startCOM.z - finalCOM.z;
@@ -265,7 +264,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         reflect_traj_tmp_crds(params, moleculeList, reactCom1, traj, membraneObject, RS3D, false); // uses tmpCoords to calculate traj.
         if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-50) {
             // update the temporary coordinates for both complexes
-            Vector vtraj { traj[0], traj[1], traj[2] };
+            Vec3D vtraj { traj[0], traj[1], traj[2] };
             for (auto& mp : reactCom1.memberList)
                 moleculeList[mp].update_association_coords(vtraj);
             for (auto& mp : reactCom2.memberList)

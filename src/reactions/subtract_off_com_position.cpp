@@ -8,7 +8,7 @@ void subtract_off_com_position(Molecule &base1)
       	base1.interfaceList[i].coord=base1.interfaceList[i].coord-base1.comCoord;
 	      
     }
-    base1.comCoord=Coord {0.0, 0.0, 0.0};//set to zero
+    base1.comCoord=Vec3D {0.0, 0.0, 0.0};//set to zero
     
     
 }

@@ -131,9 +131,9 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                             } else {
                                 const Complex& com1 = complexList[com1Index];
                                 const Complex& com2 = complexList[com2Index];
-                                Vector ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
+                                Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
                                     - com1.comCoord };
-                                Vector ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
+                                Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
                                     - com2.comCoord };
                                 double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
                                     + ifaceVec.z * ifaceVec.z };
@@ -216,9 +216,9 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                 int rxnIndex { molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundReactList[indexItr] };
                                 if (molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundIfaceList[indexItr] == relIface2) {
                                     // calculate the distance between the two infaces
-                                    Vector ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
+                                    Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
                                         - complexList[moleculeList[pro1Index].myComIndex].comCoord };
-                                    Vector ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
+                                    Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
                                         - complexList[moleculeList[pro2Index].myComIndex].comCoord };
                                     double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
                                         + ifaceVec.z * ifaceVec.z };
@@ -308,10 +308,10 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
                                         if (membraneObject.isSphere == true) {
-                                            Coord iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
-                                            Coord iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
-                                            double r1 = iface11.get_magnitude();
-                                            double r2 = iface22.get_magnitude();
+                                            Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
+                                            Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
+                                            double r1 = iface11.length();
+                                            double r2 = iface22.length();
                                             double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
                                             double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
                                             R1 = r * theta;
@@ -419,9 +419,9 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                 int rxnIndex { molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundReactList[indexItr] };
                                 if (molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundIfaceList[indexItr] == relIface1) {
                                     // calculate the distance between the two infaces
-                                    Vector ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
+                                    Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
                                         - complexList[moleculeList[pro1Index].myComIndex].comCoord };
-                                    Vector ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
+                                    Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
                                         - complexList[moleculeList[pro2Index].myComIndex].comCoord };
                                     double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
                                         + ifaceVec.z * ifaceVec.z };
@@ -485,10 +485,10 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
                                         if (membraneObject.isSphere == true) {
-                                            Coord iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
-                                            Coord iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
-                                            double r1 = iface11.get_magnitude();
-                                            double r2 = iface22.get_magnitude();
+                                            Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
+                                            Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
+                                            double r1 = iface11.length();
+                                            double r2 = iface22.length();
                                             double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
                                             double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
                                             R1 = r * theta;

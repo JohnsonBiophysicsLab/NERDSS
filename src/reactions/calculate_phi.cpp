@@ -1,23 +1,21 @@
 #include "reactions/association/association.hpp"
 #include "tracing.hpp"
 
-double calculate_phi(Coord reactIface1, int ifaceIndex2, Molecule reactMol1, Molecule reactMol2, const Vector& normal,
-    Vector axis, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList)
+double calculate_phi(Vec3D reactIface1, int ifaceIndex2, Molecule reactMol1, Molecule reactMol2, const Vec3D& normal,
+    const Vec3D& axis, double axisLength, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList)
 {
     // TRACE();
     // coordinate transform along com-iface vector
-    transform(reactIface1, reactMol1, reactMol2, axis);
+    transform(reactIface1, reactMol1, reactMol2, axis, axisLength);
 
     // orthographic projection onto xy-plane
-    Vector vec1 { reactIface1 - reactMol2.tmpICoords[ifaceIndex2] }; //iface1-iface2= sigma
-    Vector vec2 { determine_normal(normal, molTemplateList[reactMol1.molTypeIndex], reactMol1) };
+    Vec3D vec1 { reactIface1 - reactMol2.tmpICoords[ifaceIndex2] }; //iface1-iface2= sigma
+    Vec3D vec2 { determine_normal(normal, molTemplateList[reactMol1.molTypeIndex], reactMol1) };
 
     // remove z coordinates
-    Vector projVec1 { vec1.x, vec1.y, 0 }; //sigma vector
-    Vector projVec2 { vec2.x, vec2.y, 0 }; //normal vector of reactMol1
-    projVec1.calc_magnitude();
-    projVec2.calc_magnitude();
-    double phi = projVec1.dot_theta(projVec2);
+    Vec3D projVec1 { vec1.x, vec1.y, 0 }; //sigma vector
+    Vec3D projVec2 { vec2.x, vec2.y, 0 }; //normal vector of reactMol1
+    double phi = projVec1.angle_between(projVec2);
 
     /*angle between sigma and normal is phi. 
       as a dihedral, ranges from -pi to pi, 
@@ -30,7 +28,7 @@ double calculate_phi(Coord reactIface1, int ifaceIndex2, Molecule reactMol1, Mol
     /*if their normal points in -z, keep theta, otherwise flip sign                                                                                                                                             
     ADDED: Do not flip the sign if it is PI or Zero.                                                                                                                                                          
     */
-    Vector test { projVec1.cross(projVec2) };
+    Vec3D test { projVec1.unit_cross(projVec2) };
     //double *test=new double[3];
     //crossproduct(sigma, normal, test);
     if (test.z > 0 && std::abs(phi) > 1E-12 && (M_PI - std::abs(phi)) > 1E-12) //positive z, flip phi

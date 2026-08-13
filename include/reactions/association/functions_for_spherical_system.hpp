@@ -8,34 +8,34 @@
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Vector.hpp"
+#include "classes/class_Vec3D.hpp"
 
 #include <array>
 #include <cmath>
 
-double radius(Coord mol);
+double radius(Vec3D mol);
 
-Coord find_spherical_coords(Coord mol); // mol: cardesian coords, output spherical coords
+Vec3D find_spherical_coords(Vec3D mol); // mol: cardesian coords, output spherical coords
 
-Coord find_cardesian_coords(Coord mol); // mol: spherical coords, output cardesian coords
+Vec3D find_cardesian_coords(Vec3D mol); // mol: spherical coords, output cardesian coords
 
 double theta_plus(double theta1, double theta2); // sum of two theta
 
 double phi_plus(double phi1, double phi2); // sum of two phi
 
-Coord angle_plus(Coord angle1, Coord angle2); // two spherical coords sum
+Vec3D angle_plus(Vec3D angle1, Vec3D angle2); // two spherical coords sum
 
-Coord find_position_after_association(double alpha1, Coord Iface1, Coord Iface2, double alpha_total, double bindRadius); // on sphere, when association, the new position of Iface1. alpha1 is the geodesic angle that Iface1 moves.
+Vec3D find_position_after_association(double alpha1, Vec3D Iface1, Vec3D Iface2, double alpha_total, double bindRadius); // on sphere, when association, the new position of Iface1. alpha1 is the geodesic angle that Iface1 moves.
 
-//Coord translate_on_sphere(Coord targ, Coord COM, Coord REF, Coord COMnew, Coord REFnew); // translation on sphere, output cardesian coords.
-std::array<double, 9> inner_coord_set(Coord com, Coord comnew);
-std::array<double, 9> inner_coord_set_new(Coord com, Coord comnew);
-std::array<double, 3> calculate_inner_coord_coefficients(Coord TARG, Coord COM, std::array<double, 9> crdset);
-Coord translate_on_sphere(Coord targ, Coord COM, Coord COMnew, std::array<double, 9> crdset, std::array<double, 9> crdsetnew);
-//Coord rotate_on_sphere(Coord targ, Coord COM, double dangle);
-Coord rotate_on_sphere(Coord Targ, Coord COM, std::array<double, 9> crdset, double dangle);
+//Vec3D translate_on_sphere(Vec3D targ, Vec3D COM, Vec3D REF, Vec3D COMnew, Vec3D REFnew); // translation on sphere, output cardesian coords.
+std::array<double, 9> inner_coord_set(Vec3D com, Vec3D comnew);
+std::array<double, 9> inner_coord_set_new(Vec3D com, Vec3D comnew);
+std::array<double, 3> calculate_inner_coord_coefficients(Vec3D TARG, Vec3D COM, std::array<double, 9> crdset);
+Vec3D translate_on_sphere(Vec3D targ, Vec3D COM, Vec3D COMnew, std::array<double, 9> crdset, std::array<double, 9> crdsetnew);
+//Vec3D rotate_on_sphere(Vec3D targ, Vec3D COM, double dangle);
+Vec3D rotate_on_sphere(Vec3D Targ, Vec3D COM, std::array<double, 9> crdset, double dangle);
 
-double calc_bindRadius2D(double bindRadius, Coord iFace);
+double calc_bindRadius2D(double bindRadius, Vec3D iFace);
 
 void set_memProtein_sphere(Complex reactCom, Molecule& memProtein, std::vector<Molecule> moleculeList, const Membrane membraneObject);
 void find_Lipid_sphere(Complex reactCom, Molecule& Lipid, std::vector<Molecule> moleculeList, const Membrane membraneObject);

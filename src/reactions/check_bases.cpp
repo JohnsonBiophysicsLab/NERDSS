@@ -3,40 +3,41 @@
 
 #include <iomanip>
 
-void check_bases(bool& cancelAssoc, const Coord& reactIface1, const Coord& reactIface2, int ifaceIndex1,
+void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& reactIface2, int ifaceIndex1,
     int ifaceIndex2, const Molecule& reactMol1, const Molecule& reactMol2, const Complex& reactCom1,
     const Complex& reactCom2, const ForwardRxn& currRxn, const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList)
 {
     // TRACE();
-    Vector sigma { reactIface1 - reactIface2 };
-    Vector v1 { reactIface1 - reactMol1.tmpComCoord };
-    Vector v2 { reactIface2 - reactMol2.tmpComCoord };
-    sigma.calc_magnitude();
-    v1.calc_magnitude();
-    v2.calc_magnitude();
+    Vec3D sigma { reactIface1 - reactIface2 };
+    Vec3D v1 { reactIface1 - reactMol1.tmpComCoord };
+    Vec3D v2 { reactIface2 - reactMol2.tmpComCoord };
 
-    if (std::abs(currRxn.assocAngles.theta1 - sigma.dot_theta(v1)) < 1E-6) {
-        //        && roundv(currRxn.assocAngles.theta1) != roundv((2 * M_PI) - sigma.dot_theta(v1))) {
-        // std::cerr << "Error: Angle theta1 is " << sigma.dot_theta(v1) << " but should be "
+    if (std::abs(currRxn.assocAngles.theta1 - sigma.angle_between(v1)) < 1E-6) {
+        //        && roundv(currRxn.assocAngles.theta1) != roundv((2 * M_PI) - sigma.angle_between(v1))) {
+        // std::cerr << "Error: Angle theta1 is " << sigma.angle_between(v1) << " but should be "
         //           << roundv(currRxn.assocAngles.theta1) << std::endl;
         cancelAssoc = true;
         return;
     }
 
-    Vector tmpSigma { -sigma }; // if you change sign of original sigma, screws up the calculation of omega below
-    tmpSigma.calc_magnitude();
-    if (roundv(currRxn.assocAngles.theta2) != roundv(tmpSigma.dot_theta(v2))
-        && roundv(currRxn.assocAngles.theta2) != roundv((2 * M_PI) - tmpSigma.dot_theta(v2))) {
-        // std::cerr << "Error: Angle theta_2 is " << tmpSigma.dot_theta(v2) << " but should be "
+    Vec3D tmpSigma { -sigma }; // if you change sign of original sigma, screws up the calculation of omega below
+    if (roundv(currRxn.assocAngles.theta2) != roundv(tmpSigma.angle_between(v2))
+        && roundv(currRxn.assocAngles.theta2) != roundv((2 * M_PI) - tmpSigma.angle_between(v2))) {
+        // std::cerr << "Error: Angle theta_2 is " << tmpSigma.angle_between(v2) << " but should be "
         //           << currRxn.assocAngles.theta2 << std::endl;
         cancelAssoc = true;
         return;
     }
 
     if (!std::isnan(currRxn.assocAngles.phi1)) {
+        // The axis length is passed as zero on purpose: this call built its
+        // axis inline and never measured it, and calculate_phi() reads an
+        // unmeasured axis as "already aligned" and skips its coordinate
+        // transform.  Passing the real length would change every phi this
+        // check computes and so whether associations are cancelled.
         double phi { roundv(calculate_phi(reactIface1, ifaceIndex2, reactMol1, reactMol2, currRxn.norm1,
-            Vector { reactIface1 - reactMol1.tmpComCoord }, currRxn, molTemplateList)) };
+            Vec3D { reactIface1 - reactMol1.tmpComCoord }, 0.0, currRxn, molTemplateList)) };
 
         if (areSameAngle(currRxn.assocAngles.phi1, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
             phi = std::abs(phi);
@@ -50,8 +51,9 @@ void check_bases(bool& cancelAssoc, const Coord& reactIface1, const Coord& react
     }
 
     if (!std::isnan(currRxn.assocAngles.phi2)) {
+        // Unmeasured axis, as above.
         double phi { roundv(calculate_phi(reactIface2, ifaceIndex1, reactMol2, reactMol1, currRxn.norm2,
-            Vector { reactIface2 - reactMol2.tmpComCoord }, currRxn, molTemplateList)) };
+            Vec3D { reactIface2 - reactMol2.tmpComCoord }, 0.0, currRxn, molTemplateList)) };
 
         if (areSameAngle(currRxn.assocAngles.phi2, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
             phi = std::abs(phi);
@@ -72,7 +74,8 @@ void check_bases(bool& cancelAssoc, const Coord& reactIface1, const Coord& react
     //    if (!(hasOmegaMol1 || hasOmegaMol2)) {
     if (!std::isnan(currRxn.assocAngles.omega)) {
         double omega { roundv(
-            calculate_omega(reactIface1, ifaceIndex2, sigma, currRxn, reactMol1, reactMol2, molTemplateList)) };
+            calculate_omega(reactIface1, ifaceIndex2, sigma, sigma.length(), currRxn, reactMol1, reactMol2,
+                molTemplateList)) };
 
         // check this weirdness
         if (areSameAngle(currRxn.assocAngles.omega, M_PI) && ((std::abs(omega) > 3.1414) && std::abs(omega) < 3.1417))

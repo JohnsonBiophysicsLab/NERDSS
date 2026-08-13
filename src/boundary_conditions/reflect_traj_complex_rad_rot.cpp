@@ -73,7 +73,7 @@ void reflect_traj_complex_rad_rot(
     //     due to translation and rotation are*/
     //     for (auto& memMol : targCom.memberList) {
     //         /*measure each protein COM to z plane*/
-    //         Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+    //         Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
 
     //         double dxrot { row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z };
     //         currx = targCom.comCoord.x + targCom.trajTrans.x + dxrot;
@@ -97,7 +97,7 @@ void reflect_traj_complex_rad_rot(
     //         }
     //         /*measure each interface to z plane*/
     //         for (auto& iface : moleculeList[memMol].interfaceList) {
-    //             Vector ifaceVec { iface.coord - targCom.comCoord };
+    //             Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
     //             dxrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
     //             currx = targCom.comCoord.x + targCom.trajTrans.x + dxrot;
@@ -161,7 +161,7 @@ void reflect_traj_complex_rad_rot(
     //     // for (i = 0; i < s1; i++) {
     //     for (auto& mp : targCom.memberList) {
     //         /*measure each protein COM to y plane*/
-    //         Vector comVec { moleculeList[mp].comCoord - targCom.comCoord };
+    //         Vec3D comVec { moleculeList[mp].comCoord - targCom.comCoord };
 
     //         /*only need y component*/
     //         double dyrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
@@ -185,7 +185,7 @@ void reflect_traj_complex_rad_rot(
     //         }
     //         /*measure each interface to y plane*/
     //         for (auto& iface : moleculeList[mp].interfaceList) {
-    //             Vector ifaceVec { iface.coord - targCom.comCoord };
+    //             Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
     //             /*only need y component*/
     //             dyrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
@@ -250,7 +250,7 @@ void reflect_traj_complex_rad_rot(
     //     // for (i = 0; i < s1; i++) {
     //     for (auto& memMol : targCom.memberList) {
     //         /*measure each protein COM to z plane*/
-    //         Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+    //         Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
 
     //         double dzrot = row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z;
     //         currz = targCom.comCoord.z + targCom.trajTrans.z + dzrot;
@@ -273,7 +273,7 @@ void reflect_traj_complex_rad_rot(
     //         }
     //         /*measure each interface to z plane*/
     //         for (auto& iface : moleculeList[memMol].interfaceList) {
-    //             Vector ifaceVec { iface.coord - targCom.comCoord };
+    //             Vec3D ifaceVec { iface.coord - targCom.comCoord };
 
     //             dzrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
     //             currz = targCom.comCoord.z + targCom.trajTrans.z + dzrot;

@@ -100,7 +100,7 @@ struct SimulVolume {
 
     int maxNeighbors{ 13 }; //!< maximum number of neighbors a SubBox can have. Currently set to cubic
     Dimensions numSubCells{}; //!< number of SubBoxes in each dimension
-    Coord subCellSize{}; //!< dimensions of each SubBox in nanometers
+    Vec3D subCellSize{}; //!< dimensions of each SubBox in nanometers
     std::vector<SubVolume> subCellList; //!< list of all the SubBoxes in the SimulBox. Size == numSubBoxes.tot
     /*! \brief Indices of the SubBoxes whose memberMolList is currently non-empty.
      *
@@ -163,7 +163,7 @@ struct SimulVolume {
     void display();
 
     /*
-    Function serialize serializes the Vector into arrayRank of bytes.
+    Function serialize serializes the Vec3D into arrayRank of bytes.
     */
     void serialize(unsigned char *arrayRank, int &nArrayRank) {
         PUSH(maxNeighbors);
@@ -172,7 +172,7 @@ struct SimulVolume {
         serialize_abstract_vector<SubVolume>(subCellList, arrayRank, nArrayRank);
     }
     /*
-    Function deserialize deserializes the Vector from arrayRank of bytes.
+    Function deserialize deserializes the Vec3D from arrayRank of bytes.
     */
     void deserialize(unsigned char *arrayRank, int &nArrayRank) {
         POP(maxNeighbors);

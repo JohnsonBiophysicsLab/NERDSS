@@ -136,7 +136,7 @@ void resample_traj(
 
                 // if (membraneObject.isSphere == true && complexList[k1].D.z < 1E-15) { // complex on sphere surface
                 if (membraneObject.isSphere == true && complexList[k1].OnSurface) { // complex on sphere surface
-                    Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
+                    Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
                     complexList[k1].trajTrans.x = targTrans.x;
                     complexList[k1].trajTrans.y = targTrans.y;
                     complexList[k1].trajTrans.z = targTrans.z;
@@ -168,7 +168,7 @@ void resample_traj(
 
                 // if (membraneObject.isSphere == true && complexList[k2].D.z < 1E-15) { // complex on sphere surface
                 if (membraneObject.isSphere == true && complexList[k2].OnSurface){
-                    Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k2]);
+                    Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k2]);
                     complexList[k2].trajTrans.x = targTrans.x;
                     complexList[k2].trajTrans.y = targTrans.y;
                     complexList[k2].trajTrans.z = targTrans.z;

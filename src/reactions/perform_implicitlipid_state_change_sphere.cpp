@@ -70,7 +70,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
       }
     }
     // stateChangeMol is implicit-lipid, then we need to set its temporary position according to facilitatorMol.
-    // Coord displace = stateChangeMol.interfaceList[stateChangeIface].coord - stateChangeMol.comCoord;
+    // Vec3D displace = stateChangeMol.interfaceList[stateChangeIface].coord - stateChangeMol.comCoord;
     // double shift = 0.1; //do not put right underneath, so that sigma starts at non-zero.
     // stateChangeMol.comCoord.x = facilitatorMol.comCoord.x + shift;
     // stateChangeMol.comCoord.y = facilitatorMol.comCoord.y - shift;
@@ -99,13 +99,13 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     }
 
     // create references to reacting interfaces
-    Coord& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
-    Coord& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
+    Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
+    Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
     //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
-    Coord startCOM; //=new double[3];
+    Vec3D startCOM; //=new double[3];
 
     com_of_two_tmp_complexes(facilitatorCom, stateChangeCom, startCOM, moleculeList); //com of c1+c2 (original coordinates).
 
@@ -115,8 +115,8 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
 
     /* MOVE PROTEIN TO SIGMA */
     {
-        Vector sigma { reactIface1 - reactIface2 };
-        Vector transVec1 { 0.0, 0.0, 0.0 };
+        Vec3D sigma { reactIface1 - reactIface2 };
+        Vec3D transVec1 { 0.0, 0.0, 0.0 };
         double displaceFrac {};
         double sigmaMag;
         // if both in 2D, ignore the z-component
@@ -213,13 +213,13 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
         set_memProtein_sphere(stateChangeCom, memProtein, moleculeList, membraneObject);
         find_Lipid_sphere(stateChangeCom, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
-        Coord pivot = Lipid.tmpComCoord;
+        Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/
         rotate(pivot, memRot, facilitatorCom, moleculeList);
         rotate(pivot, memRot, stateChangeCom, moleculeList);
         //make sure reactIface1 is sticking on sphere.
-        double lamda = (membraneObject.sphereR - reactIface1.get_magnitude()) / reactIface1.get_magnitude();
-        Vector dtrans = Vector { lamda * reactIface1 };
+        double lamda = (membraneObject.sphereR - reactIface1.length()) / reactIface1.length();
+        Vec3D dtrans = Vec3D { lamda * reactIface1 };
         // std::cout << " In ImplicitLipid model, protein interface is off spherical membrane, shift up by: " << dtrans.x << " " << dtrans.y << " " << dtrans.z
         //           << std::endl;
         // update the temporary coordinates for both complexes
@@ -244,7 +244,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
 
     if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-15) {
         // update the temporary coordinates for both complexes
-        Vector vtraj { traj[0], traj[1], traj[2] };
+        Vec3D vtraj { traj[0], traj[1], traj[2] };
         for (auto& mp : facilitatorCom.memberList)
             moleculeList[mp].update_association_coords(vtraj);
         for (auto& mp : stateChangeCom.memberList)

@@ -46,26 +46,26 @@ void reflect_traj_complex_rad_rot_sphere(const Parameters& params, std::vector<M
     if (targCom.OnSurface) { // for the complex on the sphere surface
 
     } else { // for the complex inside the sphere
-        Coord curr;
+        Vec3D curr;
         curr.x = targCom.comCoord.x + targCom.trajTrans.x;
         curr.y = targCom.comCoord.y + targCom.trajTrans.y;
         curr.z = targCom.comCoord.z + targCom.trajTrans.z;
         /*assume the origin of the sphere is at zero. */
-        double rtmp = curr.get_magnitude();
+        double rtmp = curr.length();
         if (rtmp + targCom.radius > sphereR) {
             /*Now evaluate all molecules and interfaces distance from boundaries.*/
             bool outside = false;
-            Coord targcrds;
+            Vec3D targcrds;
             double targR = sphereR;
             for (auto& memMol : targCom.memberList) {
                 /*measure each protein COM to origin*/
-                Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+                Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
                 double dxrot { M[0] * comVec.x + M[1] * comVec.y + M[2] * comVec.z };
                 double dyrot { M[3] * comVec.x + M[4] * comVec.y + M[5] * comVec.z };
                 double dzrot { M[6] * comVec.x + M[7] * comVec.y + M[8] * comVec.z };
-                Vector rot { dxrot, dyrot, dzrot };
-                curr = Coord(targCom.comCoord + targCom.trajTrans + rot);
-                rtmp = curr.get_magnitude();
+                Vec3D rot { dxrot, dyrot, dzrot };
+                curr = Vec3D(targCom.comCoord + targCom.trajTrans + rot);
+                rtmp = curr.length();
                 if (rtmp > targR) {
                     outside = true;
                     targR = rtmp;
@@ -73,13 +73,13 @@ void reflect_traj_complex_rad_rot_sphere(const Parameters& params, std::vector<M
                 }
                 /*measure each interface to z plane*/
                 for (auto& iface : moleculeList[memMol].interfaceList) {
-                    Vector ifaceVec { iface.coord - targCom.comCoord };
+                    Vec3D ifaceVec { iface.coord - targCom.comCoord };
                     dxrot = M[0] * ifaceVec.x + M[1] * ifaceVec.y + M[2] * ifaceVec.z;
                     dyrot = M[3] * ifaceVec.x + M[4] * ifaceVec.y + M[5] * ifaceVec.z;
                     dzrot = M[6] * ifaceVec.x + M[7] * ifaceVec.y + M[8] * ifaceVec.z;
-                    rot = Vector(dxrot, dyrot, dzrot);
-                    curr = Coord(targCom.comCoord + targCom.trajTrans + rot);
-                    rtmp = curr.get_magnitude();
+                    rot = Vec3D(dxrot, dyrot, dzrot);
+                    curr = Vec3D(targCom.comCoord + targCom.trajTrans + rot);
+                    rtmp = curr.length();
                     if (rtmp > targR) {
                         outside = true;
                         targR = rtmp;
@@ -90,7 +90,7 @@ void reflect_traj_complex_rad_rot_sphere(const Parameters& params, std::vector<M
             if (outside == true) {
                 recheck = true;
                 double lamda = -2.0 * (targR - sphereR) / targR;
-                targCom.trajTrans = Vector(targCom.trajTrans + lamda * targcrds);
+                targCom.trajTrans = Vec3D(targCom.trajTrans + lamda * targcrds);
             }
         }
     }

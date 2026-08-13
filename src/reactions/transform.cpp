@@ -1,23 +1,24 @@
 #include "reactions/association/association.hpp"
 
-void transform(Coord& reactIface, Molecule& reactMol1, Molecule& reactMol2, const Vector& axis)
+void transform(Vec3D& reactIface, Molecule& reactMol1, Molecule& reactMol2, const Vec3D& axis, double axisLength)
 {
-    Vector alignAxis {};
 //     if (isOnMembrane)
-//         alignAxis = Vector { 0, 1, 0 };
+//         const Vec3D alignAxis { 0, 1, 0 };
 //     else
-    alignAxis = Vector { 0, 0, 1 };//z-axis
+    const Vec3D alignAxis { 0, 0, 1 }; // z-axis, whose length is exactly one
 
-    alignAxis.magnitude = 1.0;
-
-    // return without transformation if axis is already on the z-axis
-    double ang { alignAxis.dot_theta(axis) };
+    // return without transformation if axis is already on the z-axis.
+    //
+    // A caller that passes zero for axisLength gets an angle of 0 back and so
+    // skips the whole transform; that is the "unmeasured axis" case, and
+    // check_bases.cpp relies on it.  See Vec3D::angle_between.
+    double ang { alignAxis.angle_between(axis, 1.0, axisLength) };
     if (ang == M_PI || ang == 0)
         return;
 
-    Vector rotAxis { alignAxis.cross(axis) };
+    Vec3D rotAxis { alignAxis.unit_cross(axis) };
     rotAxis.normalize();
-    double theta { axis.dot_theta(alignAxis) };
+    double theta { axis.angle_between(alignAxis, axisLength, 1.0) };
 
     // I cant remember why the angles are negative
     // TODO: might need to have a signs check

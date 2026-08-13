@@ -28,7 +28,7 @@
 
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
-#include "classes/class_Vector.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "split.cpp"
 
 /*! \defgroup SimulClasses
@@ -130,7 +130,7 @@ struct Molecule {
          * \brief Holds the interface coordinate and the interface's state
          */
 
-        Coord coord { 0, 0, 0 }; //!< Coordinate of the interface (absolute, not relative)
+        Vec3D coord { 0, 0, 0 }; //!< Coordinate of the interface (absolute, not relative)
         char stateIden { '\0' }; //!< current state of the interface.
         int stateIndex { -1 }; //!< index of the current state in MolTemplate::Interface::stateList
         int index { -1 }; //!< this interface's absolute index (i.e. the index of its current state)
@@ -150,11 +150,11 @@ struct Molecule {
         void change_state(int newRelIndex, int newAbsIndex, char newIden);
 
         Iface() = default;
-        explicit Iface(const Coord& coord)
+        explicit Iface(const Vec3D& coord)
             : coord(coord)
         {
         }
-        Iface(const Coord& coord, char state)
+        Iface(const Vec3D& coord, char state)
             : coord(coord)
             , stateIden(state)
         {
@@ -166,7 +166,7 @@ struct Molecule {
             , isBound(isBound)
         {
         }
-        Iface(const Coord& coord, char state, int index, int molTypeIndex, bool isBound)
+        Iface(const Vec3D& coord, char state, int index, int molTypeIndex, bool isBound)
             : coord(coord)
             , stateIden(state)
             , index(index)
@@ -213,7 +213,7 @@ struct Molecule {
     double mass { -1 }; //!< mass of this molecule
     bool isLipid { false }; //!< is the molecule a lipid
     bool isPromoter {false}; //!< is the molecule a promoter for transcription initiation
-    Coord comCoord; //!< center of mass coordinate
+    Vec3D comCoord; //!< center of mass coordinate
     std::vector<Iface> interfaceList; //!< interface coordinates
     bool isEmpty { false }; //!< true if the molecule has been destroyed and is void
     TrajStatus trajStatus { TrajStatus::none }; //!< Status of the molecule in that timestep
@@ -232,8 +232,8 @@ struct Molecule {
 
     // association variables
     // temporary positions
-    Coord tmpComCoord {}; //!< temporary center of mass coordinates for association
-    std::vector<Coord> tmpICoords {}; //!< temporary interface coordinates for association
+    Vec3D tmpComCoord {}; //!< temporary center of mass coordinates for association
+    std::vector<Vec3D> tmpICoords {}; //!< temporary interface coordinates for association
 
     // New Encounter lists
     //    std::vector<Interaction> interactionList; //!< list of interactions the Molecule is participating in
@@ -292,7 +292,7 @@ struct Molecule {
 
     // association member functions
     void display_assoc_icoords(const std::string& name);
-    void update_association_coords(const Vector& vec);
+    void update_association_coords(const Vec3D& vec);
     void set_tmp_association_coords();
     void clear_tmp_association_coords();
     void create_position_implicit_lipid(Molecule& reactMol1, int ifaceIndex2, double bindRadius, const Membrane& membraneObject);
@@ -311,7 +311,7 @@ struct Molecule {
     bool operator!=(const Molecule& rhs) const;
 
     Molecule() {}
-    Molecule(int _mycomplex, Coord _comcoords)
+    Molecule(int _mycomplex, Vec3D _comcoords)
         : myComIndex(_mycomplex)
         , comCoord(_comcoords)
     {
@@ -439,15 +439,15 @@ struct Complex {
      */
 
 public:
-    Coord comCoord; //!< Complex's center of mass coordinate
+    Vec3D comCoord; //!< Complex's center of mass coordinate
     int index { 0 }; //!< index of this Complex in complexList
     double radius {}; //!< radius of the Complex's bounding sphere
     double mass {};
     std::vector<int> memberList {}; //!< list of member Molecule's indices
     std::vector<int> numEachMol {}; //!< list of the number of each Molecules in this complex
     std::vector<long long int> lastNumberUpdateItrEachMol {}; //!< list of the last size update itr of each Molecules in this complex
-    Coord D { 0, 0, 0 }; //!< Complex's translational diffusion constants
-    Coord Dr { 0, 0, 0 }; //!< Complex's rotational diffusion constants
+    Vec3D D { 0, 0, 0 }; //!< Complex's translational diffusion constants
+    Vec3D Dr { 0, 0, 0 }; //!< Complex's rotational diffusion constants
     bool isEmpty { false }; //!< true if the complex has been destroyed and is a void
     bool OnSurface { false }; // to check whether on the implicit-lipid membrane.
     bool onFiber {false}; // to check whether on a fiber
@@ -468,9 +468,9 @@ public:
     int ncross { 0 };
     //    int movestat{ 0 };
     TrajStatus trajStatus { TrajStatus::none };
-    Vector trajTrans;
-    Coord trajRot;
-    Coord tmpComCoord;
+    Vec3D trajTrans;
+    Vec3D trajRot;
+    Vec3D tmpComCoord;
 
     // Following fields are for MPI version only:
     int id;  // unique complex identifier in the system
@@ -499,17 +499,17 @@ public:
     Complex create(const Molecule& mol, const MolTemplate& molTemp);
     void destroy(std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
     void put_back_into_SimulVolume(int& itr, Molecule& errantMol, const Membrane& membraneObject, std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
-    void translate(Vector transVec, std::vector<Molecule>& moleculeList);
+    void translate(Vec3D transVec, std::vector<Molecule>& moleculeList);
     // void propagate(std::vector<Molecule>& moleculeList);
     void propagate(std::vector<Molecule>& moleculeList, const Membrane& membraneObject, const std::vector<MolTemplate>& molTemplateList);
-    void update_association_coords_sphere(std::vector<Molecule>& moleculeList, Coord iface, Coord ifacenew);
+    void update_association_coords_sphere(std::vector<Molecule>& moleculeList, Vec3D iface, Vec3D ifacenew);
 
     Complex() = default;
-    //    Complex(Molecule mol, Coord D, Coord Dr);
+    //    Complex(Molecule mol, Vec3D D, Vec3D Dr);
     Complex(const Molecule& mol, const MolTemplate& oneTemp);
     Complex(int _index, const Molecule& _memMol, const MolTemplate& _molTemp);
-    Complex(Coord comCoord, Coord D, Coord Dr);
-    Complex(Coord comCoord, Coord D, Coord Dr, int idComplex);
+    Complex(Vec3D comCoord, Vec3D D, Vec3D Dr);
+    Complex(Vec3D comCoord, Vec3D D, Vec3D Dr, int idComplex);
 
     /*
     void operator=(const Complex com)

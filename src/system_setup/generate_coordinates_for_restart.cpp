@@ -131,9 +131,8 @@ bool moleculeOverlapsForRestart(const Parameters& params, Molecule& createdMol,
         const Complex& oneCom = complexList[memMol.myComIndex]; // legibility
 
         // check bounding sphere
-        Vector tmpVec { createdMol.comCoord - oneCom.comCoord };
-        tmpVec.calc_magnitude();
-        if (tmpVec.magnitude > (molTemplateList[createdMol.molTypeIndex].radius + oneCom.radius))
+        Vec3D tmpVec { createdMol.comCoord - oneCom.comCoord };
+        if (tmpVec.length() > (molTemplateList[createdMol.molTypeIndex].radius + oneCom.radius))
             return false;
 
         // TODO: this is awful
@@ -148,22 +147,20 @@ bool moleculeOverlapsForRestart(const Parameters& params, Molecule& createdMol,
                             && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[1])) {
 
                             // if they're reactants, check if they're within the binding radius
-                            Vector ifaceVec { createdMol.interfaceList[iface1Itr].coord
+                            Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
                                 - partMol.interfaceList[iface2Itr].coord };
-                            ifaceVec.calc_magnitude();
 
-                            if (ifaceVec.magnitude > oneRxn.bindRadius)
+                            if (ifaceVec.length() > oneRxn.bindRadius)
                                 return true;
                         } else if (isReactant(
                                        createdMol.interfaceList[iface1Itr], createdMol, oneRxn.reactantListNew[1])
                             && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[0])) {
 
                             // if they're reactants, check if they're within the binding radius
-                            Vector ifaceVec { createdMol.interfaceList[iface1Itr].coord
+                            Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
                                 - partMol.interfaceList[iface2Itr].coord };
-                            ifaceVec.calc_magnitude();
 
-                            if (ifaceVec.magnitude > oneRxn.bindRadius)
+                            if (ifaceVec.length() > oneRxn.bindRadius)
                                 return true;
                         } else {
                             continue;

@@ -13,7 +13,7 @@ void create_complex_propagation_vectors(const Parameters& params, Complex& targC
 
     // if (targCom.D.z < 1E-14 && membraneObject.isSphere == true) { // on sphere surface
     if (targCom.OnSurface && membraneObject.isSphere == true) { // on sphere surface
-        Coord targTrans = create_complex_propagation_vectors_on_sphere(params, targCom);
+        Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, targCom);
         // now setup translational motion vector
         targCom.trajTrans.x = targTrans.x;
         targCom.trajTrans.y = targTrans.y;

@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "classes/class_Coord.hpp"
+#include "classes/class_Vec3D.hpp"
 
 /*! \defgroup Templates
  * \brief Classes holding information on each Molecule type.
@@ -126,7 +126,7 @@ struct Interface {
     };
 
     int index { -1 }; //!< relative index of the interface
-    Coord iCoord { 0, 0, 0 }; //!< coordinate of this interface
+    Vec3D iCoord { 0, 0, 0 }; //!< coordinate of this interface
     std::string name; //!< the name of the interface, as provided in the mol file and Parameter file
     std::vector<State> stateList; //!< list of the states an interface can have
     std::vector<int> excludeVolumeBoundList {}; //!< list of mol type index that this molecule interface exclude volume with when it is bound
@@ -136,8 +136,8 @@ struct Interface {
     void set_ifaceAndStateNames(); //!< sets the full name for each state (i.e. ifaceName~state). used only in parameter file parsing.
 
     explicit Interface() = default;
-    Interface(std::string name, const Coord& iCoord);
-    Interface(std::string name, std::vector<State> states, Coord iCoord);
+    Interface(std::string name, const Vec3D& iCoord);
+    Interface(std::string name, std::vector<State> states, Vec3D iCoord);
 
     /*
     Function serialize serializes the Interface into arrayRank of bytes.
@@ -202,7 +202,7 @@ struct MolTemplate {
      * Each molecule type will have a template object, which contains the properties
      * of a molecule shared by all Molecule class objects of that type
      */
-    Coord comCoord { 0, 0, 0 }; //!< Center of mass coordinate
+    Vec3D comCoord { 0, 0, 0 }; //!< Center of mass coordinate
     bool checkOverlap { false }; //!< is overlap checked for during association?
     bool countTransition { false }; //!< is transition counted during whole simulation?
     int transitionMatrixSize {500}; //!< size of the transition matrix
@@ -219,9 +219,9 @@ struct MolTemplate {
     double mass { -1.0 }; //!< the mass of the Molecules of this template
     double radius { 0.0001 }; //!< 'radius' of the protein (i.e. the length of the longest COM-iface vector). in nm. MUST BE NONZERO FOR DIFFUSION COF UPDATES.
 
-    Coord D { 0, 0, 0 }; //!< the molecule's xyz translational diffusion constants
+    Vec3D D { 0, 0, 0 }; //!< the molecule's xyz translational diffusion constants
     /**< Einstein-Stokes Equation: \f$ D = \frac{k_B T}{6 \pi \eta \mu r}\f$ */
-    Coord Dr { 0, 0, 0 }; //!< the molecule's xyz rotational diffusion constants
+    Vec3D Dr { 0, 0, 0 }; //!< the molecule's xyz rotational diffusion constants
     /*! \brief Per axis \f$ 1/\sqrt[3]{D_r} \f$, cached because
      * Complex::update_properties() needs it for every member molecule on every
      * timestep while Dr itself never changes after parsing.  A component is
@@ -231,7 +231,7 @@ struct MolTemplate {
      * MPI wire format; cache_diffusion_derivatives() refreshes it wherever Dr
      * is set instead.
      */
-    Coord invCbrtDr { 0, 0, 0 };
+    Vec3D invCbrtDr { 0, 0, 0 };
     std::string molName; //!< the name of the molecule this is the template for
     std::vector<Interface> interfaceList {}; //!< list of all interfaces on this molecule
     std::vector<int> rxnPartners {}; //!< list of MolTemplate indices that this molecule can react with
@@ -273,7 +273,7 @@ struct MolTemplate {
     void cache_diffusion_derivatives();
 
     MolTemplate() = default;
-    MolTemplate(Coord& comCoord, std::vector<Interface>& Interfaces);
+    MolTemplate(Vec3D& comCoord, std::vector<Interface>& Interfaces);
     MolTemplate(std::string molName, std::vector<Interface>& interfaceList);
 
     /*

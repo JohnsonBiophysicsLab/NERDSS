@@ -75,7 +75,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
         //these need to be what current positions due to translation and rotation are
         for (auto& memMol : targCom.memberList) {
             //measure each protein COM to x sides
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
             double dxrot { row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z };
             currx = targCom.comCoord.x + targCom.trajTrans.x + dxrot;
 
@@ -98,7 +98,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
 
             // measure each interface to x sides
             for (auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
                 dxrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
                 currx = targCom.comCoord.x + targCom.trajTrans.x + dxrot;
 
@@ -166,7 +166,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
         //these need to be what current positions due to translation and rotation are
         for (auto& memMol : targCom.memberList) {
             //measure each protein COM to y sides
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
             double dyrot { row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z };
             curry = targCom.comCoord.y + targCom.trajTrans.y + dyrot;
 
@@ -189,7 +189,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
 
             // measure each interface to y sides
             for (auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
                 dyrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
                 curry = targCom.comCoord.y + targCom.trajTrans.y + dyrot;
 
@@ -257,7 +257,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
         //these need to be what current positions due to translation and rotation are
         for (auto& memMol : targCom.memberList) {
             //measure each protein COM to z sides
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
             double dzrot { row[0] * comVec.x + row[1] * comVec.y + row[2] * comVec.z };
             currz = targCom.comCoord.z + targCom.trajTrans.z + dzrot;
 
@@ -280,7 +280,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
 
             // measure each interface to z sides
             for (auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
                 dzrot = row[0] * ifaceVec.x + row[1] * ifaceVec.y + row[2] * ifaceVec.z;
                 currz = targCom.comCoord.z + targCom.trajTrans.z + dzrot;
 

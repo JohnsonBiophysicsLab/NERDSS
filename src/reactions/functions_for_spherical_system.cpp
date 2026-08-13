@@ -7,20 +7,20 @@
 
 #include "classes/class_Membrane.hpp"
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Vector.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 
 #include <array>
 #include <math.h>
 
-double radius(Coord mol)
+double radius(Vec3D mol)
 {
     return sqrt(mol.x * mol.x + mol.y * mol.y + mol.z * mol.z);
 }
 
-Coord find_spherical_coords(Coord mol) // mol: cardesian coords, output spherical coords
+Vec3D find_spherical_coords(Vec3D mol) // mol: cardesian coords, output spherical coords
 {
-    Coord angles;
+    Vec3D angles;
     double R = radius(mol);
     if (mol.z == R) {
         angles.x = 0.0;
@@ -45,9 +45,9 @@ Coord find_spherical_coords(Coord mol) // mol: cardesian coords, output spherica
     return angles;
 }
 
-Coord find_cardesian_coords(Coord mol) // mol: spherical coords, output cardesian coords
+Vec3D find_cardesian_coords(Vec3D mol) // mol: spherical coords, output cardesian coords
 {
-    Coord xyz;
+    Vec3D xyz;
     double theta = mol.x;
     double phi = mol.y;
     double R = mol.z;
@@ -79,9 +79,9 @@ double phi_plus(double phi1, double phi2) // sum of two phi
     return sum;
 }
 
-Coord angle_plus(Coord angle1, Coord angle2)
+Vec3D angle_plus(Vec3D angle1, Vec3D angle2)
 {
-    Coord sum;
+    Vec3D sum;
     double phi = phi_plus(angle1.y, angle2.y);
     double theta = angle1.x + angle2.x;
     if (theta > M_PI) {
@@ -99,7 +99,7 @@ Coord angle_plus(Coord angle1, Coord angle2)
     return sum;
 }
 
-Coord find_position_after_association(double arc1, Coord Iface1, Coord Iface2, double arc_total, double bindRadius)
+Vec3D find_position_after_association(double arc1, Vec3D Iface1, Vec3D Iface2, double arc_total, double bindRadius)
 {
     double x1 = Iface1.x;
     double y1 = Iface1.y;
@@ -143,7 +143,7 @@ Coord find_position_after_association(double arc1, Coord Iface1, Coord Iface2, d
     double Z2 = -(a2 * X2 - a22) / a3;
     double distance2 = sqrt(pow(X2 - x2, 2.0) + pow(Y2 - y2, 2.0) + pow(Z2 - z2, 2.0));
     // determine which solution is correct
-    Coord new_position1;
+    Vec3D new_position1;
     if (bindRadius < arc_total) {
         if (distance1 < distance2) {
             new_position1.x = X1;
@@ -176,7 +176,7 @@ Coord find_position_after_association(double arc1, Coord Iface1, Coord Iface2, d
   COM and targ has already been moved along the azimuth by dphi.
 */
 // COM COMnew are cardeseian coords
-std::array<double, 9> inner_coord_set(Coord com, Coord comnew)
+std::array<double, 9> inner_coord_set(Vec3D com, Vec3D comnew)
 {
     std::array<double, 9> crdset;
     crdset[0] = 0;
@@ -188,24 +188,24 @@ std::array<double, 9> inner_coord_set(Coord com, Coord comnew)
     crdset[6] = 0;
     crdset[7] = 0;
     crdset[8] = 0;
-    Vector i, j, k, v;
+    Vec3D i, j, k, v;
     if (sqrt(pow(com.x - comnew.x, 2.0) + pow(com.y - comnew.y, 2.0) + pow(com.z - comnew.z, 2.0)) < 1E-8) {
         //std::cout<<"During the tranlsation on sphere, the complex doesn't move, then use the default inner_coord_set"<<std::endl;
-        i = Vector { com.x, com.y, com.z };
+        i = Vec3D { com.x, com.y, com.z };
         i.normalize();
-        v = Vector { 0.0, 0.0, 1.0 };
-        if (std::abs(std::abs(com.z) - com.get_magnitude()) < 1E-8) {
-            v = Vector { -1.0, 0.0, 0.0 };
+        v = Vec3D { 0.0, 0.0, 1.0 };
+        if (std::abs(std::abs(com.z) - com.length()) < 1E-8) {
+            v = Vec3D { -1.0, 0.0, 0.0 };
         }
-        j = v.cross(i);
-        k = i.cross(j);
+        j = v.unit_cross(i);
+        k = i.unit_cross(j);
     } else {
-        i = Vector { com.x, com.y, com.z };
+        i = Vec3D { com.x, com.y, com.z };
         i.normalize();
-        v = Vector { comnew.x, comnew.y, comnew.z };
+        v = Vec3D { comnew.x, comnew.y, comnew.z };
         v.normalize();
-        k = i.cross(v);
-        j = k.cross(i);
+        k = i.unit_cross(v);
+        j = k.unit_cross(i);
     }
     i.normalize();
     j.normalize();
@@ -223,7 +223,7 @@ std::array<double, 9> inner_coord_set(Coord com, Coord comnew)
 
     return crdset;
 }
-std::array<double, 9> inner_coord_set_new(Coord com, Coord comnew)
+std::array<double, 9> inner_coord_set_new(Vec3D com, Vec3D comnew)
 {
     std::array<double, 9> crdsetnew;
     crdsetnew[0] = 0;
@@ -235,32 +235,32 @@ std::array<double, 9> inner_coord_set_new(Coord com, Coord comnew)
     crdsetnew[6] = 0;
     crdsetnew[7] = 0;
     crdsetnew[8] = 0;
-    Vector i, j, k, v;
+    Vec3D i, j, k, v;
     if (sqrt(pow(com.x - comnew.x, 2.0) + pow(com.y - comnew.y, 2.0) + pow(com.z - comnew.z, 2.0)) < 1E-8) {
         //std::cout<<"During the tranlsation on sphere, the complex doesn't move, then use the default inner_coord_set_new"<<std::endl;
-        i = Vector { comnew.x, comnew.y, comnew.z };
+        i = Vec3D { comnew.x, comnew.y, comnew.z };
         i.normalize();
-        v = Vector { 0.0, 0.0, 1.0 };
-        if (std::abs(std::abs(comnew.z) - comnew.get_magnitude()) < 1E-8) {
-            v = Vector { -1.0, 0.0, 0.0 };
+        v = Vec3D { 0.0, 0.0, 1.0 };
+        if (std::abs(std::abs(comnew.z) - comnew.length()) < 1E-8) {
+            v = Vec3D { -1.0, 0.0, 0.0 };
         }
-        j = v.cross(i);
-        k = i.cross(j);
+        j = v.unit_cross(i);
+        k = i.unit_cross(j);
     } else {
-        Coord dist = comnew - com;
-        double l = dist.get_magnitude();
-        double R = com.get_magnitude();
+        Vec3D dist = comnew - com;
+        double l = dist.length();
+        double R = com.length();
         double lnew = l + l * R * R / (R * R - l * l);
-        Coord dREFnew = (lnew / l) * dist;
-        Coord REFnew = com + dREFnew;
-        REFnew = (R / REFnew.get_magnitude()) * REFnew;
+        Vec3D dREFnew = (lnew / l) * dist;
+        Vec3D REFnew = com + dREFnew;
+        REFnew = (R / REFnew.length()) * REFnew;
         com = comnew;
         comnew = REFnew;
 
-        i = Vector { com.x, com.y, com.z };
-        v = Vector { comnew.x, comnew.y, comnew.z };
-        k = i.cross(v);
-        j = k.cross(i);
+        i = Vec3D { com.x, com.y, com.z };
+        v = Vec3D { comnew.x, comnew.y, comnew.z };
+        k = i.unit_cross(v);
+        j = k.unit_cross(i);
     }
     i.normalize();
     j.normalize();
@@ -279,40 +279,39 @@ std::array<double, 9> inner_coord_set_new(Coord com, Coord comnew)
     return crdsetnew;
 }
 // crdset is the previous one, not the new or updated one
-std::array<double, 3> calculate_inner_coord_coefficients(Coord TARG, Coord COM, std::array<double, 9> crdset)
+std::array<double, 3> calculate_inner_coord_coefficients(Vec3D TARG, Vec3D COM, std::array<double, 9> crdset)
 {
     std::array<double, 3> M {};
     M[0] = 0.0;
     M[1] = 0.0;
     M[2] = 0.0;
 
-    Vector targ = Vector(TARG - COM);
-    targ.calc_magnitude();
-    if (targ.magnitude < 1E-8) { // targ is as com
+    Vec3D targ = Vec3D(TARG - COM);
+    if (targ.length() < 1E-8) { // targ is as com
         return M;
     }
 
     // get the inner_coords_set
-    Vector i = Vector { crdset[0], crdset[1], crdset[2] };
-    Vector j = Vector { crdset[3], crdset[4], crdset[5] };
-    Vector k = Vector { crdset[6], crdset[7], crdset[8] };
+    Vec3D i = Vec3D { crdset[0], crdset[1], crdset[2] };
+    Vec3D j = Vec3D { crdset[3], crdset[4], crdset[5] };
+    Vec3D k = Vec3D { crdset[6], crdset[7], crdset[8] };
 
     // targ = alpha*i + beta*j + gama*k;
     double alpha, beta, gama;
     // check whether targ vector is perpenticular to any of the coords set_memProtein_sphere
-    Vector Targ = targ;
+    Vec3D Targ = targ;
     Targ.normalize();
     if (std::abs(Targ.dot(i)) < 1E-8) { // targ is perpenticular to i
         alpha = 0.0;
         if (std::abs(Targ.dot(j)) < 1E-8) { // targ is also perpenticular to j
             beta = 0.0;
-            gama = targ.magnitude;
+            gama = targ.length();
             if (Targ.dot(k) < 0.0) {
                 gama = -gama;
             }
         } else if (std::abs(Targ.dot(k)) < 1E-8) { // targ is also perpenticular to k
             gama = 0.0;
-            beta = targ.magnitude;
+            beta = targ.length();
             if (Targ.dot(j) < 0.0) {
                 beta = -beta;
             }
@@ -324,13 +323,13 @@ std::array<double, 3> calculate_inner_coord_coefficients(Coord TARG, Coord COM, 
         beta = 0.0;
         if (std::abs(Targ.dot(i)) < 1E-8) { // verticle to i
             alpha = 0.0;
-            gama = targ.magnitude;
+            gama = targ.length();
             if (Targ.dot(k) < 0.0) {
                 gama = -gama;
             }
         } else if (std::abs(Targ.dot(k)) < 1E-8) { // verticle to k
             gama = 0.0;
-            alpha = targ.magnitude;
+            alpha = targ.length();
             if (Targ.dot(i) < 0.0) {
                 alpha = -alpha;
             }
@@ -342,13 +341,13 @@ std::array<double, 3> calculate_inner_coord_coefficients(Coord TARG, Coord COM, 
         gama = 0.0;
         if (std::abs(Targ.dot(i)) < 1E-8) { // verticle to i
             alpha = 0.0;
-            beta = targ.magnitude;
+            beta = targ.length();
             if (Targ.dot(j) < 0.0) {
                 beta = -beta;
             }
         } else if (std::abs(Targ.dot(j)) < 1E-8) { // verticle to j
             beta = 0.0;
-            alpha = targ.magnitude;
+            alpha = targ.length();
             if (Targ.dot(i) < 0.0) {
                 alpha = -alpha;
             }
@@ -374,10 +373,10 @@ std::array<double, 3> calculate_inner_coord_coefficients(Coord TARG, Coord COM, 
 }
 
 // input and output are cardesian coords
-Coord translate_on_sphere(Coord targ, Coord COM, Coord COMnew, std::array<double, 9> crdset, std::array<double, 9> crdsetnew)
+Vec3D translate_on_sphere(Vec3D targ, Vec3D COM, Vec3D COMnew, std::array<double, 9> crdset, std::array<double, 9> crdsetnew)
 {
-    Coord dcom = COMnew - COM;
-    if (dcom.get_magnitude() < 1E-8) { // no translation on sphere
+    Vec3D dcom = COMnew - COM;
+    if (dcom.length() < 1E-8) { // no translation on sphere
         return targ;
     }
     // calculate the inner-coords-set efficient
@@ -385,54 +384,58 @@ Coord translate_on_sphere(Coord targ, Coord COM, Coord COMnew, std::array<double
     double alpha = M[0];
     double beta = M[1];
     double gama = M[2];
-    Vector i = Vector { crdsetnew[0], crdsetnew[1], crdsetnew[2] };
-    Vector j = Vector { crdsetnew[3], crdsetnew[4], crdsetnew[5] };
-    Vector k = Vector { crdsetnew[6], crdsetnew[7], crdsetnew[8] };
-    Coord targnew = Coord { alpha * i + beta * j + gama * k };
+    Vec3D i = Vec3D { crdsetnew[0], crdsetnew[1], crdsetnew[2] };
+    Vec3D j = Vec3D { crdsetnew[3], crdsetnew[4], crdsetnew[5] };
+    Vec3D k = Vec3D { crdsetnew[6], crdsetnew[7], crdsetnew[8] };
+    Vec3D targnew = Vec3D { alpha * i + beta * j + gama * k };
     targnew = targnew + COMnew;
     return targnew;
 }
 
 // input and output are cardesian coords
-Coord rotate_on_sphere(Coord Targ, Coord COM, std::array<double, 9> crdset, double dangle)
+Vec3D rotate_on_sphere(Vec3D Targ, Vec3D COM, std::array<double, 9> crdset, double dangle)
 {
-    Coord targnew;
+    Vec3D targnew;
 
     // targ will rotate along O-COM line, i.e. i axis. so its projection along i is not change
-    Vector i = Vector { crdset[0], crdset[1], crdset[2] };
-    Vector j = Vector { crdset[3], crdset[4], crdset[5] };
-    Vector k = Vector { crdset[6], crdset[7], crdset[8] };
-    Vector targ = Vector { Targ - COM };
+    Vec3D i = Vec3D { crdset[0], crdset[1], crdset[2] };
+    Vec3D j = Vec3D { crdset[3], crdset[4], crdset[5] };
+    Vec3D k = Vec3D { crdset[6], crdset[7], crdset[8] };
+    Vec3D targ = Vec3D { Targ - COM };
 
-    Vector targi = i * targ.dot(i);
-    Vector targjk = targ - targi;
-    targi.calc_magnitude();
-    targjk.calc_magnitude();
+    Vec3D targi = i * targ.dot(i);
+    Vec3D targjk = targ - targi;
+    const double targjkLength { targjk.length() };
     // if targ is on the line of O-COM, then no need to rotate
-    if (targjk.magnitude < 1E-8 || std::abs(targi.magnitude - 1.0) < 1E-8) {
+    if (targjkLength < 1E-8 || std::abs(targi.length() - 1.0) < 1E-8) {
         targnew = Targ;
     } else {
-        double phi = acos(targjk.dot(j) / targjk.magnitude);
+        double phi = acos(targjk.dot(j) / targjkLength);
         if (targjk.dot(k) < 0.0) {
             phi = 2.0 * M_PI - phi;
         }
         phi = phi + dangle;
-        targjk = j * (targjk.magnitude * cos(phi)) + k * (targjk.magnitude * sin(phi));
+        targjk = j * (targjkLength * cos(phi)) + k * (targjkLength * sin(phi));
         targ = targi + targjk;
-        targnew = Coord { targ.x + COM.x, targ.y + COM.y, targ.z + COM.z };
+        targnew = Vec3D { targ.x + COM.x, targ.y + COM.y, targ.z + COM.z };
     }
     if (std::isnan(targnew.x)) {
-        if (targjk.magnitude < 1E-8 || std::abs(targi.magnitude - 1.0) < 1E-8) {
-            targnew = Coord { Targ.x, Targ.y, Targ.z };
-        } else {
-            std::cout << "WRONG! NON is generated after the rotation on sphere! EXIT..." << std::endl;
-            exit(1);
-        }
+        /* Only the rotating branch above can produce a NaN here: a NaN anywhere
+         * in Targ, COM, crdset or dangle makes both tests on the way in false -
+         * every comparison against a NaN is - so the non-rotating branch is
+         * unreachable with a NaN result.
+         *
+         * The original re-tested `targjk`'s cached magnitude at this point, and
+         * the reassignment inside that branch had reset the cache to zero, so
+         * this guard always fell through to returning Targ unchanged.  The
+         * `exit(1)` arm it also had was dead code.
+         */
+        targnew = Vec3D { Targ.x, Targ.y, Targ.z };
     }
     return targnew;
 }
 
-double calc_bindRadius2D(double bindRadius, Coord iFace)
+double calc_bindRadius2D(double bindRadius, Vec3D iFace)
 {
     double R;
     R = radius(iFace);
@@ -446,74 +449,74 @@ void set_memProtein_sphere(Complex reactCom, Molecule& memProtein, std::vector<M
     //if (membraneObject.implicitLipid == false){ //for explicit lipid model; lipid is a member of reactCom
     double r = 0.0;
     for (auto mol : reactCom.memberList) {
-        if ((moleculeList[mol].isLipid == true || moleculeList[mol].isImplicitLipid == true) && moleculeList[mol].tmpComCoord.get_magnitude() > r) {
+        if ((moleculeList[mol].isLipid == true || moleculeList[mol].isImplicitLipid == true) && moleculeList[mol].tmpComCoord.length() > r) {
             memProtein = moleculeList[mol];
-            r = moleculeList[mol].tmpComCoord.get_magnitude();
+            r = moleculeList[mol].tmpComCoord.length();
         }
     }
     memProtein.comCoord = memProtein.tmpComCoord;
     for (int i = 0; i < memProtein.interfaceList.size(); i++) { // here memProtein is an Lipid, has only one interface
-        Coord ifaceToCom = memProtein.tmpICoords[i] - memProtein.tmpComCoord;
-        double bond = ifaceToCom.get_magnitude();
-        double R = memProtein.comCoord.get_magnitude();
+        Vec3D ifaceToCom = memProtein.tmpICoords[i] - memProtein.tmpComCoord;
+        double bond = ifaceToCom.length();
+        double R = memProtein.comCoord.length();
         memProtein.interfaceList[i].coord = (R - bond) / R * memProtein.comCoord;
     }
 
     // for implicit lipid model, on 2D->2D case, reactCom has no implicitlipid member.
     if (memProtein.isLipid == false && memProtein.isImplicitLipid == false && membraneObject.implicitLipid == true) {
-        Coord iface;
-        Coord com;
+        Vec3D iface;
+        Vec3D com;
         r = 0.0;
         for (auto mol : reactCom.memberList) {
             for (int i = 0; i < moleculeList[mol].interfaceList.size(); i++) {
                 if (moleculeList[mol].interfaceList[i].isBound == true) {
                     int index = moleculeList[mol].interfaceList[i].interaction.partnerIndex;
-                    if (moleculeList[index].isImplicitLipid == true && moleculeList[mol].tmpICoords[i].get_magnitude() > r) {
+                    if (moleculeList[index].isImplicitLipid == true && moleculeList[mol].tmpICoords[i].length() > r) {
                         memProtein = moleculeList[index];
                         com = moleculeList[mol].tmpComCoord;
                         iface = moleculeList[mol].tmpICoords[i];
-                        r = moleculeList[mol].tmpICoords[i].get_magnitude();
+                        r = moleculeList[mol].tmpICoords[i].length();
                     }
                 }
             }
         }
         memProtein.comCoord = iface; // here targ is an ImplicitLipid, has only one interface
-        Coord ifaceToCom = iface - com;
-        double bond = ifaceToCom.get_magnitude();
-        double R = memProtein.comCoord.get_magnitude();
+        Vec3D ifaceToCom = iface - com;
+        double bond = ifaceToCom.length();
+        double R = memProtein.comCoord.length();
         memProtein.interfaceList[0].coord = (R - bond) / R * memProtein.comCoord;
     }
     if (memProtein.isLipid == false && memProtein.isImplicitLipid == false) {
         std::cout << "WRONG: failed to create memProtein, in the step to adjust complex's orientation on sphere. Exit..." << std::endl;
         exit(1);
     }
-    //memProtein.comCoord =  (memProtein.comCoord.get_magnitude() + 0.1) / memProtein.comCoord.get_magnitude()  * memProtein.comCoord;
-    //memProtein.interfaceList[0].coord = (memProtein.interfaceList[0].coord.get_magnitude() + 0.1)/memProtein.interfaceList[0].coord.get_magnitude() *  memProtein.interfaceList[0].coord;
+    //memProtein.comCoord =  (memProtein.comCoord.length() + 0.1) / memProtein.comCoord.length()  * memProtein.comCoord;
+    //memProtein.interfaceList[0].coord = (memProtein.interfaceList[0].coord.length() + 0.1)/memProtein.interfaceList[0].coord.length() *  memProtein.interfaceList[0].coord;
 }
 void find_Lipid_sphere(Complex reactCom, Molecule& Lipid, std::vector<Molecule> moleculeList, const Membrane membraneObject)
 {
     //if (membraneObject.implicitLipid == false){ //for explicit lipid model; lipid is a member of reactCom
     double r = 0.0;
     for (auto mol : reactCom.memberList) {
-        if ((moleculeList[mol].isLipid == true || moleculeList[mol].isImplicitLipid == true) && moleculeList[mol].tmpComCoord.get_magnitude() > r) {
+        if ((moleculeList[mol].isLipid == true || moleculeList[mol].isImplicitLipid == true) && moleculeList[mol].tmpComCoord.length() > r) {
             Lipid = moleculeList[mol];
-            r = moleculeList[mol].tmpComCoord.get_magnitude();
+            r = moleculeList[mol].tmpComCoord.length();
         }
     }
     // for implicit lipid model, on 2D->2D case, reactCom has no implicitlipid member.
     if (Lipid.isLipid == false && Lipid.isImplicitLipid == false && membraneObject.implicitLipid == true) {
         r = 0.0;
-        Coord iface;
-        Coord com;
+        Vec3D iface;
+        Vec3D com;
         for (auto mol : reactCom.memberList) {
             for (int i = 0; i < moleculeList[mol].interfaceList.size(); i++) {
                 if (moleculeList[mol].interfaceList[i].isBound == true) {
                     int index = moleculeList[mol].interfaceList[i].interaction.partnerIndex;
-                    if (moleculeList[index].isImplicitLipid == true && moleculeList[mol].tmpICoords[i].get_magnitude() > r) {
+                    if (moleculeList[index].isImplicitLipid == true && moleculeList[mol].tmpICoords[i].length() > r) {
                         Lipid = moleculeList[index];
                         com = moleculeList[mol].tmpComCoord;
                         iface = moleculeList[mol].tmpICoords[i];
-                        r = moleculeList[mol].tmpICoords[i].get_magnitude();
+                        r = moleculeList[mol].tmpICoords[i].length();
                     }
                 }
             }
@@ -530,8 +533,8 @@ void find_Lipid_sphere(Complex reactCom, Molecule& Lipid, std::vector<Molecule> 
         exit(1);
     }
 
-    //Lipid.comCoord = ( Lipid.comCoord.get_magnitude()+ 0.1)/Lipid.comCoord.get_magnitude() * Lipid.comCoord;
-    //Lipid.tmpComCoord = ( Lipid.tmpComCoord.get_magnitude()+ 0.1)/Lipid.tmpComCoord.get_magnitude() * Lipid.tmpComCoord;
-    //Lipid.interfaceList[0].coord = ( Lipid.interfaceList[0].coord.get_magnitude()+ 0.1)/Lipid.interfaceList[0].coord.get_magnitude() * Lipid.interfaceList[0].coord;
-    //Lipid.tmpICoords[0] = ( Lipid.tmpICoords[0].get_magnitude()+ 0.1)/Lipid.tmpICoords[0].get_magnitude() * Lipid.tmpICoords[0];
+    //Lipid.comCoord = ( Lipid.comCoord.length()+ 0.1)/Lipid.comCoord.length() * Lipid.comCoord;
+    //Lipid.tmpComCoord = ( Lipid.tmpComCoord.length()+ 0.1)/Lipid.tmpComCoord.length() * Lipid.tmpComCoord;
+    //Lipid.interfaceList[0].coord = ( Lipid.interfaceList[0].coord.length()+ 0.1)/Lipid.interfaceList[0].coord.length() * Lipid.interfaceList[0].coord;
+    //Lipid.tmpICoords[0] = ( Lipid.tmpICoords[0].length()+ 0.1)/Lipid.tmpICoords[0].length() * Lipid.tmpICoords[0];
 }

@@ -52,8 +52,8 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
         // due to translation and rotation are
         for (auto& memMol : targCom.memberList) {
             // measure protein COM to plane
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-            Vector rotComVec { matrix_rotate(comVec, M) };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D rotComVec { matrix_rotate(comVec, M) };
 
             double currX { targCom.comCoord.x + targCom.trajTrans.x + rotComVec.x };
             double currY { targCom.comCoord.y + targCom.trajTrans.y + rotComVec.y };
@@ -76,8 +76,8 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
 
             // measure each interface
             for (auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
-                Vector rotIfaceVec { matrix_rotate(ifaceVec, M) };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
 
                 currX = targCom.comCoord.x + targCom.trajTrans.x + rotIfaceVec.x;
                 currY = targCom.comCoord.y + targCom.trajTrans.y + rotIfaceVec.y;
@@ -251,8 +251,8 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
     if (needsRecheck) {
         // std::cout << "WARNING: DID NOT CONVERGE POSITION, NEW POS: " << '\n';
         for (auto memMol : targCom.memberList) {
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-            Vector rotComVec { matrix_rotate(comVec, M) };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D rotComVec { matrix_rotate(comVec, M) };
 
             // first would make xcom=targCom.comCoord.x+vr, then would also add dx
             // std::cout << "i: " << checkItr << " P: " << memMol
@@ -262,8 +262,8 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
 
             // update interface coords
             for (const auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
-                Vector rotIfaceVec { matrix_rotate(ifaceVec, M) };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
 
                 /*first would make xcom=targCom.comCoord.x+vr, then would also add dx */
                 // std::cout << targCom.comCoord.x + targCom.trajTrans.x + rotIfaceVec.x << ' '

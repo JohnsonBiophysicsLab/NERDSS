@@ -122,7 +122,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
 
                         // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
                         if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                            Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
+                            Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
                             complexList[k].trajTrans.x = targTrans.x;
                             complexList[k].trajTrans.y = targTrans.y;
                             complexList[k].trajTrans.z = targTrans.z;
@@ -208,13 +208,13 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
             double dx1, dy1, dz1;
             // if (complexList[k1].D.z < 1E-15) { // complex on sphere surface
             if (complexList[k1].OnSurface) { // complex on sphere surface
-                Coord ifacecrds = moleculeList[p1].interfaceList[i1].coord;
-                Coord iface_final = calculate_update_position_interface(complexList[k1], ifacecrds);
+                Vec3D ifacecrds = moleculeList[p1].interfaceList[i1].coord;
+                Vec3D iface_final = calculate_update_position_interface(complexList[k1], ifacecrds);
                 dx1 = iface_final.x;
                 dy1 = iface_final.y;
                 dz1 = iface_final.z;
             } else {
-                Vector iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
+                Vec3D iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
                 std::array<double, 9> M = create_euler_rotation_matrix(complexList[k1].trajRot);
                 iface1Vec = matrix_rotate(iface1Vec, M);
 
@@ -225,13 +225,13 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
             double dx2, dy2, dz2;
             // if (complexList[k2].D.z < 1E-15) { // complex on sphere surface
             if (complexList[k2].OnSurface) { // complex on sphere surface
-                Coord ifacecrds = moleculeList[p2].interfaceList[i2].coord;
-                Coord iface_final = calculate_update_position_interface(complexList[k2], ifacecrds);
+                Vec3D ifacecrds = moleculeList[p2].interfaceList[i2].coord;
+                Vec3D iface_final = calculate_update_position_interface(complexList[k2], ifacecrds);
                 dx2 = iface_final.x;
                 dy2 = iface_final.y;
                 dz2 = iface_final.z;
             } else {
-                Vector iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
+                Vec3D iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
                 std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[k2].trajRot);
                 iface2Vec = matrix_rotate(iface2Vec, M2);
                 dx2 = complexList[k2].comCoord.x + iface2Vec.x + complexList[k2].trajTrans.x;
@@ -345,7 +345,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
 
                             // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
                             if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                                Coord targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
+                                Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
                                 complexList[k].trajTrans.x = targTrans.x;
                                 complexList[k].trajTrans.y = targTrans.y;
                                 complexList[k].trajTrans.z = targTrans.z;

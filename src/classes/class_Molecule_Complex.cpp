@@ -12,7 +12,7 @@
 
 #include "classes/class_Molecule_Complex.hpp"
 #include "classes/class_Rxns.hpp"
-#include "classes/class_Vector.hpp"
+#include "classes/class_Vec3D.hpp"
 #include "classes/class_bngl_parser.hpp"
 #include "io/io.hpp"
 #include "math/matrix.hpp"
@@ -79,10 +79,10 @@ Complex::Complex(int _index, const Molecule &_memMol,
   receivedFromNeighborRank = true;
 }
 
-Complex::Complex(Coord comcoords, Coord D, Coord Dr)
+Complex::Complex(Vec3D comcoords, Vec3D D, Vec3D Dr)
     : comCoord(comcoords), D(D), Dr(Dr) {}
 
-Complex::Complex(Coord comcoords, Coord D, Coord Dr, int idComplex)
+Complex::Complex(Vec3D comcoords, Vec3D D, Vec3D Dr, int idComplex)
     : comCoord(comcoords), D(D), Dr(Dr), id(idComplex) {
   receivedFromNeighborRank = true;
 }
@@ -93,13 +93,13 @@ std::ostream &operator<<(std::ostream &os, const std::array<double, 3> &arr) {
   return os;
 }
 
-void operator+(Coord &c, const double scal) {
+void operator+(Vec3D &c, const double scal) {
   c.x += scal;
   c.y += scal;
   c.z += scal;
 }
 
-void operator*(Coord &c, const double scal) {
+void operator*(Vec3D &c, const double scal) {
   c.x *= scal;
   c.y *= scal;
   c.z *= scal;
@@ -226,7 +226,7 @@ void Molecule::set_tmp_association_coords() {
 }
 
 void Molecule::clear_tmp_association_coords() {
-  tmpComCoord.zero_crds();
+  tmpComCoord.zero();
   tmpICoords.erase(tmpICoords.begin(), tmpICoords.end());
 }
 
@@ -251,7 +251,7 @@ void Molecule::destroy() {
   trajStatus = TrajStatus::none;
 
   // clear coordinates
-  comCoord.zero_crds();
+  comCoord.zero();
   interfaceList.clear();
 
   // clear association lists
@@ -308,7 +308,7 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule> &moleculeList, std
   trajStatus = TrajStatus::none;
 
   // clear coordinates
-  comCoord.zero_crds();
+  comCoord.zero();
   interfaceList.clear();
 
   // clear association lists
@@ -365,8 +365,8 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
       {
 
         interfaceList[ifaceItr].coord =
-            Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
-        Coord iCoord = molTemplate.interfaceList[ifaceItr].iCoord;
+            Vec3D{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
+        Vec3D iCoord = molTemplate.interfaceList[ifaceItr].iCoord;
         double iLen = sqrt(iCoord.x * iCoord.x + iCoord.y * iCoord.y +
                            iCoord.z * iCoord.z);
 
@@ -375,7 +375,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         interfaceList[ifaceItr].coord.z = (R - iLen) * (comCoord.z) / R;
         /*
       //random position for check
-      Coord a = find_spherical_coords(comCoord);
+      Vec3D a = find_spherical_coords(comCoord);
       double dangle = M_PI/20.0;
       interfaceList[ifaceItr].coord.x = a.z * sin(a.x) * cos(a.y + dangle);
       interfaceList[ifaceItr].coord.y = a.z * sin(a.x) * sin(a.y + dangle);
@@ -406,11 +406,11 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
            ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
       {
         interfaceList[ifaceItr].coord = rot.rotate_about(
-            Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
+            Vec3D{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
             comCoord);
 
         // TODO: Commented out for testing
-        Coord iCoord = interfaceList[ifaceItr].coord;
+        Vec3D iCoord = interfaceList[ifaceItr].coord;
         double iMag = sqrt(iCoord.x * iCoord.x + iCoord.y * iCoord.y +
                            iCoord.z * iCoord.z);
         if (iMag > R)
@@ -438,7 +438,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
       comCoord.z = 0.0;
       for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
       {
-        interfaceList[ifaceItr].coord = Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
+        interfaceList[ifaceItr].coord = Vec3D{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
         /* TODO: commented out for testing only */
         if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
         {
@@ -469,7 +469,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         comCoord.z = -membraneObject.waterBox.z / 2.0;
         for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
         {
-          interfaceList[ifaceItr].coord = Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
+          interfaceList[ifaceItr].coord = Vec3D{comCoord + molTemplate.interfaceList[ifaceItr].iCoord};
 
           /* TODO: commented out for testing only */
           if (interfaceList[ifaceItr].coord.isOutOfBox(membraneObject))
@@ -506,26 +506,26 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
           // make sure the molecule is initialized outside of the compartment.
           if (molTemplate.outsideCompartment == true)
           {
-            double R = comCoord.get_magnitude(); // length of this vector.
+            double R = comCoord.length(); // length of this vector.
             while (R < membraneObject.compartmentR)
             {
               // resample position.
               comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
               comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
               comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
-              R = comCoord.get_magnitude(); // length of this vector.
+              R = comCoord.length(); // length of this vector.
             }
           }
           else if (molTemplate.insideCompartment == true)
           {
-            double R = comCoord.get_magnitude(); // length of this vector.
+            double R = comCoord.length(); // length of this vector.
             while (R > membraneObject.compartmentR)
             {
               // resample position.
               comCoord.x = (membraneObject.waterBox.x * rand_gsl()) - (membraneObject.waterBox.x / 2.0);
               comCoord.y = (membraneObject.waterBox.y * rand_gsl()) - (membraneObject.waterBox.y / 2.0);
               comCoord.z = (membraneObject.waterBox.z * rand_gsl()) - (membraneObject.waterBox.z / 2.0);
-              R = comCoord.get_magnitude(); // length of this vector.
+              R = comCoord.length(); // length of this vector.
             }
           }
         }
@@ -537,7 +537,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
         for (unsigned int ifaceItr{0}; ifaceItr < molTemplate.interfaceList.size(); ++ifaceItr)
         {
           interfaceList[ifaceItr].coord = rot.rotate_about(
-              Coord{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
+              Vec3D{comCoord + molTemplate.interfaceList[ifaceItr].iCoord},
               comCoord);
 
           // TODO: Commented out for testing
@@ -578,7 +578,7 @@ void Molecule::Interaction::clear() {
   conjBackRxn = -1;
 }
 
-void Molecule::update_association_coords(const Vector &vec) {
+void Molecule::update_association_coords(const Vec3D &vec) {
   if (tmpICoords.empty()) {
     tmpComCoord = (vec + comCoord);
     for (auto &iCoord : interfaceList)
@@ -633,9 +633,9 @@ void Molecule::print(MpiContext &mpiContext) const {
 //{
 //    // check bounding sphere first
 //    {
-//        Vector sphereRad {comCoord - otherMol.comCoord};
+//        Vec3D sphereRad {comCoord - otherMol.comCoord};
 //        sphereRad.calc_magnitude();
-//        if (sphereRad.magnitude > molTemplateList[molTypeIndex].radius +
+//        if (sphereRad.length() > molTemplateList[molTypeIndex].radius +
 //        molTemplateList[otherMol.molTypeIndex].radius)
 //            return false;
 //    }
@@ -650,7 +650,7 @@ void Complex::update_properties(
   // update links to Surface
   linksToSurface = 0;
   double totMass{0};
-  comCoord.zero_crds();
+  comCoord.zero();
   onFiber = false;
   OnSurface = false;
   for (auto &memMol : memberList) {
@@ -674,11 +674,10 @@ void Complex::update_properties(
    */
   radius = 0;
   for (auto &memMol : memberList) {
-    Vector distVec{moleculeList[memMol].comCoord - this->comCoord};
-    distVec.calc_magnitude();
-    if ((distVec.magnitude +
+    Vec3D distVec{moleculeList[memMol].comCoord - this->comCoord};
+    if ((distVec.length() +
          molTemplateList[moleculeList[memMol].molTypeIndex].radius) > radius)
-      radius = distVec.magnitude +
+      radius = distVec.length() +
                molTemplateList[moleculeList[memMol].molTypeIndex].radius;
   }
 
@@ -692,8 +691,8 @@ void Complex::update_properties(
   double currRad = radius;
   // std::cout <<" curr radius of complex: "<<index<<" radius:
   // "<<radius<<std::endl;
-  //     Coord sumD {};
-  // Coord sumDr {};
+  //     Vec3D sumD {};
+  // Vec3D sumDr {};
   /*    double normDr=0;
   double normD=0;
   for (int memMol : memberList) {
@@ -730,8 +729,8 @@ void Complex::update_properties(
   */
   // update rotational diffusion constants
   double inf = 1E300;
-  Coord sumD{};
-  Coord sumDr{};
+  Vec3D sumD{};
+  Vec3D sumDr{};
   for (int memMol : memberList) {
     const MolTemplate &oneTemp{
         molTemplateList[moleculeList[memMol].molTypeIndex]};
@@ -874,9 +873,9 @@ void Complex::destroy(std::vector<Molecule> &moleculeList,
   Complex::emptyComList.push_back(index);
 
   // zero all the coordinates and diffusion coefficients
-  comCoord.zero_crds();
-  D.zero_crds();
-  Dr.zero_crds();
+  comCoord.zero();
+  D.zero();
+  Dr.zero();
 
   for (auto &memMol : memberList)
     moleculeList[memMol].destroy();
@@ -901,7 +900,7 @@ void Complex::put_back_into_SimulVolume(
             << " back into simulation volume...\n";
   display();
 
-  Vector transVec{0, 0, 0};
+  Vec3D transVec{0, 0, 0};
 
   // check x dimension
   double xDiff = errantMol.comCoord.x - (membraneObject.waterBox.x / 2);
@@ -963,9 +962,9 @@ void Complex::put_back_into_SimulVolume(
 //     // update the member proteins
 //     for (auto mol : memberList) {
 //         //        if (moleculeList[mol].comCoord != this->comCoord) {
-//         Vector comVec { moleculeList[mol].comCoord - this->comCoord };
+//         Vec3D comVec { moleculeList[mol].comCoord - this->comCoord };
 //         rotQuat.rotate(comVec);
-//         moleculeList[mol].comCoord = Coord { comVec.x, comVec.y, comVec.z } +
+//         moleculeList[mol].comCoord = Vec3D { comVec.x, comVec.y, comVec.z } +
 //         this->comCoord + trajTrans;
 //         //        } else {
 //         //            moleculeList[mol].comCoord += trajTrans;
@@ -974,10 +973,10 @@ void Complex::put_back_into_SimulVolume(
 //         // now rotate each member molecule of the complex
 //         for (auto& iface : moleculeList[mol].interfaceList) {
 //             // get the vector from the interface to the target interface
-//             Vector ifaceVec { iface.coord - comCoord };
+//             Vec3D ifaceVec { iface.coord - comCoord };
 //             // rotate
 //             rotQuat.rotate(ifaceVec);
-//             iface.coord = Coord { ifaceVec.x, ifaceVec.y, ifaceVec.z } +
+//             iface.coord = Vec3D { ifaceVec.x, ifaceVec.y, ifaceVec.z } +
 //             comCoord + trajTrans;
 //         }
 //         moleculeList[mol].trajStatus = TrajStatus::propagated;
@@ -987,8 +986,8 @@ void Complex::put_back_into_SimulVolume(
 //     comCoord += trajTrans;
 
 //     // zero the propagation values
-//     trajTrans.zero_crds();
-//     trajRot.zero_crds();
+//     trajTrans.zero();
+//     trajRot.zero();
 // }
 
 void Complex::propagate(std::vector<Molecule> &moleculeList,
@@ -1009,8 +1008,8 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
   // for the complex on the sphere surface, propagation is special
   // if (membraneObject.isSphere && this->D.z < 1E-14) {
   if (membraneObject.isSphere && this->OnSurface) {
-    Coord COM = comCoord;
-    Coord COMnew = comCoord + trajTrans;
+    Vec3D COM = comCoord;
+    Vec3D COMnew = comCoord + trajTrans;
     std::array<double, 9> Crdset = inner_coord_set(COM, COMnew);
     std::array<double, 9> Crdsetnew = inner_coord_set_new(COM, COMnew);
     // propagate the com of the complex
@@ -1020,7 +1019,7 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
                                  // that the complex rotate on the sphere
     // update the member proteins
     for (auto mol : memberList) {
-      Coord targmol = moleculeList[mol].comCoord;
+      Vec3D targmol = moleculeList[mol].comCoord;
       targmol = translate_on_sphere(targmol, COM, COMnew, Crdset, Crdsetnew);
       moleculeList[mol].comCoord =
           rotate_on_sphere(targmol, COMnew, Crdsetnew, Rotangle);
@@ -1028,7 +1027,7 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
       moleculeList[mol].need_to_send = true;
       // now update each interface of the molecule
       for (auto &iface : moleculeList[mol].interfaceList) {
-        Coord targiface = iface.coord;
+        Vec3D targiface = iface.coord;
         targiface =
             translate_on_sphere(targiface, COM, COMnew, Crdset, Crdsetnew);
         iface.coord = rotate_on_sphere(targiface, COMnew, Crdsetnew, Rotangle);
@@ -1100,29 +1099,29 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
     }
   }
   // zero the propagation values
-  trajTrans.zero_crds();
-  trajRot.zero_crds();
+  trajTrans.zero();
+  trajRot.zero();
 }
 
 // only used for the temporary movement on sphere
 //  all the input coords are cardesian coords
 void Complex::update_association_coords_sphere(
-    std::vector<Molecule> &moleculeList, Coord iface, Coord ifacenew) {
-  Coord COM = iface;
-  Coord COMnew = ifacenew;
+    std::vector<Molecule> &moleculeList, Vec3D iface, Vec3D ifacenew) {
+  Vec3D COM = iface;
+  Vec3D COMnew = ifacenew;
   std::array<double, 9> Crdset = inner_coord_set(COM, COMnew);
   std::array<double, 9> Crdsetnew = inner_coord_set_new(COM, COMnew);
 
   // update the member proteins
   for (auto mol : memberList) {
-    Coord targ = moleculeList[mol].comCoord;
+    Vec3D targ = moleculeList[mol].comCoord;
     moleculeList[mol].tmpComCoord =
         translate_on_sphere(targ, COM, COMnew, Crdset, Crdsetnew);
     // now update each interface of the molecule
     for (int i = 0; i < moleculeList[mol].interfaceList.size(); i++) {
       auto ifacetmp = moleculeList[mol].interfaceList[i];
       targ = ifacetmp.coord;
-      Coord ifacecrds =
+      Vec3D ifacecrds =
           translate_on_sphere(targ, COM, COMnew, Crdset, Crdsetnew);
       if (moleculeList[mol].tmpICoords.empty()) {
         moleculeList[mol].tmpICoords.push_back(ifacecrds);
@@ -1133,7 +1132,7 @@ void Complex::update_association_coords_sphere(
   }
 }
 
-void Complex::translate(Vector transVec, std::vector<Molecule> &moleculeList) {
+void Complex::translate(Vec3D transVec, std::vector<Molecule> &moleculeList) {
   for (auto memMol : memberList) {
     moleculeList[memMol].comCoord += transVec;
     for (auto &iface : moleculeList[memMol].interfaceList)
@@ -1146,32 +1145,32 @@ void Molecule::create_position_implicit_lipid(Molecule &reactMol1,
                                               double bindRadius,
                                               const Membrane &membraneObject) {
   if (membraneObject.isSphere) {
-    Coord displace = interfaceList[ifaceIndex2].coord - comCoord;
-    double mag = displace.get_magnitude();
+    Vec3D displace = interfaceList[ifaceIndex2].coord - comCoord;
+    double mag = displace.length();
     /*
 double lambda = (membraneObject.sphereR -
-mag)/(reactMol1.comCoord.get_magnitude()); interfaceList[ifaceIndex2].coord =
+mag)/(reactMol1.comCoord.length()); interfaceList[ifaceIndex2].coord =
 lambda*reactMol1.comCoord; double lambda2 =
-(membraneObject.sphereR)/(reactMol1.comCoord.get_magnitude()); comCoord =
+(membraneObject.sphereR)/(reactMol1.comCoord.length()); comCoord =
 lambda2*reactMol1.comCoord;
 */
     // the implicit lipid is set out of sphere, then the protein will bind onto
     // the sphere. and the boundary condition is easy to carry out.
     double lambda1 = (membraneObject.sphereR + mag + bindRadius) /
-                     (reactMol1.comCoord.get_magnitude());
+                     (reactMol1.comCoord.length());
     comCoord = lambda1 * reactMol1.comCoord;
     double lambda2 = (membraneObject.sphereR + bindRadius) /
-                     (reactMol1.comCoord.get_magnitude());
+                     (reactMol1.comCoord.length());
     interfaceList[ifaceIndex2].coord = lambda2 * reactMol1.comCoord;
   } else {
-    Coord displace = interfaceList[ifaceIndex2].coord - comCoord;
+    Vec3D displace = interfaceList[ifaceIndex2].coord - comCoord;
     double shift =
         0.1; // do not put right underneath, so that sigma starts at non-zero.
     comCoord.x = reactMol1.comCoord.x + shift;
     comCoord.y = reactMol1.comCoord.y - shift;
     comCoord.z = -membraneObject.waterBox.z / 2.0; // + membraneObject.RS3D;
-    Coord direction{0.0, 0.0, 1.0};
+    Vec3D direction{0.0, 0.0, 1.0};
     interfaceList[ifaceIndex2].coord =
-        comCoord + displace.get_magnitude() * direction;
+        comCoord + displace.length() * direction;
   }
 }

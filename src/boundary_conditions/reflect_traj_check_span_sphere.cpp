@@ -47,15 +47,15 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
             M = create_euler_rotation_matrix(targCom.trajRot);
             // find the farthest point
-            Coord targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
+            Vec3D targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
             double rtmp = sphereR; // to store the furthest point' distance to the sphere center.
             for (auto& memMol : targCom.memberList) {
                 //measure each protein COM
-                Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-                Vector rotComVec { matrix_rotate(comVec, M) };
+                Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+                Vec3D rotComVec { matrix_rotate(comVec, M) };
 
-                Coord curr { targCom.comCoord + targCom.trajTrans + rotComVec };
-                double currR = curr.get_magnitude();
+                Vec3D curr { targCom.comCoord + targCom.trajTrans + rotComVec };
+                double currR = curr.length();
                 if (currR > rtmp) {
                     targcrds = curr;
                     rtmp = currR;
@@ -63,10 +63,10 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
                 // measure each interface
                 for (auto& iface : moleculeList[memMol].interfaceList) {
-                    Vector ifaceVec { iface.coord - targCom.comCoord };
-                    Vector rotIfaceVec { matrix_rotate(ifaceVec, M) };
+                    Vec3D ifaceVec { iface.coord - targCom.comCoord };
+                    Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
                     curr = targCom.comCoord + targCom.trajTrans + rotIfaceVec;
-                    currR = curr.get_magnitude();
+                    currR = curr.length();
                     if (currR > rtmp) {
                         targcrds = curr;
                         rtmp = currR;
@@ -76,18 +76,18 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
             // check whether this complex is out of the box, if so, change trajTrans by considering the reflection
             if (rtmp > sphereR + 1E-15) {
                 double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-                Coord dtrans = lamda * targcrds;
+                Vec3D dtrans = lamda * targcrds;
                 targCom.trajTrans += dtrans;
                 // check whether the reflection make the complex inside the sphere
-                targcrds = Coord(0, 0, sphereR); // to store the furthest point' coords.
+                targcrds = Vec3D(0, 0, sphereR); // to store the furthest point' coords.
                 rtmp = sphereR; // to store the furthest point' distance to the sphere center.
                 for (auto& memMol : targCom.memberList) {
                     //measure each protein COM
-                    Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-                    Vector rotComVec { matrix_rotate(comVec, M) };
+                    Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+                    Vec3D rotComVec { matrix_rotate(comVec, M) };
 
-                    Coord curr { targCom.comCoord + targCom.trajTrans + rotComVec };
-                    double currR = curr.get_magnitude();
+                    Vec3D curr { targCom.comCoord + targCom.trajTrans + rotComVec };
+                    double currR = curr.length();
                     if (currR > rtmp) {
                         targcrds = curr;
                         rtmp = currR;
@@ -95,10 +95,10 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
                     // measure each interface
                     for (auto& iface : moleculeList[memMol].interfaceList) {
-                        Vector ifaceVec { iface.coord - targCom.comCoord };
-                        Vector rotIfaceVec { matrix_rotate(ifaceVec, M) };
+                        Vec3D ifaceVec { iface.coord - targCom.comCoord };
+                        Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
                         curr = targCom.comCoord + targCom.trajTrans + rotIfaceVec;
-                        currR = curr.get_magnitude();
+                        currR = curr.length();
                         if (currR > rtmp) {
                             targcrds = curr;
                             rtmp = currR;
@@ -127,8 +127,8 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
     if (needsRecheck) {
         // std::cout << "WARNING: DID NOT CONVERGE POSITION, NEW POS: " << '\n';
         for (auto memMol : targCom.memberList) {
-            Vector comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-            Vector rotComVec { matrix_rotate(comVec, M) };
+            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
+            Vec3D rotComVec { matrix_rotate(comVec, M) };
 
             // first would make xcom=targCom.comCoord.x+vr, then would also add dx
             // std::cout << "i: " << checkItr << " P: " << memMol
@@ -138,8 +138,8 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
             // update interface coords
             for (const auto& iface : moleculeList[memMol].interfaceList) {
-                Vector ifaceVec { iface.coord - targCom.comCoord };
-                Vector rotIfaceVec { matrix_rotate(ifaceVec, M) };
+                Vec3D ifaceVec { iface.coord - targCom.comCoord };
+                Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
 
                 /*first would make xcom=targCom.comCoord.x+vr, then would also add dx */
                 // std::cout << targCom.comCoord.x + targCom.trajTrans.x + rotIfaceVec.x << ' '

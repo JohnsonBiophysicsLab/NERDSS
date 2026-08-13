@@ -6,7 +6,7 @@ void create_molecule_and_complex_from_transmission_rxn(int parentMolIndex, int& 
     MolTemplate& createdMolTemp, Parameters& params, const TransmissionRxn& currRxn, SimulVolume& simulVolume,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns, const Membrane& membraneObject,
-    const Coord& newPos)
+    const Vec3D& newPos)
 {
     newMolIndex = 0;
     newComIndex = 0;

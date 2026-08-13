@@ -308,7 +308,7 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
             else
                 dx = 0.01;
             dx = (dx > 0) ? small : -small; // fix for precision issues
-            Vector chg1 { dx, 0, 0 };
+            Vec3D chg1 { dx, 0, 0 };
 
             /*Update the positions of each protein. Then calculate the COMs of each
              of the complexes. Then calculated the radius (uses the Complexlist COM).

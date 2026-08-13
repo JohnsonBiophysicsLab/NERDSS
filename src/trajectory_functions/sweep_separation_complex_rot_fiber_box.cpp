@@ -116,7 +116,7 @@ void sweep_separation_complex_rot_fiber_box(
           int rxnItr{moleculeList[pro1Index].crossrxn[crossMemItr][0]};
           int relIface2{ifaceList[maxRows * memMolItr + crossMemItr]};
 
-          Vector iface1Vec{
+          Vec3D iface1Vec{
               moleculeList[pro1Index].interfaceList[relIface1].coord -
               complexList[comIndex1].comCoord};
           std::array<double, 9> M = create_euler_rotation_matrix(complexList[comIndex1].trajRot);
@@ -136,7 +136,7 @@ void sweep_separation_complex_rot_fiber_box(
           //     reflectList[comIndex2] = 1;
           // }
 
-          Vector iface2Vec{
+          Vec3D iface2Vec{
               moleculeList[pro2Index].interfaceList[relIface2].coord -
               complexList[comIndex2].comCoord};
           std::array<double, 9> M2 =
@@ -294,8 +294,8 @@ void sweep_separation_complex_rot_fiber_box(
     //           << ") at itr " << simItr << " for molecule " << selfIndex << std::endl;
 
     // Choice 2: cancel propagation if no available place found
-    // complexList[comIndex1].trajTrans.zero_crds();
-    // complexList[comIndex1].trajRot.zero_crds();
+    // complexList[comIndex1].trajTrans.zero();
+    // complexList[comIndex1].trajRot.zero();
 
     /* Explain why there was no propagation cancel
     previously, in case to form a fake loop on a straight 1D fiber,
@@ -321,6 +321,6 @@ void sweep_separation_complex_rot_fiber_box(
 
   // Reset displacements to zero so distance is measured to your current
   // updated position that won't change again this turn
-  complexList[comIndex1].trajTrans.zero_crds();
-  complexList[comIndex1].trajRot.zero_crds();
+  complexList[comIndex1].trajTrans.zero();
+  complexList[comIndex1].trajRot.zero();
 }

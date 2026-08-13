@@ -19,37 +19,33 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
     double sphereR = radius; // no considering the reflecting-surface, because here we are checking whether to span the box
 
     // find the new COM and new radius, to check whether the new radius is larger than the sphere radius
-    Coord newCom;
+    Vec3D newCom;
     double newRadius = 0.0;
     com_of_two_tmp_complexes(reactCom1, reactCom2, newCom, moleculeList);
     for (auto& memMol : reactCom1.memberList) {
         if (moleculeList[memMol].isImplicitLipid)
             continue;
 
-        Vector disVec { moleculeList[memMol].tmpComCoord - newCom };
-        disVec.calc_magnitude();
-        if (disVec.magnitude > newRadius)
-            newRadius = disVec.magnitude;
+        Vec3D disVec { moleculeList[memMol].tmpComCoord - newCom };
+        if (disVec.length() > newRadius)
+            newRadius = disVec.length();
         for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            disVec = Vector(iface - newCom);
-            disVec.calc_magnitude();
-            if (disVec.magnitude > newRadius)
-                newRadius = disVec.magnitude;
+            disVec = Vec3D(iface - newCom);
+            if (disVec.length() > newRadius)
+                newRadius = disVec.length();
         }
     }
     for (auto& memMol : reactCom2.memberList) {
         if (moleculeList[memMol].isImplicitLipid)
             continue;
 
-        Vector disVec { moleculeList[memMol].tmpComCoord - newCom };
-        disVec.calc_magnitude();
-        if (disVec.magnitude > newRadius)
-            newRadius = disVec.magnitude;
+        Vec3D disVec { moleculeList[memMol].tmpComCoord - newCom };
+        if (disVec.length() > newRadius)
+            newRadius = disVec.length();
         for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            disVec = Vector(iface - newCom);
-            disVec.calc_magnitude();
-            if (disVec.magnitude > newRadius)
-                newRadius = disVec.magnitude;
+            disVec = Vec3D(iface - newCom);
+            if (disVec.length() > newRadius)
+                newRadius = disVec.length();
         }
     }
 
@@ -63,16 +59,16 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
     // The approximate size of the complex (max size) puts it as outside, now test interface positions.
     bool outside { false };
 
-    Coord curr;
+    Vec3D curr;
     double dr = 0.0;
-    Coord targcrds;
+    Vec3D targcrds;
     // find the farthest position of complex1
     for (int memMol : reactCom1.memberList) {
         if (moleculeList[memMol].isImplicitLipid)
             continue;
 
         curr = moleculeList[memMol].tmpComCoord;
-        double drtmp = curr.get_magnitude() - sphereR;
+        double drtmp = curr.length() - sphereR;
         if (drtmp > dr) {
             outside = true;
             dr = drtmp;
@@ -81,7 +77,7 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
         // measure each interface
         for (const auto& iface : moleculeList[memMol].tmpICoords) {
             curr = iface;
-            drtmp = curr.get_magnitude() - sphereR;
+            drtmp = curr.length() - sphereR;
             if (drtmp > dr) {
                 outside = true;
                 dr = drtmp;
@@ -95,7 +91,7 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
             continue;
 
         curr = moleculeList[memMol].tmpComCoord;
-        double drtmp = curr.get_magnitude() - sphereR;
+        double drtmp = curr.length() - sphereR;
         if (drtmp > dr) {
             outside = true;
             dr = drtmp;
@@ -104,7 +100,7 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
         // measure each interface
         for (const auto& iface : moleculeList[memMol].tmpICoords) {
             curr = iface;
-            drtmp = curr.get_magnitude() - sphereR;
+            drtmp = curr.length() - sphereR;
             if (drtmp > dr) {
                 outside = true;
                 dr = drtmp;
@@ -115,8 +111,8 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
 
     // put back in the box. put at edge, rather than bouncing off.
     if (outside == true) {
-        double lamda = -dr / targcrds.get_magnitude();
-        Coord trans = lamda * targcrds;
+        double lamda = -dr / targcrds.length();
+        Vec3D trans = lamda * targcrds;
         reactCom1.tmpComCoord += trans;
         for (int memMol : reactCom1.memberList) {
             moleculeList[memMol].tmpComCoord += trans;

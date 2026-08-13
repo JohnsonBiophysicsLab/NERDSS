@@ -5,7 +5,7 @@
 
 #pragma once
 #include "attributes.hpp"
-#include "classes/class_Vector.hpp"
+#include "classes/class_Vec3D.hpp"
 
 #include <cmath>
 #include <iostream>
@@ -26,7 +26,7 @@
  * The definitions are inline because the rotation path runs once per interface
  * per molecule per timestep, and with them in class_Quat.cpp none of it could be
  * inlined into the loops that use it: there is no link-time optimization in
- * either build file.  This follows what Coord does for the same reason.
+ * either build file.  This follows what Vec3D does for the same reason.
  *
  * To rotate more than one vector with the same quaternion, use \ref
  * QuatRotation, which builds the inverse once instead of once per vector.
@@ -95,7 +95,7 @@ struct Quat {
      * throwing on this case; returning the identity is preferred because the
      * only callers are inside the propagation and association loops, which have
      * no handler and run once per interface per timestep.  Nothing else in the
-     * code throws from that depth, and Vector::normalize() already degrades the
+     * code throws from that depth, and Vec3D::normalize() already degrades the
      * same way for a zero-length vector.
      *
      * The guard costs one comparison and cannot change any result that was
@@ -138,7 +138,7 @@ struct Quat {
      * This builds the inverse on every call.  When one quaternion rotates
      * several vectors, build a \ref QuatRotation once and use that instead.
      */
-    void rotate(Vector& vec) const noexcept;
+    void rotate(Vec3D& vec) const noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const Quat& q);
 
@@ -185,7 +185,7 @@ struct QuatRotation {
     /*!
      * \brief Rotates `vec` in place, \f$ v \mapsto Q v Q^{-1} \f$.
      */
-    void rotate(Vector& vec) const noexcept
+    void rotate(Vec3D& vec) const noexcept
     {
         const Quat qv{ 0, vec.x, vec.y, vec.z };
         const Quat qm{ rot * qv };
@@ -207,15 +207,15 @@ struct QuatRotation {
      * block that every batch-rotation loop in the association and propagation
      * code writes out by hand.
      */
-    NERDSS_NODISCARD Coord rotate_about(const Coord& point, const Coord& origin) const noexcept
+    NERDSS_NODISCARD Vec3D rotate_about(const Vec3D& point, const Vec3D& origin) const noexcept
     {
-        Vector vec{ point - origin };
+        Vec3D vec{ point - origin };
         rotate(vec);
-        return Coord{ vec.x, vec.y, vec.z } + origin;
+        return Vec3D{ vec.x, vec.y, vec.z } + origin;
     }
 };
 
-inline void Quat::rotate(Vector& vec) const noexcept { QuatRotation{ *this }.rotate(vec); }
+inline void Quat::rotate(Vec3D& vec) const noexcept { QuatRotation{ *this }.rotate(vec); }
 
 /*!
  * \brief Returns a unit quaternion drawn uniformly over all orientations.

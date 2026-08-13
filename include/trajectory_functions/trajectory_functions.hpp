@@ -16,12 +16,12 @@
 #include "classes/class_Rxns.hpp"
 
 /*!
- * \brief Simply translates a Complex and its member Molecules along some translation Vector.
- * \param[in] transVec Vector along which the Complex will be translated.
+ * \brief Simply translates a Complex and its member Molecules along some translation Vec3D.
+ * \param[in] transVec Vec3D along which the Complex will be translated.
  * \param[in] targCom Complex to be translated.
  * \param[in] moleculeList List of all Molecules in the system.
  */
-void translate_complex_tmpCoords(const Vector& transVec, Complex& targCom, std::vector<Molecule>& moleculeList);
+void translate_complex_tmpCoords(const Vec3D& transVec, Complex& targCom, std::vector<Molecule>& moleculeList);
 
 /*!
  * \brief Propagate the molecule with random translational and rotational motion
@@ -33,9 +33,9 @@ void translate_complex_tmpCoords(const Vector& transVec, Complex& targCom, std::
  */
 void create_complex_propagation_vectors(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
-Coord create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom);
+Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom);
 
-bool complexSpansBox(Vector& transVec, const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList);
+bool complexSpansBox(Vec3D& transVec, const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList);
 
 /*!
  * \brief Check if propagation will cause the complex to span the entire box.
@@ -45,7 +45,7 @@ bool complexSpansBox(Vector& transVec, const Parameters& params, Complex& targCo
  *
  * If so, resample the translational and rotational propagation. Replaces reflect_traj_complex_rat_rot.cpp
  */
-void reflect_complex(Vector& transVec, const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList,
+void reflect_complex(Vec3D& transVec, const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList);
 
 /*!

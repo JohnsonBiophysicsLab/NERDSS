@@ -108,7 +108,7 @@ unsigned long totMatches = 0;
  * @brief Prints the elements of a vector and an associated message.
  *
  * @tparam T Type of the vector elements.
- * @param vec Vector to print.
+ * @param vec Vec3D to print.
  * @param s Message to print before the vector.
  */
 template <typename T>

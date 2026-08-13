@@ -116,7 +116,7 @@ void serialize_abstract_vector(std::vector<T> to_serialize,
       sizeof(int);  // set current number of bytes read to the size of int
   for (auto &it : to_serialize)  // for all vector elements
     it.serialize(arrayRank,
-                 nArrayRank);  // read one abstract type T, e.g. Coord
+                 nArrayRank);  // read one abstract type T, e.g. Vec3D
                                // and increase number of bytes read
                                // Note: T has to implement serialize method
   if (verbose)
@@ -139,9 +139,9 @@ void deserialize_abstract_vector(std::vector<T> &to_deserialize,
   nArrayRank +=
       sizeof(int);  // set current number of bytes read to the size of int
   for (int i = 0; i < vector_size; i++) {  // for all vector elements
-    T temp;  // Create local object of type T (e.g. Coord)
+    T temp;  // Create local object of type T (e.g. Vec3D)
     temp.deserialize(
-        arrayRank, nArrayRank);  // extract one vector element (e.g. Coord)
+        arrayRank, nArrayRank);  // extract one vector element (e.g. Vec3D)
                                  // and increase number of bytes read
                                  // Note: T has to implement deserialize method
     to_deserialize.push_back(temp);  // push element to the back of the vector
