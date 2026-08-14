@@ -27,15 +27,23 @@ void write_all_species(double simTime, std::vector<Molecule>& moleculeList,
     int numIfaces = moleculeList[p1].interfaceList.size();
     bool isGhosted = is_ghosted(moleculeList[p1], mpiContext, simulVolume);
     for (j = 0; j < numIfaces; j++) {
-      bool isPatnerGhosted = is_ghosted(
-          moleculeList
-              [moleculeList[p1].interfaceList[j].interaction.partnerIndex],
-          mpiContext, simulVolume);
-      if (moleculeList[p1].interfaceList[j].interaction.partnerIndex == -1) {
+      // partnerIndex is -1 for an unbound interface, so the partner may only be
+      // looked up inside the PAIR branch below.  Reading it before the test
+      // indexed moleculeList[-1] on every free interface -- which is most of
+      // them -- and is_ghosted() dereferences comCoord.x, 624 bytes before the
+      // start of the vector.  Whether that address happened to be mapped
+      // decided whether the run crashed, so a parallel run died in about a
+      // third of the seeds tried, in whatever unrelated place the corruption
+      // surfaced.
+      const int partnerIndex =
+          moleculeList[p1].interfaceList[j].interaction.partnerIndex;
+      if (partnerIndex == -1) {
         // MONOMER
         if (isGhosted == true) continue;
       } else {
         // PAIR
+        bool isPatnerGhosted =
+            is_ghosted(moleculeList[partnerIndex], mpiContext, simulVolume);
         if (moleculeList[p1].id >
             moleculeList[p1].interfaceList[j].interaction.partnerId) {
           if (isGhosted == true) continue;
