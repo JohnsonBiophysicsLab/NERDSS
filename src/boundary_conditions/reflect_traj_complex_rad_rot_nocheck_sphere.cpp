@@ -6,12 +6,7 @@
 void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput)
 {
     // TRACE();
-    double RS3D;
-    if (targCom.OnSurface) {
-        RS3D = 0;
-    } else {
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
 
     double sphereR = membraneObject.sphereR - RS3D;
 

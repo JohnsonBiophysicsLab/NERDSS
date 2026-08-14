@@ -14,12 +14,7 @@ void reflect_traj_tmp_crds_box(
     /*This routine updated October 2019 to test if a large complex that spans the box could extend out in both directions
     if so, it attempts to correct for this by resampling the complex's translational and rotational updates.
     */
-    double RS3D;
-    if (targCom.OnSurface || targCom.tmpOnSurface) {
-        RS3D = 0;
-    } else {
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset_tmp(targCom, RS3Dinput) };
 
     // declare the six boundary sides of the system box;
     const Vec3D posSide { membraneObject.waterBox.x / 2.0, membraneObject.waterBox.y / 2.0,

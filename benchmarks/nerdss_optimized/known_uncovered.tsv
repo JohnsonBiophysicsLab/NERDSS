@@ -20,8 +20,7 @@ reflect_complex_compartment	Gated on Molecule::enforceCompartmentBC, which only 
 reflect_traj_complex_compartment	Same gate.	As above.
 reflect_traj_tmp_crds_compartment	Same gate.	As above.
 determine_entering_compartment_probability	Reached only when a molecule is about to enter the compartment; the one compartment sample has them leaving.	As above.
-sweep_separation_complex_rot_memtest_sphere	Needs a complex bound to a spherical membrane whose partners overlap after propagation. In VALIDATE_SUITE/sphere the surface-bound complexes never need overlap resolution.	sphere at nItr 40000 and 150000, with and without clusterOverlapCheck: 0.00% in both.
-sweep_separation_complex_rot_memtest_cluster_sphere	Same gate as above, plus clusterOverlapCheck.	sphere at nItr 150000 with clusterOverlapCheck = true: 0.00%.
+sweep_separation_complex_rot_memtest_sphere	Reached only when the cluster sweep gives up and falls back to pairs, so it needs a crowded spherical membrane run for long enough to hit that. gagsphere does reach it, but not cheaply.	VALIDATE_SUITE/sphere at nItr 40000 and 150000: 0.00%. gagsphere/parms.inp with clusterOverlapCheck: 0.00% at nItr 1000, 82.67% at nItr 20000 - which takes eleven minutes, too slow for a suite that runs on every change. Raise cluster_gagsphere's nItr if this one matters.
 sweep_separation_complex_rot_fiber	Needs Complex::onFiber, which no sample input sets.	No .inp under sample_inputs mentions onFiber.
 sweep_separation_complex_rot_fiber_box	Only caller is sweep_separation_complex_rot_fiber.	As above.
 reflect_traj_check_span	Only called when reflect_traj_complex_rad_rot_{box,sphere} finds a complex that reaches past both opposite walls, or that its own correction would push out the far side. Every model here has a box far larger than its complexes.	All 13 cases.tsv cases plus all coverage_cases.tsv cases: 0.00%.

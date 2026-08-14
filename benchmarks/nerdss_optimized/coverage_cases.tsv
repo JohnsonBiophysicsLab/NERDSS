@@ -38,7 +38,25 @@ compartment	compartment	clath_compartment.inp	4000
 # check_for_unimolstatechange_reactions path around it.
 unimol_state_change	VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	20000
 
+# Volume exclusion between bound partners: the `if (canExclude == true)` half of
+# check_bimolecular_reactions(), which no case in cases.tsv enters at all - line
+# 202 there had 0 hits until this case existed.  It is the only sample with both
+# excludeVolumeBound set on a reaction and enough molecules to form pairs (the
+# Gag model sets it too but holds a single molecule).  Reaches the 3D arms of
+# that half, and with them two of the five record_crossing_pair() sites; the 2D
+# and 1D arms need membrane-bound or fiber-bound partners and stay dark.
+gagsphere	gagsphere	gagOriginalModelSolution.inp	2000
+
 # Cluster overlap sweep, box variant: collect_cluster_partners,
 # resample_partner_trajectories, sweep_separation_complex_rot_memtest_cluster_box.
-# The only model found where turning the flag on changes a DATA trajectory.
+# The only box model found where turning the flag on changes a DATA trajectory.
 cluster_mem_loc	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	2000	clusterOverlapCheck = true
+
+# Cluster overlap sweep, sphere variant: gag on a spherical membrane, which is
+# the only model found with complexes bound to a *sphere* that crowd enough to
+# need overlap resolution.  Reaches sweep_separation_complex_rot_memtest_cluster_sphere
+# at 86%, and both cluster helpers at 100%.  This case is the expensive one at
+# roughly a minute; 1000 iterations is the smallest count that still gets there
+# (the fallback sweep_separation_complex_rot_memtest_sphere needs ~20000, which
+# costs eleven minutes, so that one stays in known_uncovered.tsv).
+cluster_gagsphere	gagsphere	parms.inp	1000	clusterOverlapCheck = true

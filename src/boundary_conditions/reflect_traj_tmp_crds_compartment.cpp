@@ -15,12 +15,7 @@ void reflect_traj_tmp_crds_compartment(
     /*This routine updated April 2020 to test if a large complex that spans the sphere could extend out in both directions
     if so, it attempts to correct for this by resampling the complex's translational updates.
     */
-    double RS3D;
-    if (targCom.OnSurface || targCom.tmpOnSurface) {
-        RS3D = 0;
-    } else {
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset_tmp(targCom, RS3Dinput) };
     double sphereR = membraneObject.compartmentR + RS3D;
 
     const Vec3D base { targCom.tmpComCoord.x + traj[0], targCom.tmpComCoord.y + traj[1],

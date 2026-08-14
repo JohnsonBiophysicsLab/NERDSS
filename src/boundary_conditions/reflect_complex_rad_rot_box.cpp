@@ -17,13 +17,7 @@ void reflect_complex_rad_rot_box(const Membrane& membraneObject, Complex& targCo
 {
     // TRACE();
     // only works for the complex after association or diffusion, box system.
-    double RS3D;
-    // if (targCom.D.z < 1E-8) { // on surface
-    if (targCom.OnSurface) {
-        RS3D = 0.0;
-    } else { // in solution
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
 
     // if moleculeList[memMol].enforceCompartmentBC is true, we need to prevent the molecule from crossing the compartment.
     // if its inside the compartment, it only needs to check the compartment boundaries, not the box boundaries, so we should skip the box boundary checks.

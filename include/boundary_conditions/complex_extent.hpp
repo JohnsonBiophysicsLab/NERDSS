@@ -98,6 +98,32 @@ struct ExtremePoint {
     }
 };
 
+/*! \ingroup BoundaryConditions
+ * \brief The reflecting-surface offset that applies to this complex.
+ *
+ * For the implicit-lipid model the boundary a complex reflects off is not the
+ * membrane itself but a surface RS3D above it.  A complex already bound to the
+ * membrane is exempt - it is *meant* to sit at the wall - so for those the
+ * offset is zero.  Eleven of the routines here opened with this same four-line
+ * if/else.
+ */
+inline double reflecting_surface_offset(const Complex& targCom, double RS3Dinput)
+{
+    // if (targCom.OnSurface || targCom.D.z < 1E-8) {
+    return targCom.OnSurface ? 0.0 : RS3Dinput;
+}
+
+/*! \ingroup BoundaryConditions
+ * \brief \ref reflecting_surface_offset for the association paths.
+ *
+ * These run on tmp coordinates, where a complex can be on its way onto the
+ * membrane without `OnSurface` being set yet, so `tmpOnSurface` counts too.
+ */
+inline double reflecting_surface_offset_tmp(const Complex& targCom, double RS3Dinput)
+{
+    return (targCom.OnSurface || targCom.tmpOnSurface) ? 0.0 : RS3Dinput;
+}
+
 //! \brief Reads x, y or z by axis index, so an axis loop can index a Vec3D.
 inline double axis_value(const Vec3D& vec, int axis)
 {
