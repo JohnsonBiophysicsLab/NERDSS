@@ -131,27 +131,57 @@ inline void discretize_2D_Dtot(BiMolData& biMolData)
  * `determine_3D_implicitlipid_reaction_probability` uses 1E-15.  Whether that
  * disagreement is deliberate is not recorded, so it is preserved.
  */
+/*! \brief `cos(sqrt(2 Dr.z t))`, memoized on the complex.  See the cache fields
+ * on `Complex` for why this is safe to cache and why it is worth caching.
+ *
+ * The argument is built with the same operands in the same order as the
+ * expression this replaced, `2.0 * Dr.z * timeStep`, so a miss recomputes the
+ * identical double and a hit returns the one already computed from it.  Neither
+ * path can differ in the last bit.
+ */
+inline double flat_rotational_cf(const Complex& com, double timeStep)
+{
+    const double arg = 2.0 * com.Dr.z * timeStep;
+    if (!(com.rotDiffArg2 == arg)) {
+        com.rotDiffArg2 = arg;
+        com.rotDiffCos2 = cos(sqrt(arg));
+    }
+    return com.rotDiffCos2;
+}
+
+//! \brief `cos(sqrt(4 Dr.z t))`, memoized on the complex.  Companion to
+//! `flat_rotational_cf()` for a partner free to rotate about three axes.
+inline double free_rotational_cf(const Complex& com, double timeStep)
+{
+    const double arg = 4.0 * com.Dr.z * timeStep;
+    if (!(com.rotDiffArg4 == arg)) {
+        com.rotDiffArg4 = arg;
+        com.rotDiffCos4 = cos(sqrt(arg));
+    }
+    return com.rotDiffCos4;
+}
+
 inline void add_3D_rotational_diffusion(
     BiMolData& biMolData, const std::vector<Complex>& complexList, const Parameters& params, double flatCutoff)
 {
     double Dr1 {};
     if (std::abs(complexList[biMolData.com1Index].D.z - 0) < flatCutoff) {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
+        double cf = flat_rotational_cf(complexList[biMolData.com1Index], params.timeStep);
         Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
         biMolData.Dtot += Dr1 / (4.0 * params.timeStep);
     } else {
-        double cf = cos(sqrt(4.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
+        double cf = free_rotational_cf(complexList[biMolData.com1Index], params.timeStep);
         Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
         biMolData.Dtot += Dr1 / (6.0 * params.timeStep);
     }
 
     double Dr2;
     if (std::abs(complexList[biMolData.com2Index].D.z - 0) < flatCutoff) {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
+        double cf = flat_rotational_cf(complexList[biMolData.com2Index], params.timeStep);
         Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
         biMolData.Dtot += Dr2 / (4.0 * params.timeStep);
     } else {
-        double cf = cos(sqrt(4.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
+        double cf = free_rotational_cf(complexList[biMolData.com2Index], params.timeStep);
         Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
         biMolData.Dtot += Dr2 / (6.0 * params.timeStep);
     }

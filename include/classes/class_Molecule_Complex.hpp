@@ -448,6 +448,29 @@ public:
     std::vector<long long int> lastNumberUpdateItrEachMol {}; //!< list of the last size update itr of each Molecules in this complex
     Vec3D D { 0, 0, 0 }; //!< Complex's translational diffusion constants
     Vec3D Dr { 0, 0, 0 }; //!< Complex's rotational diffusion constants
+
+    // Memo for add_3D_rotational_diffusion()'s cos(sqrt(k * Dr.z * timeStep)).
+    // That value depends on nothing but Dr.z and the timestep, so it is constant
+    // for as long as the complex's composition is, but it was recomputed once
+    // per candidate pair per timestep -- the two remaining scalar cos() calls in
+    // the whole hot path.  Two slots because the caller picks k = 2 or k = 4
+    // from D.z and one complex can be asked for either.
+    //
+    // The key is the exact argument, compared bit-for-bit, so any change to Dr.z
+    // or to the timestep is a miss: the cache cannot go stale, and it does not
+    // depend on update_properties() being called on every path that alters Dr.
+    // The NaN sentinel forces a miss on first use, because no comparison against
+    // NaN is ever true, and no legitimate argument can alias it.
+    //
+    // `mutable` because add_3D_rotational_diffusion() reads complexList through
+    // a const reference.  Not serialized, like deleteIfNotReceivedBack below:
+    // this is derived state, so a restart recomputes it on first use and the
+    // restart-file format is unchanged.
+    mutable double rotDiffArg2 { std::numeric_limits<double>::quiet_NaN() };
+    mutable double rotDiffCos2 { 0.0 };
+    mutable double rotDiffArg4 { std::numeric_limits<double>::quiet_NaN() };
+    mutable double rotDiffCos4 { 0.0 };
+
     bool isEmpty { false }; //!< true if the complex has been destroyed and is a void
     bool OnSurface { false }; // to check whether on the implicit-lipid membrane.
     bool onFiber {false}; // to check whether on a fiber
