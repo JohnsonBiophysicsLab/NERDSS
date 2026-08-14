@@ -44,35 +44,6 @@ using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
 long long randNum = 0;
 unsigned long totMatches = 0;
 
-// debug function
-void debug_print_wrong_Mol(std::vector<Molecule> &moleculeList,
-                           const std::string &infoStr, int monitor_mol) {
-  for (int molItr{0}; molItr < moleculeList.size(); ++molItr) {
-    if (molItr == monitor_mol) {
-      std::cout << infoStr << std::endl;
-      // moleculeList[molItr].display_all();
-      if (moleculeList[molItr].trajStatus == TrajStatus::none){
-        std::cout << "TrajStatus: None" << std::endl;
-      } else if (moleculeList[molItr].trajStatus == TrajStatus::canBeResampled){
-        std::cout << "TrajStatus: Can be resampled" << std::endl;
-      } else if (moleculeList[molItr].trajStatus == TrajStatus::propagated){
-        std::cout << "TrajStatus: Propagated" << std::endl;
-      } else {
-        std::cout << "TrajStatus: unknown" << std::endl;
-      }
-    }
-  }
-}
-
-void debug_check_nan_Mol(const Molecule& moli, const int simItr, const std::string &infoStr){
-  // raise error if there is nan in the coordinates
-  if (std::isnan(moli.comCoord.x) || std::isnan(moli.comCoord.y) || std::isnan(moli.comCoord.z)) {
-    std::cerr << "ERROR: [" << infoStr << "] nan in the coordinates of molecule " << moli.index
-              << " at iteration " << simItr << ". Exiting..\n";
-    exit(1);
-  }
-}
-
 int main(int argc, char *argv[]) {
   //  if(PROFILE) {ProfilerStart("profile_output.prof");}
   /* SIMULATION SETUP */
@@ -813,14 +784,6 @@ int main(int argc, char *argv[]) {
     propCalled = 0;
     MDTimer::time_point startStep = MDTimer::now();
 
-    // int monitor_iter = 200000388;
-    // int monitor_mol = 1;
-    // if (simItr == monitor_iter) {
-      // std::cout << "simItr: " << simItr << std::endl;
-      // debug_print_wrong_Mol(moleculeList, "begin of the step", 0);
-      // debug_print_wrong_Mol(moleculeList, "begin of the step", 1);
-    // }
-
     // destruct, unimol create, and dissociation (explicit) based on population
     check_for_unimolecular_reactions_population(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
@@ -952,10 +915,6 @@ int main(int argc, char *argv[]) {
       }       // loop over all proteins in initial cell
     }         // End looping over all cells.
 
-    // if (simItr == monitor_iter) {
-    //   debug_print_wrong_Mol(moleculeList, "before binding", monitor_mol);
-    // }
-
     /*Now that separations and reaction probabilities are calculated, decide
      * whether to perform reactions for each protein.*/
     for (int molItr{0}; molItr < moleculeList.size(); ++molItr) {
@@ -1032,14 +991,6 @@ int main(int argc, char *argv[]) {
            * or change state of one (or both) reactants (A+B->A+B')
            */
           int molItr2{moleculeList[molItr].crossbase[crossIndex1]};
-
-          // if (simItr == monitor_iter) {
-          //     std::cout << "reaction happens between " << molItr << ", and "
-          //     << molItr2 << std::endl; debug_print_wrong_Mol(moleculeList,
-          //     "reaction will happen", monitor_mol); int monitor_mol2 = 28;
-          //     debug_print_wrong_Mol(moleculeList, "the other reactant",
-          //     monitor_mol2);
-          // }
 
           int ifaceIndex1{moleculeList[molItr].mycrossint[crossIndex1]};
           int ifaceIndex2;
@@ -1120,9 +1071,6 @@ int main(int argc, char *argv[]) {
               // complexList[moleculeList[molItr].myComIndex].memberList.size()
               // << "\n"; std::cout << " Complex 2 size: " <<
               // complexList[moleculeList[molItr2].myComIndex].memberList.size()
-            
-              debug_check_nan_Mol(moleculeList[molItr2], simItr, "before association");
-              debug_check_nan_Mol(moleculeList[molItr], simItr, "before association");
 
               // For association, molecules must be read in in the order used to
               // define the reaction parameters.
@@ -1151,12 +1099,6 @@ int main(int argc, char *argv[]) {
               */
               // std::cout << "Association happened, exit!" << std::endl;
               // exit(0);
-              // if (simItr == monitor_iter) {
-              //     debug_print_wrong_Mol(moleculeList, "Association finished",
-              //     monitor_mol);
-              // }
-              debug_check_nan_Mol(moleculeList[molItr2], simItr, "after association");
-              debug_check_nan_Mol(moleculeList[molItr], simItr, "after association");
             }
           } else if (forwardRxns[rxnIndex[0]].rxnType ==
                      ReactionType::biMolStateChange) {
@@ -1275,15 +1217,6 @@ int main(int argc, char *argv[]) {
       }
     } // done testing all molecules for bimolecular reactions
 
-    // if (simItr == monitor_iter) {
-    //   debug_print_wrong_Mol(moleculeList, "before check overlap",
-    //   monitor_mol);
-    // }
-
-    for (auto &moli : moleculeList) {
-      debug_check_nan_Mol(moli, simItr, "Before overlap checking");
-    }
-
     // Now we have to check for overlap!!!
     for (auto &mol : moleculeList) {
       // Now track each complex (ncrosscom), and test for overlap of all
@@ -1335,12 +1268,6 @@ int main(int argc, char *argv[]) {
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                     moleculeList, RS3Dinput, false);
         }
-        // for (auto &moli : moleculeList) {
-        //   // raise error if there is nan in the coordinates
-        //   std::ostringstream infostr;
-        //   infostr << "While checking overlap for molecule " << mol.index << " (ncross > 0)";
-        //   debug_check_nan_Mol(moli, simItr, infostr.str());
-        // }
       } else {
         if (mol.trajStatus == TrajStatus::none || mol.trajStatus == TrajStatus::canBeResampled) {
           // For proteins with ncross=0, they either moved independently,
@@ -1384,11 +1311,6 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-    }
-
-    for (auto &moli : moleculeList) {
-      // raise error if there is nan in the coordinates
-      debug_check_nan_Mol(moli, simItr, "After overlap checking");
     }
 
     if (simItr % params.trajWrite == 0) {
@@ -1744,10 +1666,6 @@ int main(int argc, char *argv[]) {
         std::cout << charTime << '\n';
       std::cout << llinebreak;
     }
-
-    // if (simItr == monitor_iter) {
-    //   debug_print_wrong_Mol(moleculeList, "end of the step", monitor_mol);
-    // }
 
   } // end iterating over time steps
 
