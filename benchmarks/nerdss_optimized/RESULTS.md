@@ -1166,3 +1166,210 @@ run them.
 `cases.tsv` needs no re-run here: the tip binary hashes to
 `4492514f0ec3ec63`, the same bytes already compared over all 13 cases and 268
 output files.
+
+## 16. The allocator and the libm calls: one large win, one small, one already done
+
+Measured on 2026-08-14, Apple M5, Apple clang 21.0.0, GSL 2.8, `make serial`
+with `-O3 -std=c++0x`, seed 20260810. Profiles are `sample(1)` on a `-O3 -g`
+build with offsets mapped by `atos`.
+
+This section answers the two items section 13.1 left as the only non-OpenMP
+targets it had identified: the allocator at roughly 8% and libm `cos`/`exp` at
+roughly 4.7%, the latter marked "SIMD, not OpenMP". One turned out to be much
+larger than 8% and trivially removable, one is worth about 2%, and one was
+already being done by the compiler.
+
+### 16.1 Where the allocator time actually was
+
+`clathrin`, 150,000 iterations, 5,436 samples. Grouping leaf symbols by image:
+
+| group | share of leaf samples |
+| --- | ---: |
+| `libsystem_malloc` (`_xzm_free`, `_xzm_xzone_malloc_tiny`, `_free`, `malloc_type_malloc`, `operator new`/`delete`) | 9.10% |
+| `libsystem_m` plus the `cos`/`__sincos_stret` stubs | 4.08% |
+| `_platform_memset`, `__bzero`, `_platform_memmove` | 2.43% |
+
+Attributing the allocator group to callers put **450 of 5,436 samples, 8.3%, on
+a single line**: `EXEs/nerdss.cpp:1284`, which was
+
+```cpp
+for (auto &moli : moleculeList) {
+  debug_check_nan_Mol(moli, simItr, "Before overlap checking");
+}
+```
+
+`debug_check_nan_Mol()` took a `const std::string&`. Every caller passed a
+string literal, so every call constructed a temporary, and libc++ heap-allocates
+a `std::string` whose contents exceed its 22-character short-string buffer.
+`"Before overlap checking"` is 23 characters. `"After overlap checking"`, the
+otherwise identical call after the overlap sweep, is 22, fits in SSO, and does
+not appear anywhere in the allocator profile. One character separated a free
+call from 8.3% of runtime.
+
+### 16.2 Removing both debug helpers
+
+`debug_check_nan_Mol` and `debug_print_wrong_Mol` were deleted rather than
+repaired, together with the two whole-`moleculeList` loops that drove them, the
+four call sites around association, and the commented-out `monitor_iter`
+scaffolding. This gives up the guard that called `exit(1)` on NaN coordinates:
+NaN now reaches trajectory and restart output instead of aborting the run.
+
+All 13 cases in `cases.tsv` are bitwise identical, which is the expected result
+for code that only read coordinates and allocated.
+
+Interleaved paired timing, `interleaved_timing.sh 5`, medians:
+
+| case | nItr | before (s) | after (s) | speedup |
+| --- | ---: | ---: | ---: | ---: |
+| `rev_3D` | 20,000 | 4.610 | 3.898 | **1.183x** |
+| `implicit_lipid` | 100,000 | 2.781 | 2.480 | **1.121x** |
+| `clathrin` | 150,000 | 3.506 | 3.253 | 1.078x |
+| `hexamer` | 25,000 | 5.278 | 4.942 | 1.068x |
+| `michaelis_menten` | 150,000 | 4.366 | 4.127 | 1.058x |
+| `mem_localization` | 2,000 | 2.789 | 2.667 | 1.046x |
+| **total** | | **23.330** | **21.367** | **1.092x** |
+
+The profile after the change confirms the mechanism rather than merely the
+result: `malloc`/`free` fell from 9.10% to **0.94%** of leaf samples and
+memset/bzero from 2.43% to 1.13%. An 8.2-point drop in allocator share against a
+measured 1.092x is as close to accounting for itself as this kind of measurement
+gets.
+
+The case table is `debugremoval_cases.tsv`. `rev_2D` is excluded because roughly
+40 s of its runtime is fixed 2D lookup-table construction independent of
+iteration count, which dilutes a per-timestep effect and costs 80 s per
+repetition pair to measure.
+
+### 16.3 A build bug found while measuring this
+
+The first build after editing `EXEs/nerdss.cpp` reported success and produced a
+**byte-identical binary with the change absent**. `bin/nerdss` listed only
+`$(OBJS)` as prerequisites; the executable source appeared on the recipe line but
+never as a dependency, so make compared the binary against the objects alone and
+concluded there was nothing to do.
+
+This is the same defect the header-dependency block at the bottom of the
+`Makefile` already documented for objects, left in place for the one translation
+unit that holds the entire timestep loop. It was caught only because the binary
+hashes were being compared. **Any earlier measurement in this repository that
+touched `EXEs/nerdss.cpp` and nothing else may have timed a stale binary.**
+
+Fixed by making `$(EDIR)/$(_EXEC).cpp` a prerequisite and running `DEPFLAGS` on
+the link step so header edits relink too. Verified: touching the executable
+source now triggers 1 invocation where it triggered 0, touching a header it
+includes triggers 52, and an unchanged tree triggers 0.
+
+### 16.4 The libm calls: `add_3D_rotational_diffusion`
+
+After the allocator work, the whole remaining libm cost sat in
+`add_3D_rotational_diffusion()`, which evaluated
+`cos(sqrt(k * Dr.z * timeStep))` twice per candidate pair, once per partner.
+Disassembling `determine_3D_bimolecular_reaction_probability` confirmed exactly
+two calls to the `_cos` stub and none to `__sincos_stret`.
+
+That value depends on nothing but `Dr.z` and the timestep, so it is constant for
+as long as the complex's composition is. Caching it on the complex converts an
+O(candidate pairs) count of `cos()` calls into O(complexes whose `Dr` changed),
+which is why the gain tracks pair density rather than molecule count.
+
+The cache is two `mutable` slots on `Complex`, one for `k = 2` and one for
+`k = 4`, keyed on the exact argument compared bit-for-bit. Keying on the argument
+rather than invalidating from `update_properties()` means it cannot go stale: any
+change to `Dr.z` or the timestep is a miss. The argument is built from the same
+operands in the same order as the expression it replaced, and `-O3` without
+`-ffast-math` may not reassociate it, so a miss recomputes the identical double
+and a hit returns the one computed from it. The fields are not serialized,
+following `deleteIfNotReceivedBack`, so restart files are unchanged.
+
+All 13 cases bitwise identical.
+
+`interleaved_timing.sh 9`, **minimum** per case rather than median:
+
+| case | before (s) | after (s) | speedup |
+| --- | ---: | ---: | ---: |
+| `rev_3D` | 4.574 | 4.403 | 1.039x |
+| `hexamer` | 5.227 | 5.128 | 1.019x |
+| `michaelis_menten` | 4.313 | 4.237 | 1.018x |
+| `mem_localization` | 2.612 | 2.565 | 1.018x |
+| `implicit_lipid` | 2.527 | 2.530 | 0.999x |
+| **total** | **22.795** | **22.152** | **1.029x** |
+
+Minimums, not medians, and the reason is worth recording. This host was at load
+average 4 to 11 throughout. On a first 5-repetition pass `clathrin`'s five
+`before` timings were 3.678, 8.770, 6.666, 9.153 and 4.332 s -- a 2.5x spread on
+identical work -- which put its median ratio at 0.808x and dragged the aggregate
+to 0.945x, i.e. reported a regression. A second 9-repetition pass put the same
+case at 1.577x by median. Neither number means anything. The cases whose
+per-timestep work is largest, `rev_3D` and `hexamer`, held to within 2% across
+repetitions in both passes and are the only ones worth reading. `clathrin` is
+omitted from the table above at 1.077x by minimum for the same reason.
+
+Taking the five listed cases at face value the change is worth **about 1.5-2%**,
+the same class as the size-robust residual in section 12.3 rather than the
+dilution-dependent gains the suite over-represents. A quiet host would be needed
+to tighten it further, and that is the honest limit of this measurement.
+
+### 16.5 `sincos` fusion: already done by the compiler
+
+The remaining idea from section 13.1 was to halve the libm call count where
+`sin(x)` and `cos(x)` are both needed for the same `x`:
+`create_euler_rotation_matrix()` makes six such calls for three angles, and
+`Complex::propagate()` makes six for the quaternion's three half-angles.
+
+Apple's `__sincos` was first checked for bit-exactness against separate `sin` and
+`cos`, since a fused call that returns different doubles could not be a
+result-preserving change. Over 3,200,000 arguments across eight scales from 1e-8
+to 1e3: **zero mismatches in both sin and cos**. So the fusion would have been
+safe.
+
+It would also have been pointless. Disassembling the two functions in the
+committed binary:
+
+| function | `__sincos_stret` calls | separate `sin`/`cos` calls |
+| --- | ---: | ---: |
+| `create_euler_rotation_matrix(double,double,double)` | 3 | 0 |
+| `Complex::propagate` | 3 | 0 |
+
+Three calls for three angles, and no scalar `sin` or `cos` at all. Clang at
+`-O3` already recognises adjacent `sin`/`cos` of a common argument and lowers the
+pair to one `__sincos_stret`. Writing the call explicitly would have emitted the
+same three instructions.
+
+This is the third time on this branch that a profile frame has been read as an
+opportunity when the cost was somewhere else -- sections 9.6 and 11 are the
+other two -- and the first where the optimization had already been applied by
+something other than this repository. The general lesson is narrow but real: on
+a frame attributed to a libm symbol, check what the compiler already emitted
+before assuming the source spells out what runs. `DYLD-STUB$$cos` at 99 samples
+and `cos` at 42 in the section 16.1 profile were not the euler matrix or the
+quaternion at all; every one of them came from
+`add_3D_rotational_diffusion()`'s cosine, which has no matching sine and which
+16.4 then removed.
+
+### 16.6 Combined result
+
+The committed tip was rebuilt from a clean tree and compared over all 13 cases
+and every file under `DATA/`, `RESTARTS/` and `PDB/` against a build of
+`e5be2a6`, the branch state this work started from: **bitwise identical**, so the
+committed state reproduces the measured state in the sense section 9.7 uses.
+
+That span is wider than the two changes described here. Four other commits landed
+between `e5be2a6` and this section's first one -- `321d893`, `a54c4dd`,
+`ddff3a8`, `1821bfe` -- so the identity result covers those as well, and is
+evidence for them too. It is not evidence about anything before `e5be2a6`.
+
+On timing, the two changes were each measured against their own immediate
+predecessor -- 1.092x in 16.2 and about 1.02x in 16.4 -- so the combined figure
+of roughly **1.11x** on the six-case table is the product of two separately
+measured ratios, **not** a directly measured one. A direct pre-versus-post run
+was attempted and abandoned: this host would not stay quiet long enough, and two
+attempts collided with each other's result directory before the contention was
+noticed. Given that a single disturbed repetition already moved `clathrin` from
+0.808x to 1.577x in 16.4, a combined number produced under those conditions
+would be worth less than the product of two clean ones. Anyone wanting the
+direct measurement should take `debugremoval_cases.tsv` to an idle machine and
+compare `1821bfe` against this tip.
+
+What is not estimated is the correctness claim. The committed tip removes about 8
+points of allocator share and the last two scalar `cos()` calls in the hot path,
+and alters no output byte in any of the 13 cases.
