@@ -99,6 +99,29 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
 
 /*!
+ * \brief Collects the reaction partners of one complex's members, with their
+ *        current trajStatus, appending to `partnerList`.
+ *
+ * The cluster sweeps use this when they split a timestep into substeps: the
+ * complexes around the cluster have to keep moving alongside it, so they are
+ * gathered once and then resampled and propagated at the shorter step.
+ * Implicit lipids are skipped - they have no trajectory of their own.
+ */
+void collect_cluster_partners(int comIndex, const std::vector<Molecule>& moleculeList,
+    const std::vector<Complex>& complexList, std::vector<int>& partnerList,
+    std::vector<TrajStatus>& movestatOrigPartnerList);
+
+/*!
+ * \brief Resamples the trajectory of every complex holding a molecule in
+ *        `partnerList`, once per complex, and reflects it back into the volume.
+ *
+ * Companion to \ref collect_cluster_partners: called when the substepping is
+ * set up, and again before each substep after the first.
+ */
+void resample_partner_trajectories(const std::vector<int>& partnerList, std::vector<Molecule>& moleculeList,
+    std::vector<Complex>& complexList, const Parameters& params, const Membrane& membraneObject, double RS3Dinput);
+
+/*!
  * \brief Checks for overlap of proteins in solution.
  *
  * 3D version of sweep_separation_complex_rot_memtest

@@ -80,71 +80,12 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
             p2 = pairList[i].p2;
             k1 = pairList[i].k1;
             k2 = pairList[i].k2;
-            for (unsigned memMolItr { 0 }; memMolItr < complexList[k1].memberList.size(); ++memMolItr) {
-                int pro1Index = complexList[k1].memberList[memMolItr];
-                for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossbase.size(); ++crossMemItr) {
-                    int pro2Index { moleculeList[pro1Index].crossbase[crossMemItr] };
-                    if (moleculeList[pro2Index].isImplicitLipid)
-                        continue;
-                    partnerOfPairList.push_back(pro2Index);
-                    movestatOrigPartnerOfPairList.push_back(moleculeList[pro2Index].trajStatus);
-                }
-            }
-            for (unsigned memMolItr { 0 }; memMolItr < complexList[k2].memberList.size(); ++memMolItr) {
-                int pro1Index = complexList[k2].memberList[memMolItr];
-                for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossbase.size(); ++crossMemItr) {
-                    int pro2Index { moleculeList[pro1Index].crossbase[crossMemItr] };
-                    if (moleculeList[pro2Index].isImplicitLipid)
-                        continue;
-                    partnerOfPairList.push_back(pro2Index);
-                    movestatOrigPartnerOfPairList.push_back(moleculeList[pro2Index].trajStatus);
-                }
-            }
+            collect_cluster_partners(k1, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
+            collect_cluster_partners(k2, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
         }
 
         // resample the traj in partnerOfPairList for the timeStep changed
-        {
-            int i;
-            int k;
-            int p;
-            int flag;
-            std::vector<int> didMove;
-            for (i = 0; i < partnerOfPairList.size(); i++) {
-                p = partnerOfPairList[i];
-                k = moleculeList[p].myComIndex;
-                if (moleculeList[p].trajStatus == TrajStatus::none || moleculeList[p].trajStatus == TrajStatus::canBeResampled) {
-                    flag = 0;
-                    for (int d = 0; d < didMove.size(); d++) {
-                        if (didMove[d] == k)
-                            flag = 1;
-                    }
-                    if (flag == 0) {
-
-                        // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
-                        if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                            Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
-                            complexList[k].trajTrans.x = targTrans.x;
-                            complexList[k].trajTrans.y = targTrans.y;
-                            complexList[k].trajTrans.z = targTrans.z;
-                            complexList[k].trajRot.x = sqrt(2.0 * params.timeStep * complexList[k].Dr.x) * GaussV();
-                            complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
-                            complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
-                        } else {
-                            complexList[k].trajTrans.x = sqrt(2.0 * params.timeStep * complexList[k].D.x) * GaussV();
-                            complexList[k].trajTrans.y = sqrt(2.0 * params.timeStep * complexList[k].D.y) * GaussV();
-                            complexList[k].trajTrans.z = sqrt(2.0 * params.timeStep * complexList[k].D.z) * GaussV();
-                            complexList[k].trajRot.x = sqrt(2.0 * params.timeStep * complexList[k].Dr.x) * GaussV();
-                            complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
-                            complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
-                        }
-
-                        reflect_traj_complex_rad_rot(params, moleculeList, complexList[k], membraneObject, RS3Dinput, false);
-
-                        didMove.push_back(k);
-                    }
-                }
-            }
-        }
+        resample_partner_trajectories(partnerOfPairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
 
         // for(int index = 0;index<pairList.size();index++){
         //     resampleList[pairList[index].k1]=1;
@@ -326,48 +267,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
                 }
             }
             // resample
-            {
-                int i;
-                int k;
-                int p;
-                int flag;
-                std::vector<int> didMove;
-                for (i = 0; i < partnerOfPairList.size(); i++) {
-                    p = partnerOfPairList[i];
-                    k = moleculeList[p].myComIndex;
-                    if (moleculeList[p].trajStatus == TrajStatus::none || moleculeList[p].trajStatus == TrajStatus::canBeResampled) {
-                        flag = 0;
-                        for (int d = 0; d < didMove.size(); d++) {
-                            if (didMove[d] == k)
-                                flag = 1;
-                        }
-                        if (flag == 0) {
-
-                            // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
-                            if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
-                                Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
-                                complexList[k].trajTrans.x = targTrans.x;
-                                complexList[k].trajTrans.y = targTrans.y;
-                                complexList[k].trajTrans.z = targTrans.z;
-                                complexList[k].trajRot.x = sqrt(2.0 * params.timeStep * complexList[k].Dr.x) * GaussV();
-                                complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
-                                complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
-                            } else {
-                                complexList[k].trajTrans.x = sqrt(2.0 * params.timeStep * complexList[k].D.x) * GaussV();
-                                complexList[k].trajTrans.y = sqrt(2.0 * params.timeStep * complexList[k].D.y) * GaussV();
-                                complexList[k].trajTrans.z = sqrt(2.0 * params.timeStep * complexList[k].D.z) * GaussV();
-                                complexList[k].trajRot.x = sqrt(2.0 * params.timeStep * complexList[k].Dr.x) * GaussV();
-                                complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
-                                complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
-                            }
-
-                            reflect_traj_complex_rad_rot(params, moleculeList, complexList[k], membraneObject, RS3Dinput, false);
-
-                            didMove.push_back(k);
-                        }
-                    }
-                }
-            }
+            resample_partner_trajectories(partnerOfPairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
         }
     } // end looping over Nsteps
 
