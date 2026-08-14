@@ -1092,3 +1092,77 @@ percent is not measurable at the suite level.
   `create_arbitrary_vector()` no longer prints a spurious "angle between vectors
   with at least one of magnitude 0" warning per call, because it no longer takes
   that angle. Neither is in a hashed output file.
+
+## 15. Coverage of the validation suite, and what it does not reach
+
+`cases.tsv` was built to be fast and to cover the common reaction paths. It is
+not a coverage suite, and treating it as one is a mistake this section exists to
+prevent: a bitwise suite that never executes a function reports "identical" for
+any change to it, correct or not, in exactly the same words it uses for code it
+does execute.
+
+Measured by building with
+
+```
+make serial CFLAGS="-O1 -fprofile-instr-generate -fcoverage-mapping"
+```
+
+running every case, merging with `llvm-profdata merge -sparse` and reading
+`llvm-cov report -show-functions` over the three directories that the
+consolidation work touched.
+
+### 15.1 What cases.tsv misses
+
+Whole families of functions sat at 0.00% region coverage: every compartment
+routine (three reflectors, two transmission probabilities,
+`check_compartment_reaction`), the cluster overlap sweep in both geometries, the
+unimolecular observable counter, all three span-check reflectors and the three
+`_nocheck` reflectors they call, and the entire `excludeVolumeBound` half of
+`check_bimolecular_reactions.cpp` - which is, by line count, the largest
+remaining duplication target in `reactions`, and therefore the least safe.
+
+`coverage_cases.tsv` closes the part of that gap the existing sample inputs can
+reach. `known_uncovered.tsv` records the rest, with what was tried, so the next
+person does not have to rediscover it.
+
+### 15.2 A flag that parses is not a path that runs
+
+`clusterOverlapCheck` defaults to false, so nothing in `cases.tsv` reaches
+`sweep_separation_complex_rot_memtest_cluster_*`. Turning it on in four models
+changed the output of all four, which looks like proof that the code now runs.
+It is not. `write_restart.cpp` echoes the flag into every restart file, so three
+of the four differed **only** in `restart*.dat`:
+
+| model | differing files | differing outside `restart*.dat` |
+| --- | --- | --- |
+| `implicit_lipid` | 20 | 0 |
+| `sphere` | 20 | 0 |
+| `clathrin` | 2 | 0 |
+| `mem_localization/SmallBox/FastDsol` | 34 | **14** |
+
+Only the last reaches the cluster code, and `llvm-cov` agrees: with all four
+cases merged, `_cluster_box` is covered and `_cluster_sphere` is still 0.00%.
+The lesson is that "the output changed" answers a different question than "the
+code ran", and only the second one licenses a refactor.
+
+### 15.3 Retroactive verification
+
+`coverage_cases.tsv` run against the pre-consolidation binary
+(`nerdss-optimized` at `207e22d`) and against the branch tip, `compare_suites.sh`
+between them:
+
+| case | nItr | bitwise identical |
+| --- | --- | --- |
+| `compartment` | 4,000 | yes |
+| `unimol_state_change` | 20,000 | yes |
+| `cluster_mem_loc` | 2,000 | yes |
+
+That is new evidence, not a restatement: these three cases are what first
+executed `count_unimolecular_observable`, `determine_compartment_probability`,
+`collect_cluster_partners` and `resample_partner_trajectories`. Until this table
+existed, those four had been refactored and shipped without a single test having
+run them.
+
+`cases.tsv` needs no re-run here: the tip binary hashes to
+`4492514f0ec3ec63`, the same bytes already compared over all 13 cases and 268
+output files.

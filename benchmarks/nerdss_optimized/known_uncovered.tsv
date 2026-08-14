@@ -1,0 +1,32 @@
+# Code in boundary_conditions, reactions and trajectory_functions that neither
+# cases.tsv nor coverage_cases.tsv executes, with what was tried.
+#
+# Measured by building with
+#   make serial CFLAGS="-O1 -fprofile-instr-generate -fcoverage-mapping"
+# running every case in both tables, merging with `llvm-profdata merge -sparse`
+# and reading `llvm-cov report -show-functions`.  A function listed here showed
+# 0.00% region coverage across the whole merged profile.
+#
+# This file exists because the absence of a case is invisible.  A bitwise suite
+# that does not reach a function reports "identical" for any change to it,
+# including a wrong one, and reports it in exactly the same words as for code it
+# does reach.  Anything edited here has to be argued for some other way - by
+# construction, by reading, or by a case added on purpose - and the argument
+# belongs in the commit message.
+#
+# function <TAB> why it is not reached <TAB> what was tried
+check_bimolecular_reactions.cpp excludeVolumeBound half	Everything under `if (canExclude == true)` from line 202 to the end of the function. Needs a MolTemplate with excludeVolumeBound set, which no sample input has. It re-implements the 1D/2D/3D geometry inline and holds five copies of the crossing-record block, so it looks like the largest remaining duplication target in reactions and is the least safe one.	All cases in both tables: line 202 has 0 hits while line 200 has 2.82G.
+reflect_complex_compartment	Gated on Molecule::enforceCompartmentBC, which only check_compartment_reaction sets, and only for a molecule that has crossed into the compartment. In sample_inputs/compartment molecules only ever exit.	compartment at nItr 4000 and 8000: check_compartment_reaction reaches 52% and determine_exiting_compartment_probability 100%, but determine_entering_compartment_probability stays at 0.00% and so does this.
+reflect_traj_complex_compartment	Same gate.	As above.
+reflect_traj_tmp_crds_compartment	Same gate.	As above.
+determine_entering_compartment_probability	Reached only when a molecule is about to enter the compartment; the one compartment sample has them leaving.	As above.
+sweep_separation_complex_rot_memtest_sphere	Needs a complex bound to a spherical membrane whose partners overlap after propagation. In VALIDATE_SUITE/sphere the surface-bound complexes never need overlap resolution.	sphere at nItr 40000 and 150000, with and without clusterOverlapCheck: 0.00% in both.
+sweep_separation_complex_rot_memtest_cluster_sphere	Same gate as above, plus clusterOverlapCheck.	sphere at nItr 150000 with clusterOverlapCheck = true: 0.00%.
+sweep_separation_complex_rot_fiber	Needs Complex::onFiber, which no sample input sets.	No .inp under sample_inputs mentions onFiber.
+sweep_separation_complex_rot_fiber_box	Only caller is sweep_separation_complex_rot_fiber.	As above.
+reflect_traj_check_span	Only called when reflect_traj_complex_rad_rot_{box,sphere} finds a complex that reaches past both opposite walls, or that its own correction would push out the far side. Every model here has a box far larger than its complexes.	All 13 cases.tsv cases plus all coverage_cases.tsv cases: 0.00%.
+reflect_traj_check_span_box	Only caller is reflect_traj_check_span, and reflect_traj_complex_rad_rot_box directly under the same condition.	As above.
+reflect_traj_check_span_sphere	Reached only when a complex reaches outside the sphere after propagation.	As above.
+reflect_traj_complex_rad_rot_nocheck	Only called from the two check_span routines, after they resample a failed move.	As above; unreachable for as long as check_span is.
+reflect_traj_complex_rad_rot_nocheck_box	Only caller is reflect_traj_complex_rad_rot_nocheck.	As above.
+reflect_traj_complex_rad_rot_nocheck_sphere	Only caller is reflect_traj_complex_rad_rot_nocheck.	As above.

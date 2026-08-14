@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run every case in cases.tsv with one nerdss build and record, per case:
+# Run every case in a case table with one nerdss build and record, per case:
 #   * wall-clock seconds for each repetition
 #   * a content hash of every output file
 #
@@ -9,6 +9,13 @@
 # frame carries the wall-clock creation time, so PDB files are hashed from
 # line 2 onward while every other output is hashed raw.  Nothing else in the
 # outputs depends on the clock, which `compare_suites.sh` relies on.
+#
+# CASES_FILE selects the table; it defaults to cases.tsv.  A table may carry an
+# optional fifth column holding one parameter line to inject into the model's
+# `parameters` block, which is how coverage_cases.tsv reaches code paths that
+# are off by default:
+#
+#   CASES_FILE=coverage_cases.tsv ./run_suite.sh ../../bin/nerdss cov 1
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -22,6 +29,15 @@ RESULT_ROOT=${4:-$SCRIPT_DIR/results}
 BINARY=$(cd "$(dirname "$BINARY")" && pwd)/$(basename "$BINARY")
 SEED=${SUITE_SEED:-20260810}
 INPUT_ROOT=$ROOT_DIR/sample_inputs
+
+# Relative names are resolved against this directory, so CASES_FILE can be given
+# as a bare table name.
+CASES_FILE=${CASES_FILE:-cases.tsv}
+[[ $CASES_FILE == /* ]] || CASES_FILE=$SCRIPT_DIR/$CASES_FILE
+if [[ ! -f $CASES_FILE ]]; then
+    echo "no such case table: $CASES_FILE" >&2
+    exit 1
+fi
 
 OUT_DIR=$RESULT_ROOT/$LABEL
 rm -rf "$OUT_DIR"
@@ -100,8 +116,9 @@ run_with_timeout() {
 printf 'case\trepetition\tnItr\tseconds\texit_status\n' > "$OUT_DIR/timings.tsv"
 : > "$OUT_DIR/manifest.sha256"
 
-while IFS=$'\t' read -r id dir parm n_itr; do
+while IFS=$'\t' read -r id dir parm n_itr extra; do
     [[ -z "${id// }" || "${id:0:1}" == "#" ]] && continue
+    extra=${extra:-}
 
     case_dir=$INPUT_ROOT/$dir
     if [[ ! -f "$case_dir/$parm" ]]; then
@@ -119,9 +136,12 @@ while IFS=$'\t' read -r id dir parm n_itr; do
         find "$case_dir" -maxdepth 1 -name '*.mol' -exec cp {} "$run_dir/" \;
 
         # Force the iteration count so every build runs exactly the same length.
-        # SUITE_NITR overrides the table for calibration runs.
-        awk -v n="${SUITE_NITR:-$n_itr}" '
+        # SUITE_NITR overrides the table for calibration runs.  A fifth column in
+        # the table adds one parameter line, which is how a case switches on a
+        # feature the stock model leaves off.
+        awk -v n="${SUITE_NITR:-$n_itr}" -v extra="$extra" '
             /^[[:space:]]*nItr[[:space:]]*=/ { print "    nItr = " n; next }
+            /^[[:space:]]*end parameters/    { if (extra != "") print "    " extra; print; next }
             { print }
         ' "$case_dir/$parm" > "$run_dir/$parm"
 
@@ -160,7 +180,8 @@ while IFS=$'\t' read -r id dir parm n_itr; do
 
         printf '%-22s rep%-3s %8ss exit=%s\n' "$id" "$rep" "$seconds" "$status"
     done
-done < "$SCRIPT_DIR/cases.tsv"
+done < "$CASES_FILE"
 
 echo
+echo "cases:   $CASES_FILE"
 echo "results: $OUT_DIR"

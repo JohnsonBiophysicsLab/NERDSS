@@ -1,0 +1,44 @@
+# Cases that exist to reach code cases.tsv never executes.
+#
+# cases.tsv was assembled to be fast and to cover the common reaction paths, and
+# it is not a coverage suite.  Measuring it with `-fprofile-instr-generate`
+# showed whole families of functions at 0.00%: every compartment routine, the
+# cluster overlap sweep, the unimolecular observable counter, the span-check
+# reflectors.  Refactoring any of those while trusting cases.tsv would have
+# produced an unverified change that reported "identical" in the same words as a
+# verified one.
+#
+# Run this table the same way as cases.tsv:
+#   CASES_FILE=coverage_cases.tsv ./run_suite.sh <binary> <label> 1
+#   ./compare_suites.sh <baseline-label> <candidate-label> ...
+#
+# Columns: id <TAB> input directory (under sample_inputs/) <TAB> parm file
+#          <TAB> nItr <TAB> optional parameter line to inject
+#
+# The fifth column switches on a feature the stock model leaves off.  Mind what
+# it does *not* prove: `clusterOverlapCheck` is echoed into every restart file,
+# so a case whose output changes only in restart*.dat has recorded the flag and
+# nothing else.  Of four models tried with it, only
+# mem_localization/SmallBox/FastDsol changes a DATA trajectory; the other three
+# (implicit_lipid, sphere, clathrin) differ in restart files alone and do not
+# reach the cluster code at all.  Only the one that does is kept.
+#
+# What each case is here for, measured by merging its profile and reading
+# `llvm-cov report -show-functions`.  Everything still at 0.00% after this table
+# runs is listed in known_uncovered.tsv.
+
+# Compartment transmission: check_compartment_reaction (52%),
+# determine_exiting_compartment_probability (100%),
+# determine_compartment_probability (67%), prob_exiting_compartment.
+# nItr is 4000 on purpose: this sample segfaults somewhere between 8000 and
+# 12000 iterations, on the pre-refactor binary too.  See known_broken.tsv.
+compartment	compartment	clath_compartment.inp	4000
+
+# Unimolecular state change: count_unimolecular_observable, and the
+# check_for_unimolstatechange_reactions path around it.
+unimol_state_change	VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	20000
+
+# Cluster overlap sweep, box variant: collect_cluster_partners,
+# resample_partner_trajectories, sweep_separation_complex_rot_memtest_cluster_box.
+# The only model found where turning the flag on changes a DATA trajectory.
+cluster_mem_loc	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	2000	clusterOverlapCheck = true
