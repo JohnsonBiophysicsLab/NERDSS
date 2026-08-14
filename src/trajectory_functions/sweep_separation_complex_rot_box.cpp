@@ -159,12 +159,7 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
             break;
 
         ++itr;
-        complexList[com1Index].trajTrans.x = sqrt(2.0 * params.timeStep * complexList[com1Index].D.x) * GaussV();
-        complexList[com1Index].trajTrans.y = sqrt(2.0 * params.timeStep * complexList[com1Index].D.y) * GaussV();
-        complexList[com1Index].trajTrans.z = sqrt(2.0 * params.timeStep * complexList[com1Index].D.z) * GaussV();
-        complexList[com1Index].trajRot.x = sqrt(2.0 * params.timeStep * complexList[com1Index].Dr.x) * GaussV();
-        complexList[com1Index].trajRot.y = sqrt(2.0 * params.timeStep * complexList[com1Index].Dr.y) * GaussV();
-        complexList[com1Index].trajRot.z = sqrt(2.0 * params.timeStep * complexList[com1Index].Dr.z) * GaussV();
+        resample_complex_trajectory(complexList[com1Index], params);
 
         reflect_traj_complex_rad_rot(params, moleculeList, complexList[com1Index], membraneObject, RS3Dinput, isInsideCompartment);
 
@@ -188,12 +183,7 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
                  */
 
                     /*If p2 just dissociated, also don't try to move again*/
-                    complexList[com2Index].trajTrans.x = sqrt(2.0 * params.timeStep * complexList[com2Index].D.x) * GaussV();
-                    complexList[com2Index].trajTrans.y = sqrt(2.0 * params.timeStep * complexList[com2Index].D.y) * GaussV();
-                    complexList[com2Index].trajTrans.z = sqrt(2.0 * params.timeStep * complexList[com2Index].D.z) * GaussV();
-                    complexList[com2Index].trajRot.x = sqrt(2.0 * params.timeStep * complexList[com2Index].Dr.x) * GaussV();
-                    complexList[com2Index].trajRot.y = sqrt(2.0 * params.timeStep * complexList[com2Index].Dr.y) * GaussV();
-                    complexList[com2Index].trajRot.z = sqrt(2.0 * params.timeStep * complexList[com2Index].Dr.z) * GaussV();
+                    resample_complex_trajectory(complexList[com2Index], params);
 
                     reflect_traj_complex_rad_rot(params, moleculeList, complexList[com2Index], membraneObject, RS3Dinput, isInsideCompartment);
                     resampleList[com2Index] = 1;

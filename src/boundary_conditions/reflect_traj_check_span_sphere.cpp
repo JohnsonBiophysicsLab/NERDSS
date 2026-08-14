@@ -14,6 +14,7 @@
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
 #include "tracing.hpp"
+#include "trajectory_functions/trajectory_functions.hpp"
 
 namespace {
 
@@ -42,12 +43,7 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
     int maxItr { 50 };
     int checkItr { 0 };
 
-    double RS3D;
-    if (targCom.OnSurface) {
-        RS3D = 0;
-    } else {
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
     double sphereR = radius - RS3D;
 
     // if (targCom.D.z < 1E-14 || targCom.OnSurface) { // for the complex on the sphere surface
@@ -74,12 +70,7 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
         // recheck whether this complex is still out sphere, if so, regenerate trajTrans
         if (farthest.score > sphereR + 1E-15) {
-            targCom.trajTrans.x = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
-            targCom.trajTrans.y = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
-            targCom.trajTrans.z = sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV();
-            targCom.trajRot.x = sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV();
-            targCom.trajRot.y = sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV();
-            targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
+            resample_complex_trajectory(targCom, params);
 
             reflect_traj_complex_rad_rot_nocheck(params, targCom, moleculeList, membraneObject, RS3Dinput);
             ++checkItr;

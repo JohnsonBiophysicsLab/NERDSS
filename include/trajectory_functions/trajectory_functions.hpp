@@ -38,6 +38,19 @@ Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
 bool complexSpansBox(Vec3D& transVec, const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList);
 
 /*!
+ * \brief Redraws one complex's Brownian translation and rotation for this step.
+ *
+ * Six `GaussV()` draws in the order trajTrans x, y, z then trajRot x, y, z,
+ * each scaled by the complex's diffusion constant for that axis.  Called by
+ * everything that rejects a trial move and tries again.
+ *
+ * The draw order is load-bearing: the six values come off one shared random
+ * stream, so reordering them, or skipping one on some path, changes every
+ * random number the simulation draws afterwards.
+ */
+void resample_complex_trajectory(Complex& targCom, const Parameters& params);
+
+/*!
  * \brief Check if propagation will cause the complex to span the entire box.
  * \param[in] params Simulation parameters as provided by user.
  * \param[in] targCom The complex to be propagated.

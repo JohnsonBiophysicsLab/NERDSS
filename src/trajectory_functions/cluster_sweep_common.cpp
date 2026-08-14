@@ -74,12 +74,7 @@ void resample_partner_trajectories(const std::vector<int>& partnerList, std::vec
                     complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
                     complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
                 } else {
-                    complexList[k].trajTrans.x = sqrt(2.0 * params.timeStep * complexList[k].D.x) * GaussV();
-                    complexList[k].trajTrans.y = sqrt(2.0 * params.timeStep * complexList[k].D.y) * GaussV();
-                    complexList[k].trajTrans.z = sqrt(2.0 * params.timeStep * complexList[k].D.z) * GaussV();
-                    complexList[k].trajRot.x = sqrt(2.0 * params.timeStep * complexList[k].Dr.x) * GaussV();
-                    complexList[k].trajRot.y = sqrt(2.0 * params.timeStep * complexList[k].Dr.y) * GaussV();
-                    complexList[k].trajRot.z = sqrt(2.0 * params.timeStep * complexList[k].Dr.z) * GaussV();
+                    resample_complex_trajectory(complexList[k], params);
                 }
 
                 reflect_traj_complex_rad_rot(params, moleculeList, complexList[k], membraneObject, RS3Dinput, false);

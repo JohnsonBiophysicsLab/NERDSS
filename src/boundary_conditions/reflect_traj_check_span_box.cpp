@@ -3,6 +3,7 @@
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
 #include "tracing.hpp"
+#include "trajectory_functions/trajectory_functions.hpp"
 
 void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput)
 {
@@ -11,12 +12,7 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
     int maxItr { 50 };
     int checkItr { 0 };
 
-    double RS3D;
-    if (targCom.OnSurface) {
-        RS3D = 0;
-    } else {
-        RS3D = RS3Dinput;
-    }
+    double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
 
     // Built once, before the loop, and deliberately not rebuilt when the loop
     // resamples trajRot below: the resampled rotation is applied by
@@ -98,12 +94,7 @@ void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std
 
         if (moveFailed == true) {
             // Resample, extends in x, y, and/or z
-            targCom.trajTrans.x = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
-            targCom.trajTrans.y = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
-            targCom.trajTrans.z = sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV();
-            targCom.trajRot.x = sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV();
-            targCom.trajRot.y = sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV();
-            targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
+            resample_complex_trajectory(targCom, params);
 
             reflect_traj_complex_rad_rot_nocheck(params, targCom, moleculeList, membraneObject, RS3Dinput);
             ++checkItr;

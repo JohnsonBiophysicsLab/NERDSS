@@ -204,18 +204,7 @@ void sweep_separation_complex_rot_fiber_box(
       //           << complexList[comIndex2].comCoord.x +
       //           complexList[comIndex2].trajTrans.x << std::endl;
       ++itr;
-      complexList[comIndex1].trajTrans.x =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].D.x) * GaussV();
-      complexList[comIndex1].trajTrans.y =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].D.y) * GaussV();
-      complexList[comIndex1].trajTrans.z =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].D.z) * GaussV();
-      complexList[comIndex1].trajRot.x =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].Dr.x) * GaussV();
-      complexList[comIndex1].trajRot.y =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].Dr.y) * GaussV();
-      complexList[comIndex1].trajRot.z =
-          sqrt(2.0 * params.timeStep * complexList[comIndex1].Dr.z) * GaussV();
+      resample_complex_trajectory(complexList[comIndex1], params);
 
       // reflectList[comIndex1] = 0;
       reflect_traj_complex_rad_rot(params, moleculeList, complexList[comIndex1],
@@ -251,18 +240,7 @@ void sweep_separation_complex_rot_fiber_box(
                 // }
 
                 /*If p2 just dissociated, also don't try to move again*/
-                complexList[comIndex2].trajTrans.x =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.x) * GaussV();
-                complexList[comIndex2].trajTrans.y =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.y) * GaussV();
-                complexList[comIndex2].trajTrans.z =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].D.z) * GaussV();
-                complexList[comIndex2].trajRot.x =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.x) * GaussV();
-                complexList[comIndex2].trajRot.y =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.y) * GaussV();
-                complexList[comIndex2].trajRot.z =
-                    sqrt(2.0 * params.timeStep * complexList[comIndex2].Dr.z) * GaussV();
+                resample_complex_trajectory(complexList[comIndex2], params);
 
                 // reflectList[comIndex2] = 0;
                 reflect_traj_complex_rad_rot(
