@@ -42,6 +42,23 @@ struct MPIComplexInfo {
   int nAssociationTries = 0;
 };
 
+// The members below are guarded by mpi_, so this struct has one layout in a
+// serial build and another in an MPI build: 240 bytes versus 336, with xOffset
+// at byte 56 versus 136.  Mixing objects from the two modes in one link used to
+// succeed and then misread every domain bound at run time.
+//
+// The inline namespace puts the build mode into the mangled name of everything
+// that mentions MpiContext, so such a link now fails with an undefined symbol
+// naming the mode it wanted.  It is inline, so `MpiContext` still resolves
+// unqualified everywhere it already appears -- no call site changes.  The
+// Makefile keeps the two modes in separate object trees so this should never
+// fire; it is here because the failure it catches is silent and numerical.
+#ifdef mpi_
+inline namespace nerdss_build_mpi {
+#else
+inline namespace nerdss_build_serial {
+#endif
+
 typedef struct structMpiContext {  // holds MPI related data
   structMpiContext(int nRanks, int neigborRankBufferSize) {
     xOffset = 0;
@@ -239,3 +256,9 @@ typedef struct structMpiContext {  // holds MPI related data
   std::vector<Molecule>* moleculeList;
   std::vector<Complex>* complexList;
 } MpiContext;
+
+#ifdef mpi_
+}  // inline namespace nerdss_build_mpi
+#else
+}  // inline namespace nerdss_build_serial
+#endif
