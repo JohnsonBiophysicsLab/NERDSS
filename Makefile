@@ -130,9 +130,17 @@ syntax:
 $(MAKECMDGOALS): $(EXEC)
 	@echo "Finished making (re-)building $(MAKECMDGOALS) version, $(EXEC)."
 
-$(EXEC): $(OBJS)
+# The executable source is a prerequisite, not just an argument on the recipe
+# line.  Without it listed here, make compared bin/nerdss only against the
+# objects, so editing EXEs/nerdss.cpp -- which holds the whole timestep loop --
+# rebuilt nothing and left the previous binary in place.  A build would report
+# success and silently produce the old program, which is the worst possible
+# failure for a repository whose claims rest on measured timings.
+# DEPFLAGS is applied here too, for the same reason the object rule needs it:
+# the link step compiles a translation unit, and that unit includes headers.
+$(EXEC): $(OBJS) $(EDIR)/$(_EXEC).cpp
 	@echo "Compiling $(EDIR)/$(@F).cpp"
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -MF $(ODIR)/$(@F).d -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
 	@echo "------------"
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
@@ -152,6 +160,10 @@ clean:
 # generated .d files list every header each object actually included, so a
 # header edit now recompiles exactly the objects that read it.
 -include $(OBJS:.o=.d)
+
+# The same, for the executable's own translation unit.  Its .d is written into
+# $(ODIR) so `make clean` removes it with everything else.
+-include $(ODIR)/$(_EXEC).d
 
 
 # Reference: https://www.gnu.org/software/make/manual/html_node/Quick-Reference.html
