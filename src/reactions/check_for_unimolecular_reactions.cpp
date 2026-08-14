@@ -111,24 +111,7 @@ void check_for_unimolecular_reactions(
                       }
 
                       // check observables
-                      bool isObserved{false};
-                      std::string observeLabel{};
-                      if (!isStateChangeBackRxn) {
-                        isObserved = forwardRxns[rxnIndex].isObserved;
-                        observeLabel = forwardRxns[rxnIndex].observeLabel;
-                      } else {
-                        isObserved = backRxns[rxnIndex].isObserved;
-                        observeLabel = backRxns[rxnIndex].observeLabel;
-                      }
-                      if (isObserved) {
-                        auto observeItr = observablesList.find(observeLabel);
-                        if (observeItr == observablesList.end()) {
-                          // std::cerr << "WARNING: Observable " << observeLabel
-                          // << " not defined.\n";
-                        } else {
-                          ++observeItr->second;
-                        }
-                      }
+                      count_unimolecular_observable(isStateChangeBackRxn, rxnIndex, forwardRxns, backRxns, observablesList);
 
                       // --counterArrays.copyNumSpecies[tmpImplicitLipidStateIndex];
                       // ++counterArrays.copyNumSpecies[newState.absIfaceIndex];
@@ -220,24 +203,7 @@ void check_for_unimolecular_reactions(
                     }
 
                     // check observables
-                    bool isObserved{false};
-                    std::string observeLabel{};
-                    if (!isStateChangeBackRxn) {
-                      isObserved = forwardRxns[rxnIndex].isObserved;
-                      observeLabel = forwardRxns[rxnIndex].observeLabel;
-                    } else {
-                      isObserved = backRxns[rxnIndex].isObserved;
-                      observeLabel = backRxns[rxnIndex].observeLabel;
-                    }
-                    if (isObserved) {
-                      auto observeItr = observablesList.find(observeLabel);
-                      if (observeItr == observablesList.end()) {
-                        // std::cerr << "WARNING: Observable " << observeLabel
-                        // << " not defined.\n";
-                      } else {
-                        ++observeItr->second;
-                      }
-                    }
+                    count_unimolecular_observable(isStateChangeBackRxn, rxnIndex, forwardRxns, backRxns, observablesList);
 
                     // --counterArrays.copyNumSpecies[stateItr->index];
                     // ++counterArrays.copyNumSpecies[newState.absIfaceIndex];

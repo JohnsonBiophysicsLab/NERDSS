@@ -4,6 +4,7 @@
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "tracing.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 
 #include <iomanip>
 
@@ -421,41 +422,15 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     // Enforce boundary conditions
     reflect_complex_rad_rot(membraneObject, facilitatorCom, moleculeList, 0.0, false);
 
-    for (unsigned crossItr { 0 }; crossItr < stateChangeMol.crossbase.size(); ++crossItr) {
-        int skipMol { stateChangeMol.crossbase[crossItr] };
-        for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-            if (moleculeList[skipMol].crossbase[crossItr2] == stateChangeMol.index)
-                moleculeList[skipMol].probvec[crossItr2] = 0;
-        }
-    }
+    zero_partner_probvec(stateChangeMol, moleculeList);
 
     // Set probability of this protein to zero in all reactions so it doesn't try to
     // react again but the partners still will avoid overlapping.
-    for (unsigned crossItr { 0 }; crossItr < facilitatorMol.crossbase.size(); ++crossItr) {
-        int skipMol { facilitatorMol.crossbase[crossItr] };
-        for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-            if (moleculeList[skipMol].crossbase[crossItr2] == facilitatorMol.index)
-                moleculeList[skipMol].probvec[crossItr2] = 0;
-        }
-    }
+    zero_partner_probvec(facilitatorMol, moleculeList);
 
     // update observables, if applicable
     // TODO: Temporarily, if backRxn, iterate down, if forwardRxn, iterate up
-    if (!isStateChangeBackRxn && forwardRxns[rxnIndex].isObserved) {
-        auto observeItr = observablesList.find(forwardRxns[rxnIndex].observeLabel);
-        if (observeItr == observablesList.end()) {
-            // std::cerr << "WARNING: Observable " << forwardRxns[rxnIndex].observeLabel << " not defined.\n";
-        } else {
-            ++observeItr->second;
-        }
-    } else if (isStateChangeBackRxn && backRxns[backRxnIndex].isObserved) {
-        auto observeItr = observablesList.find(backRxns[backRxnIndex].observeLabel);
-        if (observeItr == observablesList.end()) {
-            // std::cerr << "WARNING: Observable " << backRxns[rxnIndex].observeLabel << " not defined.\n";
-        } else {
-            --observeItr->second;
-        }
-    }
+    update_state_change_observable(isStateChangeBackRxn, rxnIndex, backRxnIndex, forwardRxns, backRxns, observablesList);
 
     /*Update species copy numbers*/
     counterArrays.copyNumSpecies[oldStateIndex]--; // decrement ifaceIndex1

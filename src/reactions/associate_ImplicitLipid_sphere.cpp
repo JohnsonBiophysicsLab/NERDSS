@@ -300,15 +300,7 @@ void associate_implicitlipid_sphere(
 
         // Set probability of this protein to zero in all reactions so it doesn't
         // try to react again but the partners still will avoid overlapping.
-        for (unsigned crossItr { 0 }; crossItr < reactMol1.crossbase.size(); ++crossItr) {
-            int skipMol { reactMol1.crossbase[crossItr] };
-            if (!moleculeList[skipMol].isImplicitLipid) {
-                for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-                    if (moleculeList[skipMol].crossbase[crossItr2] == reactMol1.index)
-                        moleculeList[skipMol].probvec[crossItr2] = 0;
-                }
-            }
-        }
+        zero_partner_probvec(reactMol1, moleculeList, true);
 
         // Update the crossed molecule lists so that the current molecules won't
         // avoid anything, but others will.

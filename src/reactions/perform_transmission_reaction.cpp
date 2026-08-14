@@ -4,6 +4,7 @@
 #include "reactions/association/association.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 
 #include <cmath>
 #include <iomanip>
@@ -44,14 +45,7 @@ void perform_transmission_reaction(int moleculeIndex, std::vector<Molecule>& mol
 	  ++counterArrays.copyNumSpecies[iface.index];
 
     // forbid this molecule to react with other molecules
-    for (unsigned crossItr { 0 }; crossItr < moleculeList[moleculeIndex].crossbase.size(); ++crossItr) {
-        int skipMol { moleculeList[moleculeIndex].crossbase[crossItr] };
-        for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-            if (moleculeList[skipMol].crossbase[crossItr2] == moleculeList[moleculeIndex].index){
-                moleculeList[skipMol].probvec[crossItr2] = 0.0;
-            }
-        }
-    }
+    zero_partner_probvec(moleculeList[moleculeIndex], moleculeList);
     complexList[moleculeList[moleculeIndex].myComIndex].ncross = -1;
     moleculeList[moleculeIndex].crossbase.clear();
 

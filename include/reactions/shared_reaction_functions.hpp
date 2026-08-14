@@ -29,6 +29,41 @@
 bool isReactant(const Molecule::Iface& reactIface, const Molecule& reactMol, const RxnIface& tempReactant);
 
 /*!
+ * \brief Zeroes the reaction probability every partner recorded for `mol`.
+ *
+ * Called once a reaction involving `mol` has fired, so that `mol` cannot react
+ * again this timestep while its partners still avoid overlapping it.
+ *
+ * \param[in] skipImplicitLipidPartners leave the implicit lipid's own entry
+ * alone.  The explicit-lipid association paths zero every partner; the
+ * implicit-lipid ones skip it, and that difference is theirs to state.
+ */
+void zero_partner_probvec(
+    const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners = false);
+
+/*!
+ * \brief Moves the observable counter for a bimolecular state change.
+ *
+ * Up for a forward reaction, down for the back reaction; nothing at all if the
+ * reaction is not observed or the label was never declared.
+ */
+void update_state_change_observable(bool isStateChangeBackRxn, int rxnIndex, int backRxnIndex,
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
+    std::map<std::string, int>& observablesList);
+
+/*!
+ * \brief Counts an observed unimolecular reaction, in whichever direction fired.
+ *
+ * Distinct from \ref update_state_change_observable: this indexes both reaction
+ * lists with the same `rxnIndex`, and counts up for the back reaction as well
+ * as the forward one.  That is what the four unimolecular sites have always
+ * done, so it is kept as its own function rather than merged with the other.
+ */
+void count_unimolecular_observable(bool isStateChangeBackRxn, int rxnIndex,
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
+    std::map<std::string, int>& observablesList);
+
+/*!
  * \brief Determines if the Molecule is a reactant for a Creation/Destruction reaction.
  */
 bool isReactant(const Molecule& currMol, const Complex& currCom, const CreateDestructRxn& currRxn,

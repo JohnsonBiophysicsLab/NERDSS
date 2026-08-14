@@ -190,17 +190,7 @@ void perform_bimolecular_reactions(
         // Set probability of this protein to zero in all reactions so it
         // doesn't try to react again but the partners still will avoid
         // overlapping.
-        for (unsigned crossItr{0};
-             crossItr < moleculeList[molItr].crossbase.size(); ++crossItr) {
-          int skipMol{moleculeList[molItr].crossbase[crossItr]};
-          for (unsigned crossItr2{0};
-               crossItr2 < moleculeList[skipMol].crossbase.size();
-               ++crossItr2) {
-            if (moleculeList[skipMol].crossbase[crossItr2] ==
-                moleculeList[molItr].index)
-              moleculeList[skipMol].probvec[crossItr2] = 0;
-          }
-        }
+        zero_partner_probvec(moleculeList[molItr], moleculeList);
       }
 
     } else {  // else, moleculeList[molItr].crossbase.size() == 0

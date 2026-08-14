@@ -277,31 +277,11 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
 
     // Set probability of this protein to zero in all reactions so it doesn't try to
     // react again but the partners still will avoid overlapping.
-    for (unsigned crossItr { 0 }; crossItr < facilitatorMol.crossbase.size(); ++crossItr) {
-        int skipMol { facilitatorMol.crossbase[crossItr] };
-        for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-            if (moleculeList[skipMol].crossbase[crossItr2] == facilitatorMol.index)
-                moleculeList[skipMol].probvec[crossItr2] = 0;
-        }
-    }
+    zero_partner_probvec(facilitatorMol, moleculeList);
 
     // update observables, if applicable
     // TODO: Temporarily, if backRxn, iterate down, if forwardRxn, iterate up
-    if (!isStateChangeBackRxn && forwardRxns[rxnIndex].isObserved) {
-        auto observeItr = observablesList.find(forwardRxns[rxnIndex].observeLabel);
-        if (observeItr == observablesList.end()) {
-            // std::cerr << "WARNING: Observable " << forwardRxns[rxnIndex].observeLabel << " not defined.\n";
-        } else {
-            ++observeItr->second;
-        }
-    } else if (isStateChangeBackRxn && backRxns[backRxnIndex].isObserved) {
-        auto observeItr = observablesList.find(backRxns[backRxnIndex].observeLabel);
-        if (observeItr == observablesList.end()) {
-            // std::cerr << "WARNING: Observable " << backRxns[rxnIndex].observeLabel << " not defined.\n";
-        } else {
-            --observeItr->second;
-        }
-    }
+    update_state_change_observable(isStateChangeBackRxn, rxnIndex, backRxnIndex, forwardRxns, backRxns, observablesList);
 
     /*Update species copy numbers*/
     //counterArrays.copyNumSpecies[oldStateIndex]--; // decrement ifaceIndex1
