@@ -2,6 +2,7 @@
 #include "classes/class_Rxns.hpp"
 #include "io/io.hpp"
 #include "reactions/association/association.hpp"
+#include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "tracing.hpp"
 #include <cmath>
@@ -551,20 +552,9 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
     //-----------------------END UPDATE BINDPAIRLIST--------------------------
 
     // update free number of lipids of IL for each state
-    RxnIface implicitLipidState {};
-    const auto& implicitLipidStateList = molTemplateList[moleculeList[membraneObject.implicitlipidIndex].molTypeIndex].interfaceList[0].stateList;
-    if (molTemplateList[currRxn.reactantListNew[1].molTypeIndex].isImplicitLipid == true) {
-        implicitLipidState = currRxn.reactantListNew[1];
-    } else {
-        implicitLipidState = currRxn.reactantListNew[0];
-    }
-    int relStateIndex { -1 };
-    for (auto& state : implicitLipidStateList) {
-        if (state.index == implicitLipidState.absIfaceIndex) {
-            relStateIndex = static_cast<int>(&state - &implicitLipidStateList[0]);
-            break;
-        }
-    }
+    int relStateIndex { implicit_lipid_state_index(
+        implicit_lipid_state_list(moleculeList, molTemplateList, membraneObject),
+        implicit_lipid_iface(currRxn.reactantListNew, molTemplateList)) };
     membraneObject.numberOfFreeLipidsEachState[relStateIndex] -= 1;
 
     // species tracking here

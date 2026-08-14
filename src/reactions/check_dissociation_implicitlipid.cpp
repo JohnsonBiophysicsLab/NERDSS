@@ -156,20 +156,9 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
                 params2D.Na = numberProtein; //free protein
 
                 const ForwardRxn& currRxn = forwardRxns[kfIndex];
-                RxnIface implicitLipidState {};
-                const auto& implicitLipidStateList = molTemplateList[moleculeList[membraneObject.implicitlipidIndex].molTypeIndex].interfaceList[0].stateList;
-                if (molTemplateList[currRxn.reactantListNew[1].molTypeIndex].isImplicitLipid == true) {
-                    implicitLipidState = currRxn.reactantListNew[1];
-                } else {
-                    implicitLipidState = currRxn.reactantListNew[0];
-                }
-                int relStateIndex { -1 };
-                for (auto& state : implicitLipidStateList) {
-                    if (state.index == implicitLipidState.absIfaceIndex) {
-                        relStateIndex = static_cast<int>(&state - &implicitLipidStateList[0]);
-                        break;
-                    }
-                }
+                int relStateIndex { implicit_lipid_state_index(
+                    implicit_lipid_state_list(moleculeList, molTemplateList, membraneObject),
+                    implicit_lipid_iface(currRxn.reactantListNew, molTemplateList)) };
                 params2D.Nlipid = membraneObject.numberOfFreeLipidsEachState[relStateIndex]; // free lipids
 
                 prob = dissociate2D(params2D); //2D-2D unbinding
@@ -228,20 +217,9 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
 
                 //update No_free_lipids according to state of IL
                 const BackRxn& currRxn = backRxns[mu];
-                RxnIface implicitLipidState {};
-                const auto& implicitLipidStateList = molTemplateList[moleculeList[membraneObject.implicitlipidIndex].molTypeIndex].interfaceList[0].stateList;
-                if (molTemplateList[currRxn.productListNew[1].molTypeIndex].isImplicitLipid == true) {
-                    implicitLipidState = currRxn.productListNew[1];
-                } else {
-                    implicitLipidState = currRxn.productListNew[0];
-                }
-                int relStateIndex { -1 };
-                for (auto& state : implicitLipidStateList) {
-                    if (state.index == implicitLipidState.absIfaceIndex) {
-                        relStateIndex = static_cast<int>(&state - &implicitLipidStateList[0]);
-                        break;
-                    }
-                }
+                int relStateIndex { implicit_lipid_state_index(
+                    implicit_lipid_state_list(moleculeList, molTemplateList, membraneObject),
+                    implicit_lipid_iface(currRxn.productListNew, molTemplateList)) };
                 membraneObject.numberOfFreeLipidsEachState[relStateIndex] += 1;
 
                 // update the number of bonds that this complex has connected to the membrane surface.

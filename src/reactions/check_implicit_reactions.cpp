@@ -133,27 +133,11 @@ void check_implicit_reactions(
                   // find the state of IL
                   int forwardRxnIndex{rxnIndex};
                   const ForwardRxn &currRxn = forwardRxns[forwardRxnIndex];
-                  RxnIface implicitLipidState{};
-                  const auto &implicitLipidStateList =
-                      molTemplateList
-                          [moleculeList[membraneObject.implicitlipidIndex]
-                               .molTypeIndex]
-                              .interfaceList[0]
-                              .stateList;
-                  if (molTemplateList[currRxn.reactantListNew[1].molTypeIndex]
-                          .isImplicitLipid == true) {
-                    implicitLipidState = currRxn.reactantListNew[1];
-                  } else {
-                    implicitLipidState = currRxn.reactantListNew[0];
-                  }
-                  int relStateIndex{-1};
-                  for (auto &state : implicitLipidStateList) {
-                    if (state.index == implicitLipidState.absIfaceIndex) {
-                      relStateIndex =
-                          static_cast<int>(&state - &implicitLipidStateList[0]);
-                      break;
-                    }
-                  }
+                  int relStateIndex{implicit_lipid_state_index(
+                      implicit_lipid_state_list(moleculeList, molTemplateList,
+                                                membraneObject),
+                      implicit_lipid_iface(currRxn.reactantListNew,
+                                           molTemplateList))};
 
                   // binding with implicit-lipid model
                   if (std::abs(

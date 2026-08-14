@@ -9,27 +9,7 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
 {
     // TRACE();
     /*3D reaction*/
-    double Dr1 {};
-    if (std::abs(complexList[biMolData.com1Index].D.z - 0) < 1E-10) {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-        Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-        biMolData.Dtot += Dr1 / (4.0 * params.timeStep);
-    } else {
-        double cf = cos(sqrt(4.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-        Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-        biMolData.Dtot += Dr1 / (6.0 * params.timeStep);
-    }
-
-    double Dr2;
-    if (std::abs(complexList[biMolData.com2Index].D.z - 0) < 1E-10) {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-        Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-        biMolData.Dtot += Dr2 / (4.0 * params.timeStep);
-    } else {
-        double cf = cos(sqrt(4.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-        Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-        biMolData.Dtot += Dr2 / (6.0 * params.timeStep);
-    }
+    add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
 
     double Rmax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
 

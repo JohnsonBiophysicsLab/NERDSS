@@ -27,6 +27,29 @@ struct paramsIL {
     int Nlipid;
 };
 
+/*! \brief Which entry of a reaction's two-element interface list is the implicit lipid.
+ *
+ * `reactantListNew` and `productListNew` are always indexed 0 and 1, and when an
+ * implicit lipid takes part it is one of the two without a fixed position.  Six
+ * call sites picked it out with the same if/else on
+ * `molTemplateList[...].isImplicitLipid`, on the reactant list in some places
+ * and the product list in others, so the list is a parameter.
+ */
+const RxnIface& implicit_lipid_iface(
+    const std::vector<RxnIface>& ifacePair, const std::vector<MolTemplate>& molTemplateList);
+
+/*! \brief Position of `iface` within `stateList`, or -1 if it is not there.
+ *
+ * `membraneObject.numberOfFreeLipidsEachState` is indexed by position in the
+ * interface's state list, while a reaction names its interface by absolute
+ * index; this is the translation between the two.
+ */
+int implicit_lipid_state_index(const std::vector<Interface::State>& stateList, const RxnIface& iface);
+
+/*! \brief The implicit lipid's own state list: interface 0 of its MolTemplate. */
+const std::vector<Interface::State>& implicit_lipid_state_list(const std::vector<Molecule>& moleculeList,
+    const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
+
 /*!
  * \brief Gets the distance between one Molecule's Interface and the membrane surface, and determines if it is within Rmax, and can therefore
  * react.

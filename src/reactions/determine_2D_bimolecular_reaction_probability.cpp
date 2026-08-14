@@ -9,52 +9,8 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
     const std::vector<BackRxn>& backRxns, Membrane& membraneObject, std::vector<gsl_matrix*>& normMatrices,
     std::vector<gsl_matrix*>& survMatrices, std::vector<gsl_matrix*>& pirMatrices)
 {
-    // TRACE();
-    double Dr1 {};
-    {
-        double cf { cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep)) };
-        Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-    }
-
-    double Dr2 {};
-    {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-        Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-    }
-
-    biMolData.Dtot += (Dr1 + Dr2) / (4.0 * params.timeStep); // add in contributions from rotation
-
-    {
-        // Only allow 2D. diffusion at certain intervals, to avoid generating too many 2D. Tables
-        // Keep only one sig fig for <0.1, 2 for 0.1<d<10, 3 for 10<d<100, etc
-        double dtmp;
-        if (biMolData.Dtot < 0.0001)
-            dtmp = biMolData.Dtot * 100000;
-        else if (biMolData.Dtot < 0.001)
-            dtmp = biMolData.Dtot * 10000;
-        else if (biMolData.Dtot < 0.01)
-            dtmp = biMolData.Dtot * 1000;
-        else if (biMolData.Dtot < 0.1)
-            dtmp = biMolData.Dtot * 100;
-        else
-            dtmp = biMolData.Dtot * 100;
-
-        int d_ones = int(round(dtmp));
-
-        if (biMolData.Dtot < 0.0001)
-            biMolData.Dtot = d_ones * 0.00001;
-        else if (biMolData.Dtot < 0.001)
-            biMolData.Dtot = d_ones * 0.0001;
-        else if (biMolData.Dtot < 0.01)
-            biMolData.Dtot = d_ones * 0.001;
-        else if (biMolData.Dtot < 0.1)
-            biMolData.Dtot = d_ones * 0.01;
-        else
-            biMolData.Dtot = d_ones * 0.01;
-
-        if (biMolData.Dtot < 1E-50)
-            biMolData.Dtot = 0;
-    }
+    add_2D_rotational_diffusion(biMolData, complexList, params);
+    discretize_2D_Dtot(biMolData);
 
     double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
     double sep {};

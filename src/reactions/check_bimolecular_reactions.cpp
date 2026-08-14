@@ -258,52 +258,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-
-                                        double Dr1 {};
-                                        {
-                                            double cf { cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep)) };
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                        }
-
-                                        double Dr2 {};
-                                        {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                        }
-
-                                        biMolData.Dtot += (Dr1 + Dr2) / (4.0 * params.timeStep); // add in contributions from rotation
-
-                                        {
-                                            // Only allow 2D. diffusion at certain intervals, to avoid generating too many 2D. Tables
-                                            // Keep only one sig fig for <0.1, 2 for 0.1<d<10, 3 for 10<d<100, etc
-                                            double dtmp;
-                                            if (biMolData.Dtot < 0.0001)
-                                                dtmp = biMolData.Dtot * 100000;
-                                            else if (biMolData.Dtot < 0.001)
-                                                dtmp = biMolData.Dtot * 10000;
-                                            else if (biMolData.Dtot < 0.01)
-                                                dtmp = biMolData.Dtot * 1000;
-                                            else if (biMolData.Dtot < 0.1)
-                                                dtmp = biMolData.Dtot * 100;
-                                            else
-                                                dtmp = biMolData.Dtot * 100;
-
-                                            int d_ones = int(round(dtmp));
-
-                                            if (biMolData.Dtot < 0.0001)
-                                                biMolData.Dtot = d_ones * 0.00001;
-                                            else if (biMolData.Dtot < 0.001)
-                                                biMolData.Dtot = d_ones * 0.0001;
-                                            else if (biMolData.Dtot < 0.01)
-                                                biMolData.Dtot = d_ones * 0.001;
-                                            else if (biMolData.Dtot < 0.1)
-                                                biMolData.Dtot = d_ones * 0.01;
-                                            else
-                                                biMolData.Dtot = d_ones * 0.01;
-
-                                            if (biMolData.Dtot < 1E-50)
-                                                biMolData.Dtot = 0;
-                                        }
+                                        add_2D_rotational_diffusion(biMolData, complexList, params);
+                                        discretize_2D_Dtot(biMolData);
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
@@ -343,28 +299,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-
-                                        double Dr1 {};
-                                        if (std::abs(complexList[biMolData.com1Index].D.z - 0) < 1E-10) {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                            biMolData.Dtot += Dr1 / (4.0 * params.timeStep);
-                                        } else {
-                                            double cf = cos(sqrt(4.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                            biMolData.Dtot += Dr1 / (6.0 * params.timeStep);
-                                        }
-
-                                        double Dr2;
-                                        if (std::abs(complexList[biMolData.com2Index].D.z - 0) < 1E-10) {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                            biMolData.Dtot += Dr2 / (4.0 * params.timeStep);
-                                        } else {
-                                            double cf = cos(sqrt(4.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                            biMolData.Dtot += Dr2 / (6.0 * params.timeStep);
-                                        }
+                                        add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
 
                                         double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
@@ -435,52 +370,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-
-                                        double Dr1 {};
-                                        {
-                                            double cf { cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep)) };
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                        }
-
-                                        double Dr2 {};
-                                        {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                        }
-
-                                        biMolData.Dtot += (Dr1 + Dr2) / (4.0 * params.timeStep); // add in contributions from rotation
-
-                                        {
-                                            // Only allow 2D. diffusion at certain intervals, to avoid generating too many 2D. Tables
-                                            // Keep only one sig fig for <0.1, 2 for 0.1<d<10, 3 for 10<d<100, etc
-                                            double dtmp;
-                                            if (biMolData.Dtot < 0.0001)
-                                                dtmp = biMolData.Dtot * 100000;
-                                            else if (biMolData.Dtot < 0.001)
-                                                dtmp = biMolData.Dtot * 10000;
-                                            else if (biMolData.Dtot < 0.01)
-                                                dtmp = biMolData.Dtot * 1000;
-                                            else if (biMolData.Dtot < 0.1)
-                                                dtmp = biMolData.Dtot * 100;
-                                            else
-                                                dtmp = biMolData.Dtot * 100;
-
-                                            int d_ones = int(round(dtmp));
-
-                                            if (biMolData.Dtot < 0.0001)
-                                                biMolData.Dtot = d_ones * 0.00001;
-                                            else if (biMolData.Dtot < 0.001)
-                                                biMolData.Dtot = d_ones * 0.0001;
-                                            else if (biMolData.Dtot < 0.01)
-                                                biMolData.Dtot = d_ones * 0.001;
-                                            else if (biMolData.Dtot < 0.1)
-                                                biMolData.Dtot = d_ones * 0.01;
-                                            else
-                                                biMolData.Dtot = d_ones * 0.01;
-
-                                            if (biMolData.Dtot < 1E-50)
-                                                biMolData.Dtot = 0;
-                                        }
+                                        add_2D_rotational_diffusion(biMolData, complexList, params);
+                                        discretize_2D_Dtot(biMolData);
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
@@ -525,28 +416,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-
-                                        double Dr1 {};
-                                        if (std::abs(complexList[biMolData.com1Index].D.z - 0) < 1E-10) {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                            biMolData.Dtot += Dr1 / (4.0 * params.timeStep);
-                                        } else {
-                                            double cf = cos(sqrt(4.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep));
-                                            Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
-                                            biMolData.Dtot += Dr1 / (6.0 * params.timeStep);
-                                        }
-
-                                        double Dr2;
-                                        if (std::abs(complexList[biMolData.com2Index].D.z - 0) < 1E-10) {
-                                            double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                            biMolData.Dtot += Dr2 / (4.0 * params.timeStep);
-                                        } else {
-                                            double cf = cos(sqrt(4.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
-                                            Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
-                                            biMolData.Dtot += Dr2 / (6.0 * params.timeStep);
-                                        }
+                                        add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
 
                                         double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };

@@ -243,6 +243,20 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
     Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup Associate
+ * \brief Applies theta1, theta2, omega, phi1 and phi2 to a state-changing pair.
+ *
+ * The orientation half of a bimolecular state change: the same five rotations,
+ * in the same order, that all four `perform_*_state_change_{box,sphere}`
+ * routines used to spell out for themselves.  The caller decides *whether* to
+ * orient at all - the point-molecule test differs between the bimolecular and
+ * implicit-lipid versions - and this decides how.
+ */
+void apply_state_change_rotations(Vec3D& reactIface1, Vec3D& reactIface2, int stateChangeIface, int facilitatorIface,
+    Molecule& stateChangeMol, Molecule& facilitatorMol, Complex& stateChangeCom, Complex& facilitatorCom,
+    const ForwardRxn::Angles& assocAngles, const ForwardRxn& currRxn, std::vector<Molecule>& moleculeList,
+    const std::vector<MolTemplate>& molTemplateList);
+
+/*! \ingroup Associate
  * \brief Function to rotate a Molecule to some a target dihedral phi, relative to sigma (the
  (sigma)-(interface)-(normal) dihedral)
  *

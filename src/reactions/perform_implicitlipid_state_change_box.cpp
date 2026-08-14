@@ -3,6 +3,7 @@
 #include "io/io.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
+#include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "tracing.hpp"
 
 #include <cmath>
@@ -81,13 +82,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     stateChangeMol.create_position_implicit_lipid(facilitatorMol, stateChangeIface, currRxn.bindRadius, membraneObject);
     stateChangeCom.comCoord = stateChangeMol.comCoord;
 
-    int relStateIndex { -1 };
-    for (auto& state : stateList) {
-        if (state.index == newState.absIfaceIndex) {
-            relStateIndex = static_cast<int>(&state - &stateList[0]);
-            break;
-        }
-    }
+    int relStateIndex { implicit_lipid_state_index(stateList, newState) };
     //std::cout << facilitatorCom.memberList.size() << std::endl;
     for (auto& memMol : facilitatorCom.memberList) {
         moleculeList[memMol].set_tmp_association_coords();
@@ -149,65 +144,9 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         // std::cout << " Move two point particles to contact along current separation vector, NO ORIENTATION \n";
     } else {
 
-        /* THETA */
-        // std::cout << std::setw(8) << std::setfill('-') << ' ' << std::endl
-        //           << "THETA 1" << std::endl
-        //           << std::setw(8) << ' ' << std::setfill(' ') << std::endl;
-        theta_rotation(reactIface1, reactIface2, facilitatorMol, stateChangeMol, assocAngles.theta1, facilitatorCom,
-            stateChangeCom, moleculeList);
-
-        //        write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
-
-        // std::cout << std::setw(30) << std::setfill('-') << ' ' << std::setfill(' ') << std::endl;
-        // std::cout << "THETA 2" << std::endl
-        //           << std::setw(8) << std::setfill('-') << ' ' << std::setfill(' ') << std::endl;
-        theta_rotation(reactIface2, reactIface1, stateChangeMol, facilitatorMol, assocAngles.theta2, stateChangeCom,
-            facilitatorCom, moleculeList);
-
-        //        write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
-
-        /* OMEGA */
-        // if protein has theta M_PI, uses protein norm instead of com_iface vector
-        // std::cout << std::setw(6) << std::setfill('-') << ' ' << std::endl
-        //           << "OMEGA" << std::endl
-        //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
-        if (!std::isnan(currRxn.assocAngles.omega)) {
-            omega_rotation(reactIface1, reactIface2, stateChangeIface, facilitatorMol, stateChangeMol, facilitatorCom,
-                stateChangeCom, assocAngles.omega, currRxn, moleculeList, molTemplateList);
-
-            //            write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
-
-        } //else
-        // std::cout << "P1 or P2 is a rod-type protein, no dihedral for associated complex." << std::endl;
-
-        /* PHI */
-        // PHI 1
-        // std::cout << std::setw(6) << std::setfill('-') << ' ' << std::endl
-        //           << "PHI 1" << std::endl
-        //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
-
-        if (!std::isnan(assocAngles.phi1)) {
-            phi_rotation(reactIface1, reactIface2, stateChangeIface, facilitatorMol, stateChangeMol, facilitatorCom,
-                stateChangeCom, currRxn.norm1, assocAngles.phi1, currRxn, moleculeList, molTemplateList);
-
-            //            write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
-
-        } //else
-        // std::cout << "P1 has no valid phi angle." << std::endl;
-
-        // PHI 2
-        // std::cout << std::setw(6) << std::setfill('-') << ' ' << std::endl
-        //           << "PHI 2" << std::endl
-        //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
-
-        if (!std::isnan(assocAngles.phi2)) {
-            phi_rotation(reactIface2, reactIface1, facilitatorIface, stateChangeMol, facilitatorMol, stateChangeCom,
-                facilitatorCom, currRxn.norm2, assocAngles.phi2, currRxn, moleculeList, molTemplateList);
-
-            //           write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
-
-        } //else
-        // std::cout << "P2 has no valid phi angle." << std::endl;
+        apply_state_change_rotations(reactIface1, reactIface2, stateChangeIface, facilitatorIface,
+            stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom, assocAngles, currRxn,
+            moleculeList, molTemplateList);
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
@@ -373,34 +312,22 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     counterArrays.copyNumSpecies[currRxn.productListNew[1].absIfaceIndex] += 1;
 
     //Update free number of lipids of IL for each state
-    RxnIface implicitLipidState {};
+    // The state list here is the changing molecule's own interface, not the
+    // implicit lipid's, which is why implicit_lipid_state_list() is not used.
     const auto& implicitLipidStateList = molTemplateList[stateChangeMol.molTypeIndex].interfaceList[stateChangeIface].stateList;
-    if (molTemplateList[currRxn.reactantListNew[1].molTypeIndex].isImplicitLipid == true) {
-        implicitLipidState = currRxn.reactantListNew[1];
-    } else {
-        implicitLipidState = currRxn.reactantListNew[0];
-    }
 
-    for (auto& state : implicitLipidStateList) {
-        if (state.index == implicitLipidState.absIfaceIndex) {
-            relStateIndex = static_cast<int>(&state - &implicitLipidStateList[0]);
-            break;
-        }
-    }
+    // These two lookups keep the previous relStateIndex when the state is absent,
+    // as they always have; only the first lookup in this function resets it.
+    int consumed { implicit_lipid_state_index(
+        implicitLipidStateList, implicit_lipid_iface(currRxn.reactantListNew, molTemplateList)) };
+    if (consumed != -1)
+        relStateIndex = consumed;
     membraneObject.numberOfFreeLipidsEachState[relStateIndex] -= 1;
 
-    if (molTemplateList[currRxn.productListNew[1].molTypeIndex].isImplicitLipid == true) {
-        implicitLipidState = currRxn.productListNew[1];
-    } else {
-        implicitLipidState = currRxn.productListNew[0];
-    }
-
-    for (auto& state : implicitLipidStateList) {
-        if (state.index == implicitLipidState.absIfaceIndex) {
-            relStateIndex = static_cast<int>(&state - &implicitLipidStateList[0]);
-            break;
-        }
-    }
+    int released { implicit_lipid_state_index(
+        implicitLipidStateList, implicit_lipid_iface(currRxn.productListNew, molTemplateList)) };
+    if (released != -1)
+        relStateIndex = released;
     membraneObject.numberOfFreeLipidsEachState[relStateIndex] += 1;
 
     // write temporary to real coords and clear temporary coordinates
