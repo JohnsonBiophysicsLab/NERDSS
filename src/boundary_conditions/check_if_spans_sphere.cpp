@@ -1,12 +1,48 @@
 /*! \file check_if_spans_sphere.cpp
  * ### Created on 2020-02-23 by Yiben Fu
  */
+#include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "tracing.hpp"
 
 #include <iostream>
+
+namespace {
+
+/*! \brief Visit every tmp coordinate of `targCom` that is not an implicit lipid.
+ *
+ * The implicit lipid has no position of its own, so the span check has always
+ * skipped it; \ref for_each_complex_tmp_point does not, which is why this one
+ * lives here rather than in the header.
+ */
+template <typename F>
+void for_each_real_tmp_point(const Complex& targCom, const std::vector<Molecule>& moleculeList, F fn)
+{
+    for (auto& memMol : targCom.memberList) {
+        if (moleculeList[memMol].isImplicitLipid)
+            continue;
+
+        fn(moleculeList[memMol].tmpComCoord);
+        for (const auto& iface : moleculeList[memMol].tmpICoords)
+            fn(iface);
+    }
+}
+
+//! \brief Shift a complex's tmp COM and tmp interface coordinates.
+void translate_tmp_coords(Complex& targCom, std::vector<Molecule>& moleculeList, const Vec3D& trans)
+{
+    targCom.tmpComCoord += trans;
+    for (int memMol : targCom.memberList) {
+        moleculeList[memMol].tmpComCoord += trans;
+        // update interface coords
+        for (auto& iface : moleculeList[memMol].tmpICoords)
+            iface += trans;
+    }
+}
+
+} // namespace
 
 void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2,
     std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius)
@@ -22,32 +58,14 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
     Vec3D newCom;
     double newRadius = 0.0;
     com_of_two_tmp_complexes(reactCom1, reactCom2, newCom, moleculeList);
-    for (auto& memMol : reactCom1.memberList) {
-        if (moleculeList[memMol].isImplicitLipid)
-            continue;
 
-        Vec3D disVec { moleculeList[memMol].tmpComCoord - newCom };
+    auto growRadius = [&](const Vec3D& point) {
+        Vec3D disVec { point - newCom };
         if (disVec.length() > newRadius)
             newRadius = disVec.length();
-        for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            disVec = Vec3D(iface - newCom);
-            if (disVec.length() > newRadius)
-                newRadius = disVec.length();
-        }
-    }
-    for (auto& memMol : reactCom2.memberList) {
-        if (moleculeList[memMol].isImplicitLipid)
-            continue;
-
-        Vec3D disVec { moleculeList[memMol].tmpComCoord - newCom };
-        if (disVec.length() > newRadius)
-            newRadius = disVec.length();
-        for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            disVec = Vec3D(iface - newCom);
-            if (disVec.length() > newRadius)
-                newRadius = disVec.length();
-        }
-    }
+    };
+    for_each_real_tmp_point(reactCom1, moleculeList, growRadius);
+    for_each_real_tmp_point(reactCom2, moleculeList, growRadius);
 
     if (newRadius > sphereR) {
         // std::cout << "STICKS OUT THE SPHERE, CANCEL ASSOCIATION " << '\n';
@@ -55,77 +73,18 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
         return;
     }
 
-    // std::cout << "CHECK SPHERE SPAN. Complex 1 Radius, Complex 2 radius " << reactCom1.radius << ' ' << reactCom2.radius << '\n';
     // The approximate size of the complex (max size) puts it as outside, now test interface positions.
-    bool outside { false };
-
-    Vec3D curr;
-    double dr = 0.0;
-    Vec3D targcrds;
-    // find the farthest position of complex1
-    for (int memMol : reactCom1.memberList) {
-        if (moleculeList[memMol].isImplicitLipid)
-            continue;
-
-        curr = moleculeList[memMol].tmpComCoord;
-        double drtmp = curr.length() - sphereR;
-        if (drtmp > dr) {
-            outside = true;
-            dr = drtmp;
-            targcrds = curr;
-        }
-        // measure each interface
-        for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            curr = iface;
-            drtmp = curr.length() - sphereR;
-            if (drtmp > dr) {
-                outside = true;
-                dr = drtmp;
-                targcrds = curr;
-            }
-        }
-    }
-    // find the farthest position of complex2
-    for (int memMol : reactCom2.memberList) {
-        if (moleculeList[memMol].isImplicitLipid)
-            continue;
-
-        curr = moleculeList[memMol].tmpComCoord;
-        double drtmp = curr.length() - sphereR;
-        if (drtmp > dr) {
-            outside = true;
-            dr = drtmp;
-            targcrds = curr;
-        }
-        // measure each interface
-        for (const auto& iface : moleculeList[memMol].tmpICoords) {
-            curr = iface;
-            drtmp = curr.length() - sphereR;
-            if (drtmp > dr) {
-                outside = true;
-                dr = drtmp;
-                targcrds = curr;
-            }
-        }
-    }
+    // Scored by how far the point pokes out past the membrane, seeded at zero.
+    ExtremePoint farthest { Vec3D {}, 0.0 };
+    auto measure = [&](const Vec3D& point) { farthest.consider(point, point.length() - sphereR); };
+    for_each_real_tmp_point(reactCom1, moleculeList, measure);
+    for_each_real_tmp_point(reactCom2, moleculeList, measure);
 
     // put back in the box. put at edge, rather than bouncing off.
-    if (outside == true) {
-        double lamda = -dr / targcrds.length();
-        Vec3D trans = lamda * targcrds;
-        reactCom1.tmpComCoord += trans;
-        for (int memMol : reactCom1.memberList) {
-            moleculeList[memMol].tmpComCoord += trans;
-            // update interface coords
-            for (auto& iface : moleculeList[memMol].tmpICoords)
-                iface += trans;
-        }
-        reactCom2.tmpComCoord += trans;
-        for (int memMol : reactCom2.memberList) {
-            moleculeList[memMol].tmpComCoord += trans;
-            // update interface coords
-            for (auto& iface : moleculeList[memMol].tmpICoords)
-                iface += trans;
-        }
+    if (farthest.score > 0.0) {
+        double lamda = -farthest.score / farthest.point.length();
+        Vec3D trans = lamda * farthest.point;
+        translate_tmp_coords(reactCom1, moleculeList, trans);
+        translate_tmp_coords(reactCom2, moleculeList, trans);
     }
 }

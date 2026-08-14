@@ -9,10 +9,31 @@
  * ### TODO List
  * ***
  */
+#include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
 #include "tracing.hpp"
+
+namespace {
+
+//! \brief Farthest point of the complex from the sphere centre, after its sampled move.
+ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>& moleculeList,
+    const std::array<double, 9>& M, double sphereR)
+{
+    const Vec3D base { targCom.comCoord + targCom.trajTrans };
+    // Seeded at the membrane, so "nothing found" reads as "nothing is outside".
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+
+    for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
+        const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
+        const Vec3D curr { base + rot };
+        farthest.consider(curr, curr.length());
+    });
+    return farthest;
+}
+
+} // namespace
 
 void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius, double RS3Dinput)
 {
@@ -27,125 +48,46 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
     } else {
         RS3D = RS3Dinput;
     }
-    //double sphereR = membraneObject.sphereR - RS3D;
     double sphereR = radius - RS3D;
-
-    std::array<double, 9> M;
-    M = create_euler_rotation_matrix(targCom.trajRot);
 
     // if (targCom.D.z < 1E-14 || targCom.OnSurface) { // for the complex on the sphere surface
     if (targCom.OnSurface) { // for the complex on the sphere surface
         // in this case, the movement only involves theta and phi, and R doesn't change,
         // so it won't make the complex outside the sphere.
-
-        needsRecheck = false;
-
-    } else { // for the complex inside the sphere
-
-        while (checkItr < maxItr && needsRecheck) {
-            needsRecheck = false;
-
-            M = create_euler_rotation_matrix(targCom.trajRot);
-            // find the farthest point
-            Vec3D targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
-            double rtmp = sphereR; // to store the furthest point' distance to the sphere center.
-            for (auto& memMol : targCom.memberList) {
-                //measure each protein COM
-                Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-                Vec3D rotComVec { matrix_rotate(comVec, M) };
-
-                Vec3D curr { targCom.comCoord + targCom.trajTrans + rotComVec };
-                double currR = curr.length();
-                if (currR > rtmp) {
-                    targcrds = curr;
-                    rtmp = currR;
-                }
-
-                // measure each interface
-                for (auto& iface : moleculeList[memMol].interfaceList) {
-                    Vec3D ifaceVec { iface.coord - targCom.comCoord };
-                    Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
-                    curr = targCom.comCoord + targCom.trajTrans + rotIfaceVec;
-                    currR = curr.length();
-                    if (currR > rtmp) {
-                        targcrds = curr;
-                        rtmp = currR;
-                    }
-                }
-            }
-            // check whether this complex is out of the box, if so, change trajTrans by considering the reflection
-            if (rtmp > sphereR + 1E-15) {
-                double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-                Vec3D dtrans = lamda * targcrds;
-                targCom.trajTrans += dtrans;
-                // check whether the reflection make the complex inside the sphere
-                targcrds = Vec3D(0, 0, sphereR); // to store the furthest point' coords.
-                rtmp = sphereR; // to store the furthest point' distance to the sphere center.
-                for (auto& memMol : targCom.memberList) {
-                    //measure each protein COM
-                    Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-                    Vec3D rotComVec { matrix_rotate(comVec, M) };
-
-                    Vec3D curr { targCom.comCoord + targCom.trajTrans + rotComVec };
-                    double currR = curr.length();
-                    if (currR > rtmp) {
-                        targcrds = curr;
-                        rtmp = currR;
-                    }
-
-                    // measure each interface
-                    for (auto& iface : moleculeList[memMol].interfaceList) {
-                        Vec3D ifaceVec { iface.coord - targCom.comCoord };
-                        Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
-                        curr = targCom.comCoord + targCom.trajTrans + rotIfaceVec;
-                        currR = curr.length();
-                        if (currR > rtmp) {
-                            targcrds = curr;
-                            rtmp = currR;
-                        }
-                    }
-                }
-            }
-            // recheck whether this complex is still out sphere, if so, regenerate trajTrans
-            if (rtmp > sphereR + 1E-15) {
-                targCom.trajTrans.x = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
-                targCom.trajTrans.y = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
-                targCom.trajTrans.z = sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV();
-                targCom.trajRot.x = sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV();
-                targCom.trajRot.y = sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV();
-                targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
-
-                reflect_traj_complex_rad_rot_nocheck(params, targCom, moleculeList, membraneObject, RS3Dinput);
-                ++checkItr;
-                needsRecheck = true; // will need to recheck after resampling traj and trajR
-            }
-        } // end of while-loop
+        return;
     }
 
-    //    std::cout << "ITERATIONS TO CONVERGE POSITION WITHIN SPHERE: " << checkItr
-    //        << " flag at end: true=success: " << !needsRecheck << '\n';
-    if (needsRecheck) {
-        // std::cout << "WARNING: DID NOT CONVERGE POSITION, NEW POS: " << '\n';
-        for (auto memMol : targCom.memberList) {
-            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-            Vec3D rotComVec { matrix_rotate(comVec, M) };
+    // for the complex inside the sphere
+    while (checkItr < maxItr && needsRecheck) {
+        needsRecheck = false;
 
-            // first would make xcom=targCom.comCoord.x+vr, then would also add dx
-            // std::cout << "i: " << checkItr << " P: " << memMol
-            //           << " com:" << targCom.comCoord.x + targCom.trajTrans.x + rotComVec.x << ' '
-            //           << targCom.comCoord.y + targCom.trajTrans.y + rotComVec.y << ' '
-            //           << targCom.comCoord.z + targCom.trajTrans.z + rotComVec.z << '\n';
+        std::array<double, 9> M = create_euler_rotation_matrix(targCom.trajRot);
+        ExtremePoint farthest { farthest_point(targCom, moleculeList, M, sphereR) };
 
-            // update interface coords
-            for (const auto& iface : moleculeList[memMol].interfaceList) {
-                Vec3D ifaceVec { iface.coord - targCom.comCoord };
-                Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
-
-                /*first would make xcom=targCom.comCoord.x+vr, then would also add dx */
-                // std::cout << targCom.comCoord.x + targCom.trajTrans.x + rotIfaceVec.x << ' '
-                //           << targCom.comCoord.y + targCom.trajTrans.y + rotIfaceVec.y << ' '
-                //           << targCom.comCoord.z + targCom.trajTrans.z + rotIfaceVec.z << '\n';
-            }
+        // check whether this complex is out of the box, if so, change trajTrans by considering the reflection
+        if (farthest.score > sphereR + 1E-15) {
+            double lamda = -2.0 * (farthest.score - sphereR) / farthest.score;
+            targCom.trajTrans += lamda * farthest.point;
+            // check whether the reflection made the complex inside the sphere
+            farthest = farthest_point(targCom, moleculeList, M, sphereR);
         }
-    } // DID NOT CONVERGE
+
+        // recheck whether this complex is still out sphere, if so, regenerate trajTrans
+        if (farthest.score > sphereR + 1E-15) {
+            targCom.trajTrans.x = sqrt(2.0 * params.timeStep * targCom.D.x) * GaussV();
+            targCom.trajTrans.y = sqrt(2.0 * params.timeStep * targCom.D.y) * GaussV();
+            targCom.trajTrans.z = sqrt(2.0 * params.timeStep * targCom.D.z) * GaussV();
+            targCom.trajRot.x = sqrt(2.0 * params.timeStep * targCom.Dr.x) * GaussV();
+            targCom.trajRot.y = sqrt(2.0 * params.timeStep * targCom.Dr.y) * GaussV();
+            targCom.trajRot.z = sqrt(2.0 * params.timeStep * targCom.Dr.z) * GaussV();
+
+            reflect_traj_complex_rad_rot_nocheck(params, targCom, moleculeList, membraneObject, RS3Dinput);
+            ++checkItr;
+            needsRecheck = true; // will need to recheck after resampling traj and trajR
+        }
+    } // end of while-loop
+
+    // A failure to converge used to walk the complex again to print the positions
+    // it ended up with; every one of those prints is commented out, so the walk
+    // did nothing.  The caller cannot see the outcome either way.
 }

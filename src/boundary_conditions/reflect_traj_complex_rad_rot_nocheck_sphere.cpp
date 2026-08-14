@@ -1,3 +1,4 @@
+#include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "tracing.hpp"
@@ -17,46 +18,26 @@ void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Compl
     std::array<double, 9> M = create_euler_rotation_matrix(targCom.trajRot);
 
     // if (targCom.D.z < 1E-14 || targCom.OnSurface) { // for the complex on the sphere surface
-    if (targCom.OnSurface) { // for the complex on the sphere surface
+    if (targCom.OnSurface) {
         // in this case, the movement only involves theta and phi, and R doesn't change,
         // so it won't make the complex outside the sphere.
-
-    } else { // for the complex inside the sphere
-
-        Vec3D curr { targCom.comCoord + targCom.trajTrans };
-
-        if (curr.length() + targCom.radius <= sphereR)
-            return;
-
-        // for the outside sphere situation:
-        Vec3D targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
-        double rtmp = sphereR; // to store the furthest point' distance to the sphere center.
-        for (auto& memMol : targCom.memberList) {
-            //measure each protein COM
-            Vec3D comVec { moleculeList[memMol].comCoord - targCom.comCoord };
-            Vec3D rotComVec { matrix_rotate(comVec, M) };
-
-            curr = targCom.comCoord + targCom.trajTrans + rotComVec;
-            double currR = curr.length();
-            if (currR > rtmp) {
-                targcrds = curr;
-                rtmp = currR;
-            }
-
-            // measure each interface
-            for (auto& iface : moleculeList[memMol].interfaceList) {
-                Vec3D ifaceVec { iface.coord - targCom.comCoord };
-                Vec3D rotIfaceVec { matrix_rotate(ifaceVec, M) };
-                curr = targCom.comCoord + targCom.trajTrans + rotIfaceVec;
-                currR = curr.length();
-                if (currR > rtmp) {
-                    targcrds = curr;
-                    rtmp = currR;
-                }
-            }
-        }
-        double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-        Vec3D dtrans = lamda * targcrds;
-        targCom.trajTrans += dtrans;
+        return;
     }
+
+    // for the complex inside the sphere
+    const Vec3D base { targCom.comCoord + targCom.trajTrans };
+    if (base.length() + targCom.radius <= sphereR)
+        return;
+
+    // for the outside sphere situation: find the furthest point from the sphere centre
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+    for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
+        const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
+        const Vec3D curr { base + rot };
+        farthest.consider(curr, curr.length());
+    });
+
+    // Applied even when nothing was found outside, where the seed makes it a no-op.
+    double lamda = -2.0 * (farthest.score - sphereR) / farthest.score;
+    targCom.trajTrans += lamda * farthest.point;
 }

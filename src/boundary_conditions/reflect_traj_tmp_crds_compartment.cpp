@@ -1,9 +1,10 @@
+#include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "tracing.hpp"
 
-/*evaluates reflection out of box based on tmpCoords of all proteins. targCOM tmpCOM coords also must be consistent-updated.
+/*evaluates reflection into the compartment based on tmpCoords of all proteins. targCOM tmpCOM coords also must be consistent-updated.
  *Does not update molecule traj vectors, just updates the passed in vector traj, to collect for both complexes.
  *
 */
@@ -14,9 +15,6 @@ void reflect_traj_tmp_crds_compartment(
     /*This routine updated April 2020 to test if a large complex that spans the sphere could extend out in both directions
     if so, it attempts to correct for this by resampling the complex's translational updates.
     */
-    // if (targCom.D.z < 1E-15) // for the complex on the sphere, no need to check
-    //    return;
-
     double RS3D;
     if (targCom.OnSurface || targCom.tmpOnSurface) {
         RS3D = 0;
@@ -24,74 +22,37 @@ void reflect_traj_tmp_crds_compartment(
         RS3D = RS3Dinput;
     }
     double sphereR = membraneObject.compartmentR + RS3D;
-    Vec3D curr;
-    curr.x = targCom.tmpComCoord.x + traj[0];
-    curr.y = targCom.tmpComCoord.y + traj[1];
-    curr.z = targCom.tmpComCoord.z + traj[2];
 
+    const Vec3D base { targCom.tmpComCoord.x + traj[0], targCom.tmpComCoord.y + traj[1],
+        targCom.tmpComCoord.z + traj[2] };
+
+    // Identity: this routine performs no rotation, it only reflects the trial translation.
     std::array<double, 9> M {};
-    for (int mm = 0; mm < 9; mm++)
-        M[mm] = 0;
     M[0] = 1;
     M[4] = 1;
-    M[8] = 1; //set M to identity, perform no rotations here.
+    M[8] = 1;
 
     /*This is to test based on general size if it is close to boundaries, before doing detailed evaluation below.*/
-
-    bool canBeInsphere { false };
-    if ((curr.length() + targCom.radius) < sphereR)
-        canBeInsphere = true;
+    if (!((base.length() + targCom.radius) < sphereR))
+        return;
 
     /*Now evaluate all interfaces distance from boundaries.*/
-    bool recheck { false };
-    double dr = 0.0;
-    Vec3D targcrds;
-    if (canBeInsphere == true) {
+    // The compartment excludes rather than contains, so the point of interest is the
+    // one that reaches deepest inside it.  Scored as a negated depth so the same
+    // "largest score wins" accumulator applies; negation is exact.
+    ExtremePoint deepest { Vec3D {}, 0.0 };
+    for_each_complex_tmp_point(targCom, moleculeList, [&](const Vec3D& point) {
+        const Vec3D rot { matrix_rotate(point - targCom.tmpComCoord, M) };
+        const Vec3D curr { base + rot };
+        deepest.consider(curr, -(curr.length() - sphereR));
+    });
 
-        bool inside { false };
-
-        /*these need to be what current positions
-        due to translation and rotation are*/
-        for (auto& memMol : targCom.memberList) {
-            // measure each protein COM to z plane
-            Vec3D comVec { moleculeList[memMol].tmpComCoord - targCom.tmpComCoord };
-            double dxrot { M[0] * comVec.x + M[1] * comVec.y + M[2] * comVec.z };
-            double dyrot { M[3] * comVec.x + M[4] * comVec.y + M[5] * comVec.z };
-            double dzrot { M[6] * comVec.x + M[7] * comVec.y + M[8] * comVec.z };
-            curr.x = targCom.tmpComCoord.x + traj[0] + dxrot;
-            curr.y = targCom.tmpComCoord.y + traj[1] + dyrot;
-            curr.z = targCom.tmpComCoord.z + traj[2] + dzrot;
-            double drtmp = curr.length() - sphereR;
-            if (drtmp < dr) {
-                inside = true;
-                dr = drtmp;
-                targcrds = curr;
-            }
-
-            // measure each interface to x plane
-            for (int ii = 0; ii < moleculeList[memMol].interfaceList.size(); ii++) {
-                Vec3D ifaceVec { moleculeList[memMol].tmpICoords[ii] - targCom.tmpComCoord };
-                dxrot = M[0] * ifaceVec.x + M[1] * ifaceVec.y + M[2] * ifaceVec.z;
-                dyrot = M[3] * ifaceVec.x + M[4] * ifaceVec.y + M[5] * ifaceVec.z;
-                dzrot = M[6] * ifaceVec.x + M[7] * ifaceVec.y + M[8] * ifaceVec.z;
-                curr.x = targCom.tmpComCoord.x + traj[0] + dxrot;
-                curr.y = targCom.tmpComCoord.y + traj[1] + dyrot;
-                curr.z = targCom.tmpComCoord.z + traj[2] + dzrot;
-                drtmp = curr.length() - sphereR;
-                if (drtmp < dr) {
-                    inside = true;
-                    dr = drtmp;
-                    targcrds = curr;
-                }
-            }
-        }
-
-        if (inside) {
-            // Put back inside the box
-            double lamda = -2.0 * (targcrds.length() - sphereR) / targcrds.length();
-            traj[0] = lamda * targcrds.x;
-            traj[1] = lamda * targcrds.y;
-            traj[2] = lamda * targcrds.z;
-        }
+    if (deepest.score > 0.0) {
+        // Put back outside the compartment
+        const double targR { deepest.point.length() };
+        double lamda = -2.0 * (targR - sphereR) / targR;
+        traj[0] = lamda * deepest.point.x;
+        traj[1] = lamda * deepest.point.y;
+        traj[2] = lamda * deepest.point.z;
     }
 }

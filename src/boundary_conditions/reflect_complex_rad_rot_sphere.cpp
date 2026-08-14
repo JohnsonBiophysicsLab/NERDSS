@@ -9,8 +9,29 @@
  * ### TODO List
  * ***
  */
+#include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "tracing.hpp"
+
+namespace {
+
+/*! \brief Point of the complex farthest from the sphere centre, where it stands.
+ *
+ * Seeded at the membrane, so a complex entirely inside comes back with
+ * `score == sphereR` and nothing to correct.  The original also tested
+ * `currR > sphereR` alongside `currR > rtmp`; that is implied, because `rtmp`
+ * starts at `sphereR` and only grows.
+ */
+ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>& moleculeList, double sphereR)
+{
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+    for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
+        farthest.consider(point, point.length());
+    });
+    return farthest;
+}
+
+} // namespace
 
 void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double radius, double RS3Dinput)
 {
@@ -20,53 +41,21 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
 
     // declare the boundary
     double sphereR;
-    if (targCom.OnSurface){
+    if (targCom.OnSurface) {
         sphereR = membraneObject.sphereR;
     } else {
         sphereR = radius - RS3Dinput;
     }
 
-    Vec3D curr = targCom.comCoord;
-    double currR = curr.length();
-
-    bool canBeOutsideX { false };
-    bool outside { false };
-
-    if ((currR + targCom.radius) > sphereR)
-        canBeOutsideX = true;
-
-    if (canBeOutsideX == true) {
-        // find the farthest point
-        Vec3D targcrds { 0, 0, sphereR }; // to store the furthest point' coords.
-        double rtmp = sphereR; // to store the furthest point' distance to the sphere center.
-        for (auto& memMol : targCom.memberList) {
-            //measure each protein COM
-            curr = moleculeList[memMol].comCoord;
-            currR = curr.length();
-            if (currR > sphereR && currR > rtmp) {
-                targcrds = curr;
-                rtmp = currR;
-                outside = true;
-            }
-
-            // measure each interface
-            for (auto& iface : moleculeList[memMol].interfaceList) {
-                curr = iface.coord;
-                currR = curr.length();
-                if (currR > sphereR && currR > rtmp) {
-                    targcrds = curr;
-                    rtmp = currR;
-                    outside = true;
-                }
-            }
-        }
+    if ((targCom.comCoord.length() + targCom.radius) > sphereR) {
+        ExtremePoint farthest { farthest_point(targCom, moleculeList, sphereR) };
 
         int times = 0; // to count the loop-times of 'while'
-        while (outside == true) {
+        while (farthest.score > sphereR) {
             times++;
-            rtmp = targcrds.length();
+            const double rtmp { farthest.point.length() };
             double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-            Vec3D dtrans = lamda * targcrds;
+            Vec3D dtrans = lamda * farthest.point;
             targCom.comCoord += dtrans;
             for (auto memMol : targCom.memberList) {
                 moleculeList[memMol].comCoord += dtrans;
@@ -75,31 +64,7 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
             }
             // reflecting may make the complex outside the sphere in other direction,
             // thus we need to recheck whether outside
-            // initialize outside, targcrds;
-            outside = false;
-            targcrds = Vec3D(0, 0, sphereR); // to store the furthest point' coords.
-            rtmp = sphereR; // to store the furthest point' distance to the sphere center.
-            for (auto& memMol : targCom.memberList) {
-                //measure each protein COM
-                curr = moleculeList[memMol].comCoord;
-                currR = curr.length();
-                if (currR > sphereR && currR > rtmp) {
-                    targcrds = curr;
-                    rtmp = currR;
-                    outside = true;
-                }
-
-                // measure each interface
-                for (auto& iface : moleculeList[memMol].interfaceList) {
-                    curr = iface.coord;
-                    currR = curr.length();
-                    if (currR > sphereR && currR > rtmp) {
-                        targcrds = curr;
-                        rtmp = currR;
-                        outside = true;
-                    }
-                }
-            }
+            farthest = farthest_point(targCom, moleculeList, sphereR);
 
             if (times > 100) {
                 // so many times reflection still cannot make the complex back inside the sphere, thus we may need report 'WRONG!!'
@@ -119,7 +84,6 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
     for (auto& memMol : targCom.memberList) {
         if (moleculeList[memMol].isLipid == true) {
             Vec3D targ = moleculeList[memMol].comCoord;
-            double rtmp = targ.length();
             double drtmp = std::abs(targ.length() - membraneObject.sphereR);
             if (drtmp > 1E-4 && drtmp > dr) {
                 dr = drtmp;
