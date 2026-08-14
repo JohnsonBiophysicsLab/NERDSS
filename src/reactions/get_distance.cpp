@@ -1,6 +1,7 @@
 #include "classes/class_Vec3D.hpp"
 #include "classes/class_Molecule_Complex.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 #include <iostream>
 
 // double calc_distance_1d(std::vector<Molecule> &moleculeList, int pro, int iface, const ForwardRxn& currRxn) {
@@ -98,16 +99,8 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
    * 3*sqrt(6*Dtot*deltat)*/
     if (R1 < Rmax) {
         /*in this case we evaluate the probability of this reaction*/
-        moleculeList[pro1].crossbase.push_back(pro2);
-        moleculeList[pro2].crossbase.push_back(pro1);
-        moleculeList[pro1].mycrossint.push_back(iface1);
-        moleculeList[pro2].mycrossint.push_back(iface2);
-        moleculeList[pro1].crossrxn.push_back(
-            std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
-        moleculeList[pro2].crossrxn.push_back(
-            std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
-        ++complexList[moleculeList[pro1].myComIndex].ncross;
-        ++complexList[moleculeList[pro2].myComIndex].ncross;
+        record_crossing_pair(pro1, pro2, iface1, iface2,
+            std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn }, false, moleculeList, complexList);
         return true;
     }
     return false;

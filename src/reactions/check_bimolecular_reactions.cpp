@@ -235,18 +235,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
                                         if (R1 < RMax) {
-                                            moleculeList[pro1Index].crossbase.push_back(pro2Index);
-                                            moleculeList[pro2Index].crossbase.push_back(pro1Index);
-                                            moleculeList[pro1Index].mycrossint.push_back(relIface1);
-                                            moleculeList[pro2Index].mycrossint.push_back(relIface2);
-                                            moleculeList[pro1Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            moleculeList[pro2Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            ++complexList[moleculeList[pro1Index].myComIndex].ncross;
-                                            ++complexList[moleculeList[pro2Index].myComIndex].ncross;
-                                            moleculeList[pro1Index].probvec.push_back(0);
-                                            moleculeList[pro2Index].probvec.push_back(0);
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
                                         }
                                     }
                                     // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
@@ -278,18 +268,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                             R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         }
                                         if (R1 < RMax * 10.0) {
-                                            moleculeList[pro1Index].crossbase.push_back(pro2Index);
-                                            moleculeList[pro2Index].crossbase.push_back(pro1Index);
-                                            moleculeList[pro1Index].mycrossint.push_back(relIface1);
-                                            moleculeList[pro2Index].mycrossint.push_back(relIface2);
-                                            moleculeList[pro1Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            moleculeList[pro2Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            ++complexList[moleculeList[pro1Index].myComIndex].ncross;
-                                            ++complexList[moleculeList[pro2Index].myComIndex].ncross;
-                                            moleculeList[pro1Index].probvec.push_back(0);
-                                            moleculeList[pro2Index].probvec.push_back(0);
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
                                         }
                                     } else {
                                         //3D reaction
@@ -313,18 +293,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                                 : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
                                         R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         if (R1 < RMax) {
-                                            moleculeList[pro1Index].crossbase.push_back(pro2Index);
-                                            moleculeList[pro2Index].crossbase.push_back(pro1Index);
-                                            moleculeList[pro1Index].mycrossint.push_back(relIface1);
-                                            moleculeList[pro2Index].mycrossint.push_back(relIface2);
-                                            moleculeList[pro1Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            moleculeList[pro2Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            ++complexList[moleculeList[pro1Index].myComIndex].ncross;
-                                            ++complexList[moleculeList[pro2Index].myComIndex].ncross;
-                                            moleculeList[pro1Index].probvec.push_back(0);
-                                            moleculeList[pro2Index].probvec.push_back(0);
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
                                         }
                                     } //end else 3D
                                 }
@@ -395,18 +365,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                             R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         }
                                         if (R1 < RMax * 10.0) {
-                                            moleculeList[pro1Index].crossbase.push_back(pro2Index);
-                                            moleculeList[pro2Index].crossbase.push_back(pro1Index);
-                                            moleculeList[pro1Index].mycrossint.push_back(relIface1);
-                                            moleculeList[pro2Index].mycrossint.push_back(relIface2);
-                                            moleculeList[pro1Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            moleculeList[pro2Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            ++complexList[moleculeList[pro1Index].myComIndex].ncross;
-                                            ++complexList[moleculeList[pro2Index].myComIndex].ncross;
-                                            moleculeList[pro1Index].probvec.push_back(0);
-                                            moleculeList[pro2Index].probvec.push_back(0);
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
                                         }
                                     } else {
                                         //3D reaction
@@ -430,18 +390,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                                 : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
                                         R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         if (R1 < RMax) {
-                                            moleculeList[pro1Index].crossbase.push_back(pro2Index);
-                                            moleculeList[pro2Index].crossbase.push_back(pro1Index);
-                                            moleculeList[pro1Index].mycrossint.push_back(relIface1);
-                                            moleculeList[pro2Index].mycrossint.push_back(relIface2);
-                                            moleculeList[pro1Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            moleculeList[pro2Index].crossrxn.push_back(
-                                                std::array<int, 3> { rxnIndex, 0, false });
-                                            ++complexList[moleculeList[pro1Index].myComIndex].ncross;
-                                            ++complexList[moleculeList[pro2Index].myComIndex].ncross;
-                                            moleculeList[pro1Index].probvec.push_back(0);
-                                            moleculeList[pro2Index].probvec.push_back(0);
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
                                         }
                                     } //end else 3D
                                 }

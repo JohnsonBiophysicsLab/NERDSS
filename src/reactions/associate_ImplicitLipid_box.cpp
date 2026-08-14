@@ -282,22 +282,9 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         if (cancelAssoc == true)
             counterArrays.nCancelSpanBox++;
 
-        if (cancelAssoc == false) {
-            check_for_structure_overlap_system(cancelAssoc, reactCom1, reactCom2, moleculeList, params, molTemplateList, complexList, forwardRxns, backRxns);
-            if (cancelAssoc == true)
-                counterArrays.nCancelOverlapSystem++;
-        }
-        if (cancelAssoc == false) {
-            measure_complex_displacement(cancelAssoc, reactCom1, reactCom2, moleculeList, params, molTemplateList, complexList);
-            if (cancelAssoc == true) {
-                if (isOnMembrane)
-                    counterArrays.nCancelDisplace2D++;
-                else if (transitionToSurface)
-                    counterArrays.nCancelDisplace3Dto2D++;
-                else
-                    counterArrays.nCancelDisplace3D++;
-            }
-        }
+        run_association_rejection_checks(cancelAssoc, reactCom1, reactCom2, moleculeList, params,
+            molTemplateList, complexList, forwardRxns, backRxns, isOnMembrane,
+            transitionToSurface, counterArrays);
         //done deciding whether to reject move.
 
         if (cancelAssoc) {

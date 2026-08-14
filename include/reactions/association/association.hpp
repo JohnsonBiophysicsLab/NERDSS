@@ -383,6 +383,21 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     const std::vector<MolTemplate>& molTemplateList, const std::vector<Complex>& complexList);
 
 /*! \ingroup Associate
+ * \brief Runs the two checks that can still cancel an association once the two
+ *        complexes have been moved into contact, and tallies the reason.
+ *
+ * Skips both if `cancelAssoc` already holds - the span check runs before this
+ * and can have set it.  The displacement rejection is counted against 2D, 3D,
+ * or the 3D-to-2D transition, which is why the two flags are parameters.
+ * Shared by all four association routines.
+ */
+void run_association_rejection_checks(bool& cancelAssoc, Complex& reactCom1, Complex& reactCom2,
+    std::vector<Molecule>& moleculeList, const Parameters& params,
+    const std::vector<MolTemplate>& molTemplateList, const std::vector<Complex>& complexList,
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns, bool isOnMembrane,
+    bool transitionToSurface, copyCounters& counterArrays);
+
+/*! \ingroup Associate
  * \brief  Routine to calculate how far a vector has rotated (in radians) from its position store in original coordinates to its position store in tmpCoords. Used during associate to evaluate the extent to which rotation into the proper orientation has caused re-alignment of the interface-COM vectors of associating interfaces.
  *  */
 void calc_angular_displacement(int ifaceIndex1, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2, Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList);

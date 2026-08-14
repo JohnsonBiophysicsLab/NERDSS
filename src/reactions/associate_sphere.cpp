@@ -372,26 +372,9 @@ void associate_sphere(long long int iter,
         } else
             counterArrays.nCancelOverlapPartner++; //true for structure overlap check.
 
-        if (cancelAssoc == false) {
-            check_for_structure_overlap_system(cancelAssoc, reactCom1, reactCom2,
-                moleculeList, params, molTemplateList,
-                complexList, forwardRxns, backRxns);
-            if (cancelAssoc == true)
-                counterArrays.nCancelOverlapSystem++;
-        }
-        if (cancelAssoc == false) {
-            measure_complex_displacement(cancelAssoc, reactCom1, reactCom2,
-                moleculeList, params, molTemplateList,
-                complexList);
-            if (cancelAssoc == true) {
-                if (isOnMembrane)
-                    counterArrays.nCancelDisplace2D++;
-                else if (transitionToSurface)
-                    counterArrays.nCancelDisplace3Dto2D++;
-                else
-                    counterArrays.nCancelDisplace3D++;
-            }
-        }
+        run_association_rejection_checks(cancelAssoc, reactCom1, reactCom2, moleculeList, params,
+            molTemplateList, complexList, forwardRxns, backRxns, isOnMembrane,
+            transitionToSurface, counterArrays);
         if (cancelAssoc) {
             // std::cout << "Canceling association, returning complexes to original state.\n";
             for (auto memMol : reactCom1.memberList)

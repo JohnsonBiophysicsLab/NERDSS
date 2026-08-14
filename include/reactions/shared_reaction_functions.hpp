@@ -29,6 +29,26 @@
 bool isReactant(const Molecule::Iface& reactIface, const Molecule& reactMol, const RxnIface& tempReactant);
 
 /*!
+ * \brief Records that two molecules are close enough to interact this timestep.
+ *
+ * Each of them appends the other to `crossbase`, the interface it presents to
+ * `mycrossint`, and `crossRxn` to `crossrxn`; each parent complex bumps
+ * `ncross`.  Six sites wrote this out: `get_distance()`, and five in the
+ * volume-exclusion half of `check_bimolecular_reactions()`.
+ *
+ * \param[in] crossRxn the `{rxnIndex, rateIndex, isStateChangeBackRxn}` triple.
+ * Every copy pushed the same value onto both molecules, so it is one parameter.
+ * The exclusion sites pass `{rxnIndex, 0, false}`, because no probability is
+ * evaluated for them.
+ * \param[in] alsoInitProbvec append a zero to both `probvec`s, keeping them
+ * index-aligned with `crossbase`.  The exclusion sites do; `get_distance()` does
+ * not, because its caller pushes the probability it computes.
+ */
+void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
+    const std::array<int, 3>& crossRxn, bool alsoInitProbvec, std::vector<Molecule>& moleculeList,
+    std::vector<Complex>& complexList);
+
+/*!
  * \brief Zeroes the reaction probability every partner recorded for `mol`.
  *
  * Called once a reaction involving `mol` has fired, so that `mol` cannot react

@@ -10,6 +10,31 @@
  */
 #include "reactions/shared_reaction_functions.hpp"
 
+void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
+    const std::array<int, 3>& crossRxn, bool alsoInitProbvec, std::vector<Molecule>& moleculeList,
+    std::vector<Complex>& complexList)
+{
+    // Both molecules record each other, the interface each of them presents, and
+    // the reaction they might do; both complexes count one more crossing.  Every
+    // copy of this pushed the same crossRxn triple onto both molecules.
+    moleculeList[pro1].crossbase.push_back(pro2);
+    moleculeList[pro2].crossbase.push_back(pro1);
+    moleculeList[pro1].mycrossint.push_back(relIface1);
+    moleculeList[pro2].mycrossint.push_back(relIface2);
+    moleculeList[pro1].crossrxn.push_back(crossRxn);
+    moleculeList[pro2].crossrxn.push_back(crossRxn);
+    ++complexList[moleculeList[pro1].myComIndex].ncross;
+    ++complexList[moleculeList[pro2].myComIndex].ncross;
+
+    // The volume-exclusion sites also seed probvec, so that the entry they just
+    // added stays index-aligned with crossbase.  get_distance() does not: its
+    // caller pushes the probability it is about to compute.
+    if (alsoInitProbvec) {
+        moleculeList[pro1].probvec.push_back(0);
+        moleculeList[pro2].probvec.push_back(0);
+    }
+}
+
 void zero_partner_probvec(
     const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners)
 {
