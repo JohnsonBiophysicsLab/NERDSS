@@ -63,12 +63,19 @@ ifneq (,$(filter clean,$(MAKECMDGOALS)))
 	MAKECMDGOALS = dummy
 endif
 
+# debug and profile get their own object trees for the same reason serial and
+# mpi do: they change the flags without changing the sources, so make would
+# otherwise reuse whatever the last build left behind.  debug is the sharper
+# case -- it adds -fsanitize=address, and mixing instrumented objects with
+# uninstrumented ones is its own class of run-time nonsense.
 ifneq (,$(filter debug,$(MAKECMDGOALS)))
 	ENABLE_DEBUG = true
+	ODIR := $(ODIR)-debug
 endif
 
 ifneq (,$(filter profile,$(MAKECMDGOALS)))
 	ENABLE_PROFILING = true
+	ODIR := $(ODIR)-profile
 endif
 
 SRCS = $(foreach dir,$(INCLUDE_FOLDERS),$(wildcard $(SDIR)/$(dir)/*.cpp))
