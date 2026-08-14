@@ -96,9 +96,15 @@ DEPFLAGS = -MMD -MP
 # ---------------- COMPILER SETUP
 PROF   =
 
+# $(filter ...), not ifeq: MAKECMDGOALS is the whole goal list, so an exact
+# comparison against "mpi" matched `make mpi` and nothing else.  `make mpi debug`
+# and `make mpi profile` left CC at g++ while still defining mpi_ and pulling in
+# src/mpi, so the build died on a missing mpi.h -- there was no way to build an
+# instrumented MPI binary, which is what you want precisely when the parallel
+# run is the thing misbehaving.
 ifeq ($(GCC),0)
 	CC      = g++
-	ifeq (mpi,$(MAKECMDGOALS))
+	ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 		CC = mpicxx
 	endif
 	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
@@ -106,7 +112,7 @@ endif
 
 ifeq ($(INTEL),0)
 	CC      = icpc
-	ifeq (mpi,$(MAKECMDGOALS))
+	ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 		CC = mpicxx
 	endif
 	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
