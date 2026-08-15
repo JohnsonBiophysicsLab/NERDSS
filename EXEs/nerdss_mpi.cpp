@@ -503,6 +503,15 @@ int main(int argc, char* argv[]) {
       if (oneMol.isEmpty || oneMol.isImplicitLipid) continue;
 
       oneMol.trajStatus = TrajStatus::none;
+      // isDissociated marks "dissociated during THIS step", so that a molecule
+      // cannot immediately rebind the partner it just left.  The serial loop
+      // clears it once per step (nerdss.cpp); this loop did not, so the flag
+      // latched on.  Every probability routine skips a molecule that carries it
+      // -- determine_3D/2D/1D_bimolecular, determine_3D/2D_implicitlipid,
+      // evaluate_binding_within_complex -- so a molecule that dissociated once
+      // never reacted again for the rest of the run, and the reactive pool
+      // drained monotonically to nothing.
+      oneMol.isDissociated = false;
 
       complexList[oneMol.myComIndex].ncross = 0;
       complexList[oneMol.myComIndex].trajStatus = TrajStatus::none;
