@@ -35,6 +35,18 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "transitionwrite", ParamKeyword::transitionWrite }, 
     { "clusteroverlapcheck", ParamKeyword::clusterOverlapCheck }, 
     { "rngwrite", ParamKeyword::rngwrite },
+    { "numericsintegrationabserror", ParamKeyword::numericsIntegrationAbsError },
+    { "numericsintegrationrelerror", ParamKeyword::numericsIntegrationRelError },
+    { "numericsintegrationfallbackerror", ParamKeyword::numericsIntegrationFallbackError },
+    { "numericsintegrationtailcutoff", ParamKeyword::numericsIntegrationTailCutoff },
+    { "numericsnormalizationabserror", ParamKeyword::numericsNormalizationAbsError },
+    { "numericsnormalizationrelerror", ParamKeyword::numericsNormalizationRelError },
+    { "numericstablerateabstolerance", ParamKeyword::numericsTableRateAbsTolerance },
+    { "numericstableratereltolerance", ParamKeyword::numericsTableRateRelTolerance },
+    { "numericstablediffusionabstolerance", ParamKeyword::numericsTableDiffusionAbsTolerance },
+    { "numericstablediffusionreltolerance", ParamKeyword::numericsTableDiffusionRelTolerance },
+    { "numericsexplicitlipidflatdiffusion", ParamKeyword::numericsExplicitLipidFlatDiffusion },
+    { "numericsimplicitlipidflatdiffusion", ParamKeyword::numericsImplicitLipidFlatDiffusion },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -128,6 +140,42 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             this->bondedComplexWrite = std::stoll(value);
             std::cout << "Read in bondedComplexWrite: " << this->bondedComplexWrite << " timeSteps" << std::endl;
             break;
+        case 21:
+            this->numerics.integration.tableAbsoluteError = std::stod(value);
+            break;
+        case 22:
+            this->numerics.integration.tableRelativeError = std::stod(value);
+            break;
+        case 23:
+            this->numerics.integration.fallbackError = std::stod(value);
+            break;
+        case 24:
+            this->numerics.integration.tailCutoff = std::stod(value);
+            break;
+        case 25:
+            this->numerics.integration.normalizationAbsoluteError = std::stod(value);
+            break;
+        case 26:
+            this->numerics.integration.normalizationRelativeError = std::stod(value);
+            break;
+        case 27:
+            this->numerics.tableLookup.reactionRate.absolute = std::stod(value);
+            break;
+        case 28:
+            this->numerics.tableLookup.reactionRate.relative = std::stod(value);
+            break;
+        case 29:
+            this->numerics.tableLookup.diffusionCoefficient.absolute = std::stod(value);
+            break;
+        case 30:
+            this->numerics.tableLookup.diffusionCoefficient.relative = std::stod(value);
+            break;
+        case 31:
+            this->numerics.classification.explicitLipidFlatDiffusion = std::stod(value);
+            break;
+        case 32:
+            this->numerics.classification.implicitLipidFlatDiffusion = std::stod(value);
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -156,6 +204,12 @@ void Parameters::parse_paramFile(std::ifstream& paramFile)
         std::transform(tmpLine.begin(), tmpLine.end(), tmpLine.begin(), ::tolower);
 
         if (tmpLine == "endparameters") {
+            try {
+                numerics.validate();
+            } catch (const std::invalid_argument& error) {
+                std::cerr << "Invalid numerical setting: " << error.what() << '\n';
+                exit(1);
+            }
             paramFile.seekg(startPos);
             return;
         }
@@ -187,6 +241,13 @@ void Parameters::parse_paramFile(std::ifstream& paramFile)
             }
         }
     }
+
+    try {
+        numerics.validate();
+    } catch (const std::invalid_argument& error) {
+        std::cerr << "Invalid numerical setting: " << error.what() << '\n';
+        exit(1);
+    }
 }
 
 void Parameters::display()
@@ -203,6 +264,23 @@ void Parameters::display()
     std::cout << "ClusterOverlapCheck: " << clusterOverlapCheck << "\n";
     std::cout << "RNGwrite: " << rngwrite << "\n";
     std::cout << "bondedComplexWrite: " << bondedComplexWrite << "\n";
+
+    std::cout << "Numerical settings:\n";
+    std::cout << "  2D table integration abs/rel error: " << numerics.integration.tableAbsoluteError << " / "
+              << numerics.integration.tableRelativeError << '\n';
+    std::cout << "  2D table integration fallback/tail cutoff: " << numerics.integration.fallbackError << " / "
+              << numerics.integration.tailCutoff << '\n';
+    std::cout << "  normalization integration abs/rel error: "
+              << numerics.integration.normalizationAbsoluteError << " / "
+              << numerics.integration.normalizationRelativeError << '\n';
+    std::cout << "  table rate abs/rel tolerance: " << numerics.tableLookup.reactionRate.absolute << " / "
+              << numerics.tableLookup.reactionRate.relative << '\n';
+    std::cout << "  table diffusion abs/rel tolerance: "
+              << numerics.tableLookup.diffusionCoefficient.absolute << " / "
+              << numerics.tableLookup.diffusionCoefficient.relative << '\n';
+    std::cout << "  explicit/implicit lipid flat-diffusion cutoff: "
+              << numerics.classification.explicitLipidFlatDiffusion << " / "
+              << numerics.classification.implicitLipidFlatDiffusion << '\n';
 
     std::cout << "Molecule specific parameters:\n";
     std::cout << "Number of unique molecule types: " << numMolTypes << '\n';

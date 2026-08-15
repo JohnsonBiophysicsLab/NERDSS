@@ -38,7 +38,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                 ktemp *= 2.0; // for A(a)+A(a)->A(a!).A(a!) case
 
             for (int l = 0; l < DDTableIndex; ++l) {
-                if (std::abs(tableIDs[l] - ktemp) < 1e-8 && std::abs(tableIDs[params.max2DRxns + l] - biMolData.Dtot) < 1E-4) {
+                if (approximately_equal(tableIDs[l], ktemp, params.numerics.tableLookup.reactionRate)
+                    && approximately_equal(tableIDs[params.max2DRxns + l], biMolData.Dtot,
+                        params.numerics.tableLookup.diffusionCoefficient)) {
                     probValExists = true;
                     probMatrixIndex = l;
                     break;

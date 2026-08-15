@@ -175,8 +175,45 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             }
         }
 	*/
+        std::string nextSection;
+        std::getline(restartFile, nextSection);
+        if (nextSection.find("#NumericalSettings") == 0) {
+            if (nextSection.find("version = 1") == std::string::npos)
+                throw std::string("Unsupported numerical-settings restart section: ") + nextSection;
+
+            const auto readNumericalValue = [&restartFile](double& value) {
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+                restartFile >> value;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            };
+
+            readNumericalValue(params.numerics.integration.tableAbsoluteError);
+            readNumericalValue(params.numerics.integration.tableRelativeError);
+            readNumericalValue(params.numerics.integration.fallbackError);
+            readNumericalValue(params.numerics.integration.tailCutoff);
+            readNumericalValue(params.numerics.integration.normalizationAbsoluteError);
+            readNumericalValue(params.numerics.integration.normalizationRelativeError);
+            readNumericalValue(params.numerics.tableLookup.reactionRate.absolute);
+            readNumericalValue(params.numerics.tableLookup.reactionRate.relative);
+            readNumericalValue(params.numerics.tableLookup.diffusionCoefficient.absolute);
+            readNumericalValue(params.numerics.tableLookup.diffusionCoefficient.relative);
+            readNumericalValue(params.numerics.classification.explicitLipidFlatDiffusion);
+            readNumericalValue(params.numerics.classification.implicitLipidFlatDiffusion);
+
+            std::getline(restartFile, nextSection);
+            if (nextSection.find("#EndNumericalSettings") != 0)
+                throw std::string("Expected #EndNumericalSettings, found: ") + nextSection;
+            try {
+                params.numerics.validate();
+            } catch (const std::invalid_argument& error) {
+                throw std::string("Invalid numerical settings in restart file: ") + error.what();
+            }
+            std::getline(restartFile, nextSection); // #MolTemplates
+        }
+        if (nextSection.find("#MolTemplates") != 0)
+            throw std::string("Expected #MolTemplates section, found: ") + nextSection;
+
         std::cout << "READ IN MOL TEMPLATE from restart file" << std::endl;
-        restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         // Read MolTemplates
         {
             restartFile >> MolTemplate::numMolTypes;

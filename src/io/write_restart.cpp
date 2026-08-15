@@ -56,6 +56,27 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         for (auto& index : Parameters::lastUpdateTransition)
             restartFile << ' ' << index;
         restartFile << '\n';
+
+        restartFile << "#NumericalSettings version = 1\n" << std::scientific;
+        restartFile << "integrationAbsError = " << params.numerics.integration.tableAbsoluteError << '\n';
+        restartFile << "integrationRelError = " << params.numerics.integration.tableRelativeError << '\n';
+        restartFile << "integrationFallbackError = " << params.numerics.integration.fallbackError << '\n';
+        restartFile << "integrationTailCutoff = " << params.numerics.integration.tailCutoff << '\n';
+        restartFile << "normalizationAbsError = "
+                    << params.numerics.integration.normalizationAbsoluteError << '\n';
+        restartFile << "normalizationRelError = "
+                    << params.numerics.integration.normalizationRelativeError << '\n';
+        restartFile << "tableRateAbsTolerance = " << params.numerics.tableLookup.reactionRate.absolute << '\n';
+        restartFile << "tableRateRelTolerance = " << params.numerics.tableLookup.reactionRate.relative << '\n';
+        restartFile << "tableDiffusionAbsTolerance = "
+                    << params.numerics.tableLookup.diffusionCoefficient.absolute << '\n';
+        restartFile << "tableDiffusionRelTolerance = "
+                    << params.numerics.tableLookup.diffusionCoefficient.relative << '\n';
+        restartFile << "explicitLipidFlatDiffusion = "
+                    << params.numerics.classification.explicitLipidFlatDiffusion << '\n';
+        restartFile << "implicitLipidFlatDiffusion = "
+                    << params.numerics.classification.implicitLipidFlatDiffusion << '\n';
+        restartFile << "#EndNumericalSettings\n";
     }
     /*
     // write Simulation Volume

@@ -5,15 +5,16 @@
 #include <iomanip>
 
 double integrator(gsl_function F, IntegrandParams params, gsl_integration_workspace* w, double r0, double bindrad,
-    double Dtot, double kr, double deltat, char* funcID, double (*f)(double, void*))
+    double Dtot, double kr, double deltat, char* funcID, double (*f)(double, void*),
+    const NumericalSettings::Integration& settings)
 {
     // TRACE();
     double result {};
     double error {};
     const double xlow { 0 };
-    const double epsabs { 1e-7 };
-    const double epsrel { 1e-7 };
-    double publicationcrit = 1e-6;
+    const double epsabs { settings.tableAbsoluteError };
+    const double epsrel { settings.tableRelativeError };
+    const double publicationcrit { settings.fallbackError };
 
     /*For successful qagiu, takes ~0.01:0.3s, depending on R0.
       using qags even just twice takes ~4s-10s. qags seems necessary for large ka values. .*/
@@ -32,7 +33,7 @@ double integrator(gsl_function F, IntegrandParams params, gsl_integration_worksp
         start = std::chrono::steady_clock::now();
         /*This value of umax is not optimized*/
         double umax { 10000.0 }; // sqrt(-log(DBL_MIN) / (Dtot * deltat));
-        while (std::abs((*f)(umax, &params)) > 1e-10)
+        while (std::abs((*f)(umax, &params)) > settings.tailCutoff)
             umax = umax * 1.2;
 
         // std::cout << linebreak;

@@ -10,7 +10,8 @@ void determine_3D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
 {
     // TRACE();
     /*3D reaction*/
-    add_3D_rotational_diffusion(biMolData, complexList, params, 1E-15);
+    add_3D_rotational_diffusion(
+        biMolData, complexList, params, params.numerics.classification.implicitLipidFlatDiffusion);
 
     double Rmax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
     // std::cout << "Rmax: " << std::setprecision(20) << Rmax << std::endl;

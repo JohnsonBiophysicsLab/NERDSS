@@ -9,7 +9,8 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
 {
     // TRACE();
     /*3D reaction*/
-    add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
+    add_3D_rotational_diffusion(
+        biMolData, complexList, params, params.numerics.classification.explicitLipidFlatDiffusion);
 
     double Rmax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
 

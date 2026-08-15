@@ -32,7 +32,8 @@ void create_pirMatrix(gsl_matrix*& pirMatrix, double bindRadius, double Dtot, do
         while (R0Index <= comRMax + RStepSize) {
             intParams.r0 = R0Index;
             F.params = reinterpret_cast<void*>(&intParams);
-            result = integrator(F, intParams, w, R0Index, bindRadius, Dtot, kr, params.timeStep, funcID, pir_function);
+            result = integrator(F, intParams, w, R0Index, bindRadius, Dtot, kr, params.timeStep, funcID,
+                pir_function, params.numerics.integration);
             gsl_matrix_set(pirMatrix, itr1, itr2, result);
             itr1 += 1;
             R0Index += RStepSize;

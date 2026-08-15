@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "classes/mpi_functions.hpp"
+#include "numerics/numerical_settings.hpp"
 
 /*! \enum DebugKeywords
  * \ingroup Parser
@@ -56,7 +57,19 @@ enum class ParamKeyword : int {
     clusterOverlapCheck = 17, //!< is overlap checked by cluster
     assocDissocWrite = 18, //!< write association and dissociation to a file
     rngwrite = 19, //!< is overlap checked by cluster 
-    bondedComplexWrite = 20 //!< timestep interval to write bonded complex data to JSON file
+    bondedComplexWrite = 20, //!< timestep interval to write bonded complex data to JSON file
+    numericsIntegrationAbsError = 21,
+    numericsIntegrationRelError = 22,
+    numericsIntegrationFallbackError = 23,
+    numericsIntegrationTailCutoff = 24,
+    numericsNormalizationAbsError = 25,
+    numericsNormalizationRelError = 26,
+    numericsTableRateAbsTolerance = 27,
+    numericsTableRateRelTolerance = 28,
+    numericsTableDiffusionAbsTolerance = 29,
+    numericsTableDiffusionRelTolerance = 30,
+    numericsExplicitLipidFlatDiffusion = 31,
+    numericsImplicitLipidFlatDiffusion = 32
 };
 
 /*! \enum MolKeyword
@@ -167,6 +180,7 @@ struct Parameters {
     int numLipids { 0 }; //!< total number of lipids in the system
 
     double overlapSepLimit { 0.1 }; //!< in nm. COM-COM distance less than this is cancelled, for checkOverlap molecules
+    NumericalSettings numerics; //!< numerical convergence, lookup, and classification policy
     bool implicitLipid { false };
     bool hasUniMolStateChange { false };
     bool hasCreationDestruction { false };
@@ -231,6 +245,18 @@ struct Parameters {
         serialize_primitive_vector<long long int>(lastUpdateTransition, arrayRank, nArrayRank);
         PUSH(numLipids);
         PUSH(overlapSepLimit);
+        PUSH(numerics.integration.tableAbsoluteError);
+        PUSH(numerics.integration.tableRelativeError);
+        PUSH(numerics.integration.fallbackError);
+        PUSH(numerics.integration.tailCutoff);
+        PUSH(numerics.integration.normalizationAbsoluteError);
+        PUSH(numerics.integration.normalizationRelativeError);
+        PUSH(numerics.tableLookup.reactionRate.absolute);
+        PUSH(numerics.tableLookup.reactionRate.relative);
+        PUSH(numerics.tableLookup.diffusionCoefficient.absolute);
+        PUSH(numerics.tableLookup.diffusionCoefficient.relative);
+        PUSH(numerics.classification.explicitLipidFlatDiffusion);
+        PUSH(numerics.classification.implicitLipidFlatDiffusion);
         PUSH(implicitLipid);
         PUSH(hasUniMolStateChange);
         PUSH(hasCreationDestruction);
@@ -274,6 +300,18 @@ struct Parameters {
         deserialize_primitive_vector<long long int>(lastUpdateTransition, arrayRank, nArrayRank);
         POP(numLipids);
         POP(overlapSepLimit);
+        POP(numerics.integration.tableAbsoluteError);
+        POP(numerics.integration.tableRelativeError);
+        POP(numerics.integration.fallbackError);
+        POP(numerics.integration.tailCutoff);
+        POP(numerics.integration.normalizationAbsoluteError);
+        POP(numerics.integration.normalizationRelativeError);
+        POP(numerics.tableLookup.reactionRate.absolute);
+        POP(numerics.tableLookup.reactionRate.relative);
+        POP(numerics.tableLookup.diffusionCoefficient.absolute);
+        POP(numerics.tableLookup.diffusionCoefficient.relative);
+        POP(numerics.classification.explicitLipidFlatDiffusion);
+        POP(numerics.classification.implicitLipidFlatDiffusion);
         POP(implicitLipid);
         POP(hasUniMolStateChange);
         POP(hasCreationDestruction);
@@ -296,5 +334,6 @@ struct Parameters {
         POP(rngwrite);
         POP(checkUnimoleculeReactionPopulation);
         POP(hasRankCommunicationForLargeComplex);
+        numerics.validate();
     }
 };

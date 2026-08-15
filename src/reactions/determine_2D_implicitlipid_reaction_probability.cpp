@@ -35,7 +35,12 @@ void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
             }
 
             for (int l = 0; l < IL2DbindingVec.size(); ++l) {
-                if (std::abs(ILTableIDs[l * 3] - ktemp) < 1e-8 && std::abs(ILTableIDs[l * 3 + 1] - biMolData.Dtot) < 1E-4 && std::abs(ILTableIDs[l * 3 + 2] - kb) < 1e-8) {
+                if (approximately_equal(
+                        ILTableIDs[l * 3], ktemp, params.numerics.tableLookup.reactionRate)
+                    && approximately_equal(ILTableIDs[l * 3 + 1], biMolData.Dtot,
+                        params.numerics.tableLookup.diffusionCoefficient)
+                    && approximately_equal(
+                        ILTableIDs[l * 3 + 2], kb, params.numerics.tableLookup.reactionRate)) {
                     probValExists = true;
                     probMatrixIndex = l;
                     break;

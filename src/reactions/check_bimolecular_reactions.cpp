@@ -279,7 +279,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
+                                        add_3D_rotational_diffusion(biMolData, complexList, params,
+                                            params.numerics.classification.explicitLipidFlatDiffusion);
 
                                         double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
@@ -376,7 +377,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
+                                        add_3D_rotational_diffusion(biMolData, complexList, params,
+                                            params.numerics.classification.explicitLipidFlatDiffusion);
 
                                         double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
