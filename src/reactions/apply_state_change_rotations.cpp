@@ -20,31 +20,31 @@
 void apply_state_change_rotations(Vec3D& reactIface1, Vec3D& reactIface2, int stateChangeIface, int facilitatorIface,
     Molecule& stateChangeMol, Molecule& facilitatorMol, Complex& stateChangeCom, Complex& facilitatorCom,
     const ForwardRxn::Angles& assocAngles, const ForwardRxn& currRxn, std::vector<Molecule>& moleculeList,
-    const std::vector<MolTemplate>& molTemplateList)
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings)
 {
     /* THETA */
     theta_rotation(reactIface1, reactIface2, facilitatorMol, stateChangeMol, assocAngles.theta1, facilitatorCom,
-        stateChangeCom, moleculeList);
+        stateChangeCom, moleculeList, settings);
 
     theta_rotation(reactIface2, reactIface1, stateChangeMol, facilitatorMol, assocAngles.theta2, stateChangeCom,
-        facilitatorCom, moleculeList);
+        facilitatorCom, moleculeList, settings);
 
     /* OMEGA */
     // if protein has theta M_PI, uses protein norm instead of com_iface vector.
     // Guarded on currRxn rather than on the local copy, as it always has been.
     if (!std::isnan(currRxn.assocAngles.omega)) {
         omega_rotation(reactIface1, reactIface2, stateChangeIface, facilitatorMol, stateChangeMol, facilitatorCom,
-            stateChangeCom, assocAngles.omega, currRxn, moleculeList, molTemplateList);
+            stateChangeCom, assocAngles.omega, currRxn, moleculeList, molTemplateList, settings);
     } // else P1 or P2 is a rod-type protein, no dihedral for associated complex.
 
     /* PHI */
     if (!std::isnan(assocAngles.phi1)) {
         phi_rotation(reactIface1, reactIface2, stateChangeIface, facilitatorMol, stateChangeMol, facilitatorCom,
-            stateChangeCom, currRxn.norm1, assocAngles.phi1, currRxn, moleculeList, molTemplateList);
+            stateChangeCom, currRxn.norm1, assocAngles.phi1, currRxn, moleculeList, molTemplateList, settings);
     } // else P1 has no valid phi angle.
 
     if (!std::isnan(assocAngles.phi2)) {
         phi_rotation(reactIface2, reactIface1, facilitatorIface, stateChangeMol, facilitatorMol, stateChangeCom,
-            facilitatorCom, currRxn.norm2, assocAngles.phi2, currRxn, moleculeList, molTemplateList);
+            facilitatorCom, currRxn.norm2, assocAngles.phi2, currRxn, moleculeList, molTemplateList, settings);
     } // else P2 has no valid phi angle.
 }

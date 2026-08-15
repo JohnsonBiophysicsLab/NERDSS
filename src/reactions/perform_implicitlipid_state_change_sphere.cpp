@@ -142,7 +142,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
 
         apply_state_change_rotations(reactIface1, reactIface2, stateChangeIface, facilitatorIface,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom, assocAngles, currRxn,
-            moleculeList, molTemplateList);
+            moleculeList, molTemplateList, params.numerics.associationAngles);
     } //only rotate if they are not both points.
 
     // need to adjust Lipid's orientation, make it verticle to sphere

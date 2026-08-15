@@ -12,6 +12,7 @@
 #include "classes/class_Quat.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_copyCounters.hpp"
+#include "numerics/numerical_settings.hpp"
 
 extern unsigned numAssoc;
 
@@ -74,7 +75,7 @@ void associate_implicitlipid_sphere(long long int iter, int ifaceIndex1, int ifa
 /*! \ingroup Associate
  * \brief This checks if two angles are equal, accounting for minus signs
  */
-bool areSameAngle(double ang1, double ang2);
+bool areSameAngle(double ang1, double ang2, const ComparisonTolerance& tolerance);
 
 /*! \ingroup Associate
  * \brief Checks if two vectors are parallel
@@ -240,7 +241,8 @@ ForwardRxn& rxn, Complex& domCom, Complex& infCom, std::vector<Molecule>& molLis
  * cos(ang/2) * w.z)\f$
  */
 void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
-    Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList);
+    Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList,
+    const NumericalSettings::AssociationAngles& settings);
 
 /*! \ingroup Associate
  * \brief Applies theta1, theta2, omega, phi1 and phi2 to a state-changing pair.
@@ -254,7 +256,7 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
 void apply_state_change_rotations(Vec3D& reactIface1, Vec3D& reactIface2, int stateChangeIface, int facilitatorIface,
     Molecule& stateChangeMol, Molecule& facilitatorMol, Complex& stateChangeCom, Complex& facilitatorCom,
     const ForwardRxn::Angles& assocAngles, const ForwardRxn& currRxn, std::vector<Molecule>& moleculeList,
-    const std::vector<MolTemplate>& molTemplateList);
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings);
 
 /*! \ingroup Associate
  * \brief Function to rotate a Molecule to some a target dihedral phi, relative to sigma (the
@@ -290,7 +292,8 @@ void apply_state_change_rotations(Vec3D& reactIface1, Vec3D& reactIface2, int st
  */
 void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, const Vec3D& normal, const double& targPhi, const ForwardRxn& currRxn,
-    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
+    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList,
+    const NumericalSettings::AssociationAngles& settings);
 
 /*! \ingroup Associate
  * \brief Performs a rotation of two molecules to some target omega angle, the com-iface1 to sigma to com-iface2
@@ -308,7 +311,8 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
  */
 void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, double targOmega, const ForwardRxn& currRxn,
-    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
+    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList,
+    const NumericalSettings::AssociationAngles& settings);
 
 /* PROJECTIONS */
 /*! \ingroup Associate
@@ -322,7 +326,8 @@ void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Mol
  *   4. return omega.
  */
 double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, double sigmaLength,
-    const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2, const std::vector<MolTemplate>& molTemplateList);
+    const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2,
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings);
 
 /*! \ingroup Associate
  * \brief this should get phi via an orthographic projected onto the xy-plane.
@@ -347,7 +352,7 @@ double calculate_phi(Vec3D reactIface1, int ifaceIndex2, Molecule reactMol1, Mol
 void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& reactIface2, int ifaceIndex1,
     int ifaceIndex2, const Molecule& reactMol1, const Molecule& reactMol2, const Complex& reactCom1,
     const Complex& reactCom2, const ForwardRxn& currRxn, const std::vector<Molecule>& moleculeList,
-    const std::vector<MolTemplate>& molTemplateList);
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings);
 
 /*! \ingroup Associate
  * \brief Checks to see if the centers of masses of any of the molecules that are undergoing physical association 
@@ -454,4 +459,3 @@ void track_association_events(Complex& reactCom1, Complex& reactCom2, bool trans
 
 void print_association_events( copyCounters& counterArrays, std::ofstream & outfile, int it, Parameters params);
 void init_association_events( copyCounters& counterArrays);
-

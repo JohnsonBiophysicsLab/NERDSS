@@ -3,8 +3,12 @@
 #include "tracing.hpp"
 
 void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
-    Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList)
+    Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList,
+    const NumericalSettings::AssociationAngles& settings)
 {
+    const auto sameAngle = [&settings](double lhs, double rhs) {
+        return areSameAngle(lhs, rhs, settings.sameAngle);
+    };
     // TRACE();
     Vec3D v1 { reactIface1 - reactMol1.tmpComCoord };
     Vec3D sigma { reactIface1 - reactIface2 };
@@ -16,10 +20,10 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
     //std::cout << "Desired theta: " << targAngle << " Current theta: " << currTheta << std::endl;
 
     // Determine if we even need to rotate (i.e. if the theta is already aligned )
-    if (std::abs(targAngle - currTheta) < 1E-8) {
+    if (std::abs(targAngle - currTheta) < settings.rotationConvergenceTolerance) {
         // std::cout << "No theta rotation needed" << std::endl;
-    } else if ((areSameAngle(targAngle, M_PI) || areSameAngle(targAngle, 0)) &&
-             areSameAngle(currTheta, targAngle)) {
+    } else if ((sameAngle(targAngle, M_PI) || sameAngle(targAngle, 0)) &&
+             sameAngle(currTheta, targAngle)) {
         return;
     } 
     else {
@@ -77,7 +81,7 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
         currTheta = sigma.angle_between(v1);
 
         // if the angle between sigma and the rotated Molecule are correct, return.
-        if ((areSameAngle(targAngle, M_PI) || areSameAngle(targAngle, 0)) && areSameAngle(currTheta, targAngle)) {
+        if ((sameAngle(targAngle, M_PI) || sameAngle(targAngle, 0)) && sameAngle(currTheta, targAngle)) {
             //std::cout << "Theta After: " << currTheta << std::endl;
             return;
         }

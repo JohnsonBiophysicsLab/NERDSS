@@ -332,12 +332,12 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       if (!std::isnan(currRxn.assocAngles.theta1))
         theta_rotation(reactIface1, reactIface2, reactMol1, reactMol2,
                        currRxn.assocAngles.theta1, reactCom1, reactCom2,
-                       moleculeList);
+                       moleculeList, params.numerics.associationAngles);
 
       if (!std::isnan(currRxn.assocAngles.theta2))
         theta_rotation(reactIface2, reactIface1, reactMol2, reactMol1,
                        currRxn.assocAngles.theta2, reactCom2, reactCom1,
-                       moleculeList);
+                       moleculeList, params.numerics.associationAngles);
       
       /* OMEGA */
       // if protein has theta M_PI, uses protein norm instead of com_iface
@@ -349,7 +349,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         omega_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1,
                        reactMol2, reactCom1, reactCom2,
                        currRxn.assocAngles.omega, currRxn, moleculeList,
-                       molTemplateList);
+                       molTemplateList, params.numerics.associationAngles);
       } 
       // std::cout << "P1 or P2 is a rod-type protein, no dihedral for
       // associated complex." << std::endl;
@@ -363,7 +363,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         phi_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1,
                      reactMol2, reactCom1, reactCom2, currRxn.norm1,
                      currRxn.assocAngles.phi1, currRxn, moleculeList,
-                     molTemplateList);
+                     molTemplateList, params.numerics.associationAngles);
       }
       
       // std::cout << "P1 has no valid phi angle." << std::endl;
@@ -376,7 +376,7 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         phi_rotation(reactIface2, reactIface1, ifaceIndex1, reactMol2,
                      reactMol1, reactCom2, reactCom1, currRxn.norm2,
                      currRxn.assocAngles.phi2, currRxn, moleculeList,
-                     molTemplateList);
+                     molTemplateList, params.numerics.associationAngles);
       } // else
       
       // std::cout << "P2 has no valid phi angle." << std::endl;

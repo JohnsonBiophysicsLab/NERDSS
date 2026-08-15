@@ -34,6 +34,17 @@ struct NumericalSettings {
         double implicitLipidFlatDiffusion { 1e-15 };
     } classification;
 
+    struct AssociationAngles {
+        // General equality for periodic/end-point association angles.
+        ComparisonTolerance sameAngle { 1e-4, 0.0 };
+
+        // A tighter criterion for deciding whether a rotation has converged.
+        double rotationConvergenceTolerance { 1e-8 };
+
+        // Prevents numerical noise at 0 and pi from changing a dihedral sign.
+        double endpointSignTolerance { 1e-11 };
+    } associationAngles;
+
     void validate() const
     {
         require_positive("numericsIntegrationAbsError", integration.tableAbsoluteError);
@@ -57,6 +68,16 @@ struct NumericalSettings {
             "numericsExplicitLipidFlatDiffusion", classification.explicitLipidFlatDiffusion);
         require_nonnegative(
             "numericsImplicitLipidFlatDiffusion", classification.implicitLipidFlatDiffusion);
+
+        require_nonnegative("numericsAssociationSameAngleAbsTolerance", associationAngles.sameAngle.absolute);
+        require_nonnegative("numericsAssociationSameAngleRelTolerance", associationAngles.sameAngle.relative);
+        if (associationAngles.sameAngle.absolute == 0.0 && associationAngles.sameAngle.relative == 0.0)
+            throw std::invalid_argument(
+                "Association-angle absolute and relative tolerances cannot both be zero.");
+        require_positive(
+            "numericsAssociationRotationTolerance", associationAngles.rotationConvergenceTolerance);
+        require_positive(
+            "numericsAssociationEndpointSignTolerance", associationAngles.endpointSignTolerance);
     }
 
 private:

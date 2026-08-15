@@ -47,6 +47,10 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numericstablediffusionreltolerance", ParamKeyword::numericsTableDiffusionRelTolerance },
     { "numericsexplicitlipidflatdiffusion", ParamKeyword::numericsExplicitLipidFlatDiffusion },
     { "numericsimplicitlipidflatdiffusion", ParamKeyword::numericsImplicitLipidFlatDiffusion },
+    { "numericsassociationsameangleabstolerance", ParamKeyword::numericsAssociationSameAngleAbsTolerance },
+    { "numericsassociationsameanglereltolerance", ParamKeyword::numericsAssociationSameAngleRelTolerance },
+    { "numericsassociationrotationtolerance", ParamKeyword::numericsAssociationRotationTolerance },
+    { "numericsassociationendpointsigntolerance", ParamKeyword::numericsAssociationEndpointSignTolerance },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -176,6 +180,18 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
         case 32:
             this->numerics.classification.implicitLipidFlatDiffusion = std::stod(value);
             break;
+        case 33:
+            this->numerics.associationAngles.sameAngle.absolute = std::stod(value);
+            break;
+        case 34:
+            this->numerics.associationAngles.sameAngle.relative = std::stod(value);
+            break;
+        case 35:
+            this->numerics.associationAngles.rotationConvergenceTolerance = std::stod(value);
+            break;
+        case 36:
+            this->numerics.associationAngles.endpointSignTolerance = std::stod(value);
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -281,6 +297,12 @@ void Parameters::display()
     std::cout << "  explicit/implicit lipid flat-diffusion cutoff: "
               << numerics.classification.explicitLipidFlatDiffusion << " / "
               << numerics.classification.implicitLipidFlatDiffusion << '\n';
+    std::cout << "  association same-angle abs/rel tolerance: "
+              << numerics.associationAngles.sameAngle.absolute << " / "
+              << numerics.associationAngles.sameAngle.relative << '\n';
+    std::cout << "  association rotation/endpoint-sign tolerance: "
+              << numerics.associationAngles.rotationConvergenceTolerance << " / "
+              << numerics.associationAngles.endpointSignTolerance << '\n';
 
     std::cout << "Molecule specific parameters:\n";
     std::cout << "Number of unique molecule types: " << numMolTypes << '\n';

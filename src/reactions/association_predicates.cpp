@@ -17,10 +17,10 @@ bool areParallel(const double& angle)
     return angle == M_PI || angle == 0;
 }
 
-bool areSameAngle(double ang1, double ang2)
+bool areSameAngle(double ang1, double ang2, const ComparisonTolerance& tolerance)
 {
     //    return std::abs(ang1) == std::abs(ang2);
-    return std::abs(ang1 - ang2) < 1E-4;
+    return approximately_equal(ang1, ang2, tolerance);
 }
 
 bool angleSignIsCorrect(const Vec3D& vec1, const Vec3D& vec2)

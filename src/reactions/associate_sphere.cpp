@@ -150,7 +150,7 @@ void associate_sphere(long long int iter,
             //           << std::setw(8) << ' ' << std::setfill(' ') << std::endl;
             theta_rotation(reactIface1, reactIface2, reactMol1, reactMol2,
                 currRxn.assocAngles.theta1, reactCom1, reactCom2,
-                moleculeList);
+                moleculeList, params.numerics.associationAngles);
             // std::cout << std::setw(30) << std::setfill('-') << ' '
             //           << std::setfill(' ') << std::endl;
             // std::cout << "THETA 2" << std::endl
@@ -158,7 +158,7 @@ void associate_sphere(long long int iter,
             //           << std::endl;
             theta_rotation(reactIface2, reactIface1, reactMol2, reactMol1,
                 currRxn.assocAngles.theta2, reactCom2, reactCom1,
-                moleculeList);
+                moleculeList, params.numerics.associationAngles);
 
             /* OMEGA */
             // if protein has theta M_PI, uses protein norm instead of com_iface vector
@@ -169,7 +169,7 @@ void associate_sphere(long long int iter,
                 omega_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1,
                     reactMol2, reactCom1, reactCom2,
                     currRxn.assocAngles.omega, currRxn, moleculeList,
-                    molTemplateList);
+                    molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P1 or P2 is a rod-type protein, no dihedral for "
             //              "associated complex."
@@ -185,7 +185,7 @@ void associate_sphere(long long int iter,
                 phi_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1,
                     reactMol2, reactCom1, reactCom2, currRxn.norm1,
                     currRxn.assocAngles.phi1, currRxn, moleculeList,
-                    molTemplateList);
+                    molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P1 has no valid phi angle." << std::endl;
 
@@ -198,7 +198,7 @@ void associate_sphere(long long int iter,
                 phi_rotation(reactIface2, reactIface1, ifaceIndex1, reactMol2,
                     reactMol1, reactCom2, reactCom1, currRxn.norm2,
                     currRxn.assocAngles.phi2, currRxn, moleculeList,
-                    molTemplateList);
+                    molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P2 has no valid phi angle." << std::endl;
         } // end of if points.

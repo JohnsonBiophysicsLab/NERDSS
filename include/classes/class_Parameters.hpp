@@ -69,7 +69,11 @@ enum class ParamKeyword : int {
     numericsTableDiffusionAbsTolerance = 29,
     numericsTableDiffusionRelTolerance = 30,
     numericsExplicitLipidFlatDiffusion = 31,
-    numericsImplicitLipidFlatDiffusion = 32
+    numericsImplicitLipidFlatDiffusion = 32,
+    numericsAssociationSameAngleAbsTolerance = 33,
+    numericsAssociationSameAngleRelTolerance = 34,
+    numericsAssociationRotationTolerance = 35,
+    numericsAssociationEndpointSignTolerance = 36
 };
 
 /*! \enum MolKeyword
@@ -257,6 +261,10 @@ struct Parameters {
         PUSH(numerics.tableLookup.diffusionCoefficient.relative);
         PUSH(numerics.classification.explicitLipidFlatDiffusion);
         PUSH(numerics.classification.implicitLipidFlatDiffusion);
+        PUSH(numerics.associationAngles.sameAngle.absolute);
+        PUSH(numerics.associationAngles.sameAngle.relative);
+        PUSH(numerics.associationAngles.rotationConvergenceTolerance);
+        PUSH(numerics.associationAngles.endpointSignTolerance);
         PUSH(implicitLipid);
         PUSH(hasUniMolStateChange);
         PUSH(hasCreationDestruction);
@@ -312,6 +320,10 @@ struct Parameters {
         POP(numerics.tableLookup.diffusionCoefficient.relative);
         POP(numerics.classification.explicitLipidFlatDiffusion);
         POP(numerics.classification.implicitLipidFlatDiffusion);
+        POP(numerics.associationAngles.sameAngle.absolute);
+        POP(numerics.associationAngles.sameAngle.relative);
+        POP(numerics.associationAngles.rotationConvergenceTolerance);
+        POP(numerics.associationAngles.endpointSignTolerance);
         POP(implicitLipid);
         POP(hasUniMolStateChange);
         POP(hasCreationDestruction);

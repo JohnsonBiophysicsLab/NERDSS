@@ -178,7 +178,9 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
         std::string nextSection;
         std::getline(restartFile, nextSection);
         if (nextSection.find("#NumericalSettings") == 0) {
-            if (nextSection.find("version = 1") == std::string::npos)
+            const bool isVersion1 { nextSection.find("version = 1") != std::string::npos };
+            const bool isVersion2 { nextSection.find("version = 2") != std::string::npos };
+            if (!isVersion1 && !isVersion2)
                 throw std::string("Unsupported numerical-settings restart section: ") + nextSection;
 
             const auto readNumericalValue = [&restartFile](double& value) {
@@ -199,6 +201,12 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             readNumericalValue(params.numerics.tableLookup.diffusionCoefficient.relative);
             readNumericalValue(params.numerics.classification.explicitLipidFlatDiffusion);
             readNumericalValue(params.numerics.classification.implicitLipidFlatDiffusion);
+            if (isVersion2) {
+                readNumericalValue(params.numerics.associationAngles.sameAngle.absolute);
+                readNumericalValue(params.numerics.associationAngles.sameAngle.relative);
+                readNumericalValue(params.numerics.associationAngles.rotationConvergenceTolerance);
+                readNumericalValue(params.numerics.associationAngles.endpointSignTolerance);
+            }
 
             std::getline(restartFile, nextSection);
             if (nextSection.find("#EndNumericalSettings") != 0)
