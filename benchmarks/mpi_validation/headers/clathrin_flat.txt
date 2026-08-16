@@ -1,0 +1,1 @@
+Time (s),clat(cd1),clat(cd2),clat(cd3),clat(td1),clat(td2),clat(td3),clat(ref),clat(cd1!1).clat(cd1!1),clat(cd2!1).clat(cd2!1),clat(cd3!1).clat(cd3!1),clat(cd1!1).clat(cd2!1),clat(cd1!1).clat(cd3!1),clat(cd2!1).clat(cd3!1),clat(ref!1).clat(ref!1)
