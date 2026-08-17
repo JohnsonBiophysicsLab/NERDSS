@@ -156,3 +156,71 @@ significant per-bin and negligible in total L1.
 
 Keep both tests; neither subsumes the other.
 
+
+## Root cause of the multi-rank failures
+
+Measured on `Benchmarking/bimolecular_3D` (`A + B <-> A.B`, 10000 each) at np=2,
+seed 6001, by summing non-ghosted non-empty molecules across ranks with
+`MPI_Allreduce` at each unconditional phase boundary of the timestep.
+
+**The simulation state is wrong, not just the output.** The reduced owned-molecule
+count leaves its correct value:
+
+```
+itr  250-1750  owned=[10000,10000]
+itr  2000      owned=[ 9998, 9999]
+itr  2250-3000 owned=[ 9999,10000]
+```
+
+**It is entirely in the rank exchange.** Across 15 ownership-change events:
+`check_perform_zeroth_first_order_reactions` 0, `measure_separations` 0,
+`perform_bimolecular_reactions` **0**, left exchange **11**, right exchange 4.
+The reaction physics never loses a molecule.
+
+**The invariant that breaks: every molecule must be owned by exactly one rank.**
+Dumping every id held by either rank, with status, at a dropping iteration:
+
+```
+itr 2154: distinct ids present anywhere = 20000, owned by some rank = 19997
+  id=5926   rank0=(t0, empty=0, ghost=1)   rank1=None
+  id=0      rank0=None                     rank1=(t0, empty=0, ghost=1)
+  id=10003  rank0=None                     rank1=(t1, empty=0, ghost=1)
+```
+
+Every molecule is still present -- nothing is deleted, `empty` is 0 everywhere,
+all 20000 ids exist. Each lost molecule is **marked as a ghost on the only rank
+that holds it**: the sole instance is flagged as somebody else's copy. No rank
+integrates it, and every tally that skips ghosts skips it.
+
+The signature in the deltas confirms the shape: changes arrive as matched -1/+1
+one iteration apart, with both species moving together by the same amount, i.e. a
+bound A-B pair crossing the boundary.
+
+Why this happens: relinquish and claim are not paired. The sender gives up
+ownership by fixed column index -- `send_data_to_left` sets `isGhosted = true`
+for every molecule in local bin column 0, `send_data_to_right` for column
+`numSubCells.x - 1` -- while the receiver decides ownership independently by
+recomputing `get_x_bin` against its own `xOffset` (`deserialize.cpp`). Two
+different criteria evaluated on two different ranks. Nothing enforces that
+exactly one of them ends up owning the molecule.
+
+### Hypotheses tested and rejected
+
+Each was instrumented and measured, not argued:
+
+| hypothesis | result |
+|---|---|
+| output/merge artifact, physics fine | rejected -- the in-simulation reduced count drifts |
+| molecules deleted (`delete_disappeared`) | rejected -- `empty=0` always, all 20000 ids present |
+| boundary molecules with `myComIndex == -1` never sent | rejected -- 0 skips observed |
+| relinquished but never claimed (left exchange) | rejected -- every relinquished id was claimed |
+| ghosted on both ranks at once | rejected -- intersection of the two ranks' ghost sets is empty |
+| `myComIndex`/memberList disagreement is the cause | rejected as cause -- it is MPI-only and real (serial 0/20000) but rebuilding it from the authoritative member lists, after each exchange and at the top of every step, left both the mismatch and the conservation violation unchanged. Co-symptom. |
+
+### What would fix it
+
+Make ownership a single decision rather than two. Either the sender stamps an
+owner rank on each molecule and the receiver honours it, or both sides derive
+ownership from one shared function of position that provably partitions the
+boundary. The present split -- relinquish by column index, claim by recomputed
+bin -- cannot be made correct by adjusting either side alone.
