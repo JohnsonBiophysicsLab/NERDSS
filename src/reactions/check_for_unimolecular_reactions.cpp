@@ -66,8 +66,7 @@ void check_for_unimolecular_reactions(
                         (!isStateChangeBackRxn)
                             ? forwardRxns[rxnIndex].rateList[rateIndex].rate
                             : backRxns[rxnIndex].rateList[rateIndex].rate};
-                    double prob{1 - exp(-rate * params.timeStep *
-                                        Constants::usToSeconds)};
+                    double prob{first_order_probability(rate, params.timeStep)};
 
                     // make sure that the time step is resonable according to
                     // the prob of reaction
@@ -160,8 +159,7 @@ void check_for_unimolecular_reactions(
                       (!isStateChangeBackRxn)
                           ? forwardRxns[rxnIndex].rateList[rateIndex].rate
                           : backRxns[rxnIndex].rateList[rateIndex].rate};
-                  double prob{1 - exp(-rate * params.timeStep *
-                                      Constants::usToSeconds)};
+                  double prob{first_order_probability(rate, params.timeStep)};
 
                   // make sure that the time step is resonable according to the
                   // prob of reaction
@@ -253,8 +251,8 @@ void check_for_unimolecular_reactions(
                       .numberOfFreeLipidsEachState[tmpImplicitLipidStateIndex];
 
               for (int tmpItr = 0; tmpItr < tmpOneStateLipid; tmpItr++) {
-                double prob{1 - exp(-oneRxn.rateList[0].rate * params.timeStep *
-                                    Constants::usToSeconds)};
+                double prob{first_order_probability(oneRxn.rateList[0].rate,
+                                                   params.timeStep)};
 
                 // make sure that the time step is resonable according to the
                 // prob of reaction
@@ -308,9 +306,8 @@ void check_for_unimolecular_reactions(
                       .numberOfFreeLipidsEachState[tmpImplicitLipidStateIndex];
               for (int tmpItr = 0; tmpItr < tmpOneStateLipid; tmpItr++) {
                 // double rNum { 1.0 * rand_gsl() };
-                long double lambda{oneRxn.rateList.at(0).rate *
-                                   params.timeStep * Constants::usToSeconds};
-                long double prob{1 - exp(-lambda)};
+                double prob{first_order_probability(oneRxn.rateList.at(0).rate,
+                                                   params.timeStep)};
 
                 // make sure that the time step is resonable according to the
                 // prob of reaction
@@ -364,8 +361,8 @@ void check_for_unimolecular_reactions(
             isReactant(moleculeList[molItr],
                        complexList[moleculeList[molItr].myComIndex], oneRxn,
                        moleculeList)) {
-          double prob{1 - exp(-oneRxn.rateList[0].rate * params.timeStep *
-                              Constants::usToSeconds)};
+          double prob{
+              first_order_probability(oneRxn.rateList[0].rate, params.timeStep)};
 
           // make sure that the time step is resonable according to the prob of
           // reaction
@@ -438,9 +435,8 @@ void check_for_unimolecular_reactions(
                               complexList[moleculeList[molItr].myComIndex],
                               oneRxn, moleculeList)) {
           // double rNum { 1.0 * rand_gsl() };
-          long double lambda{oneRxn.rateList.at(0).rate * params.timeStep *
-                             Constants::usToSeconds};
-          long double prob{1 - exp(-lambda)};
+          double prob{first_order_probability(oneRxn.rateList.at(0).rate,
+                                             params.timeStep)};
 
           // make sure that the time step is resonable according to the prob of
           // reaction

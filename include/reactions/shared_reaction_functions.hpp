@@ -16,8 +16,10 @@
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
 #include "gsl/gsl_matrix.h"
+#include "math/constants.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 /*!
  * \brief Determines if the Interface::State of the reactant is equivalent to the reactant as contained in the
@@ -144,6 +146,37 @@ inline RateMatch best_matching_rate(const std::vector<RxnBase::RateState>& rateL
         }
     }
     return result;
+}
+
+/*!
+ * \brief Probability that a first-order event of this rate occurs in one timestep.
+ *
+ * \param rate as stored in `RxnBase::RateState::rate`, in s^-1.
+ * \param timeStep `Parameters::timeStep`, in us.
+ *
+ * An infinite rate returns certainty directly rather than arriving at it through
+ * `exp()` underflow.  The value is the same either way -- `1 - exp(-INF)` is also
+ * 1 -- but this way the product `rate * timeStep` is never formed, and that
+ * product is where an infinite rate turns dangerous: `INF * 0` is NaN, every
+ * caller decides either with `prob > rand_gsl()` or by passing `prob` to
+ * `gsl_ran_binomial()`, and both read NaN as "no event".  A rate meaning
+ * "always" would silently become one meaning "never".  A NaN rate lands in the
+ * same trap, and `-INF` would reach `gsl_ran_binomial()` as a probability of
+ * `-INF`; both return 0 here instead.
+ *
+ * A *finite* negative rate is left to the arithmetic, because it is a live
+ * sentinel: `check_for_unimolecular_reactions_population.cpp` uses `rate == -1`
+ * to select strong destruction and overwrites the event count afterwards.
+ *
+ * For every finite rate this is the arithmetic the eleven call sites performed
+ * inline, unchanged, so existing models are unaffected.
+ */
+inline double first_order_probability(double rate, double timeStep)
+{
+    if (!std::isfinite(rate))
+        return rate > 0.0 ? 1.0 : 0.0;
+
+    return 1.0 - std::exp(-rate * timeStep * Constants::usToSeconds);
 }
 
 /* FUNCTIONS TO DETERMINE WHICH REACTION TO PERFORM */

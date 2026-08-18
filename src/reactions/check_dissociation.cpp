@@ -52,7 +52,7 @@ void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolu
                 */
 
                 double kb { backRxns[mu].rateList[rateItr].rate }; // <- kr[mu]
-                double prob = 1 - exp(-kb * params.timeStep * Constants::usToSeconds);
+                double prob = first_order_probability(kb, params.timeStep);
 
                 // make sure that the time step is resonable according to the prob of reaction
                 if (prob > 1.0) {

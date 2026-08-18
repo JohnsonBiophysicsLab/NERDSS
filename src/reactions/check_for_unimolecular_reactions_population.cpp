@@ -28,9 +28,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                 NA = static_cast<int>(oneTemp.monomerList.size());
 
                 // determine the reaction number in this time step, numEvents
-                long double lambda { oneRxn.rateList.at(0).rate * params.timeStep * Constants::usToSeconds};
-                double explam=exp(-lambda);
-
                 // Poisson distribution
 				//long double prob { explam };
 				//int numEvents { 0 };
@@ -39,7 +36,7 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 				// long double factor = 1;
 
                 // Binomial distribution
-                long double prob = 1 - explam;
+                double prob = first_order_probability(oneRxn.rateList.at(0).rate, params.timeStep);
                 int numEvents = gsl_ran_binomial(r, prob, NA); // r is global rng
 
 				
@@ -131,9 +128,7 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                 NA = membraneObject.numberOfFreeLipidsEachState[0];
 
                 // determine the reaction number in this time step, numEvents
-                long double lambda { oneRxn.rateList.at(0).rate * params.timeStep * Constants::usToSeconds};
-                double explam=exp(-lambda);
-				long double prob { 1 - explam };
+                double prob { first_order_probability(oneRxn.rateList.at(0).rate, params.timeStep) };
 				int numEvents = gsl_ran_binomial(r, prob, NA); // r is global rng
 				/*double rNum { 1.0 * rand_gsl() };
 				long double lampow=lambda;
@@ -196,9 +191,7 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
             NA = static_cast<int>(poolAList.size());
 
             // determine the reaction number in this time step, numEvents
-            long double lambda { oneRxn.rateList.at(0).rate * params.timeStep * Constants::usToSeconds };
-            double explam=exp(-lambda);
-			long double prob { 1 - explam };
+            double prob { first_order_probability(oneRxn.rateList.at(0).rate, params.timeStep) };
 			int numEvents = gsl_ran_binomial(r, prob, NA); // r is global rng
             /*double rNum { 1.0 * rand_gsl() };
             long double lampow=lambda;
@@ -319,10 +312,8 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
                     }
 
                     // determine the reaction number in this time step, numEvents
-                    long double lambda { rate * params.timeStep * Constants::usToSeconds };
-                    double explam = exp(-lambda);
-                    long double prob { 1 - explam };
-                    // std::cout << rate << "," << lambda << "," << prob << std::endl;
+                    double prob { first_order_probability(rate, params.timeStep) };
+                    // std::cout << rate << "," << prob << std::endl;
                     int numEvents = gsl_ran_binomial(r, prob, NAB); // r is global rng
                     // if (numEvents > NABnotdissociated) {
                     //     numEvents = NABnotdissociated; // This is the max of numEvents

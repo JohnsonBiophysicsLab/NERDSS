@@ -40,7 +40,7 @@ void check_for_unimolstatechange_reactions(unsigned simItr, Parameters& params, 
                                     if (rxnIndex != -1 && rateIndex != -1) {
                                         double rate { (!isStateChangeBackRxn) ? forwardRxns[rxnIndex].rateList[rateIndex].rate
                                                                               : backRxns[rxnIndex].rateList[rateIndex].rate };
-                                        double prob { 1 - exp(-rate * params.timeStep * Constants::usToSeconds) };
+                                        double prob { first_order_probability(rate, params.timeStep) };
 
                                         // make sure that the time step is resonable according to the prob of reaction
                                         if (prob > 1.000001) {
@@ -108,7 +108,7 @@ void check_for_unimolstatechange_reactions(unsigned simItr, Parameters& params, 
                                 if (rxnIndex != -1 && rateIndex != -1) {
                                     double rate { (!isStateChangeBackRxn) ? forwardRxns[rxnIndex].rateList[rateIndex].rate
                                                                           : backRxns[rxnIndex].rateList[rateIndex].rate };
-                                    double prob { 1 - exp(-rate * params.timeStep * Constants::usToSeconds) };
+                                    double prob { first_order_probability(rate, params.timeStep) };
 
                                     // make sure that the time step is resonable according to the prob of reaction
                                     if (prob > 1.000001) {
