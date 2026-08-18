@@ -474,7 +474,12 @@ public:
 
     // Following fields are for MPI version only:
     int id;  // unique complex identifier in the system
-    int ownerRank;  // rank responsible for collecting requests to associate and making decisions and propagating them.
+    // The rank that owns this complex.  Ownership is a property of the complex,
+    // not of its molecules: a complex is integrated as one rigid body, so a
+    // molecule's ghost status is derived from this field.  -1 means "not mine";
+    // the owner's copy carries the authoritative value and it travels with the
+    // complex, so a ghost copy needs no knowledge of who the owner is.
+    int ownerRank {-1};
 
     // When another rank processes molecules near the border with this rank,
     // it can associate two molecules of two received complexes,

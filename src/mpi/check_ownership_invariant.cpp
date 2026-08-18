@@ -67,6 +67,7 @@ bool check_ownership_invariant(MpiContext &mpiContext,
   gather(ghostLocal, ghostAll);
 
   int bad = 0;
+  std::vector<int> firstUnowned;
   if (!mpiContext.rank) {
     std::map<int, int> ownedTimes;
     for (int id : ownedAll) ++ownedTimes[id];
@@ -81,6 +82,7 @@ bool check_ownership_invariant(MpiContext &mpiContext,
 
     if (!doubleOwned.empty() || !unowned.empty()) {
       bad = 1;
+      firstUnowned = unowned.empty() ? doubleOwned : unowned;
       fprintf(stderr,
           "OWNERSHIP VIOLATION itr=%lld at=%s : %zu id(s) owned by more than "
           "one rank, %zu id(s) held only as ghosts and owned by nobody\n",
@@ -108,5 +110,42 @@ bool check_ownership_invariant(MpiContext &mpiContext,
   }
   // every rank leaves with the same verdict, so callers may branch on it
   MPI_Bcast(&bad, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  // When the invariant fails, every rank reports what it knows about the first
+  // offending id.  Ownership bugs are only diagnosable from both sides at once,
+  // and reconstructing that from two separate logs afterwards is painful.
+  if (bad) {
+    int firstBad = -1;
+    if (!mpiContext.rank && !firstUnowned.empty()) firstBad = firstUnowned.front();
+    MPI_Bcast(&firstBad, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (firstBad >= 0) {
+      for (int r = 0; r < mpiContext.nprocs; r++) {
+        if (r == mpiContext.rank) {
+          bool found = false;
+          for (const auto &mol : moleculeList) {
+            if (mol.id != firstBad) continue;
+            found = true;
+            int ci = mol.myComIndex;
+            int owner = (ci >= 0 && ci < (int)complexList.size())
+                            ? complexList[ci].ownerRank
+                            : -999;
+            int comId = (ci >= 0 && ci < (int)complexList.size())
+                            ? complexList[ci].id
+                            : -999;
+            fprintf(stderr,
+                    "    id=%d on rank %d: ghost=%d empty=%d myComIndex=%d "
+                    "complexId=%d complexOwnerRank=%d nCom=%zu\n",
+                    firstBad, mpiContext.rank, (int)mol.isGhosted,
+                    (int)mol.isEmpty, ci, comId, owner, complexList.size());
+          }
+          if (!found)
+            fprintf(stderr, "    id=%d on rank %d: not present\n", firstBad,
+                    mpiContext.rank);
+          fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+      }
+    }
+  }
   return bad == 0;
 }
