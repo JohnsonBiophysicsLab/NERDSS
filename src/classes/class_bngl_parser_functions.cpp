@@ -17,7 +17,9 @@
 #include "io/io.hpp"
 #include "parser/parser_functions.hpp"
 
+#include <cmath>
 #include <iomanip>
+#include <stdexcept>
 
 std::ostream& operator<<(std::ostream& os, const Involvement& involve)
 {
@@ -315,28 +317,71 @@ void ParsedRxn::display_angles() const
     std::cout << std::setw(10) << std::left << "Omega" << std::setw(7) << std::right << assocAngles.omega << '\n';
 }
 
+namespace {
+
+/*!
+ * \brief `std::stod` for a reaction keyword, rejecting anything that is not finite.
+ *
+ * `std::stod` accepts "INF", "-INF" and "NAN" as valid doubles, so a rate
+ * written that way used to reach the simulation with no complaint at all.  It is
+ * never what a model wants.  Nothing in the code makes a reaction certain by
+ * giving it an infinite rate: `rxnLabel` only names a reaction so that another
+ * one can point at it with `coupledRxnLabel`, and the labelled reaction still
+ * runs through the ordinary unimolecular path at its own rate.  `rate = INF`
+ * therefore does not mean "fire when the coupled partner dissociates", it means
+ * "fire on every timestep, for every copy, forever".
+ *
+ * Association angles are the one reaction parameter where NaN is meaningful, and
+ * they are read through `parse_input_array()`, never through here.
+ *
+ * \param keyword the input-file keyword, for the error message.
+ * \param guidance appended to the message when the keyword is a rate.
+ */
+double read_finite(const std::string& keyword, const std::string& line, const char* guidance = "")
+{
+    const double value { std::stod(line) };
+    if (!std::isfinite(value)) {
+        throw std::invalid_argument(
+            "ERROR: reaction keyword '" + keyword + "' must be a finite number, but '" + line
+            + "' was read." + guidance);
+    }
+    return value;
+}
+
+/*! \brief `read_finite()` for a rate, which has one specific way of being abused. */
+double read_finite_rate(const std::string& keyword, const std::string& line)
+{
+    return read_finite(keyword, line,
+        " A rate is not a way to say \"always\": an infinite one does not fire a reaction when its"
+        " partner does, it fires it on every timestep. To have a reaction happen when, and only"
+        " when, a coupled reaction happens, give it rate = 0 and set kcat on the reaction that names"
+        " it through coupledRxnLabel, which then performs it with probability kcat/(kcat+offRatekb).");
+}
+
+} // namespace
+
 void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
 {
     int key = static_cast<std::underlying_type<RxnKeyword>::type>(rxnKeyword);
     try {
         switch (key) {
         case 0: {
-            onRate3Dka = std::stod(line);
+            onRate3Dka = read_finite_rate("onRate3Dka", line);
             std::cout << "Read in value of onRate3Dka: " << onRate3Dka << "nm^3us^-1\n";
             break;
         }
         case 1: {
-            onRate3DMacro = std::stod(line);
+            onRate3DMacro = read_finite_rate("onRate3DMacro", line);
             std::cout << "Read in value of onRate3DMacro: " << onRate3DMacro << "uM^-1s^-1\n";
             break;
         }
         case 2: {
-            offRatekb = std::stod(line);
+            offRatekb = read_finite_rate("offRatekb", line);
             std::cout << "Read in value of offRatekb: " << offRatekb << "s^-1\n";
             break;
         }
         case 3: {
-            offRateMacro = std::stod(line);
+            offRateMacro = read_finite_rate("offRateMacro", line);
             std::cout << "Read in value of offRateMacro: " << offRateMacro << "s^-1\n";
             break;
         }
@@ -353,7 +398,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 6: {
-            bindRadius = std::stod(line);
+            bindRadius = read_finite("sigma", line);
             std::cout << "Read in value of sigma: " << bindRadius << "nm\n";
             break;
         }
@@ -367,7 +412,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 9: {
-            onRate3Dka = std::stod(line);
+            onRate3Dka = read_finite_rate("rate", line);
             std::cout << "Read in value of rate: " << onRate3Dka << '\n';
             break;
         }
@@ -388,7 +433,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 13: {
-            bindRadSameCom = std::stod(line);
+            bindRadSameCom = read_finite("bindRadSameCom", line);
             std::cout << "Read in value of bindRadSameCom: " << bindRadSameCom << '\n';
             break;
         }
@@ -397,16 +442,16 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 15: {
-            creationRadius = std::stod(line);
+            creationRadius = read_finite("creationRadius", line);
             break;
         }
         case 16: {
-            loopCoopFactor = std::stod(line);
+            loopCoopFactor = read_finite("loopCoopFactor", line);
             std::cout << "Read in value of loopCoopFactor: " << loopCoopFactor << '\n';
             break;
         }
         case 17: {
-            length3Dto2D = std::stod(line);
+            length3Dto2D = read_finite("length3Dto2D", line);
             std::cout << "Read in value of length3Dto2D: " << length3Dto2D << "nm\n";
             break;
         }
@@ -422,7 +467,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 20: {
-            kcat = std::stod(line);
+            kcat = read_finite_rate("kcat", line);
             std::cout << "Read in value of kcat: " << kcat << '\n';
             break;
         }
@@ -431,7 +476,7 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
             break;
         }
         case 22: {
-            area3Dto1D = std::stod(line);
+            area3Dto1D = read_finite("area3Dto1D", line);
             std::cout << "Read in value of area3Dto1D: " << area3Dto1D << "nm^2\n";
             break;
         }
@@ -441,6 +486,9 @@ void ParsedRxn::set_value(std::string& line, RxnKeyword rxnKeyword)
         }
     } catch (std::invalid_argument& e) {
         std::cout << e.what() << '\n';
+        exit(1);
+    } catch (std::out_of_range& e) {
+        std::cerr << "ERROR: reaction keyword value '" << line << "' is out of range for a double.\n";
         exit(1);
     }
 }
