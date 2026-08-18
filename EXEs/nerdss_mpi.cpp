@@ -498,6 +498,9 @@ int main(int argc, char* argv[]) {
     }
 
     mpiContext.simItr = simItr;
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "step top");
 
     for (auto& oneMol : moleculeList) {
       if (oneMol.isEmpty || oneMol.isImplicitLipid) continue;
@@ -650,6 +653,9 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the left part...\n");
     }
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol#1");
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
@@ -805,6 +811,9 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Update the states of molecules in the right part...\n");
     }
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after left exchange");
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
