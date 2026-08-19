@@ -1639,14 +1639,9 @@ produced still stands. Only the `seconds` column is compromised.
 
 ### 17.8 Found and deliberately not changed
 
-**A missing pole guard in the caller.** `create_complex_propagation_vectors_on_sphere`
-builds the inner coordinate frame by hand instead of calling `inner_coord_set`,
-and the hand-written version is that function's no-motion branch character for
-character *except* that it omits the pole guard. On the z axis the seed direction
-is parallel to the radial one, their cross product is zero, `Vec3D::normalize()`
-leaves a zero vector alone rather than making NaNs, and the frame comes out
-degenerate with no warning. Fixing it changes output at the poles, so it is not
-part of a bitwise-identical commit.
+**A missing pole guard in the caller.** Fixed in section 18, which also retracts
+the reason given here for leaving it: the change does alter output at the poles,
+but nothing reaches a pole, so it is bitwise-identical on both suites after all.
 
 **A length compared against unity.** `rotate_on_sphere`'s second early-out is
 `std::abs(targi.length() - 1.0) < 1e-8`, where `targi` is a projection in nm. It
@@ -1665,3 +1660,126 @@ basis vectors, but `j` and `k` come from `unit_cross`, which already normalized
 them. Dropping those two would save two `sqrt` and six divides per call, and
 would perturb the last bits wherever the re-measured length is not exactly 1.0.
 Not taken in a commit whose claim is bitwise identity.
+
+## 18. The pole guard the caller never had
+
+17.8 listed a missing guard in `create_complex_propagation_vectors_on_sphere` and
+left it alone, on the grounds that fixing it changes output at the poles and so
+could not belong to a bitwise-identical commit. The first half of that is true.
+The second does not follow, and this section retracts it: nothing in any
+configuration NERDSS runs ever reaches a pole, so the guard is bitwise-neutral
+everywhere the code actually goes. It is now in.
+
+### 18.1 What the degenerate frame does
+
+The caller seeds its tangent from `(0, 0, 1)`. On the z axis that is parallel to
+the radial direction `i`, so `temp.unit_cross(i)` is the zero vector, and
+`Vec3D::normalize()` deliberately leaves a zero vector alone rather than making
+NaNs. `j` and `k` come back as `(0, 0, 0)`.
+
+Driven through the real `rotate_on_sphere` at `COM = (0, 0, 100)` with a step of
+`dl = 1.414`, the result is `COMnew = (0, 0, 99.99)`: **arc moved 0 against 1.414
+requested, radius 100 -> 99.99.** The COM does not collapse -- `targi` survives
+because `i` is still well defined -- it loses the tangential half of its step and
+keeps the small inward radial half. Iterating shows the shape of it:
+
+```
+  step 1: comCoord=(0, 0, 99.9900001667)  |r|=99.9900001667
+  step 2: comCoord=(0, 0, 99.9800003333)  |r|=99.9800003333
+  ...
+```
+
+`x` and `y` stay exactly `0.0`, so the axis is an absorbing state: a complex that
+arrives never diffuses again, and sinks `dl^2/2R` per step. Nothing corrects it.
+`reflect_traj_complex_rad_rot_nocheck_sphere` returns early for an `OnSurface`
+complex because "the movement only involves theta and phi, and R doesn't change" --
+precisely the invariant the degenerate frame breaks. With the guard, the same
+five steps leave the axis on the first one, move the full `1.414` every time, and
+hold `|r| = 100` exactly.
+
+### 18.2 Whether anything reaches it
+
+Four routes to a COM with `x` and `y` both exactly `0.0`, none of which arrives.
+
+**Random placement.** `Molecule::create_random_coords` writes
+`comCoord.x = (2R) * rand_gsl() - R`. `gsl_rng_default` is mt19937, whose
+`gsl_rng_uniform` returns `k / 2^32`, so `x` is exactly zero only for a draw of
+exactly 0.5: `2^-32` per axis, **`2^-64` for both.**
+
+**Propagation landing there.** An instrumented build counting exact hits,
+guard-window entries and closest horizontal approach, on the three sphere cases:
+
+| case | calls | exact poles | inside the guard window | closest rho |
+|---|---|---|---|---|
+| `sphere`, 40000 itr | 16,426,980 | 0 | 0 | 0.061 nm on R = 100 |
+| `cluster_gagsphere` | 37,027 | 0 | 0 | 5.54 |
+| `gagsphere` | 0 | -- | -- | never enters the surface path |
+
+The guard window is `|z| - |COM| < 1e-8`, which on R = 100 is a cap of radius
+~0.0014 nm; the closest any complex came was 43x wider than that, over 16.4M
+steps.
+
+**Restart files.** `write_restart` writes coordinates `std::fixed` under
+`precision(20)`. Nothing rounds to zero, so a restart can only carry an exact
+zero that already existed.
+
+**`-c/--coordinate`.** The one route that *can* write an exact zero:
+`std::stod(line.substr(30, 8))`, applied as an exact translation. It still does
+not reach the bug. A molecule placed on the axis is not `OnSurface` until it
+binds, and its first free 3D diffusion step gives it nonzero `x` and `y` first --
+run with an `A` seeded at `(0, 0, 99.5)`, 0 exact poles. Being `OnSurface` at
+t = 0 requires an explicit `isLipid` molecule, and NERDSS does not accept one on
+a sphere: `class_SimulVolume.cpp` demands a lipid sit at `z = -waterBox.z/2` and
+exits with "is off the membrane" otherwise. Placed exactly at the south pole it
+satisfies that test and then segfaults in the main loop, before the first
+propagation.
+
+So the defect is real and latent. What the guard buys is not a corrected
+trajectory today but the removal of a silent, unrecoverable failure from a path
+that a future model -- an explicit lipid on a sphere, a hand-built initial
+condition -- could walk into with no diagnostic at all.
+
+**Still open, in the same family.** `Complex::propagate` calls
+`inner_coord_set(COM, COMnew)`. At a pole that takes the *motion* branch, where
+`com` and `comNew` are parallel and `i.unit_cross(v)` is zero as well; the guard
+exists only in the no-motion branch. With the caller fixed, `COMnew` is off-axis
+and the path is safe, but the hole is still there for any caller that passes two
+parallel arguments.
+
+### 18.3 Why the guard, and not a call to `inner_coord_set`
+
+The obvious repair is to delete the hand-rolled block and call
+`inner_coord_set(COM, COM)`, which takes the no-motion branch and carries the
+guard. The block is that branch character for character. It is not that branch
+instruction for instruction: it normalizes `j` a second time *before* building
+`k`, while `inner_coord_set` builds `k` from the singly-normalized `j` and
+normalizes `i` again at the tail. Two redundant normalizations in different
+places, which do not cancel -- the same trailing-normalization arithmetic 17.8's
+last entry describes.
+
+Over 20,000,000 uniform points on an R = 100 sphere, comparing raw bit patterns:
+
+| frame vs the current block | differing | max abs delta |
+|---|---|---|
+| `inner_coord_set(COM, COM)` | 8,819,992 (**44.10%**) | 3.33e-16 (1-2 ulp) |
+| the same block, guard added | **0** | 0 |
+
+Delegating would perturb the propagation frame at 44% of ordinary surface
+positions and diverge every sphere trajectory, in exchange for correct behaviour
+at a state nothing reaches. The guard in place is a no-op everywhere the code
+goes. The duplication therefore stays, with a comment naming `onAxisTolerance` as
+the constant it is tracking and recording why the two cannot simply be merged.
+
+### 18.4 Bitwise identity
+
+All 13 cases in `cases.tsv` and all 5 in `coverage_cases.tsv`, every file under
+`DATA/`, `RESTARTS/` and `PDB/`, against a build of the parent commit:
+**18/18 bitwise identical**, `sphere`, `gagsphere` and `cluster_gagsphere`
+included, 23 output files hashed apiece.
+
+The baseline binary is SHA-256 `554ca4b9a82690a96a5f1626...`, which 17.5 already
+identified as the build of the committed tip, so the comparison is against the
+recorded parent exactly rather than against a rebuild that merely ought to match
+it. The 20,000,000-point frame comparison in 18.3 is the reason to expect that
+verdict rather than merely to observe it: the guard cannot change a frame at any
+position off the axis, and no run puts a complex on the axis.

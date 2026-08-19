@@ -40,6 +40,20 @@ Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
     Vec3D i = Vec3D { COM.x, COM.y, COM.z };
     i.normalize();
     Vec3D temp = Vec3D { 0.0, 0.0, COM.length() };
+    if (std::abs(std::abs(COM.z) - COM.length()) < 1E-8) { // inner_coord_set()'s onAxisTolerance
+        // COM is on the z axis, so the seed above is parallel to i and the cross
+        // product below is the zero vector.  Vec3D::normalize() leaves a zero
+        // vector alone rather than making NaNs, so j and k would come back as
+        // (0, 0, 0), rotate_on_sphere() would build a zero tangential component,
+        // and the complex would lose the whole tangential half of its step:
+        // stuck on the axis for good, sinking dl^2/2R per step, with no warning.
+        // The same guard, seed and tolerance as inner_coord_set()'s no-motion
+        // branch, which this block is otherwise a copy of.  Calling that function
+        // instead would not be a copy: it builds k from a j this block has
+        // normalized once more, so the two frames differ in the last ulp at 44%
+        // of surface positions.
+        temp = Vec3D { -1.0, 0.0, 0.0 };
+    }
     temp.normalize();
     Vec3D j = temp.unit_cross(i);
     j.normalize();
