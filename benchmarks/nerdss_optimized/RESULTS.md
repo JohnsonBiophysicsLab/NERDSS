@@ -1373,3 +1373,295 @@ compare `1821bfe` against this tip.
 What is not estimated is the correctness claim. The committed tip removes about 8
 points of allocator share and the last two scalar `cos()` calls in the hot path,
 and alters no output byte in any of the 13 cases.
+
+## 17. `functions_for_spherical_system.cpp`: the arithmetic, the copies, and the `sqrt` that had to stay
+
+Seven issues were raised against this file: an unnecessary `sqrt`, `pow(x, 2)`,
+`sin` and `cos` computed separately for the same angle, functions kept past
+their last caller, `Vec3D` doubling as a spherical coordinate with nothing
+marking which convention a value held, no statement anywhere that a "spherical
+system" here is a system *on* a sphere rather than *inside* one, and variable
+names that do not follow the project's camelCase.
+
+Two of the seven were already handled by the compiler. One of them was wrong in
+three of the eight places it applied. And the largest measured win in the file
+was not on the list at all.
+
+### 17.1 The trig and the `pow`: what `-O3` already emitted
+
+Section 16.5 found that clang fuses adjacent `sin`/`cos` of a common argument
+into `__sincos_stret` on its own. The same check on this file, reading
+relocations out of the object built from `HEAD`:
+
+| function (baseline) | `__sincos_stret` | `_sin` | `_cos` | `_acos` | `_asin` | `_pow` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `find_cardesian_coords` | 2 | 0 | 0 | 0 | 0 | 0 |
+| `rotate_on_sphere` | 1 | 0 | 0 | 1 | 0 | 0 |
+| `find_spherical_coords` | 0 | 1 | 0 | 2 | 0 | 0 |
+| `find_position_after_association` | 0 | 0 | 1 | 0 | 0 | 0 |
+| `calc_bindRadius2D` | 0 | 0 | 0 | 0 | 1 | 0 |
+
+Three things that source reading would have flagged were already gone. The four
+`pow(x, 2.0)` calls emitted **no `_pow` at all** -- the constant exponent was
+folded to a multiply. `find_cardesian_coords` wrote `sin(theta)` twice, `cos(phi)`
+and `sin(phi)` once each, and got two `__sincos_stret` calls: both the fusion and
+the common-subexpression elimination of the repeated `sin(theta)` had happened.
+`find_position_after_association` wrote `cos(arc1 / R)` twice and got one call.
+
+The candidate object has exactly the same counts. So none of issues 2 and 3 is a
+speedup on this compiler at this optimization level, and the file was changed
+anyway for the reason the issue gave: the folding does not survive
+`-fno-builtin`, it never happened on older MSVC, and it does not apply when the
+exponent is not a literal. `pow` is written out as multiplication;
+`include/math/sincos.hpp` wraps `__builtin_sincos`, which both compilers lower to
+whichever sincos entry point the target has, and which was checked to return the
+same doubles as separate `sin` and `cos`.
+
+### 17.2 `sqrt`: valid against a threshold, invalid between two lengths
+
+Eight comparisons in the file took a square root. Five are guards against a
+*fixed tolerance*, all of them `1e-8` -- a step that did not move, a target on
+top of its reference point, a tangential component that vanishes. Those became
+comparisons against a `...Squared` constant formed from the tolerance by
+multiplication. `sqrt` is correctly rounded and monotonic, so the two disagree
+only for an input within about one part in 10^16 of the tolerance exactly, which
+is not a value any step in this simulation lands on.
+
+The other three compare **two measured lengths**, and for those the same
+reasoning fails. `set_memProtein_sphere` and `find_Lipid_sphere` search for the
+molecule whose temporary COM is furthest from the centre of the sphere -- over
+molecules that are all *on* that sphere. The lengths being ranked are therefore
+equal up to rounding by construction, and `sqrt` collapsing two of them onto one
+double is the normal case rather than a remote one. Measured over 2,000,000 pairs
+of points placed on a sphere of radius 100 by the construction the callers use:
+
+| | |
+| --- | ---: |
+| `\|a\|` and `\|b\|` bit-identical after `sqrt` | 34.42% |
+| `(\|a\| > \|b\|)` disagrees with `(\|a\|^2 > \|b\|^2)` | 1.98% |
+
+A disagreement there does not shift a coordinate by an ulp. It selects a
+different molecule as the membrane reference protein, which then sets the
+orientation the whole complex is rotated into. A differential test against the
+previous implementation over 80,000 fixtures reported **2,628 flips in each of
+the two searches** before the change was reverted, and **0 after**.
+
+None of the 18 cases in `cases.tsv` and `coverage_cases.tsv` shows this: in every
+call they make, the search has exactly one candidate to rank, so no comparison
+between two lengths ever happens. A bitwise-identical verdict from the suite
+would have been reported in the same words as a verified one -- the situation
+section 15 was written about, arrived at from the opposite direction.
+
+The third, the nearer of two candidate positions in
+`find_position_after_association`, keeps its roots too. Its two candidates are
+the roots of a quadratic and are not near-equal by construction, and 600,000
+randomized comparisons found no disagreement, but the saving is two `sqrt` per
+association event against roughly 900 events in the `sphere` case -- far too
+small to be worth a comparison whose failure mode is a different position rather
+than a rounder one.
+
+### 17.3 The copies nobody asked about
+
+```
+void set_memProtein_sphere(Complex reactCom, Molecule& memProtein,
+    std::vector<Molecule> moleculeList, const Membrane membraneObject)
+```
+
+`Complex` by value, `std::vector<Molecule>` **by value**, `Membrane` by value.
+Neither this function nor `find_Lipid_sphere` writes to any of the three. Every
+call deep-copied the entire molecule list to read a handful of `isLipid` flags and
+coordinates off it. `Molecule` is 656 bytes and holds **22 non-static
+`std::vector` members**, so one copy is 656 bytes plus an allocation for each
+member that is not empty.
+
+`associate_sphere`, `associate_ImplicitLipid_sphere` and
+`perform_implicitlipid_state_change_sphere` each call both functions once per
+event, so a sphere association copied the list twice. The `sphere` case holds
+1,101 molecules and records 914 successful associations in 40,000 iterations:
+about **2.0 million `Molecule` copy constructions**, each with up to 22
+allocations behind it, to pass data nothing writes to.
+
+The three call sites shrank accordingly, and this is where the reading of the
+change stopped being a measurement and started being a guess -- 17.6 tests it and
+finds the guess wrong. `.text` instructions per object:
+
+| caller | baseline | candidate | |
+| --- | ---: | ---: | ---: |
+| `associate_sphere` | 6,032 | 5,046 | -986 |
+| `associate_ImplicitLipid_sphere` | 4,344 | 3,654 | -690 |
+| `perform_implicitlipid_state_change_sphere` | 3,885 | 3,195 | -690 |
+| `perform_bimolecular_state_change_sphere` | 1,076 | 1,076 | 0 |
+| total | 15,337 | 12,971 | **-2,366** |
+
+The last row is the control: that file calls `calc_bindRadius2D` and
+`find_position_after_association` but neither of the two, and does not move.
+
+Two smaller structural changes are in the same class. The nine-double inner
+coordinate frame was passed by value -- 72 bytes copied per call, once per
+molecule and once per interface per timestep -- and is now a reference. And
+`calculate_inner_coord_coefficients`, declared in the header but called only by
+`translate_on_sphere` in the same file, became file-local and inlined into it:
+
+| | baseline | candidate |
+| --- | ---: | ---: |
+| `translate_on_sphere` | 57 | 177 |
+| `calculate_inner_coord_coefficients` | 147 | inlined |
+| the pair | 204 | **177** |
+
+### 17.4 `Vec3D` stays by value, and that direction was measured
+
+Changing the `std::array` parameters to references invites doing the same to the
+`Vec3D` ones. That was tried first, and it is slower. `Vec3D` is three doubles in
+a trivially copyable aggregate, so it is a homogeneous floating-point aggregate
+and travels in three FP registers; a reference forces the caller to spill it to
+the stack for an address to point at and makes every read in the callee a load.
+
+| function | `const Vec3D&` | `Vec3D` |
+| --- | ---: | ---: |
+| `inner_coord_set` | 146 | 142 |
+| `inner_coord_set_new` | 169 | 166 |
+| `translate_on_sphere` | 182 | 177 |
+| `rotate_on_sphere` | 124 | 118 |
+| `find_position_after_association` | 132 | 126 |
+
+The reason the two conventions differ is now written on the header, next to the
+declarations that differ, so the inconsistency reads as deliberate.
+
+### 17.5 Bitwise identity
+
+Three independent checks, because the suite alone was shown above to be blind to
+the one real behaviour change in this work.
+
+**A differential test on the geometry.** `HEAD`'s implementation is textually
+embedded in a `baseline` namespace beside the rewritten one and both are called
+on the same inputs, comparing raw bit patterns: 40,000 random points per sphere
+plus both exact poles, the three axes, radii from `1e-9` to `1e12`; steps that
+are real, exactly zero, `1e-12` and `1e-9`; targets at the COM, purely radial,
+and along each basis vector; rotation angles including 0, `1e-15` and both signs
+of pi. **11,322,143 comparisons, 0 mismatches.** Perturbing the baseline copy by
+one part in 10^15 makes it report 1,908,832 -- the harness detects what it claims
+to detect.
+
+**A differential test on fixtures.** `set_memProtein_sphere` and
+`find_Lipid_sphere` need `Molecule`/`Complex` inputs the first test cannot build,
+and they are the two whose signatures changed most. 80,000 randomized complexes
+covering both the explicit-lipid path and the implicit-lipid path, comparing
+every coordinate of the returned molecule: **0 mismatches.** This is the test that
+caught 17.2.
+
+**The suites.** All 13 cases in `cases.tsv` and all 5 in `coverage_cases.tsv`,
+every file under `DATA/`, `RESTARTS/` and `PDB/`, against a build of the parent
+commit: **18/18 bitwise identical.**
+
+**And the committed tip is the measured tip.** Section 16.6 had to argue that its
+committed state reproduced its measured state by re-running the suite and
+comparing output bytes. Here the check is tighter: `git archive` of the tip
+extracted to an empty directory and built with `make serial` produces a binary
+whose SHA-256 is `554ca4b9a82690a96a5f1626...`, which is the same binary every
+number in 17.5 and 17.6 was taken on -- byte for byte, not output for output. The
+verdicts above therefore apply to the commit directly, with nothing to re-run.
+
+### 17.6 Timing, and where the speedup is not
+
+Measured with a purpose-built interleaved harness rather than `run_suite.sh`, for
+the reason 17.7 gives. Seven repetitions, three builds per repetition per case so
+all three meet the same machine conditions, medians and minimums both reported.
+`ablate` is `HEAD` with **only** the by-value to const-reference change of 17.3
+applied and nothing else, so its column isolates that change from the rest.
+
+| case | base | ablate | cand | ablate/base | cand/base |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `sphere` (median) | 11.253 | 11.137 | 10.754 | 1.010 | **1.046** |
+| `sphere` (minimum) | 11.155 | 11.043 | 10.482 | 1.010 | **1.064** |
+| `gagsphere` (median) | 3.798 | 3.769 | 3.798 | 1.008 | 1.000 |
+
+The `sphere` distributions do not overlap: across seven paired repetitions the
+slowest candidate run was faster than the fastest baseline run.
+
+**The copies are not where the time was.** 17.3 counted 2.0 million eliminated
+`Molecule` copy constructions and 2,366 eliminated instructions at the call
+sites, and reading those numbers it is natural to call it the largest win in the
+file. The ablation says it is worth **1.010x** -- about a fifth of the 1.046x, and
+consistent with 1.32 GB of `memcpy` at roughly 0.13s of an 11.2s run. The other
+3.6% comes from the propagation path.
+
+The reason is a ratio nothing in the source makes visible. `translate_on_sphere`
+and `rotate_on_sphere` run once per molecule and once per interface per timestep;
+`set_memProtein_sphere` and `find_Lipid_sphere` run twice per association event.
+In the `sphere` case that is 44,040,000 molecule propagations against 1,828 list
+copies -- **24,000 to 1**. An expensive thing done rarely lost to a cheap thing
+done constantly, which is the same shape of error as sections 9.6, 11 and 16.5,
+and the fourth time on this branch that a plausible cost has been mis-attributed
+without a measurement to separate it.
+
+So the credit for the 3.6% belongs to the changes on the per-molecule path: the
+frame passed by reference instead of as 72 bytes of copy, the coefficient solve
+inlined into its only caller, the threshold `sqrt` calls removed from the guards
+every call runs through, `radius()` replaced by an inlinable `Vec3D::length()`
+where it had been an out-of-line call in another translation unit, and eighteen
+dead stores removed from the two frame builders. Those were not separated from
+each other; the ablation was spent on the claim that looked largest.
+
+`gagsphere` is a negative control, not a second sphere case. Its parameter file
+`gagOriginalModelSolution.inp` declares `waterBox = [436, 436, 436]` and no
+`isSphere`, so no code in this file executes, and 1.000x is the correct answer for
+it. A useful control, but it means **`sphere` is the only case here that measures
+anything**, and the 1.046x rests on one model.
+
+A second on-sphere case was attempted and abandoned. `gagsphere/parms.inp` does
+declare `isSphere = true, sphereR = 70`, and `cluster_gagsphere` runs it with
+`clusterOverlapCheck = true`, which is the configuration that drives
+`calculate_update_position_interface` and therefore this file hardest. But its
+cost appears only once clusters have grown: at `nItr = 160` the whole run is
+0.162s and has formed 11 bound pairs, so every build reads the same startup time
+and nothing is measured, while `nItr = 1000` forms 64 pairs and takes 62s per
+run -- 15 minutes for five interleaved repetitions of three builds. Anyone wanting
+a second sphere data point should spend that on an idle machine; the harness
+takes an injected parameter line, so
+`gagsphere<TAB>gagsphere<TAB>parms.inp<TAB>1000<TAB>clusterOverlapCheck = true`
+is the row to use.
+
+### 17.7 A measurement bug found on the way
+
+`run_suite.sh` cannot time this change, or any change of a few per cent. Its
+`run_with_timeout` ends with `wait "$watchdog"`, and the watchdog polls with
+`sleep 1`, so it can only exit after its in-flight sleep finishes -- and the
+caller reads the clock after that. Every timing it reports is rounded up to the
+next whole second. In one 13-case run every value was an exact integer multiple
+of ~1.0095s: `rev_3D` 7.069, `rev_3Dto2D` 10.095, `homoTrimer` 11.105, `hexamer`
+10.092, `clathrin` 6.060, `sphere` 11.104, `rev_2D` 77.649. The comment inside
+`run_with_timeout` asserts the opposite, which is true of the `wait "$child"`
+above it and not of the wait that follows.
+
+The hash manifest is unaffected, so every bitwise verdict the suite has ever
+produced still stands. Only the `seconds` column is compromised.
+`interleaved_timing.sh` has no watchdog and is unaffected.
+
+### 17.8 Found and deliberately not changed
+
+**A missing pole guard in the caller.** `create_complex_propagation_vectors_on_sphere`
+builds the inner coordinate frame by hand instead of calling `inner_coord_set`,
+and the hand-written version is that function's no-motion branch character for
+character *except* that it omits the pole guard. On the z axis the seed direction
+is parallel to the radial one, their cross product is zero, `Vec3D::normalize()`
+leaves a zero vector alone rather than making NaNs, and the frame comes out
+degenerate with no warning. Fixing it changes output at the poles, so it is not
+part of a bitwise-identical commit.
+
+**A length compared against unity.** `rotate_on_sphere`'s second early-out is
+`std::abs(targi.length() - 1.0) < 1e-8`, where `targi` is a projection in nm. It
+reads like a unit-vector test applied to the wrong quantity, and it fires only
+for a target exactly one nanometre out along the rotation axis. Preserved
+verbatim; the question needs the model's author, not a refactor.
+
+**A south pole at -pi.** `find_spherical_coords` returns `theta = -M_PI` where
+`acos` would give `+M_PI` and where the documented range is `[0, pi]`. Both map
+back to the same cartesian point -- `find_cartesian_coords` differs only in the
+sign of a `sin(theta)` of magnitude 1.2e-16 -- and the one caller that reads
+`theta` back treats them identically. Documented rather than corrected.
+
+**Two redundant normalizations.** `inner_coord_set` ends by normalizing all three
+basis vectors, but `j` and `k` come from `unit_cross`, which already normalized
+them. Dropping those two would save two `sqrt` and six divides per call, and
+would perturb the last bits wherever the re-measured length is not exactly 1.0.
+Not taken in a commit whose claim is bitwise identity.
