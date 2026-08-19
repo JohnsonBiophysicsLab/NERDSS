@@ -12,7 +12,7 @@ Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
 
     const double R_fixed = params.sphereR;
     const Vec3D COM_original = targCom.comCoord;
-    const double COM_norm = radius(COM_original);
+    const double COM_norm = COM_original.length();
 
     // project COM onto the surface
     Vec3D COM = Vec3D {
@@ -29,10 +29,13 @@ Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Com
         dangle = 2.0 * M_PI - dangle;
     } // propagation direction
     double rotangle = dangle - M_PI / 2.0;
-    Vec3D COMsphere = find_spherical_coords(COM);
-    double dtheta = dl / COMsphere.z;
-    Vec3D COMnewtmp = Vec3D { COMsphere.x - dtheta, COMsphere.y, COMsphere.z };
-    COMnewtmp = find_cardesian_coords(COMnewtmp);
+    // Step along the polar angle by the arc length dl, then rotate that step
+    // into the drawn direction below.  The named members are what keeps the
+    // spherical triple from being read as a cartesian one.
+    const SphericalCoord COMsphere = find_spherical_coords(COM);
+    double dtheta = dl / COMsphere.r;
+    Vec3D COMnewtmp = find_cartesian_coords(
+        SphericalCoord { COMsphere.theta - dtheta, COMsphere.phi, COMsphere.r });
     // define the inner-coords-set
     Vec3D i = Vec3D { COM.x, COM.y, COM.z };
     i.normalize();
