@@ -57,48 +57,6 @@ Vec3D find_cardesian_coords(Vec3D mol) // mol: spherical coords, output cardesia
     return xyz;
 }
 
-double theta_plus(double theta1, double theta2) // sum of two theta
-{
-    double sum = theta1 + theta2;
-    if (sum > M_PI) {
-        sum = 2.0 * M_PI - sum;
-    } else if (sum < 0.0) {
-        sum = -sum;
-    }
-    return sum;
-}
-
-double phi_plus(double phi1, double phi2) // sum of two phi
-{
-    double sum = phi1 + phi2;
-    if (sum > 2.0 * M_PI) {
-        sum = sum - 2.0 * M_PI;
-    } else if (sum < 0.0) {
-        sum = 2.0 * M_PI + sum;
-    }
-    return sum;
-}
-
-Vec3D angle_plus(Vec3D angle1, Vec3D angle2)
-{
-    Vec3D sum;
-    double phi = phi_plus(angle1.y, angle2.y);
-    double theta = angle1.x + angle2.x;
-    if (theta > M_PI) {
-        theta = 2.0 * M_PI - theta;
-        phi = phi_plus(phi, M_PI);
-    } else if (theta < 0.0) {
-        theta = -theta;
-        phi = phi_plus(phi, -M_PI);
-    } else if (theta == 0.0 || theta == M_PI) {
-        phi = 0.0;
-    }
-    sum.x = theta;
-    sum.y = phi;
-    sum.z = angle1.z;
-    return sum;
-}
-
 Vec3D find_position_after_association(double arc1, Vec3D Iface1, Vec3D Iface2, double arc_total, double bindRadius)
 {
     double x1 = Iface1.x;
