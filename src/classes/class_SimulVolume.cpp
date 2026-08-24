@@ -211,6 +211,8 @@ void SimulVolume::create_simulation_volume(const Parameters &params,
 
   // Create cell neighborlists.
   subCellList = std::vector<SubVolume>(numSubCells.tot);
+  occupancyMask.assign((numSubCells.tot + 63) / 64, 0);
+  occupiedSubCells.clear();
   create_cell_neighbor_list_cubic();
 }
 
@@ -306,9 +308,15 @@ void SimulVolume::create_cell_neighbor_list_cubic() {
 }
 
 void SimulVolume::clear_member_lists() {
-  for (int cellIndex : occupiedSubCells) {
-    subCellList[cellIndex].memberMolList.clear();
-    subCellList[cellIndex].typeMask = 0;
+  for (size_t wordItr{0}; wordItr < occupancyMask.size(); ++wordItr) {
+    uint64_t bits{occupancyMask[wordItr]};
+    while (bits) {
+      const int cellIndex{int(wordItr * 64) + lowest_set_bit(bits)};
+      bits &= bits - 1;
+      subCellList[cellIndex].memberMolList.clear();
+      subCellList[cellIndex].typeMask = 0;
+    }
+    occupancyMask[wordItr] = 0;
   }
   occupiedSubCells.clear();
 }
@@ -515,6 +523,7 @@ void SimulVolume::update_memberMolLists(
     subBox.memberMolList.clear();
     subBox.typeMask = 0;
   }
+  std::fill(occupancyMask.begin(), occupancyMask.end(), 0);
   occupiedSubCells.clear();
 
   int itrCheck =
@@ -642,6 +651,7 @@ void SimulVolume::update_memberMolLists(
           subBox.memberMolList.clear();
           subBox.typeMask = 0;
         }
+        std::fill(occupancyMask.begin(), occupancyMask.end(), 0);
         occupiedSubCells.clear();
       } else if (mol.comCoord.y > (membraneObject.waterBox.y / 2) ||
                  mol.comCoord.y + 1E-6 < -(membraneObject.waterBox.y / 2)) {
@@ -657,6 +667,7 @@ void SimulVolume::update_memberMolLists(
           subBox.memberMolList.clear();
           subBox.typeMask = 0;
         }
+        std::fill(occupancyMask.begin(), occupancyMask.end(), 0);
         occupiedSubCells.clear();
       } else if (mol.comCoord.x > (membraneObject.waterBox.x / 2) ||
                  mol.comCoord.x + 1E-6 < -(membraneObject.waterBox.x / 2)) {
@@ -672,6 +683,7 @@ void SimulVolume::update_memberMolLists(
           subBox.memberMolList.clear();
           subBox.typeMask = 0;
         }
+        std::fill(occupancyMask.begin(), occupancyMask.end(), 0);
         occupiedSubCells.clear();
       } else if (currBin > (numSubCells.tot) || currBin < 0) {
         std::cout
@@ -686,6 +698,7 @@ void SimulVolume::update_memberMolLists(
           subBox.memberMolList.clear();
           subBox.typeMask = 0;
         }
+        std::fill(occupancyMask.begin(), occupancyMask.end(), 0);
         occupiedSubCells.clear();
       } else {
         // The Molecule is in the simulation volume, okay to proceed

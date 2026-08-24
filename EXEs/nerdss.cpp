@@ -897,7 +897,7 @@ int main(int argc, char *argv[]) {
     // SubBoxes, of which about 1 800 are occupied, and clathrin fills 97 of
     // 2 744.  Sorted, occupiedSubCells visits exactly the same SubBoxes in
     // exactly the same order as the old sweep, so the output is unchanged.
-    simulVolume.sort_occupied_cells();
+    simulVolume.refresh_occupied_cells();
     for (int cellItr : simulVolume.occupiedSubCells) {
       for (unsigned memItr{0};
            memItr < simulVolume.subCellList[cellItr].memberMolList.size();

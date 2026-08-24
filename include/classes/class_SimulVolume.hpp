@@ -114,68 +114,80 @@ struct SimulVolume {
     Dimensions numSubCells{}; //!< number of SubBoxes in each dimension
     Vec3D subCellSize{}; //!< dimensions of each SubBox in nanometers
     std::vector<SubVolume> subCellList; //!< list of all the SubBoxes in the SimulBox. Size == numSubBoxes.tot
-    /*! \brief Indices of the SubBoxes whose memberMolList is currently non-empty.
+    /*! \brief Bit c is set while subCellList[c] holds members.
      *
-     * Only ever a few hundred entries even when subCellList holds thousands of
-     * SubBoxes, which lets clear_member_lists() empty the member lists in time
-     * proportional to the number of occupied SubBoxes rather than to the total.
-     * Derived from subCellList, so it is not part of the MPI wire format.
+     * The registry proper.  Setting a bit is idempotent, so add_member() does
+     * not have to ask whether the SubBox was already registered, and the
+     * registry cannot pick up a duplicate however the member lists are
+     * manipulated between steps.
      *
-     * INVARIANT: every SubBox with a non-empty memberMolList appears here
-     * exactly once.  clear_member_lists() relies on it -- a non-empty SubBox
-     * that is missing from this list is never emptied, so its members survive
-     * into the next step and are then added a second time by the re-binning
-     * pass.  Grow a memberMolList through add_member(), never through
-     * subCellList directly: pushing directly is what broke the invariant
-     * before, because molecules created by zeroth-order and unimolecular
-     * creation reactions are binned before update_memberMolLists() runs.
+     * INVARIANT: every SubBox with a non-empty memberMolList has its bit set.
+     * clear_member_lists() relies on it -- a non-empty SubBox whose bit is
+     * clear is never emptied, so its members survive into the next step and
+     * are then added a second time by the re-binning pass.  Grow a
+     * memberMolList through add_member(), never through subCellList directly.
      *
-     * The MPI-only sites in prepare.cpp and deserialize.cpp still push
-     * directly.  They are safe because no MPI path calls clear_member_lists()
-     * -- the MpiContext overload of update_memberMolLists() sweeps all of
-     * subCellList and empties this list outright -- and they are left alone
+     * Derived from subCellList, so it is not part of the MPI wire format.  The
+     * MPI-only sites in prepare.cpp and deserialize.cpp still push directly.
+     * They are safe because no MPI path calls clear_member_lists() -- the
+     * MpiContext overload of update_memberMolLists() sweeps all of subCellList
+     * and clears the whole registry outright -- and they are left alone
      * because that path is untested here.
+     */
+    std::vector<uint64_t> occupancyMask {};
+
+    /*! \brief The set bits of occupancyMask, ascending, as SubBox indices.
+     *
+     * Derived; refresh_occupied_cells() rebuilds it.  The pairwise search
+     * walks this instead of all of subCellList, and ascending order makes it
+     * exactly the non-empty subsequence of that walk, so the candidate pairs
+     * come out in the same order as before.
      */
     std::vector<int> occupiedSubCells {};
 
+    //! Index of the lowest set bit.  Only called on a non-zero word.
+    static int lowest_set_bit(uint64_t word) {
+#if defined(__GNUC__) || defined(__clang__)
+        return __builtin_ctzll(word);
+#else
+        int bitItr { 0 };
+        while (!(word & 1)) { word >>= 1; ++bitItr; }
+        return bitItr;
+#endif
+    }
+
     /*!
-     * \brief Puts one Molecule into a SubBox, keeping occupiedSubCells right.
-     *
-     * The registration test is "was this SubBox empty", which both keeps the
-     * list complete and keeps it free of duplicates: the second and later
-     * members of a SubBox find it already non-empty.
+     * \brief Puts one Molecule into a SubBox, registering the SubBox.
      */
     void add_member(int cellIndex, int molIndex, int molTypeIndex) {
         SubVolume& cell = subCellList[cellIndex];
-        if (cell.memberMolList.empty())
-            occupiedSubCells.push_back(cellIndex);
         cell.memberMolList.push_back(molIndex);
         cell.typeMask |= (molTypeIndex >= 0 && molTypeIndex < 64)
             ? (uint64_t(1) << molTypeIndex)
             : ~uint64_t(0);
+        occupancyMask[cellIndex >> 6] |= uint64_t(1) << (cellIndex & 63);
     }
 
     /*!
-     * \brief Puts occupiedSubCells into ascending SubBox order, without repeats.
+     * \brief Rebuilds occupiedSubCells from occupancyMask, in ascending order.
      *
-     * The pairwise search used to walk all of subCellList, which visits
-     * SubBoxes in ascending absIndex order.  Sorted, occupiedSubCells is
-     * exactly the non-empty subsequence of that walk, so the candidate pairs
-     * come out in the same order as before and the random stream -- and with it
-     * the trajectory -- is unchanged.
-     *
-     * add_member() appends in the order molecules are binned rather than in
-     * SubBox order, hence the sort.  The uniquing covers one sequence inside a
-     * single step: a SubBox emptied by a dissociation stays on the list, and a
-     * creation reaction that then bins a molecule into it finds it empty and
-     * registers it a second time.  clear_member_lists() tolerates that repeat;
-     * visiting the SubBox twice in the pairwise search would not.
+     * Costs one pass over occupancyMask -- one word per 64 SubBoxes -- plus one
+     * push_back per occupied SubBox.  This replaced sorting a list that
+     * add_member() had filled in molecule order: on rev_3D, sorting the roughly
+     * 1800 occupied SubBoxes cost more per step than the walk over all 27 000
+     * that skipping them was supposed to save, and the case came out 2.3%
+     * slower rather than faster.
      */
-    void sort_occupied_cells() {
-        std::sort(occupiedSubCells.begin(), occupiedSubCells.end());
-        occupiedSubCells.erase(
-            std::unique(occupiedSubCells.begin(), occupiedSubCells.end()),
-            occupiedSubCells.end());
+    void refresh_occupied_cells() {
+        occupiedSubCells.clear();
+        for (size_t wordItr{ 0 }; wordItr < occupancyMask.size(); ++wordItr) {
+            uint64_t bits { occupancyMask[wordItr] };
+            while (bits) {
+                occupiedSubCells.push_back(
+                    int(wordItr * 64) + lowest_set_bit(bits));
+                bits &= bits - 1;
+            }
+        }
     }
 
     /*!
