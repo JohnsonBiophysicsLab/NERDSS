@@ -85,13 +85,39 @@ void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
 
     tot = x * y * z;
   #else
-    /*HARD CODING TO LIMIT THE NUMBER OF SUBVOLUMES, TOO MANY CAN BE VERY SLOW!*/
-    if (x > 30)
-      x = 30;
-    if (y > 30)
-      y = 30;
-    if (z > 30)
-      z = 30;
+    // One cap on the total, applied to all three axes by the same factor.
+    //
+    // It replaces a flat 30 SubBoxes per dimension, which took no account of
+    // the interaction range: on the 940 nm rev_3D box against a 16.70 nm range
+    // the grid wants 56 SubBoxes per side, got 30, and so ran with SubBoxes
+    // 1.88x too wide.  Candidate pairs grow with the cube of the SubBox edge,
+    // and the measured over-inclusion doubled with it, from about 5x to 11.8x;
+    // on the rev_2D slab, where the grid wants 172 per side, it reached 52x.
+    // That cap was affordable only because the search walked every SubBox, and
+    // it no longer does.
+    //
+    // Memory is the only thing left that justifies a cap, so the cap is
+    // expressed in SubBoxes.  One costs about 145 bytes -- 64 for the struct
+    // and the rest for the 13-entry neighbour list -- so this is roughly 72 MB
+    // of grid.  No sample input comes close: the largest, rev_3Dto2D, wants
+    // 59^3 = 205 379.
+    //
+    // Shrinking all three axes by the same cube-root factor keeps the SubBoxes
+    // cubic, which the 13-neighbour stencil assumes, and can only lower a
+    // count, so it cannot bring an edge back below rMaxLimit.
+    const long long maxTotalCells{500000};
+    const long long requested{1LL * x * y * z};
+    if (requested > maxTotalCells) {
+      const double shrink{
+          std::cbrt(double(maxTotalCells) / double(requested))};
+      x = std::max(1, int(x * shrink));
+      y = std::max(1, int(y * shrink));
+      z = std::max(1, int(z * shrink));
+      std::cout << "Sub-volume budget of " << maxTotalCells
+                << " exceeded by the " << requested
+                << " the interaction range asks for; using " << x << " x " << y
+                << " x " << z << ".\n";
+    }
 
     tot = x * y * z;
   #endif
