@@ -69,6 +69,46 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
         }
     }
 
+    // Molecules further apart than rMaxLimit cannot bind, so the interface
+    // loops below have nothing to find.  rMaxLimit is the largest, over every
+    // bimolecular reaction, of Rmax plus both interface-to-COM arms, and the
+    // triangle inequality gives
+    //
+    //     |COM1 - COM2| <= |iface1 - iface2| + r1 + r2 < Rmax + r1 + r2
+    //
+    // for any pair close enough to react.  That is the same bound the cell list
+    // already rests on when it sizes its sub-volumes by rMaxLimit, so this adds
+    // no assumption; it only stops the pair one step earlier.  Worth doing
+    // because the cell list is deliberately over-inclusive: of the pairs
+    // reaching this point, 78% (clathrin) to 99% (compartment) are outside
+    // rMaxLimit yet still walk the whole freelist x rxnPartners x freelist
+    // search and find_which_reaction() for every combination.
+    //
+    // Two pairs are exempt.
+    //
+    // The volume-exclusion path below is not gated at all: it carries its own
+    // radii, and its 2D branch reaches to RMax * 10, far outside rMaxLimit.
+    //
+    // Pairs with both complexes on the surface are not gated either, because
+    // rMaxLimit is not a bound for them.  set_rMaxLimit() estimates a 2D
+    // reaction's reach as 3 sqrt(6 Dtot dt), while
+    // determine_2D_bimolecular_reaction_probability() uses 3.5 sqrt(4 Dtot dt)
+    // over a Dtot that add_2D_rotational_diffusion() and discretize_2D_Dtot()
+    // have both revised.  On rev_2D, whose rMaxLimit is set by a 2D reaction,
+    // 1550 of 20220 reacting pairs sit beyond rMaxLimit, by up to 1.109x.  On
+    // rev_3D, rev_3Dto2D, clathrin and mem_localization, whose rMaxLimit comes
+    // from a 3D reaction, not one of 16.7 million does.
+    if (canInteract) {
+        const Vec3D comSep { moleculeList[pro1Index].comCoord - moleculeList[pro2Index].comCoord };
+        if (comSep.x * comSep.x + comSep.y * comSep.y + comSep.z * comSep.z
+            > params.rMaxLimit * params.rMaxLimit) {
+            const bool bothOnSurface { complexList[moleculeList[pro1Index].myComIndex].OnSurface
+                && complexList[moleculeList[pro2Index].myComIndex].OnSurface };
+            if (!bothOnSurface)
+                canInteract = false;
+        }
+    }
+
     if (canInteract) {
         /* CALCULATE ASSOCIATION PROBABILITIES */
         /* if(pro1Index== track1)
