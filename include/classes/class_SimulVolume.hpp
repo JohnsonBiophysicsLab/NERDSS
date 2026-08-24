@@ -105,17 +105,39 @@ struct SimulVolume {
     /*! \brief Indices of the SubBoxes whose memberMolList is currently non-empty.
      *
      * Only ever a few hundred entries even when subCellList holds thousands of
-     * SubBoxes, which lets update_memberMolLists() empty the member lists in
-     * time proportional to the number of occupied SubBoxes rather than to the
-     * total.  Derived from subCellList, so it is not part of the MPI wire
-     * format.
+     * SubBoxes, which lets clear_member_lists() empty the member lists in time
+     * proportional to the number of occupied SubBoxes rather than to the total.
+     * Derived from subCellList, so it is not part of the MPI wire format.
      *
-     * Maintained by the serial update_memberMolLists() only.  The MpiContext
-     * overload keeps its original sweep over all of subCellList and never reads
-     * this list, because the MPI ranks also mutate memberMolList directly from
-     * prepare.cpp and deserialize.cpp, and that path is untested here.
+     * INVARIANT: every SubBox with a non-empty memberMolList appears here
+     * exactly once.  clear_member_lists() relies on it -- a non-empty SubBox
+     * that is missing from this list is never emptied, so its members survive
+     * into the next step and are then added a second time by the re-binning
+     * pass.  Grow a memberMolList through add_member(), never through
+     * subCellList directly: pushing directly is what broke the invariant
+     * before, because molecules created by zeroth-order and unimolecular
+     * creation reactions are binned before update_memberMolLists() runs.
+     *
+     * The MPI-only sites in prepare.cpp and deserialize.cpp still push
+     * directly.  They are safe because no MPI path calls clear_member_lists()
+     * -- the MpiContext overload of update_memberMolLists() sweeps all of
+     * subCellList and empties this list outright -- and they are left alone
+     * because that path is untested here.
      */
     std::vector<int> occupiedSubCells {};
+
+    /*!
+     * \brief Puts one Molecule into a SubBox, keeping occupiedSubCells right.
+     *
+     * The registration test is "was this SubBox empty", which both keeps the
+     * list complete and keeps it free of duplicates: the second and later
+     * members of a SubBox find it already non-empty.
+     */
+    void add_member(int cellIndex, int molIndex) {
+        if (subCellList[cellIndex].memberMolList.empty())
+            occupiedSubCells.push_back(cellIndex);
+        subCellList[cellIndex].memberMolList.push_back(molIndex);
+    }
 
     /*!
      * \brief Main function for the creation of the SubBoxes in the SimulBox.

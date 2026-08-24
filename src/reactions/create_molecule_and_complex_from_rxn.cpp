@@ -100,7 +100,11 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
         }
 
         createdMol.mySubVolIndex = currBin;
-        simulVolume.subCellList[currBin].memberMolList.push_back(createdMol.index);
+        // Through add_member(), not subCellList: creation runs before
+        // update_memberMolLists(), so a Molecule binned here into a SubBox that
+        // the last re-binning pass left empty would otherwise be invisible to
+        // clear_member_lists() and end up in memberMolList twice.
+        simulVolume.add_member(currBin, createdMol.index);
         return false;
     }
 }

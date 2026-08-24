@@ -312,9 +312,7 @@ void SimulVolume::update_memberMolLists(
                   << mol.comCoord << "].\n";
         exit(1);
       }
-      if (subCellList[currBin].memberMolList.empty())
-        occupiedSubCells.push_back(currBin);
-      subCellList[currBin].memberMolList.push_back(mol.index);
+      add_member(currBin, mol.index);
     }
   } else {
     /*make sure proteins are within bin limits, lipids are on membrane*/
@@ -434,9 +432,7 @@ void SimulVolume::update_memberMolLists(
       } else {
         // The Molecule is in the simulation volume, okay to proceed
         mol.mySubVolIndex = currBin;
-        if (subCellList[currBin].memberMolList.empty())
-          occupiedSubCells.push_back(currBin);
-        subCellList[currBin].memberMolList.push_back(mol.index);
+        add_member(currBin, mol.index);
       }
     } // loop over all molecules.
   }   // check all boundary limits are OK.
@@ -450,8 +446,11 @@ void SimulVolume::update_memberMolLists(
     MpiContext& mpiContext)  // xItr bin should be reduced by xOffset in order
                              // to calculate the box id in the current rank
 {
-  // make sure the list of member molecules is empty
+  // make sure the list of member molecules is empty.  occupiedSubCells is
+  // cleared alongside so that an MPI run, which reaches add_member() through
+  // create_molecule_and_complex_from_rxn(), cannot accumulate stale entries.
   for (auto& subBox : subCellList) subBox.memberMolList.clear();
+  occupiedSubCells.clear();
 
   int itrCheck =
       1000;  // no need to check every step if it violates box boundaries.
@@ -524,7 +523,7 @@ void SimulVolume::update_memberMolLists(
         error("mol outside box.");
         exit(1);
       }
-      subCellList[currBin].memberMolList.push_back(molItr);
+      add_member(currBin, molItr);
     } else {
       /*make sure proteins are within bin limits, lipids are on membrane*/
       // Make sure the Molecule is still on the membrane if its supposed to be
@@ -575,6 +574,7 @@ void SimulVolume::update_memberMolLists(
         // reset member search
         molItr = 0;
         for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        occupiedSubCells.clear();
       } else if (mol.comCoord.y > (membraneObject.waterBox.y / 2) ||
                  mol.comCoord.y + 1E-6 < -(membraneObject.waterBox.y / 2)) {
         std::cout << "Molecule " << mol.index
@@ -586,6 +586,7 @@ void SimulVolume::update_memberMolLists(
         // reset member search
         molItr = 0;
         for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        occupiedSubCells.clear();
       } else if (mol.comCoord.x > (membraneObject.waterBox.x / 2) ||
                  mol.comCoord.x + 1E-6 < -(membraneObject.waterBox.x / 2)) {
         std::cout << "Molecule " << mol.index
@@ -597,6 +598,7 @@ void SimulVolume::update_memberMolLists(
         // reset member search
         molItr = 0;
         for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        occupiedSubCells.clear();
       } else if (currBin > (numSubCells.tot) || currBin < 0) {
         std::cout
             << "Molecule " << mol.index
@@ -607,10 +609,11 @@ void SimulVolume::update_memberMolLists(
         // reset member search
         molItr = 0;
         for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        occupiedSubCells.clear();
       } else {
         // The Molecule is in the simulation volume, okay to proceed
         mol.mySubVolIndex = currBin;
-        subCellList[currBin].memberMolList.push_back(mol.index);
+        add_member(currBin, mol.index);
       }
     }  // check all boundary limits are OK.
   }    // loop over all molecules.
