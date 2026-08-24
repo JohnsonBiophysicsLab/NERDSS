@@ -104,7 +104,7 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
         // update_memberMolLists(), so a Molecule binned here into a SubBox that
         // the last re-binning pass left empty would otherwise be invisible to
         // clear_member_lists() and end up in memberMolList twice.
-        simulVolume.add_member(currBin, createdMol.index);
+        simulVolume.add_member(currBin, createdMol.index, createdMol.molTypeIndex);
         return false;
     }
 }

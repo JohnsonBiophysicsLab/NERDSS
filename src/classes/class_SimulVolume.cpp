@@ -306,8 +306,10 @@ void SimulVolume::create_cell_neighbor_list_cubic() {
 }
 
 void SimulVolume::clear_member_lists() {
-  for (int cellIndex : occupiedSubCells)
+  for (int cellIndex : occupiedSubCells) {
     subCellList[cellIndex].memberMolList.clear();
+    subCellList[cellIndex].typeMask = 0;
+  }
   occupiedSubCells.clear();
 }
 
@@ -372,7 +374,7 @@ void SimulVolume::update_memberMolLists(
                   << mol.comCoord << "].\n";
         exit(1);
       }
-      add_member(currBin, mol.index);
+      add_member(currBin, mol.index, mol.molTypeIndex);
     }
   } else {
     /*make sure proteins are within bin limits, lipids are on membrane*/
@@ -492,7 +494,7 @@ void SimulVolume::update_memberMolLists(
       } else {
         // The Molecule is in the simulation volume, okay to proceed
         mol.mySubVolIndex = currBin;
-        add_member(currBin, mol.index);
+        add_member(currBin, mol.index, mol.molTypeIndex);
       }
     } // loop over all molecules.
   }   // check all boundary limits are OK.
@@ -509,7 +511,10 @@ void SimulVolume::update_memberMolLists(
   // make sure the list of member molecules is empty.  occupiedSubCells is
   // cleared alongside so that an MPI run, which reaches add_member() through
   // create_molecule_and_complex_from_rxn(), cannot accumulate stale entries.
-  for (auto& subBox : subCellList) subBox.memberMolList.clear();
+  for (auto& subBox : subCellList) {
+    subBox.memberMolList.clear();
+    subBox.typeMask = 0;
+  }
   occupiedSubCells.clear();
 
   int itrCheck =
@@ -583,7 +588,7 @@ void SimulVolume::update_memberMolLists(
         error("mol outside box.");
         exit(1);
       }
-      add_member(currBin, molItr);
+      add_member(currBin, molItr, mol.molTypeIndex);
     } else {
       /*make sure proteins are within bin limits, lipids are on membrane*/
       // Make sure the Molecule is still on the membrane if its supposed to be
@@ -633,7 +638,10 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        for (auto& subBox : subCellList) {
+          subBox.memberMolList.clear();
+          subBox.typeMask = 0;
+        }
         occupiedSubCells.clear();
       } else if (mol.comCoord.y > (membraneObject.waterBox.y / 2) ||
                  mol.comCoord.y + 1E-6 < -(membraneObject.waterBox.y / 2)) {
@@ -645,7 +653,10 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        for (auto& subBox : subCellList) {
+          subBox.memberMolList.clear();
+          subBox.typeMask = 0;
+        }
         occupiedSubCells.clear();
       } else if (mol.comCoord.x > (membraneObject.waterBox.x / 2) ||
                  mol.comCoord.x + 1E-6 < -(membraneObject.waterBox.x / 2)) {
@@ -657,7 +668,10 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        for (auto& subBox : subCellList) {
+          subBox.memberMolList.clear();
+          subBox.typeMask = 0;
+        }
         occupiedSubCells.clear();
       } else if (currBin > (numSubCells.tot) || currBin < 0) {
         std::cout
@@ -668,12 +682,15 @@ void SimulVolume::update_memberMolLists(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
         molItr = 0;
-        for (auto& subBox : subCellList) subBox.memberMolList.clear();
+        for (auto& subBox : subCellList) {
+          subBox.memberMolList.clear();
+          subBox.typeMask = 0;
+        }
         occupiedSubCells.clear();
       } else {
         // The Molecule is in the simulation volume, okay to proceed
         mol.mySubVolIndex = currBin;
-        add_member(currBin, mol.index);
+        add_member(currBin, mol.index, mol.molTypeIndex);
       }
     }  // check all boundary limits are OK.
   }    // loop over all molecules.

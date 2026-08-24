@@ -713,6 +713,48 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Bit t2 of interactionMask[t1] is set iff a (t1, t2) pair can do anything
+  // inside check_bimolecular_reactions().  The pairwise search offers every
+  // pair the cell stencil produces regardless of what the two molecules are,
+  // and on a membrane model that is nearly all of them: mem_localization holds
+  // 3755 lipids among 3955 molecules, offers about 165 000 pairs per step, and
+  // 699 of them -- 0.42% -- get past the molecule-type test inside the
+  // function.  The other 99.6% are lipid-lipid pairs that no reaction names.
+  //
+  // Skipping them here rather than inside the function removes only pairs that
+  // the function would have rejected without side effects, so the pairs that
+  // remain are offered in the same order as before and the trajectory does not
+  // change.
+  //
+  // One bit per molecule type, so the table only exists for models with at
+  // most 64 of them; left empty, the search offers every pair as it did before.
+  std::vector<uint64_t> interactionMask;
+  if (molTemplateList.size() <= 64) {
+    interactionMask.assign(molTemplateList.size(), 0);
+    for (size_t typeItr1{0}; typeItr1 < molTemplateList.size(); ++typeItr1) {
+      for (size_t typeItr2{0}; typeItr2 < molTemplateList.size(); ++typeItr2) {
+        // check_bimolecular_reactions() looks for the partner's type in the
+        // target's rxnPartners, in that order, so this table is not symmetric.
+        bool pairMatters{false};
+        for (int partner : molTemplateList[typeItr1].rxnPartners) {
+          if (partner == static_cast<int>(typeItr2)) {
+            pairMatters = true;
+            break;
+          }
+        }
+        // Its volume-exclusion path does not consult rxnPartners and turns on
+        // an interface being bound, which is runtime state.  Testing the
+        // template flag instead keeps every pair that path could ever want.
+        if (molTemplateList[typeItr1].excludeVolumeBound ||
+            molTemplateList[typeItr2].excludeVolumeBound)
+          pairMatters = true;
+        if (pairMatters)
+          interactionMask[typeItr1] |= (uint64_t(1) << typeItr2);
+      }
+    }
+  }
+  const bool useTypeMask{!interactionMask.empty()};
+
   for (auto &oneComplex : complexList) {
     oneComplex.update_properties(moleculeList, molTemplateList);
   }
@@ -871,6 +913,8 @@ int main(int argc, char *argv[]) {
                     .excludeVolumeBound == true) {
           // first, check for implicit-lipid binding
           int protype = moleculeList[targMolIndex].molTypeIndex;
+          const uint64_t targMask{useTypeMask ? interactionMask[protype]
+                                              : ~uint64_t(0)};
           if (molTemplateList[protype].bindToSurface == true) {
             check_implicit_reactions(
                 targMolIndex, implicitlipidIndex, simItr, params, moleculeList,
@@ -897,6 +941,10 @@ int main(int argc, char *argv[]) {
                ++memItr2) {
             int partMolIndex{
                 simulVolume.subCellList[cellItr].memberMolList[memItr2]};
+            if (useTypeMask &&
+                !(targMask &
+                  (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+              continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                 params, normMatrices, survMatrices, pirMatrices, moleculeList,
@@ -907,11 +955,17 @@ int main(int argc, char *argv[]) {
           // cells. for PBC, all cells have maxnbor neighbor cells. For
           // reflecting, edge have fewer.
           for (auto &neighCellItr : simulVolume.subCellList[cellItr].neighborList) {
+            if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) == 0)
+              continue; // nothing in that SubBox can pair with this molecule
             for (unsigned memItr2{0};
                  memItr2 < simulVolume.subCellList[neighCellItr].memberMolList.size();
                  ++memItr2) {
               int partMolIndex{
                   simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
+              if (useTypeMask &&
+                  !(targMask &
+                    (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                continue;
               check_bimolecular_reactions(
                   targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                   params, normMatrices, survMatrices, pirMatrices, moleculeList,

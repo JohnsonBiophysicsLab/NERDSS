@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 //#include "classes/class_coord.hpp"
 #include "classes/class_Molecule_Complex.hpp"
@@ -37,6 +38,17 @@ struct SimulVolume {
 
         std::vector<int> memberMolList; //!< list of Molecule indices in moleculeList which currently reside in the SubBox
         std::vector<int> neighborList; //!< list of SubBox absolute indices which are neighbors of this SubBox.
+        /*! \brief Bit t is set while a Molecule of type t is a member.
+         *
+         * Lets the pairwise search drop a whole neighbouring SubBox when none
+         * of the types in it can pair with the molecule being tested.  Derived
+         * from memberMolList, so it is not serialized; the MPI ranks push into
+         * memberMolList directly and their search does not read this.
+         *
+         * Molecule types past 63 all set every bit, which only costs the skip,
+         * never correctness.
+         */
+        uint64_t typeMask{ 0 };
 
         void display();
 
@@ -133,10 +145,14 @@ struct SimulVolume {
      * list complete and keeps it free of duplicates: the second and later
      * members of a SubBox find it already non-empty.
      */
-    void add_member(int cellIndex, int molIndex) {
-        if (subCellList[cellIndex].memberMolList.empty())
+    void add_member(int cellIndex, int molIndex, int molTypeIndex) {
+        SubVolume& cell = subCellList[cellIndex];
+        if (cell.memberMolList.empty())
             occupiedSubCells.push_back(cellIndex);
-        subCellList[cellIndex].memberMolList.push_back(molIndex);
+        cell.memberMolList.push_back(molIndex);
+        cell.typeMask |= (molTypeIndex >= 0 && molTypeIndex < 64)
+            ? (uint64_t(1) << molTypeIndex)
+            : ~uint64_t(0);
     }
 
     /*!
