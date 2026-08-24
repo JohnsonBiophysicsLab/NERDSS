@@ -69,11 +69,13 @@ SimulVolume::Dimensions::Dimensions(const Parameters &params,
 void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
                                                const Membrane &membraneObject) {
   // The "is any dimension too small" repair that used to open this function is
-  // gone: Dimensions() now derives every count from floor(L / cellLength), so
-  // no edge can come in below cellLength.  The repair could not have fixed one
+  // gone: Dimensions() now derives every count from floor(L / rMaxLimit), so
+  // no edge can come in below rMaxLimit.  The repair could not have fixed one
   // anyway -- it re-applied the same std::max(4, ...) floor that produced the
   // too-thin SubBoxes in the first place.
-  double cellLength{params.rMaxLimit};
+  //
+  // What is left is the one cap on the total SubBox count, so params and
+  // membraneObject are no longer read here.
 
   #ifdef mpi_
     if (x * y * z > 27000) {
@@ -94,37 +96,26 @@ void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
     tot = x * y * z;
   #endif
 
-  // Now make sure There aren't too many pairs of cells.
-  // At the same time, if the numberOfMolecules changes throughout the
-  // simulation, do not want the subvolumes to be too large. based on total
-  // molecules
-  int totMol = Molecule::numberOfMolecules;
-  double maxPairsMols{0.5 * totMol * totMol};
-  double setLowerMax = 4000; // allow this many subvolumes, even if it is larger
-                             // than maxPairsMols.
-  double maxPairs = std::max(setLowerMax, maxPairsMols);
-  int minCells{64};
-  double scale{2.0};
-
-  // TODO: this if statement is temporary. noneq reactions starting with few
-  // reactants will always use minimum number of cells, which can get VERY slow
-  if (tot > maxPairs) { //&& !params.isNonEQ) {
-    while (tot > maxPairs && tot > minCells) {
-      std::cout << "CELL PAIR MAX EXCEEDED\n"
-                << "\tCurrent number of cells: " << tot
-                << "\n\tMax number of cells: " << maxPairs << '\n';
-      std::cout << "Scaling down number of cells.\n";
-
-      x = std::max(2,
-                   int(floor(membraneObject.waterBox.x / cellLength) / scale));
-      y = std::max(2,
-                   int(floor(membraneObject.waterBox.y / cellLength) / scale));
-      z = std::max(
-          2, int(floor(membraneObject.waterBox.z / cellLength) / (2 * scale)));
-      tot = x * y * z;
-      scale += 1;
-    }
-  }
+  // The max(4000, 0.5 * N^2) SubBox budget that used to close this function is
+  // gone.  It was there so that walking the SubBoxes could not cost more than
+  // testing all N^2/2 pairs outright, and the previous commit removed that
+  // reason: the pairwise search now visits only the occupied SubBoxes, so its
+  // cost follows the molecule count, not the SubBox count.
+  //
+  // What the budget did cost was resolution, on the axes it happened to pick.
+  // It shrank x and y by `scale` but z by `2 * scale`, so the SubBoxes it left
+  // behind were not cubic -- which the 13-neighbour stencil assumes.  On the
+  // compartment sample, 100 molecules put the budget at 5000 SubBoxes, the
+  // 30-per-dimension grid of 27 000 exceeded it, and the loop settled on
+  // 17 x 17 x 8: SubBoxes of 58.8 x 58.8 x 125 nm against a 28.35 nm
+  // interaction range.  That grid offered 177 candidate pairs per step where
+  // only 1.8 were within range, an over-inclusion of 98x, the worst of any
+  // sample measured -- on the case whose own molecule count triggered the
+  // guard that was meant to make it faster.
+  //
+  // N came from Molecule::numberOfMolecules read once here, at setup, and the
+  // grid is never rebuilt, so a system that grows kept the resolution its
+  // starting molecule count bought.
 
   tot = x * y * z;
 }
