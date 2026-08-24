@@ -78,9 +78,15 @@ void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
   // membraneObject are no longer read here.
 
   #ifdef mpi_
+    // std::min because a cap must only ever remove SubBoxes.  Written without
+    // it, this assignment could raise a count -- a 200 x 200 x 1 grid exceeds
+    // 27000 and would come out 200 x 11 x 11 -- and raising a count shortens
+    // that edge, which is exactly what create_simulation_volume() now refuses
+    // to run with.  Untested here: this build has no MPI validation.
     if (x * y * z > 27000) {
-      y = static_cast<int>(std::sqrt(27000 / x));
-      z = y;
+      const int perAxis{static_cast<int>(std::sqrt(27000 / x))};
+      y = std::min(y, perAxis);
+      z = std::min(z, perAxis);
     }
 
     tot = x * y * z;
