@@ -93,7 +93,7 @@
  * `theta` is measured down from +z, `phi` round from +x in the xy-plane.
  */
 struct SphericalCoord {
-    //! \brief Polar angle from +z, radians, in [0, pi].
+    //! \brief Theta is the polar angle from +z, radians, in [0, pi].
     //!
     //! find_spherical_coords() reports the south pole as -pi rather than +pi;
     //! the comment on that function says why it is left that way.
@@ -172,5 +172,5 @@ void set_memProtein_sphere(const Complex& reactCom, Molecule& memProtein,
     const std::vector<Molecule>& moleculeList, const Membrane& membraneObject);
 
 //! \brief As set_memProtein_sphere(), but keeps the lipid's own association coordinates.
-void find_Lipid_sphere(const Complex& reactCom, Molecule& lipid,
+void find_lipid_sphere(const Complex& reactCom, Molecule& lipid,
     const std::vector<Molecule>& moleculeList, const Membrane& membraneObject);

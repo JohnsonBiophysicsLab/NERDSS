@@ -39,7 +39,7 @@
  * It is *not* safe for a comparison between two measured lengths, and this file
  * has three of those -- the nearer of two candidate positions in
  * find_position_after_association(), and the furthest-from-centre searches in
- * set_memProtein_sphere() and find_Lipid_sphere().  Those keep their square
+ * set_memProtein_sphere() and find_lipid_sphere().  Those keep their square
  * roots.  The searches are the reason: they run over molecules that all sit on
  * the same sphere, so the lengths being ranked are equal up to rounding by
  * construction, and the collapse is routine rather than rare.  Measured over
@@ -535,7 +535,7 @@ void set_memProtein_sphere(const Complex& reactCom, Molecule& memProtein,
     }
 }
 
-void find_Lipid_sphere(const Complex& reactCom, Molecule& lipid,
+void find_lipid_sphere(const Complex& reactCom, Molecule& lipid,
     const std::vector<Molecule>& moleculeList, const Membrane& membraneObject)
 {
     // for explicit lipid model; lipid is a member of reactCom.  Square roots

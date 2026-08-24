@@ -145,7 +145,7 @@ void associate_implicitlipid_sphere(
         Molecule memProtein;
         Molecule Lipid;
         set_memProtein_sphere(reactCom2, memProtein, moleculeList, membraneObject);
-        find_Lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
+        find_lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
         Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/

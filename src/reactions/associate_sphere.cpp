@@ -218,10 +218,10 @@ void associate_sphere(long long int iter,
             Molecule Lipid;
             if (reactCom1.D.z < reactCom2.D.z) {
                 set_memProtein_sphere(reactCom1, memProtein, moleculeList, membraneObject); // rotate relative to the slower protein.
-                find_Lipid_sphere(reactCom1, Lipid, moleculeList, membraneObject);
+                find_lipid_sphere(reactCom1, Lipid, moleculeList, membraneObject);
             } else {
                 set_memProtein_sphere(reactCom2, memProtein, moleculeList, membraneObject); // rotate relative to the slower protein.
-                find_Lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
+                find_lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
             }
             Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
             Vec3D pivot = Lipid.tmpComCoord;

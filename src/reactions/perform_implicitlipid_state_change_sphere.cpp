@@ -150,7 +150,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
         Molecule memProtein;
         Molecule Lipid;
         set_memProtein_sphere(stateChangeCom, memProtein, moleculeList, membraneObject);
-        find_Lipid_sphere(stateChangeCom, Lipid, moleculeList, membraneObject);
+        find_lipid_sphere(stateChangeCom, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
         Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/
