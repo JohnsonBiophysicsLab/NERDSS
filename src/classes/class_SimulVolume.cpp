@@ -35,17 +35,32 @@ void SimulVolume::SubVolume::display() {
 
 /* SIMULBOX::DIMENSIONS */
 // Constructors
+/*! \brief Largest number of SubBoxes that still leaves every edge >= cellLength.
+ *
+ * floor(L / cellLength) = n implies L / n >= cellLength, so this is exactly the
+ * finest grid whose SubBoxes still cover the interaction range.  A box shorter
+ * than cellLength gets one SubBox rather than none: one SubBox has no
+ * neighbours to miss, so the whole dimension is searched.
+ */
+static int cells_along(double boxLength, double cellLength) {
+  if (boxLength <= 0.0 || cellLength <= 0.0)
+    return 1;
+  return std::max(1, int(floor(boxLength / cellLength)));
+}
+
 SimulVolume::Dimensions::Dimensions(const Parameters &params,
                                     const Membrane &membraneObject) {
-  //    double cellLength { params.rMaxLimit * 1.5 }; // give some buffer to the
-  //    cell sizes
-  double cellLength{params.rMaxLimit};
-  x = int(floor(membraneObject.waterBox.x / cellLength));
-  y = int(floor(membraneObject.waterBox.y / cellLength));
-
-  int scale{1}; //(params.rMaxLimit / ((params.rMaxLimit - params.rMaxRadius)) >
-                //2) ? 1 : 4 };
-  z = std::max(4, int(floor(membraneObject.waterBox.z / cellLength)) / scale);
+  // Every dimension is now derived the same way.  z used to carry a
+  // std::max(4, ...) floor, which forced four SubBoxes into a box of any
+  // thickness: below waterBox.z = 4 * rMaxLimit that made the SubBoxes thinner
+  // than the interaction range, and the +/-1 neighbour stencil then stopped
+  // covering it.  Pairs two SubBoxes apart in z were never offered to
+  // check_bimolecular_reactions() at all -- 7.5% of the pairs within rMaxLimit
+  // were lost in a 30 nm box against a 16.7 nm range, and 0.41% at 50 nm.
+  const double cellLength{params.rMaxLimit};
+  x = cells_along(membraneObject.waterBox.x, cellLength);
+  y = cells_along(membraneObject.waterBox.y, cellLength);
+  z = cells_along(membraneObject.waterBox.z, cellLength);
 
   tot = x * y * z;
 }
@@ -53,20 +68,12 @@ SimulVolume::Dimensions::Dimensions(const Parameters &params,
 // Member Functions
 void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
                                                const Membrane &membraneObject) {
-  // now check to make sure none of the dimensions are too small
-  // if they are, change the scale
-  //    double cellLength { params.rMaxLimit * 1.2 };
+  // The "is any dimension too small" repair that used to open this function is
+  // gone: Dimensions() now derives every count from floor(L / cellLength), so
+  // no edge can come in below cellLength.  The repair could not have fixed one
+  // anyway -- it re-applied the same std::max(4, ...) floor that produced the
+  // too-thin SubBoxes in the first place.
   double cellLength{params.rMaxLimit};
-  if (membraneObject.waterBox.x / (x * 1.0) < cellLength)
-    x = std::max(4, int(floor(membraneObject.waterBox.x / cellLength)) / 2);
-  if (membraneObject.waterBox.y / (y * 1.0) < cellLength)
-    y = std::max(4, int(floor(membraneObject.waterBox.y / cellLength)) / 2);
-  if (membraneObject.waterBox.z / (z * 1.0) < cellLength) {
-    if (membraneObject.waterBox.z > 0)
-      z = std::max(4, int(floor(membraneObject.waterBox.z / cellLength)) / 2);
-    else
-      z = 1;
-  }
 
   #ifdef mpi_
     if (x * y * z > 27000) {
@@ -137,6 +144,21 @@ void SimulVolume::display() {
 
 void SimulVolume::create_simulation_volume(const Parameters &params,
                                            const Membrane &membraneObject) {
+  // Every SubBox count below is the box length divided by this, so it has to be
+  // a real length.  set_rMaxLimit() leaves it at zero for a model that declares
+  // forward reactions but no bimolecular one, and the division then produced a
+  // negative SubBox count and the endless "CELL PAIR MAX EXCEEDED" report that
+  // known_broken.tsv records against unimolecular_reverse.  Saying so is more
+  // use than looping.
+  if (!(params.rMaxLimit > 0.0)) {
+    std::cerr << "ERROR: rMaxLimit is " << params.rMaxLimit
+              << " nm, so the simulation volume cannot be divided into "
+                 "sub-volumes.\n"
+              << "       set_rMaxLimit() leaves it at zero when the model "
+                 "declares no bimolecular reaction.\n";
+    exit(1);
+  }
+
   // Determine the number of boxes there will be in each dimension
   numSubCells = Dimensions(params, membraneObject);
   numSubCells.check_dimensions(params, membraneObject);
@@ -149,6 +171,27 @@ void SimulVolume::create_simulation_volume(const Parameters &params,
   else
     subCellSize = Vec3D{membraneObject.waterBox.x / (numSubCells.x * 1.0),
                         membraneObject.waterBox.y / (numSubCells.y * 1.0), 1};
+  // The pairwise search offers same-SubBox pairs and +/-1-stencil pairs and
+  // nothing else, so a SubBox edge shorter than rMaxLimit means molecules two
+  // SubBoxes apart -- and therefore possibly within the interaction range --
+  // are never compared.  A dimension holding a single SubBox is exempt: it has
+  // no neighbours, so nothing can fall outside the stencil.  Nothing above can
+  // reach this state any more; the check is here so that a future change to
+  // the SubBox arithmetic cannot reintroduce silently missed reactions.
+  const auto require_edge = [&](const char *axis, double edge, int count) {
+    if (count > 1 && edge < params.rMaxLimit) {
+      std::cerr << "ERROR: sub-volume edge along " << axis << " is " << edge
+                << " nm across " << count << " sub-volumes, below the "
+                << params.rMaxLimit << " nm interaction range.\n"
+                << "       Reacting pairs would be missed. Exiting.\n";
+      exit(1);
+    }
+  };
+  require_edge("x", subCellSize.x, numSubCells.x);
+  require_edge("y", subCellSize.y, numSubCells.y);
+  if (membraneObject.waterBox.z > 0)
+    require_edge("z", subCellSize.z, numSubCells.z);
+
   // Create cell neighborlists.
   subCellList = std::vector<SubVolume>(numSubCells.tot);
   create_cell_neighbor_list_cubic();
