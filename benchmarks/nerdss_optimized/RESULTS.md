@@ -1783,3 +1783,180 @@ recorded parent exactly rather than against a rebuild that merely ought to match
 it. The 20,000,000-point frame comparison in 18.3 is the reason to expect that
 verdict rather than merely to observe it: the guard cannot change a frame at any
 position off the axis, and no run puts a complex on the axis.
+
+## 19. The pairwise cell grid: seven corrections to how it is sized and walked
+
+Measured on 2026-08-24, same host and build settings as section 1: Apple M5,
+10 physical cores, Apple clang 21, `-O3 -std=c++0x`, GSL 2.8, `make serial`,
+seed 20260810. Baseline is the branch tip before this work, SHA-256
+`47752a9dbade23ac`; the tip after it is `6406a0a97a92c454`.
+
+The serial bimolecular search bins molecules into a uniform Cartesian grid over
+`Membrane::waterBox` and walks a 13-neighbour half-stencil. An audit of how the
+grid is sized found one silent correctness bug and four ways the sizing
+hyperparameters cost work; each is one commit below, each verified against its
+own immediate parent.
+
+### 19.1 What the grid was doing, per geometry
+
+Over-inclusion is candidate pairs the stencil offers per pair actually within
+`rMaxLimit`. The floor for *any* cell list with cells exactly `rMaxLimit` wide
+is 27 / (4π/3) ≈ 6.4×; cases below it are simply clustered.
+
+| case | box (nm) | rMaxLimit | grid | edge ÷ rMax | occupied | offered/step | in range | over-incl. |
+|---|---|---|---|---|---|---|---|---|
+| clathrin | 494³ | 33.7 | 14³ | 1.05 | 3.5% | 49 | 10.0 | 4.96× |
+| michaelis_menten | 144³ | 33.9 | 4³ | 1.06 | 84% | 1 647 | 278 | 5.93× |
+| rev_3D | 940³ | 16.7 | 30³ | 1.88 | 6.8% | 1 972 | 167 | 11.8× |
+| rev_3Dto2D | 1000³ | 16.9 | 30³ | 1.97 | 6.1% | 45 741 | 4 148 | 11.0× |
+| mem_localization | 470·470·752 | 24.4 | 19·19·30 | 1.01 | 5.1% | 165 084 | 57 433 | 2.87× |
+| rev_2D | 1000·1000·10 | 5.79 | 30·30·4 | 5.75 / 0.43 | 21% | 12 198 | 233 | 52.3× |
+| implicit_lipid | 200³ | 12.8 | 15³ | 1.04 | 4.8% | 397 | 122 | 3.25× |
+| sphere | R=100 | 9.77 | 20³ | 1.02 | 5.6% | 760 | 185 | 4.11× |
+| compartment | 1000³ | 28.4 | 17·17·8 | 2.07 / 4.41 | 4.0% | 177 | 1.8 | 97.6× |
+
+### 19.2 The correctness bug: sub-volumes thinner than the interaction range
+
+`SimulVolume::Dimensions` gave z a `std::max(4, ...)` floor, so any box got at
+least four sub-volumes along z. Below `waterBox.z = 4 * rMaxLimit` that made
+them thinner than the interaction range and the ±1 stencil stopped spanning it:
+molecules two sub-volumes apart in z could be within `rMaxLimit` and were never
+offered to `check_bimolecular_reactions()`. `check_dimensions()` opened with a
+repair for exactly this, which re-applied the same floor and so could not fix
+it.
+
+Brute-force count of every pair within `rMaxLimit`, rev_3D model, 2000
+molecules, `rMaxLimit` 16.70 nm, 19 snapshots, box thickness varied:
+
+| box z | cells z | edge z | pairs in range | reached by stencil | missed |
+|---|---|---|---|---|---|
+| 30 nm | 4 | 7.50 | 29 123 | 26 951 | 2 172 (7.5%) |
+| 50 nm | 4 | 12.50 | 20 475 | 20 391 | 84 (0.41%) |
+| 100 nm | 5 | 20.00 | 11 350 | 11 350 | 0 |
+| 940 nm | 30 | 31.33 | 1 328 | 1 328 | 0 |
+
+Zero missed whenever the edge is at or above `rMaxLimit`, non-zero the moment
+the floor forces it below. The code is byte-identical on `master`, so this is
+pre-existing rather than something the branch introduced.
+
+It is not confined to thin boxes. `trimer` is a **cubic** 118.41 nm box against
+a 37.58 nm range: `floor(118.41 / 37.58) = 3`, so the floor forced four z
+sub-volumes 29.60 nm thick. Reconstructing both grids over 101 trajectory
+frames, 300 molecules, 454 619 pairs within `rMaxLimit`:
+
+| grid | unreachable by the stencil |
+|---|---|
+| old 3 × 3 × 4 (39.47, 39.47, 29.60 nm) | 1 808 — 0.398% ± 0.009% |
+| new 3 × 3 × 3 (39.47 nm) | 0 |
+
+0.4% of reacting pairs restored. That is below what an equilibrium comparison
+resolves: over 28 seeds at nItr 30000, `trimer`'s total bound pairs move
+46.194 ± 1.250 → 48.025 ± 1.278, z = +1.02. The direction is right — all three
+bound species up, all six free species down — but the seed-to-seed scatter is
+2.7% against a 0.4% mechanism, so the +3.96% figure is scatter, not signal. The
+pair count above is the measurement that carries the claim.
+
+### 19.3 The commits, and what each one changed
+
+| # | commit | cases not bitwise identical | why |
+|---|---|---|---|
+| 7 | Register created molecules in `occupiedSubCells` | 0 / 18 | |
+| 1 | Size sub-volumes from the interaction range in every dimension | `trimer`, `rev_2D` | both were subject to 19.2 |
+| 4 | Visit only the occupied sub-volumes | 0 / 18 | |
+| 2 | Drop the max(4000, N²/2) budget | `compartment` | the only grid the budget touched |
+| 3 | Bound sub-volumes by a memory budget, not 30 per dimension | `rev_3D`, `rev_3Dto2D`, `rev_2D`, `compartment` | the only grids the cap touched |
+| 5 | Reject out-of-range pairs before the interface search | 0 / 18 | |
+| 6 | Skip candidate pairs whose molecule types cannot react | 0 / 18 | |
+| — | Track occupied sub-volumes with a bit per sub-volume | 0 / 18 | reimplements 4 |
+| — | Stop the MPI sub-volume cap from raising a dimension | 0 / 18 | `#ifdef mpi_`; serial binary byte-identical |
+
+`rev_2D` under commit 1 does not change trajectory at all: every file under
+`DATA/` and `PDB/` is byte-identical and the restart files differ only in each
+molecule's recorded `mySubVolIndex`, all 1600 of them by the same 2700 = 3 ×
+900, the z-row offset. Every molecule sits on the membrane, so both grids put
+all of them in one z-row behind the same in-plane stencil.
+
+Each grid change lands on the finest grid that still covers its range:
+
+| case | before | after | edge | rMaxLimit |
+|---|---|---|---|---|
+| rev_3D | 30³ | 56³ | 16.79 | 16.70 |
+| rev_3Dto2D | 30³ | 59³ | 16.95 | 16.94 |
+| rev_2D | 30·30·4 | 172·172·1 | 5.81 | 5.79 |
+| compartment | 17·17·8 | 35³ | 28.57 | 28.35 |
+| trimer | 3·3·4 | 3³ | 39.47 | 37.58 |
+
+Statistical agreement for the stream-changing commits, plateau-averaged copy
+numbers via `compare_observables.py`:
+
+| commit | case | seeds | nItr | largest \|z\| |
+|---|---|---|---|---|
+| 1 | trimer | 28 | 30 000 | 1.11 |
+| 2 | compartment | 16 | 4 000 | 1.00 |
+| 3 | rev_3D | 12 | 60 000 | 0.58 |
+| 3 | rev_3Dto2D | 12 | 8 000 | 1.24 |
+| 3 | rev_2D | 12 | 200 | 0.58 |
+
+### 19.4 `rMaxLimit` is not a bound for 2D reactions
+
+Commit 5 rests on `rMaxLimit` bounding how far apart two molecules can be and
+still react, which is the same bound the cell list assumes when it sizes
+sub-volumes by it. Instrumenting every reacting pair shows the bound holds
+except in one place:
+
+| model | reacting pairs | beyond rMaxLimit | worst |
+|---|---|---|---|
+| rev_2D | 20 220 | 1 550 (7.7%) | 1.109×, a 2D pair |
+| rev_3D | 1 338 617 | 0 | |
+| rev_3Dto2D | 728 096 | 0 | |
+| clathrin | 13 362 366 | 0 | |
+| mem_localization | 1 255 726 | 0 | |
+
+`set_rMaxLimit()` estimates a 2D reaction's reach as `3 sqrt(6 Dtot dt)`, while
+`determine_2D_bimolecular_reaction_probability()` uses `3.5 sqrt(4 Dtot dt)`
+over a Dtot that `add_2D_rotational_diffusion()` and `discretize_2D_Dtot()`
+have both revised. `rev_2D` is the one model whose `rMaxLimit` is itself set by
+a 2D reaction; everywhere else a 3D reaction sets it and covers the 2D one.
+
+Commit 5 therefore exempts pairs with both complexes on the surface. The
+underlying gap is wider than that commit and pre-existing: with sub-volumes
+5.81 nm wide and a reach to 6.43 nm, `rev_2D`'s cell list already cannot
+guarantee it offers every reacting pair. Closing it means changing
+`set_rMaxLimit()`, hence `rMaxLimit`, hence the grid — a separate change.
+
+### 19.5 Timing
+
+`interleaved_timing.sh`, median of 3 repetitions, builds interleaved per case,
+machine otherwise idle.
+
+| case | base (s) | after (s) | speedup |
+|---|---|---|---|
+| mem_localization | 2.457 | 0.784 | **3.13×** |
+| rev_3Dto2D | 5.967 | 3.437 | 1.74× |
+| michaelis_menten | 4.365 | 2.597 | 1.68× |
+| clathrin | 3.362 | 2.082 | 1.62× |
+| closed_homoTrimer | 6.364 | 4.409 | 1.44× |
+| homoTrimer | 6.389 | 4.441 | 1.44× |
+| hetTrimer | 6.152 | 4.488 | 1.37× |
+| trimer | 5.757 | 4.206 | 1.37× |
+| implicit_lipid | 2.631 | 2.108 | 1.25× |
+| hexamer | 5.112 | 4.183 | 1.22× |
+| rev_3D | 3.572 | 3.386 | 1.06× |
+| sphere | 5.957 | 5.865 | 1.02× |
+| rev_2D | 41.332 | 42.105 | **0.98×** |
+| | 99.417 | 84.091 | 1.18× |
+
+`mem_localization` is the case commit 6 was aimed at: 3755 of its 3955
+molecules are lipids, and 99.6% of the pairs the stencil offered were
+lipid-lipid pairs no reaction names.
+
+`rev_2D` is 2% slower and is the one case that gets nothing back. It is pure
+2D, so commit 5's filter is exempted for almost all of its pairs, and its two
+molecule types do react, so commit 6's mask never fires; its runtime is
+dominated by the 2D reaction-probability tables rather than by the search. What
+it does get is the finer grid, whose cost it pays without the benefit.
+
+`sphere` is flat for the same structural reason section 18's audit gave: the
+grid is laid over the (2R)³ bounding cube, 94.4% of it can never hold a
+surface-bound molecule, and none of these seven commits changes that. A
+surface decomposition for `OnSurface` complexes is the outstanding item.
