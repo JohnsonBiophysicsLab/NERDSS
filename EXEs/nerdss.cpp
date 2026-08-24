@@ -847,8 +847,16 @@ int main(int argc, char *argv[]) {
 
     // Measure separations between proteins in neighboring cells to identify all
     // possible reactions.
-    for (unsigned cellItr{0}; cellItr < simulVolume.subCellList.size();
-         ++cellItr) {
+    //
+    // Only the SubBoxes that hold molecules are visited.  Walking all of
+    // subCellList cost time proportional to the SubBox count however few
+    // molecules the system held, and that count is typically far larger than
+    // the number of occupied SubBoxes: rev_3D holds 2 000 molecules in 27 000
+    // SubBoxes, of which about 1 800 are occupied, and clathrin fills 97 of
+    // 2 744.  Sorted, occupiedSubCells visits exactly the same SubBoxes in
+    // exactly the same order as the old sweep, so the output is unchanged.
+    simulVolume.sort_occupied_cells();
+    for (int cellItr : simulVolume.occupiedSubCells) {
       for (unsigned memItr{0};
            memItr < simulVolume.subCellList[cellItr].memberMolList.size();
            ++memItr) {

@@ -140,6 +140,29 @@ struct SimulVolume {
     }
 
     /*!
+     * \brief Puts occupiedSubCells into ascending SubBox order, without repeats.
+     *
+     * The pairwise search used to walk all of subCellList, which visits
+     * SubBoxes in ascending absIndex order.  Sorted, occupiedSubCells is
+     * exactly the non-empty subsequence of that walk, so the candidate pairs
+     * come out in the same order as before and the random stream -- and with it
+     * the trajectory -- is unchanged.
+     *
+     * add_member() appends in the order molecules are binned rather than in
+     * SubBox order, hence the sort.  The uniquing covers one sequence inside a
+     * single step: a SubBox emptied by a dissociation stays on the list, and a
+     * creation reaction that then bins a molecule into it finds it empty and
+     * registers it a second time.  clear_member_lists() tolerates that repeat;
+     * visiting the SubBox twice in the pairwise search would not.
+     */
+    void sort_occupied_cells() {
+        std::sort(occupiedSubCells.begin(), occupiedSubCells.end());
+        occupiedSubCells.erase(
+            std::unique(occupiedSubCells.begin(), occupiedSubCells.end()),
+            occupiedSubCells.end());
+    }
+
+    /*!
      * \brief Main function for the creation of the SubBoxes in the SimulBox.
      *
      * \param[in] params Parameters as given by the parameter file
