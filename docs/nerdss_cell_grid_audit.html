@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Measured characterization of the NERDSS serial cell-list domain decomposition, why a KD-tree would not replace it, and the eight fixes applied on the nerdss-optimized branch.">
+<title>NERDSS Cell Grid Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,400&display=swap">
+
+<style>
+:root {
+  /* Cool, blueprint-biased neutrals — the grey carries a trace of the oxide-blue accent. */
+  --ground:      #F4F6F8;
+  --surface:     #FFFFFF;
+  --surface-alt: #EDF0F4;
+  --ink:         #141A21;
+  --ink-soft:    #4A5663;
+  --ink-faint:   #7C8896;
+  --rule:        #D4DAE1;
+  --rule-soft:   #E4E8ED;
+
+  --accent:      #2E5C7E;   /* oxide blue — plotting axis, blueprint line */
+  --accent-soft: #E2EBF2;
+  --critical:    #A63A2B;   /* iron oxide */
+  --warn:        #8A6215;   /* ochre */
+  --good:        #3D6A4C;   /* muted verdigris */
+
+  --grid-line:   rgba(46, 92, 126, 0.09);
+
+  --w-text: 68ch;
+  --w-wide: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0F141A;
+    --surface:     #161D25;
+    --surface-alt: #1C242E;
+    --ink:         #E3E8EE;
+    --ink-soft:    #A3AFBC;
+    --ink-faint:   #71808F;
+    --rule:        #2C3742;
+    --rule-soft:   #222B34;
+
+    --accent:      #74AAD0;
+    --accent-soft: #1B2B39;
+    --critical:    #E08573;
+    --warn:        #D2A855;
+    --good:        #7FB693;
+
+    --grid-line:   rgba(116, 170, 208, 0.10);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0F141A;
+  --surface:     #161D25;
+  --surface-alt: #1C242E;
+  --ink:         #E3E8EE;
+  --ink-soft:    #A3AFBC;
+  --ink-faint:   #71808F;
+  --rule:        #2C3742;
+  --rule-soft:   #222B34;
+
+  --accent:      #74AAD0;
+  --accent-soft: #1B2B39;
+  --critical:    #E08573;
+  --warn:        #D2A855;
+  --good:        #7FB693;
+
+  --grid-line:   rgba(116, 170, 208, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: 0 28px 120px;
+}
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  position: relative;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 54px;
+  padding: 64px 0 40px;
+  /* The subject is a uniform grid laid over a box that is mostly empty.
+     The lattice is the page's one piece of ornament and it is the thing
+     being audited, so it earns its place. */
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 34px 34px;
+  background-position: center top;
+}
+.masthead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, var(--ground) 92%);
+  pointer-events: none;
+}
+.masthead > * { position: relative; z-index: 1; }
+
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 18px;
+}
+
+h1 {
+  font-family: "IBM Plex Serif", ui-serif, Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.4vw, 3.1rem);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  margin: 0 0 20px;
+  max-width: 22ch;
+}
+
+.standfirst {
+  font-size: 1.12rem;
+  color: var(--ink-soft);
+  max-width: var(--w-text);
+  margin: 0 0 32px;
+}
+.standfirst strong { color: var(--ink); font-weight: 600; }
+
+.provenance {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 16px;
+}
+.provenance b { color: var(--ink-soft); font-weight: 500; }
+
+/* ---------- structure ---------- */
+
+section { margin-bottom: 68px; scroll-margin-top: 20px; }
+
+h2 {
+  font-family: "IBM Plex Serif", ui-serif, Georgia, serif;
+  font-weight: 600;
+  font-size: 1.72rem;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0 0 8px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--ink);
+}
+
+h3 {
+  font-family: "IBM Plex Sans", sans-serif;
+  font-weight: 600;
+  font-size: 1.06rem;
+  letter-spacing: 0.005em;
+  margin: 38px 0 10px;
+  text-wrap: balance;
+}
+h3 .tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  margin-left: 9px;
+  vertical-align: 2px;
+}
+.tag.ok   { background: var(--accent-soft); color: var(--accent); }
+.tag.bad  { background: var(--critical); color: var(--surface); }
+.tag.warn { background: var(--warn); color: var(--surface); }
+
+p, ul, ol { max-width: var(--w-text); }
+p { margin: 0 0 15px; }
+ul, ol { margin: 0 0 15px; padding-left: 1.25em; }
+li { margin-bottom: 7px; }
+
+code, .mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.885em;
+}
+p code, li code, td code {
+  background: var(--surface-alt);
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: var(--ink);
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, .toc a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------- contents ---------- */
+
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 20px 24px;
+  margin-bottom: 60px;
+  max-width: var(--w-text);
+}
+.toc-title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 12px;
+}
+.toc ol {
+  margin: 0; padding: 0; list-style: none;
+  display: grid; gap: 7px;
+}
+.toc li { margin: 0; display: flex; gap: 12px; }
+.toc .n {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  min-width: 1.6em;
+}
+
+/* ---------- tables ---------- */
+
+.scroller {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--surface);
+  margin: 22px 0 12px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+thead th {
+  text-align: left;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+tbody td {
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--surface-alt); }
+td.num, th.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+td.case {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+td.geo { color: var(--ink-soft); white-space: nowrap; font-size: 12.5px; }
+
+.caption {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  max-width: var(--w-text);
+  margin: 0 0 8px;
+}
+
+/* severity encoded in form, not only in the number */
+.v { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+.v.hot  { color: var(--critical); }
+.v.mid  { color: var(--warn); }
+.v.cool { color: var(--good); }
+
+/* occupancy meter */
+.meter {
+  display: flex; align-items: center; gap: 8px;
+  justify-content: flex-end;
+}
+.meter .bar {
+  width: 46px; height: 7px;
+  background: var(--surface-alt);
+  border: 1px solid var(--rule);
+  border-radius: 1px;
+  overflow: hidden;
+  flex: none;
+}
+.meter .fill { display: block; height: 100%; background: var(--accent); }
+
+/* ---------- callouts ---------- */
+
+.finding {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--critical);
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 22px 26px;
+  margin: 26px 0;
+  max-width: var(--w-wide);
+}
+.finding.soft { border-left-color: var(--warn); }
+.finding h3 { margin-top: 0; }
+.finding p:last-child, .finding ul:last-child { margin-bottom: 0; }
+
+.verdict {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-radius: 3px;
+  padding: 30px 32px;
+  margin: 8px 0 30px;
+}
+.verdict .eyebrow { color: rgba(255,255,255,0.72); margin-bottom: 12px; }
+.verdict p {
+  margin: 0;
+  font-family: "IBM Plex Serif", serif;
+  font-size: 1.28rem;
+  line-height: 1.42;
+  max-width: 46ch;
+  color: #FFFFFF;
+}
+.verdict p + p { margin-top: 14px; font-size: 1rem; font-family: "IBM Plex Sans", sans-serif; color: rgba(255,255,255,0.86); max-width: var(--w-text); }
+
+/* ---------- ranked fixes: numbering is real here, the list is ordered ---------- */
+
+.fixes { counter-reset: fix; display: grid; gap: 2px; margin: 24px 0 0; max-width: var(--w-wide); }
+.fix {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 18px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 18px 20px;
+}
+.fix .rank {
+  counter-increment: fix;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.fix .rank::before { content: counter(fix, decimal-leading-zero); }
+.fix h4 { margin: 0 0 6px; font-size: 1rem; font-weight: 600; }
+.fix p { margin: 0; font-size: 14.5px; color: var(--ink-soft); max-width: 78ch; }
+.fix .gain {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 7px;
+  border-radius: 2px;
+  margin-top: 9px;
+}
+
+.status {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--good);
+  border-radius: 3px;
+  padding: 22px 26px;
+  margin: 26px 0 8px;
+}
+.status h3 { margin-top: 0; }
+.status p:last-child { margin-bottom: 0; }
+.done {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 2px; margin-left: 9px; vertical-align: 2px;
+  background: var(--good); color: var(--surface);
+}
+.open { background: var(--warn); }
+
+.footnote {
+  border-top: 1px solid var(--rule);
+  padding-top: 22px;
+  font-size: 13.5px;
+  color: var(--ink-faint);
+  max-width: var(--w-text);
+}
+.footnote code { background: none; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 18px 80px; }
+  .fix { grid-template-columns: 34px 1fr; gap: 12px; }
+  .verdict { padding: 24px 22px; }
+}
+</style>
+<style>
+/* Standalone reset.  The hosted version of this page gets one from its runtime;
+   the rules below are what it supplies that the stylesheet above assumes. */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+img, svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">NERDSS · serial pairwise search</p>
+  <h1>How the cell grid is built, and whether a tree should replace it</h1>
+  <p class="standfirst">
+    The serial bimolecular search bins molecules into a uniform Cartesian grid over the
+    simulation box and walks a 13-neighbour stencil. This audit measures what that grid
+    actually delivers on every system geometry NERDSS supports — and finds that
+    <strong>on boxes thinner than four interaction lengths it silently misses reacting pairs</strong>,
+    while on three other geometries its own guard rails inflate the work by 12× to 98×.
+  </p>
+  <div class="status" style="margin-bottom:26px">
+    <h3>Update &mdash; all eight fixes have landed</h3>
+    <p>
+      All eight ranked fixes are implemented on <code>nerdss-optimized</code>, one commit each,
+      each verified against its own parent. Ten of the thirteen benchmark cases are
+      1.2&times; to <strong>3.1&times;</strong> faster; every commit that changes the random stream
+      does so only on the grids it was meant to change, and each is statistically
+      indistinguishable from its parent (largest |z| = 1.24 over 12&ndash;28 seeds).
+      Numbers are in <code>benchmarks/nerdss_optimized/RESULTS.md</code> &sect;19 and &sect;20.
+    </p>
+    <p>
+      Fix 8 changed the conclusion about spheres rather than confirming it &mdash; see
+      <a href="#sphere-verdict">what the sphere was actually spending its time on</a>.
+    </p>
+  </div>
+  <div class="provenance">
+    <span><b>branch</b> nerdss-optimized @ 9ec5ab8</span>
+    <span><b>build</b> make serial, clang -O3</span>
+    <span><b>host</b> Apple M5, 10 cores</span>
+    <span><b>seed</b> 20260810</span>
+    <span><b>method</b> temporary counters, reverted</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <p class="toc-title">Contents</p>
+  <ol>
+    <li><span class="n">01</span><a href="#method">The method in one paragraph</a></li>
+    <li><span class="n">02</span><a href="#knobs">The eleven hyperparameters</a></li>
+    <li><span class="n">03</span><a href="#geometry">Behaviour per system geometry</a></li>
+    <li><span class="n">04</span><a href="#missed">The correctness gap: missed pairs in thin boxes</a></li>
+    <li><span class="n">05</span><a href="#tree">Would a KD-tree fit better?</a></li>
+    <li><span class="n">06</span><a href="#fixes">Ranked fixes</a></li>
+    <li><span class="n">07</span><a href="#incidental">Two defects found on the way</a></li>
+  </ol>
+</nav>
+
+<section id="method">
+  <h2>01 · The method in one paragraph</h2>
+  <p>
+    <code>SimulVolume::create_simulation_volume()</code> lays a single uniform Cartesian grid
+    over the axis-aligned bounding box <code>Membrane::waterBox</code>. Every cell gets a
+    half-neighbour list — 13 of the 26 surrounding cells, forward and up — so each pair is
+    offered once. The grid is built <em>once</em>, at parse time, and never rebuilt.
+    Every timestep, <code>update_memberMolLists()</code> re-bins all molecules by
+    <em>centre of mass</em> in O(N), and the pair loop sweeps <em>all</em> cells, offering
+    every same-cell and stencil-neighbour pair to <code>check_bimolecular_reactions()</code>.
+  </p>
+  <p>
+    Three structural facts follow from that description and matter for everything below.
+    There is exactly one neighbour-list builder, <code>create_cell_neighbor_list_cubic()</code> —
+    no geometry ever gets a decomposition of its own, spheres included. Binning is on molecule
+    COM while the reaction criterion is interface-to-interface, which is why the cutoff has to
+    absorb both COM→interface arm lengths. And the stencil does not wrap, which is consistent
+    only because <code>xBCtype = periodic</code> is parsed but never implemented — every
+    propagation path in <code>reflect_dispatch.cpp</code> reflects.
+  </p>
+  <p>
+    The serial pair loop is the inline copy at <code>EXEs/nerdss.cpp:849</code>. The extracted
+    function <code>measure_separations_to_identify_possible_reactions()</code> is the MPI path
+    only; the two have diverged (the serial copy handles <code>hasCompartment</code>, the
+    extracted one handles <code>isGhosted</code>).
+  </p>
+</section>
+
+<section id="knobs">
+  <h2>02 · The eleven hyperparameters</h2>
+  <p class="caption">
+    Everything that decides the grid's shape. Only the first is physics; the rest are guard
+    rails, and the guard rails are what the measurements below indict.
+  </p>
+  <div class="scroller">
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Defined in</th><th>Value</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="case">rMaxLimit</td>
+        <td class="geo">set_rMaxLimit.cpp</td>
+        <td class="mono">max over bimolecular rxns of<br>3√(6·D<sub>tot</sub>·Δt) + σ + r₁ + r₂</td>
+        <td>Target cell edge. One global scalar taken from the single worst-case reaction; D<sub>tot</sub> folds in a rotational term.</td>
+      </tr>
+      <tr>
+        <td class="case">rMaxLimit fallback</td>
+        <td class="geo">set_rMaxLimit.cpp:108</td>
+        <td class="mono">40.0 nm</td>
+        <td>Fires only when <code>forwardRxns</code> is <em>empty</em>. A model with unimolecular-only reactions leaves rMaxLimit at 0 — see §07.</td>
+      </tr>
+      <tr>
+        <td class="case">z floor (construct)</td>
+        <td class="geo">Dimensions()</td>
+        <td class="mono">z = max(4, floor(L<sub>z</sub>/h))</td>
+        <td>Forces at least four z-cells. <strong>The source of the missed-pair bug.</strong></td>
+      </tr>
+      <tr>
+        <td class="case">z floor (recheck)</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">z = max(4, floor(L<sub>z</sub>/h)/2), or 1 if L<sub>z</sub> ≤ 0</td>
+        <td>Meant to catch cells thinner than h. Re-applies the same floor, so it cannot.</td>
+      </tr>
+      <tr>
+        <td class="case">per-dim cap</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">30</td>
+        <td>Serial hard cap. Comment: “TOO MANY CAN BE VERY SLOW”.</td>
+      </tr>
+      <tr>
+        <td class="case">MPI cap</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">tot ≤ 27000 via y = z = √(27000/x)</td>
+        <td>The MPI branch of the same guard.</td>
+      </tr>
+      <tr>
+        <td class="case">maxPairs</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">max(4000, 0.5·N²)</td>
+        <td>Cell budget. N is <code>Molecule::numberOfMolecules</code> read once at setup and never revisited.</td>
+      </tr>
+      <tr>
+        <td class="case">minCells</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">64</td>
+        <td>Floor for the downscaling loop.</td>
+      </tr>
+      <tr>
+        <td class="case">scale</td>
+        <td class="geo">check_dimensions()</td>
+        <td class="mono">starts 2, +1 per pass; z uses 2·scale</td>
+        <td>Downscale step. The doubled z divisor is what makes downscaled grids anisotropic.</td>
+      </tr>
+      <tr>
+        <td class="case">maxNeighbors</td>
+        <td class="geo">class_SimulVolume.hpp</td>
+        <td class="mono">13</td>
+        <td>Half-stencil size. Correct for a cubic lattice; hard-coded.</td>
+      </tr>
+      <tr>
+        <td class="case">itrCheck</td>
+        <td class="geo">update_memberMolLists()</td>
+        <td class="mono">1000</td>
+        <td>How often re-binning also validates box/membrane containment.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="geometry">
+  <h2>03 · Behaviour per system geometry</h2>
+  <p>
+    Measured on the sample suite with temporary counters. <em>Stencil pairs</em> is what the grid
+    offers per step; <em>in range</em> is how many of those are actually within
+    <code>rMaxLimit</code> by COM — the set a perfect radius search would return.
+    Their ratio is the grid's over-inclusion. The theoretical floor for <em>any</em> cell list
+    with cells exactly h wide is 27/(4π/3) ≈ <span class="mono">6.4×</span>; cases below that
+    are simply clustered enough to beat the uniform estimate.
+  </p>
+
+  <div class="scroller">
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>Geometry</th>
+        <th class="num">Box (nm)</th>
+        <th class="num">rMax</th>
+        <th class="num">Grid</th>
+        <th class="num">cell ÷ rMax</th>
+        <th class="num">Cells occupied</th>
+        <th class="num">Stencil pairs</th>
+        <th class="num">In range</th>
+        <th class="num">Over-incl.</th>
+        <th class="num">Brute force</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="case">clathrin</td><td class="geo">3D box</td>
+        <td class="num">494³</td><td class="num">33.7</td><td class="num">14³ = 2744</td>
+        <td class="num"><span class="v cool">1.05</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:4%"></span></span>3.5%</span></td>
+        <td class="num">49</td><td class="num">10.0</td>
+        <td class="num"><span class="v cool">4.96×</span></td><td class="num">4 950</td>
+      </tr>
+      <tr>
+        <td class="case">michaelis_menten</td><td class="geo">3D box, small</td>
+        <td class="num">144³</td><td class="num">33.9</td><td class="num">4³ = 64</td>
+        <td class="num"><span class="v cool">1.06</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:84%"></span></span>84%</span></td>
+        <td class="num">1 647</td><td class="num">278</td>
+        <td class="num"><span class="v cool">5.93×</span></td><td class="num">6 786</td>
+      </tr>
+      <tr>
+        <td class="case">rev_3D</td><td class="geo">3D box, large</td>
+        <td class="num">940³</td><td class="num">16.7</td><td class="num">30³ = 27 000</td>
+        <td class="num"><span class="v mid">1.88</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:7%"></span></span>6.8%</span></td>
+        <td class="num">1 972</td><td class="num">167</td>
+        <td class="num"><span class="v mid">11.8×</span></td><td class="num">1 999 000</td>
+      </tr>
+      <tr>
+        <td class="case">rev_3Dto2D</td><td class="geo">box + membrane</td>
+        <td class="num">1000³</td><td class="num">16.9</td><td class="num">30³ = 27 000</td>
+        <td class="num"><span class="v mid">1.97</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:6%"></span></span>6.1%</span></td>
+        <td class="num">45 741</td><td class="num">4 148</td>
+        <td class="num"><span class="v mid">11.0×</span></td><td class="num">7 409 325</td>
+      </tr>
+      <tr>
+        <td class="case">mem_localization</td><td class="geo">box + membrane</td>
+        <td class="num">470·470·752</td><td class="num">24.4</td><td class="num">19·19·30 = 10 830</td>
+        <td class="num"><span class="v cool">1.01</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:5%"></span></span>5.1%</span></td>
+        <td class="num">165 084</td><td class="num">57 433</td>
+        <td class="num"><span class="v cool">2.87×</span></td><td class="num">7 819 035</td>
+      </tr>
+      <tr>
+        <td class="case">rev_2D</td><td class="geo">2D slab</td>
+        <td class="num">1000·1000·10</td><td class="num">5.79</td><td class="num">30·30·4 = 3 600</td>
+        <td class="num"><span class="v hot">5.75 / 0.43</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:21%"></span></span>21%</span></td>
+        <td class="num">12 198</td><td class="num">233</td>
+        <td class="num"><span class="v hot">52.3×</span></td><td class="num">1 279 200</td>
+      </tr>
+      <tr>
+        <td class="case">implicit_lipid</td><td class="geo">box + implicit lipid</td>
+        <td class="num">200³</td><td class="num">12.8</td><td class="num">15³ = 3 375</td>
+        <td class="num"><span class="v cool">1.04</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:5%"></span></span>4.8%</span></td>
+        <td class="num">397</td><td class="num">122</td>
+        <td class="num"><span class="v cool">3.25×</span></td><td class="num">19 900</td>
+      </tr>
+      <tr>
+        <td class="case">sphere</td><td class="geo">sphere surface, R=100</td>
+        <td class="num">200³ bbox</td><td class="num">9.77</td><td class="num">20³ = 8 000</td>
+        <td class="num"><span class="v cool">1.02</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:6%"></span></span>5.6%</span></td>
+        <td class="num">760</td><td class="num">185</td>
+        <td class="num"><span class="v cool">4.11×</span></td><td class="num">124 750</td>
+      </tr>
+      <tr>
+        <td class="case">gagsphere</td><td class="geo">sphere surface, R=70</td>
+        <td class="num">140³ bbox</td><td class="num">19.4</td><td class="num">7³ = 343</td>
+        <td class="num"><span class="v cool">1.03</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:38%"></span></span>38%</span></td>
+        <td class="num">1 816</td><td class="num">324</td>
+        <td class="num"><span class="v cool">5.60×</span></td><td class="num">19 900</td>
+      </tr>
+      <tr>
+        <td class="case">compartment</td><td class="geo">box + compartment</td>
+        <td class="num">1000³</td><td class="num">28.4</td><td class="num">17·17·8 = 2 312</td>
+        <td class="num"><span class="v hot">2.07 / 4.41</span></td>
+        <td class="num"><span class="meter"><span class="bar"><span class="fill" style="width:4%"></span></span>4.0%</span></td>
+        <td class="num">177</td><td class="num">1.8</td>
+        <td class="num"><span class="v hot">97.6×</span></td><td class="num">4 950</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>3D box, well proportioned <span class="tag ok">works</span></h3>
+  <p>
+    The design case: <code>clathrin</code>, <code>mem_localization</code>,
+    <code>implicit_lipid</code>. Cells land within 6% of <code>rMaxLimit</code> and
+    over-inclusion sits at or under the 6.4× floor. Nothing to fix.
+  </p>
+
+  <h3>3D box, large — the 30-cell cap binds <span class="tag warn">2× cells, 12× work</span></h3>
+  <p>
+    <code>rev_3D</code> wants ⌊940/16.7⌋ = 56 cells per side and gets 30, so cells come out
+    1.88× too wide and over-inclusion doubles to 11.8×. Same story in
+    <code>rev_3Dto2D</code>. The cap exists only because the pair loop sweeps every cell,
+    which the branch's own <code>occupiedSubCells</code> list already makes unnecessary.
+  </p>
+
+  <h3>3D box, small — the grid barely helps <span class="tag warn">4.1× over brute force</span></h3>
+  <p>
+    <code>michaelis_menten</code> is a 144 nm box against a 33.9 nm cutoff: 4 cells per side,
+    84% of them occupied, and the 3×3×3 stencil covers 42% of the entire box. The grid buys
+    a factor of 4 over checking all 6 786 pairs. That is the correct outcome — there is
+    nothing to decompose — but it is worth knowing the machinery is nearly idle here.
+  </p>
+
+  <h3>Quasi-2D membrane <span class="tag warn">structurally unsound in z</span></h3>
+  <p>
+    Membrane-bound molecules all land in one z-row (<code>zItr</code> is inverted and clamped),
+    so 1 − 1/n<sub>z</sub> of the grid is dead by construction. <code>rev_2D</code> is the
+    extreme: a 1000·1000·10 nm slab against a 5.79 nm cutoff gives cells of
+    33.3 · 33.3 · 2.5 nm. In-plane the 30-cap makes them 5.75× too wide — 52× over-inclusion.
+    In z they are 2.5 nm against a 5.79 nm cutoff, which is unsound; it is harmless here only
+    because every molecule sits in the same row.
+  </p>
+  <p>
+    A second-order effect: <code>rMaxLimit</code> is the maximum over <em>all</em> reactions,
+    including 3D ones with large D<sub>tot</sub>. A membrane system therefore sizes its cells
+    for the fastest solution-phase reaction it contains.
+  </p>
+
+  <h3>Sphere <span class="tag ok">now indexed by latitude and longitude</span></h3>
+  <p>
+    <code>Membrane::create_water_box()</code> sets <code>waterBox</code> to the (2R)³ bounding
+    cube and the same cubic grid is laid over it. For surface-bound molecules only the shell
+    cells can ever be occupied — a fraction πh/(2R) of the box. On the <code>sphere</code>
+    case that is 1 257 reachable cells of 8 000 (15.7%); 448 are actually occupied, and the
+    remaining <strong>94.4% are swept every timestep for nothing</strong>.
+  </p>
+  <p>
+    There is also a metric mismatch: <code>get_distance()</code> measures surface pairs by
+    <em>geodesic</em> arc length while the grid bins on Cartesian coordinates. Arc ≥ chord, so
+    the grid stays conservative — no pairs are lost — but it over-includes on small spheres
+    where curvature is high.
+  </p>
+
+  <div class="finding soft" id="sphere-verdict">
+    <h3>What the sphere was actually spending its time on <span class="tag warn">fix 8 postscript</span></h3>
+    <p>
+      Fix 8 built the shell index and it works — bands one cutoff wide in colatitude, each
+      divided along its own narrowest parallel, proved complete and single-counted against a
+      brute-force sweep over seven radius–cutoff combinations. It is also
+      <strong>neutral on every sample in the suite</strong>, and the measurements taken before
+      writing it said so:
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>sample</th><th class="num">pairs offered / step</th><th class="num">of which surface–surface</th></tr></thead>
+        <tbody>
+          <tr><td class="case">sphere, R=100</td><td class="num"><span class="v hot">0</span></td><td class="num">0</td></tr>
+          <tr><td class="case">gagsphere, R=70</td><td class="num">1 915</td><td class="num">70 &nbsp;(3.6%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <code>sphere</code> offers nothing at all: its only reaction binds A to an implicit
+      lipid, so fix 6's type mask discards every pair before the search reaches it. On the
+      R=70 sphere, 96.4% of what is offered has a molecule off the surface, which a shell
+      index does not touch. And a sampling profile of that model puts <strong>11655 of 11662
+      samples</strong> inside <code>determine_2D_bimolecular_reaction_probability</code> →
+      <code>create_survMatrix</code>/<code>create_pirMatrix</code> → <code>integrator</code> →
+      Bessel <code>j0/y0/j1/y1</code>. That is 2D reaction-table construction; it runs only for
+      pairs already within Rmax, so no neighbour structure can reduce it.
+    </p>
+    <p>
+      This is the same lesson as §5, arriving one level down. The grid was the wrong structure
+      for the sphere, and fixing it was still the wrong thing to optimise, because the sphere's
+      cost was never in the search. What the index earns its place for is spheres large enough
+      that the (2R)³ bounding cube exceeds the sub-volume budget and the interior starts taking
+      resolution from the shell — around R = 2000 nm against a 30 nm range.
+    </p>
+    <p>
+      One measurement is worth keeping for its own sake. The first version activated for any
+      sphere, and that made <code>sphere</code> <strong>9% slower while staying bitwise
+      identical</strong>: 448 surface molecules rebinned every step, an <code>acos</code> and an
+      <code>atan2</code> apiece, to fill an index whose every pair was then discarded. The index
+      now also requires that some two explicit molecules can react with each other — the same
+      "do not index what cannot react" rule as fix 6, applied to the whole structure rather
+      than to a pair.
+    </p>
+  </div>
+
+  <h3>Compartment <span class="tag bad">98× over-inclusion</span></h3>
+  <p>
+    <code>hasCompartment</code> does not touch the grid; compartment binding is a per-molecule
+    check. What this case exposes instead is the <code>maxPairs</code> downscaler. With N = 100
+    the budget is max(4000, 5000) = 5 000 cells, the initial 30³ = 27 000 blows it, and the loop
+    shrinks the grid to 17·17·8 — cells of <strong>58.8 · 58.8 · 125 nm against a 28.4 nm
+    cutoff</strong>. The 2:1 anisotropy is the <code>2·scale</code> divisor on z. Over-inclusion
+    reaches 97.6×, the worst measured, on the case whose molecule count triggered the guard
+    meant to make it faster.
+  </p>
+
+  <h3>1D fiber <span class="tag warn">unrepresented</span></h3>
+  <p>
+    Complexes with <code>onFiber</code> lie along x and are binned by the ordinary 3D box grid,
+    occupying a one-cell-wide line through it. No fiber-aware decomposition exists.
+  </p>
+</section>
+
+<section id="missed">
+  <h2>04 · The correctness gap</h2>
+
+  <div class="finding">
+    <h3>When L<sub>z</sub> &lt; 4·rMaxLimit, the stencil cannot reach every reacting pair</h3>
+    <p>
+      <code>z = std::max(4, ...)</code> forces four z-cells regardless of box thickness, and
+      <code>check_dimensions()</code> re-applies the same floor rather than correcting it.
+      Below L<sub>z</sub> = 4·rMaxLimit the cells become thinner than the interaction range,
+      and the ±1 stencil stops covering it. Pairs two cells apart in z are never offered to
+      <code>check_bimolecular_reactions()</code> at all.
+    </p>
+    <p>
+      Measured on the <code>rev_3D</code> model (2 000 molecules, rMaxLimit 16.70 nm, 1 000
+      steps, 19 snapshots) with the box thickness varied and every pair counted by brute force:
+    </p>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th class="num">Box L<sub>z</sub></th><th class="num">cells<sub>z</sub></th>
+            <th class="num">cell size z</th><th class="num">rMaxLimit</th>
+            <th class="num">Pairs in range</th><th class="num">Reached by stencil</th>
+            <th class="num">Missed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">30 nm</td><td class="num">4</td><td class="num">7.50</td><td class="num">16.70</td>
+              <td class="num">29 123</td><td class="num">26 951</td>
+              <td class="num"><span class="v hot">2 172 &nbsp;(7.5%)</span></td></tr>
+          <tr><td class="num">50 nm</td><td class="num">4</td><td class="num">12.50</td><td class="num">16.70</td>
+              <td class="num">20 475</td><td class="num">20 391</td>
+              <td class="num"><span class="v hot">84 &nbsp;(0.41%)</span></td></tr>
+          <tr><td class="num">100 nm</td><td class="num">5</td><td class="num">20.00</td><td class="num">16.70</td>
+              <td class="num">11 350</td><td class="num">11 350</td>
+              <td class="num"><span class="v cool">0</span></td></tr>
+          <tr><td class="num">940 nm</td><td class="num">30</td><td class="num">31.33</td><td class="num">16.70</td>
+              <td class="num">1 328</td><td class="num">1 328</td>
+              <td class="num"><span class="v cool">0</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The boundary is exactly where the arithmetic predicts: zero missed pairs whenever
+      cell size ≥ rMaxLimit, non-zero the moment the floor forces it below. This is a
+      systematic bias in the association rate, not a statistical one — and it is silent.
+    </p>
+    <p>
+      <strong>It is not confined to thin boxes.</strong> Applying the fix turned up a second
+      case in the benchmark suite: <code>trimer</code>, a <em>cubic</em> 118.41 nm box against
+      a 37.58 nm range. <code>floor(118.41 / 37.58) = 3</code>, so the floor forced four z
+      cells of 29.60 nm — thinner than the range, in a cubic box. Reconstructing both grids
+      over 101 trajectory frames and 454,619 in-range pairs: the old 3×3×4 grid could not
+      reach <strong>0.398% ± 0.009%</strong> of them; the new 3×3×3 grid reaches all of them.
+      That is below what an equilibrium comparison resolves — 28 seeds put the seed-to-seed
+      scatter at 2.7% against a 0.4% mechanism — so the pair count, not the copy numbers,
+      is what carries the claim.
+    </p>
+    <p>
+      <strong>Pre-existing.</strong> <code>Dimensions()</code> and
+      <code>check_dimensions()</code> are byte-identical on <code>master</code>; the
+      nerdss-optimized branch neither introduced nor fixed it.
+    </p>
+  </div>
+</section>
+
+<section id="tree">
+  <h2>05 · Would a KD-tree fit better?</h2>
+
+  <div class="verdict">
+    <p class="eyebrow">Verdict</p>
+    <p>No. Keep the domain decomposition — and fix its parameterisation.</p>
+    <p>
+      A tree would recover at most the over-inclusion factor, capped at ~5× by the cell
+      list's own 6.4× floor, while costing O(N log N) rebuilds and O(N<sup>2/3</sup>+k)
+      queries. The measured losses are five to six times larger than that and every one of
+      them lives somewhere a tree does not reach.
+    </p>
+  </div>
+
+  <h3>The asymptotics favour the grid</h3>
+  <p>
+    Every coordinate changes each timestep, so both structures are rebuilt each step. The grid
+    build is an O(N) counting sort; a balanced KD-tree is O(N log N), and range search in 3D is
+    O(N<sup>2/3</sup> + k) per query, not O(log N). At roughly uniform density a uniform cell
+    list is the textbook optimum for a fixed-cutoff neighbour problem, which is why MD codes use
+    it. Rebinning already costs almost nothing here — never more than 5% of total runtime in any
+    case measured.
+  </p>
+
+  <h3>Enumeration is not where the time goes</h3>
+  <p>
+    The pair loop is 36–99.8% of runtime, but the cost inside it is per-candidate physics, not
+    per-candidate lookup: the type scan, the bound-partner scan, freelist × rxnPartners ×
+    freelist, <code>find_which_reaction()</code>, then the 2D/3D probability machinery. In
+    <code>rev_2D</code> and <code>gagsphere</code> the pair loop is over 99% of the run and the
+    enumeration inside it is a rounding error. Sweeping every cell — the one part a tree removes
+    for free — costs 2–6% of total runtime:
+  </p>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr><th>Case</th><th class="num">Cells</th><th class="num">Pair loop</th>
+            <th class="num">Rebinning</th><th class="num">Full-cell sweep</th>
+            <th class="num">Sweep ÷ total</th><th class="num">Total</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="case">rev_3D</td><td class="num">27 000</td><td class="num">1.613 s</td><td class="num">0.154 s</td><td class="num">0.200 s</td><td class="num">5.8%</td><td class="num">3.462 s</td></tr>
+        <tr><td class="case">clathrin</td><td class="num">2 744</td><td class="num">0.544 s</td><td class="num">0.014 s</td><td class="num">0.043 s</td><td class="num">4.7%</td><td class="num">0.902 s</td></tr>
+        <tr><td class="case">implicit_lipid</td><td class="num">3 375</td><td class="num">0.456 s</td><td class="num">0.040 s</td><td class="num">0.054 s</td><td class="num">4.9%</td><td class="num">1.100 s</td></tr>
+        <tr><td class="case">sphere</td><td class="num">8 000</td><td class="num">0.319 s</td><td class="num">0.033 s</td><td class="num">0.046 s</td><td class="num">2.7%</td><td class="num">1.687 s</td></tr>
+        <tr><td class="case">rev_3Dto2D</td><td class="num">27 000</td><td class="num">2.017 s</td><td class="num">0.125 s</td><td class="num">0.083 s</td><td class="num">2.2%</td><td class="num">3.780 s</td></tr>
+        <tr><td class="case">michaelis_menten</td><td class="num">64</td><td class="num">0.699 s</td><td class="num">0.030 s</td><td class="num">0.001 s</td><td class="num">0.1%</td><td class="num">1.118 s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">
+    Sweep column is a lower bound — a bare pass over every cell's member count, timed in place.
+    Serial, unloaded.
+  </p>
+
+  <h3>The real losses are all invisible to the search structure</h3>
+  <p>
+    The funnel below is the whole argument. It counts, per step, how many pairs the grid offers,
+    how many survive the molecule-type filter, and how many interface pairs actually land within
+    a reaction's Rmax.
+  </p>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr><th>Case</th><th class="num">Offered / step</th><th class="num">Pass type filter</th>
+            <th class="num">Iface tests</th><th class="num">Within Rmax</th>
+            <th class="num">Offered per hit</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="case">clathrin</td><td class="num">49</td><td class="num">46 &nbsp;(94%)</td><td class="num">445</td><td class="num">4.3</td><td class="num">12</td></tr>
+        <tr><td class="case">michaelis_menten</td><td class="num">1 600</td><td class="num">213 &nbsp;(13%)</td><td class="num">191</td><td class="num">32.1</td><td class="num">50</td></tr>
+        <tr><td class="case">rev_3D</td><td class="num">1 622</td><td class="num">803 &nbsp;(50%)</td><td class="num">706</td><td class="num">16.4</td><td class="num">99</td></tr>
+        <tr><td class="case">rev_2D</td><td class="num">10 098</td><td class="num">5 021 &nbsp;(50%)</td><td class="num">4 265</td><td class="num">26.5</td><td class="num">381</td></tr>
+        <tr><td class="case">rev_3Dto2D</td><td class="num">44 357</td><td class="num">1 575 &nbsp;(3.6%)</td><td class="num">1 034</td><td class="num">13.2</td><td class="num"><span class="v mid">3 360</span></td></tr>
+        <tr><td class="case">mem_localization</td><td class="num">164 972</td><td class="num">699 &nbsp;(0.42%)</td><td class="num">628</td><td class="num">34.4</td><td class="num"><span class="v hot">4 796</span></td></tr>
+        <tr><td class="case">compartment</td><td class="num">177</td><td class="num">177 &nbsp;(100%)</td><td class="num">1 768</td><td class="num">1.7</td><td class="num">103</td></tr>
+        <tr><td class="case">implicit_lipid</td><td class="num">397</td><td class="num"><span class="v hot">0</span></td><td class="num">0</td><td class="num">0</td><td class="num">∞</td></tr>
+        <tr><td class="case">sphere</td><td class="num">166</td><td class="num"><span class="v hot">0</span></td><td class="num">0</td><td class="num">0</td><td class="num">∞</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Read the last three rows. In <code>mem_localization</code> the grid offers 164 972 pairs per
+    step and 699 survive the type filter — 3 755 of the 3 955 molecules are lipids that cannot
+    react with each other, and the grid dutifully enumerates every lipid–lipid pair in the
+    stencil. In <code>implicit_lipid</code> and <code>sphere</code> the only reaction is with the
+    implicit lipid, so <em>not one</em> of the pairs the search produces can ever react: the
+    entire pairwise machinery runs to completion producing nothing, 11.9 M and 1.7 M times over.
+  </p>
+  <p>A KD-tree over the same point set enumerates exactly the same useless pairs. Four losses, none of them structural:</p>
+  <ul>
+    <li><strong>Type-blindness.</strong> Fixed by indexing per reacting type, or by keeping
+        non-reacting species out of the search entirely — a change to <em>what</em> is indexed.</li>
+    <li><strong>One global radius.</strong> <code>rMaxLimit</code> is the max over every
+        reaction, so a system with one fast 3D reaction sizes its cells for that reaction alone.
+        A tree could query per-pair radii — but so can a grid, with per-type cell sizes.</li>
+    <li><strong>COM binding vs interface reaction.</strong> <code>rMaxLimit</code> carries both
+        COM→interface arms (20 nm of clathrin's 33.7). Indexing <em>interfaces</em> rather than
+        molecule COMs shrinks the radius to σ + 3√(6DΔt) directly. Orthogonal to the structure.</li>
+    <li><strong>Guard rails that override the physics.</strong> The 30-cap, the
+        <code>maxPairs</code> downscaler, the z floor. Roughly thirty lines, and they cost more
+        than a tree would recover.</li>
+  </ul>
+
+  <h3>Where a tree genuinely would help — and what beats it</h3>
+  <p>
+    The one honest advantage is adaptivity to density that does not fill its bounding box, which
+    is exactly the sphere and membrane cases: 94.4% of the sphere grid can never hold anything,
+    and on the membrane two-thirds of the molecules sit in a thirtieth of the volume. But the
+    fix for “the bounding box is mostly empty” is a <strong>sparse cell list</strong> — occupied
+    cells in a hash keyed by (i,j,k) — which keeps O(N) build and O(1) query and costs nothing
+    when the box <em>is</em> full. A tree pays log N and pointer-chasing for the same adaptivity.
+    For the sphere specifically the physically right answer is a surface decomposition
+    (lat–long bands or HEALPix on the shell) for <code>OnSurface</code> complexes, with the
+    Cartesian grid kept for the interior. That beats both.
+  </p>
+  <p>
+    One more practical count against the tree in this codebase: molecules are created and
+    destroyed mid-step, and several sites mutate <code>memberMolList</code> in place —
+    <code>check_dissociation.cpp:164</code>,
+    <code>check_for_unimolecular_reactions_population.cpp:100</code>,
+    <code>create_molecule_and_complex_from_rxn.cpp:103</code>. A cell list supports O(1) insert
+    and erase. A KD-tree does not.
+  </p>
+</section>
+
+<section id="fixes">
+  <h2>06 · Ranked fixes</h2>
+  <p class="caption">Ordered by measured benefit over risk. The numbering is the ranking.</p>
+
+  <div class="fixes">
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Drop the <code>max(4, …)</code> floor; assert cell size ≥ rMaxLimit<span class="done">landed · 459bd83</span></h4>
+        <p>
+          Derive each dimension from <code>max(1, floor(L/rMaxLimit))</code> and assert the
+          resulting edge is not below the cutoff. Fixes a silent correctness bug worth up to
+          7.5% of reacting pairs in thin boxes.
+        </p>
+        <span class="gain">≈5 lines · correctness</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Remove the <code>maxPairs</code> downscaler, or make it isotropic<span class="done">landed · a81c7a6</span></h4>
+        <p>
+          It produced 125 nm cells against a 28 nm cutoff and 98× over-inclusion. Its stated
+          purpose — keep cell overhead below N²/2 — is better served by fix 4, which makes that
+          overhead O(occupied) instead of O(total). N is also read once at setup and never
+          revisited as the system grows.
+        </p>
+        <span class="gain">up to 98× on compartment</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Raise or remove the 30-cells-per-dimension cap<span class="done">landed · 77daa3a</span></h4>
+        <p>
+          Costs 11.8× on <code>rev_3D</code> and 52× on <code>rev_2D</code>. It exists only
+          because the pair loop sweeps everything; fix 4 removes that reason. Memory is not the
+          constraint — 30³ cells is 2.2 MB, 56³ is 14 MB.
+        </p>
+        <span class="gain">2–6× fewer candidate pairs</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Iterate <code>occupiedSubCells</code>, sorted, in the pair loop<span class="done">landed · cf646a9 + 808272b</span></h4>
+        <p>
+          The list already exists on this branch. Sorted ascending it is exactly the non-empty
+          subsequence of the current sweep, so visit order — and therefore the RNG stream and
+          the output — stays bitwise identical. Fix 7 first.
+        </p>
+        <span class="gain">2–6% of total runtime · bitwise-identical</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Add a COM-distance pre-filter to <code>check_bimolecular_reactions()</code><span class="done">landed · 1a704f1</span></h4>
+        <p>
+          78–99% of the pairs that pass the type filter are outside <code>rMaxLimit</code> yet
+          still walk the full interface loop. The triangle inequality
+          |COM₁−COM₂| ≤ |i₁−i₂| + r₁ + r₂ makes a cutoff at <code>rMaxLimit</code> exactly the
+          guarantee the cell list already relies on, and neither the 2D nor the 3D path draws a
+          random number before <code>get_distance()</code>, so it is RNG-neutral. Use
+          <code>max(rMaxLimit, overlapSepLimit)</code> — the volume-exclusion path has its own
+          user-set criterion.
+        </p>
+        <span class="gain">4–100× less interface work</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Index per reacting type, or exclude non-reacting species<span class="done">landed · 51e5d33</span></h4>
+        <p>
+          The largest single win available. <code>mem_localization</code> would fall from
+          164 972 candidate pairs per step to roughly 700; <code>implicit_lipid</code> and
+          <code>sphere</code> would stop running a pairwise search whose answer is always empty.
+        </p>
+        <span class="gain">up to 200×</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Repair the <code>occupiedSubCells</code> invariant<span class="done">landed · ebac7db</span></h4>
+        <p>
+          See §07. Must land before fix 4 builds on the same list.
+        </p>
+        <span class="gain">correctness · blocks fix 4</span>
+      </div>
+    </div>
+
+    <div class="fix">
+      <div class="rank"></div>
+      <div>
+        <h4>Give the sphere a surface decomposition<span class="done">landed &middot; 336322d</span></h4>
+        <p>
+          Lat–long bands or HEALPix over the shell for <code>OnSurface</code> complexes, keeping
+          the Cartesian grid for the interior. Reclaims the 94.4% of the sphere grid that can
+          never be occupied, and matches the geodesic metric <code>get_distance()</code> already
+          uses there.
+        </p>
+        <span class="gain">largest structural change · do last</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="incidental">
+  <h2>07 · Two defects found on the way</h2>
+
+  <div class="finding">
+    <h3>Duplicate cell membership after any creation reaction <span class="tag bad">this branch only</span></h3>
+    <p>
+      <code>clear_member_lists()</code> (commit <code>0784dd8</code>) clears only the cells
+      listed in <code>occupiedSubCells</code>. But
+      <code>create_molecule_and_complex_from_rxn.cpp:103</code> pushes straight into
+      <code>memberMolList</code> without registering the cell. A molecule created by
+      zeroth-order or unimolecular creation therefore lands in an untracked cell, survives the
+      next clear, and is <em>added again</em> by the re-binning pass — so it is paired twice, and
+      that cell is never cleared again.
+    </p>
+    <p>
+      Reproduced on <code>VALIDATE_SUITE/create_destroy</code>: untracked non-empty cells and
+      duplicate members appear from <code>simItr 1</code>.
+      <code>master</code> is unaffected — it clears every cell unconditionally.
+    </p>
+    <p>
+      Fix: have the creation path register its cell in <code>occupiedSubCells</code>, or track
+      occupancy with a per-cell flag rather than a separate list.
+    </p>
+  </div>
+
+  <div class="finding soft">
+    <h3>rMaxLimit stays 0 for unimolecular-only models</h3>
+    <p>
+      <code>set_rMaxLimit()</code> only falls back to 40 nm when <code>forwardRxns</code> is
+      empty. A model with forward reactions but none bimolecular leaves
+      <code>rMaxLimit = 0</code>, and <code>Dimensions()</code> then divides the box length by
+      it — which is the documented infinite “CELL PAIR MAX EXCEEDED” loop already recorded
+      against <code>unimolecular_reverse</code> in <code>known_broken.tsv</code>.
+    </p>
+    <p>
+      Fix: guard on the value, not the container —
+      <code>if (params.rMaxLimit &lt;= 0.0) params.rMaxLimit = 40.0;</code>
+    </p>
+  </div>
+</section>
+
+<p class="footnote">
+  Measured by adding temporary counters to <code>EXEs/nerdss.cpp</code>,
+  <code>src/reactions/check_bimolecular_reactions.cpp</code> and
+  <code>src/reactions/get_distance.cpp</code>: per-cell occupancy and stencil pair counts sampled
+  every 50 steps, a brute-force O(N²) ground-truth pair count behind an environment flag, and
+  <code>std::chrono</code> spans around the rebinning and pair loops. Sample counts per case range
+  from 7 to 599 snapshots. All instrumentation has been reverted; the working tree is clean and
+  <code>bin/nerdss</code> is rebuilt from unmodified sources.
+</p>
+
+</div>
+</body>
+</html>
