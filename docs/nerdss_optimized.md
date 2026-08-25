@@ -658,8 +658,9 @@ is not recovered either way. `get_distance()` also measures surface pairs by
 geodesic arc length while the grid bins on Cartesian coordinates; arc is never
 shorter than chord, so the grid stays conservative and no pairs are lost, but it
 over-includes on small spheres. A surface decomposition for `OnSurface`
-complexes - latitude-longitude bands or HEALPix over the shell, with the
-Cartesian grid kept for the interior - is the outstanding item.
+complexes - latitude-longitude bands over the shell, with the Cartesian grid
+kept for the interior - is
+[the next section](#the-spherical-membrane---a-latitude-longitude-index).
 
 #### What it costs and what it buys
 
@@ -728,6 +729,101 @@ grid by the MPI rules. Run `make clean` between the two targets. `make clean`
 also removes `bin/`, so anything kept there for comparison has to live
 elsewhere.
 
+### The spherical membrane - a latitude-longitude index
+
+`ShellIndex` covers surface-to-surface pairs on a spherical system with bands
+one cutoff wide in colatitude, each divided into cells one cutoff wide along
+its own narrowest parallel. Molecules stay in the Cartesian grid as well, so
+surface-to-interior pairs are unaffected; the Cartesian pass skips a pair only
+when both of its molecules are in this index, and the second pass offers it
+there. Commit `336322d`.
+
+#### What was measured before building it
+
+Section 19's work had already removed most of what the sphere was paying. What
+was left, on the two spherical samples:
+
+| sample | pairs offered / step | of which surface-surface |
+| --- | --- | --- |
+| `sphere`, R=100 | 0 | 0 |
+| `gagsphere`, R=70 | 1915 | 70 (3.6%) |
+
+`sphere` offers nothing: its only reaction binds A to an implicit lipid, so the
+molecule-type mask discards every pair before the search reaches it. On the
+R=70 sphere, 96.4% of what is offered has at least one molecule off the
+surface, which a shell index does not touch. And a sampling profile of that
+model puts 11655 of 11662 samples inside
+`determine_2D_bimolecular_reaction_probability` -> `create_survMatrix` /
+`create_pirMatrix` -> `integrator` -> Bessel `j0/y0/j1/y1`. That is 2D
+reaction-table construction, it happens only for pairs already within `Rmax`,
+and no neighbour structure can reduce it.
+
+So the index was expected to be neutral on every current sample before a line
+of it was written, and it is. What it is for is spheres large enough that the
+`(2R)^3` bounding cube exceeds the sub-volume budget and the interior starts
+taking resolution from the shell - at R around 2000 nm against a 30 nm range,
+`(2R/h)^3` passes the 500 000 budget from `77daa3a`.
+
+#### Why the stencil is complete
+
+The sizing is the whole correctness argument, and it comes from the haversine
+identity: for two points at colatitudes `tA`, `tB` with longitude difference
+`dp` and central angle `g`,
+
+```
+sin^2(g/2) = sin^2((tA - tB)/2) + sin(tA) sin(tB) sin^2(dp/2)
+```
+
+Both terms on the right are non-negative, so each is separately bounded by the
+left. A pair within `g` therefore has `|tA - tB| <= g`, and
+`sin(|dp|/2) <= sin(g/2) / sqrt(sin tA sin tB)`. Bands `g` wide in colatitude
+put such a pair at most one band apart; cells wide enough to cover the second
+bound put it at most one cell apart within a band. That is what makes a
+forward-only, plus-or-minus-one stencil complete, and it is why the longitude
+count has to be computed per band rather than globally - the bound blows up
+near the poles, where the count collapses to one and the band becomes a single
+cap.
+
+[`benchmarks/shell_index_test.cpp`](../benchmarks/shell_index_test.cpp) checks
+this against an `O(N^2)` sweep over seven radius-and-cutoff combinations, from
+a 1000 nm sphere against a 30 nm cutoff to a 30 nm sphere against 19.4 nm:
+every pair within the cutoff offered, none offered twice, in all seven.
+
+#### Three ways it stays out of the way
+
+The index is inactive for any non-spherical system, so nothing outside a sphere
+changes at all.
+
+It is also inactive when no two explicit molecules can react with each other.
+That case is not hypothetical and not free: the first version activated for any
+sphere, and `sphere` came out **9% slower while staying bitwise identical** -
+448 surface molecules rebinned every step, an `acos` and an `atan2` apiece, to
+fill an index whose every pair the type mask then discarded. With the gate,
+`sphere` is 0.997x.
+
+And a molecule below `0.9 * sphereR` is left to the Cartesian grid rather than
+binned here, because a cell only covers a cutoff of arc for molecules far
+enough out. Surface complexes are pinned by the reflectors at `sphereR - RS3D`,
+which measures 0.971 and 0.995 of `sphereR` on the two spherical samples, so
+the floor admits all of them. Nothing about correctness rests on the fraction:
+a molecule below it is handled by the Cartesian grid exactly as it was before
+this index existed, so the constant trades one search for another and cannot
+lose a pair. That is the property the hyperparameters section 19 removed did
+not have.
+
+#### Verdict
+
+17 of the 18 benchmark cases are bitwise identical and time at 0.99x to 1.00x.
+`cluster_gagsphere` is the only case where the index activates and the only one
+that moves; over 12 seeds its copy numbers agree within seed scatter, largest
+`|z|` 0.29, including all three gag-gag surface reactions.
+
+Its own timing is neutral. A single seed reads 0.842x, but that model runs
+anywhere from 32 s to 72 s depending on seed - its cost follows how many
+distinct 2D tables the trajectory happens to need - and across five seeds the
+medians are 44.89 s before and 45.11 s after. A 2.2x spread between seeds
+against a 0.5% difference in medians.
+
 ## Reproducing the measurements
 
 ```bash
@@ -785,6 +881,12 @@ methodology in
   sequence, and the five that move are exactly the ones whose grid the old rules
   distorted. Largest Welch `|z|` across the stream-changing commits is 1.24.
   Section 19 of `RESULTS.md`.
+- **Spherical shell index:** a latitude-longitude index for surface-to-surface
+  pairs on a sphere, proved complete against a brute-force sweep over seven
+  radius-and-cutoff combinations. 17 of 18 cases byte-identical, the one that
+  moves agrees statistically (largest `|z|` 0.29), and the whole thing is
+  neutral on every current sample by construction - the measurements that say
+  why were taken before it was built. Section 20 of `RESULTS.md`.
 - **`Vec3D` merge:** 13 of 13 byte-identical, runtime 0.999x over the suite -
   neutral, and within the run-to-run spread. In isolation `normalize()` is
   1.096x, the angle between two vectors 1.109x, and streaming an array of
