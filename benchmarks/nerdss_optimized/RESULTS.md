@@ -1960,3 +1960,118 @@ it does get is the finer grid, whose cost it pays without the benefit.
 grid is laid over the (2R)³ bounding cube, 94.4% of it can never hold a
 surface-bound molecule, and none of these seven commits changes that. A
 surface decomposition for `OnSurface` complexes is the outstanding item.
+
+## 20. A latitude-longitude index for the spherical membrane
+
+Measured 2026-08-25, same host and settings as section 19. Parent is
+`6111749`, SHA-256 `6406a0a97a92c454`; the tip after this work is
+`cb83c595accd2df5`.
+
+Section 19 left one item open: the Cartesian grid covers the `(2R)^3` box that
+bounds a spherical system, so for molecules pinned to the shell it spends its
+resolution on interior volume that is empty by construction, and it bins on
+Cartesian coordinates while `get_distance()` measures those pairs by geodesic
+arc.
+
+### 20.1 What was left to win, measured first
+
+After the seven changes in section 19, the pairwise search on the two
+spherical samples looks like this:
+
+| sample | pairs offered / step | of which surface-surface |
+| --- | --- | --- |
+| `sphere`, R=100 | 0 | 0 |
+| `gagsphere`, R=70 | 1915 | 70 (3.6%) |
+
+`sphere` offers nothing at all: its only reaction binds A to an implicit lipid,
+so the molecule-type mask from `51e5d33` already discards every pair. On the
+R=70 sphere, 96.4% of what is offered has at least one molecule off the
+surface, and a shell index does not touch those.
+
+Where that model's time actually goes, from 11662 samples of `sample`:
+
+| samples | frame |
+| --- | --- |
+| 11656 | `determine_2D_bimolecular_reaction_probability` |
+| 11655 | `integrator` |
+| 8433 | `create_survMatrix` |
+| 3222 | `create_pirMatrix` |
+| 824 / 611 / 478 / 321 | `j0` / `y0` / `j1` / `y1` |
+
+Essentially all of it is 2D reaction-table construction, which happens only for
+pairs already within `Rmax` and which no neighbour structure can reduce. The
+conclusion going in was therefore that a shell index cannot pay on any current
+sample, and the measurements below bear that out. It was built for spheres
+large enough that the bounding cube exceeds the sub-volume budget and the
+interior starts taking resolution from the shell.
+
+### 20.2 Sizing, and why the stencil is complete
+
+Bands one cutoff wide in colatitude, each divided into cells one cutoff wide
+along its own narrowest parallel. Both bounds come from the haversine identity
+
+    sin^2(g/2) = sin^2((tA - tB)/2) + sin(tA) sin(tB) sin^2(dp/2)
+
+whose terms are separately non-negative, so a pair at central angle `g` obeys
+`|tA - tB| <= g` and `sin(|dp|/2) <= sin(g/2) / sqrt(sin tA sin tB)`.
+
+Checked against an `O(N^2)` sweep by
+[`shell_index_test.cpp`](../shell_index_test.cpp):
+
+| R (nm) | cutoff (nm) | bands | cells | pairs in range | missed | double counted |
+| --- | --- | --- | --- | --- | --- | --- |
+| 70 | 19.45 | 10 | 106 | 188 539 | 0 | 0 |
+| 100 | 9.77 | 28 | 962 | 23 389 | 0 | 0 |
+| 1000 | 30 | 94 | 11 040 | 4 882 | 0 | 0 |
+| 50 | 19.45 | 7 | 50 | 368 244 | 0 | 0 |
+| 30 | 19.45 | 4 | 14 | 559 316 | 0 | 0 |
+| 500 | 5 | 282 | 100 818 | 545 | 0 | 0 |
+| 70 | 2 | 98 | 12 104 | 4 582 | 0 | 0 |
+
+Over-inclusion runs 3.5x to 4.5x, against a floor of `9/pi` = 2.86x for a
+nine-cell stencil in two dimensions.
+
+### 20.3 The activation gate, and what it was worth
+
+The first version activated for any spherical system. That made `sphere` **9%
+slower** while staying bitwise identical: 448 surface molecules rebinned every
+step, an `acos` and an `atan2` apiece, to fill an index whose every pair the
+type mask then discarded.
+
+The index now also requires that some two explicit molecules can react with
+each other at all. With the gate:
+
+| | `sphere` | `cluster_gagsphere` |
+| --- | --- | --- |
+| index | inactive | 10 bands, 106 cells |
+| before gate | 0.909x | - |
+| after gate | 0.997x, bitwise identical | see below |
+
+### 20.4 Bitwise and statistical verdict
+
+17 of the 18 benchmark cases are bitwise identical, timing 0.99x to 1.00x.
+`cluster_gagsphere` is the only case where the index activates and the only one
+that moves. Over 12 seeds at nItr 1000 its plateau-averaged copy numbers agree
+within seed scatter, largest `|z|` **0.29**, including all three gag-gag
+surface reactions:
+
+| species | before | after | z |
+| --- | --- | --- | --- |
+| `gag(mem!1).IL(m!1)` | 65.500 +- 1.520 | 66.083 +- 1.510 | +0.27 |
+| `gag(homo!1).gag(homo!1)` | 19.583 +- 1.264 | 19.083 +- 1.138 | -0.29 |
+| `gag(het2!1).gag(het1!1)` | 1.833 +- 0.458 | 1.833 +- 0.423 | 0.00 |
+
+### 20.5 Timing on the one case that uses it
+
+A single seed reads 0.842x, which is not the overhead. This model's cost
+follows its trajectory, because it is dominated by how many distinct 2D tables
+get built, and the trajectory differs by construction once the pair order
+changes. Across five seeds:
+
+| build | median | range |
+| --- | --- | --- |
+| before | 44.89 s | 32.08 - 71.85 |
+| after | 45.11 s | 32.28 - 64.94 |
+
+A 2.2x spread between seeds against a 0.5% difference in medians: neutral, and
+the single-seed figure is noise.
