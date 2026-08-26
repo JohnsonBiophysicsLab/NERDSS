@@ -113,12 +113,24 @@ void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
     // count, so it cannot bring an edge back below rMaxLimit.
     const long long maxTotalCells{500000};
     const long long requested{1LL * x * y * z};
-    if (requested > maxTotalCells) {
-      const double shrink{
-          std::cbrt(double(maxTotalCells) / double(requested))};
+    long long current{requested};
+    // Iterated, because one pass does not always land under the budget.  The
+    // cube-root factor assumes all three axes absorb their share, and an axis
+    // already down to one SubBox cannot: a 1 x 1 x 1197604 grid comes out of a
+    // single pass at 1 x 1 x 895000, still nearly twice the cap.  Every pass
+    // either lowers the product or leaves it untouched, and the loop stops on
+    // the latter, so it terminates whatever the aspect ratio.
+    while (current > maxTotalCells) {
+      const double shrink{std::cbrt(double(maxTotalCells) / double(current))};
       x = std::max(1, int(x * shrink));
       y = std::max(1, int(y * shrink));
       z = std::max(1, int(z * shrink));
+      const long long next{1LL * x * y * z};
+      if (next == current)
+        break; // every axis is down to one SubBox; nothing left to give
+      current = next;
+    }
+    if (current != requested) {
       std::cout << "Sub-volume budget of " << maxTotalCells
                 << " exceeded by the " << requested
                 << " the interaction range asks for; using " << x << " x " << y
