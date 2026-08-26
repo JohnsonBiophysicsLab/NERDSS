@@ -2075,3 +2075,110 @@ changes. Across five seeds:
 
 A 2.2x spread between seeds against a 0.5% difference in medians: neutral, and
 the single-seed figure is noise.
+
+## 21. Re-audit: cumulative drift and three residual defects
+
+Measured 2026-08-26, same host and settings as sections 19 and 20. Parent is
+`63fc2b1`, SHA-256 `cb83c595accd2df5`; the tip after this section is
+`fe381b55964209a7`.
+
+Sections 19 and 20 verified every commit against its own parent. This section
+asks the two questions that per-commit checking does not answer: does the whole
+sequence drift anywhere it was not meant to, and is anything left in the
+decomposition that should be fixed.
+
+### 21.1 Cumulative drift, original baseline to tip
+
+Running the suite at the tip against the manifests from `base` -- the build
+before any of this work -- six of the eighteen cases differ, and they are
+exactly the union of the cases each stream-changing commit was expected to
+move:
+
+| case | changed by | why |
+| --- | --- | --- |
+| trimer | `459bd83` | z floor forced SubBoxes below the interaction range |
+| rev_2D | `459bd83`, `77daa3a` | same floor, then the 30 cap |
+| compartment | `a81c7a6`, `77daa3a` | the maxPairs budget, then the 30 cap |
+| rev_3D | `77daa3a` | the 30 cap |
+| rev_3Dto2D | `77daa3a` | the 30 cap |
+| cluster_gagsphere | `336322d` | the shell index activates |
+
+The other twelve are byte-identical from the original baseline all the way to
+the tip. **No unexpected drift.**
+
+### 21.2 One timing outlier, and what it was
+
+That run recorded `homoTrimer` at 1698.693 s against 6.060 s for the baseline,
+a 280x slowdown, while still producing byte-identical output. It is not the
+decomposition: the grid for that model is 10^3 SubBoxes of 32.1 nm against a
+29.7 nm range, which is correct and small.
+
+The same binary, input and seed re-run three times gives 3.97, 3.95 and 3.91 s
+wall at 3.86, 3.88 and 3.85 s user. The same binary measured 4.057 s and
+4.062 s in the two preceding suite runs. The 1698 s is the host, and this
+specific case has a history of it -- the preamble to these results records a
+535 s repetition of `homoTrimer` under the same conditions.
+
+The lesson for reading section 19's and 20's tables: the bitwise verdicts are
+load-independent and the interleaved timings are load-tolerant, but a
+single-shot suite timing on this host is not evidence.
+
+### 21.3 Three residual defects, all fixed and all result-preserving
+
+| commit | defect | reachable today |
+| --- | --- | --- |
+| `3d253cc` | shell cutoff angle used the small-angle limit of the chord bound | yes, by margin only |
+| `391a1a3` | the sub-volume budget could fail to bind | no sample reaches it |
+| `a576661` | the re-bin restart skipped molecule 0 | no sample reaches it |
+
+**`3d253cc`.** `ShellIndex` sized cells from `rMaxLimit / radiusFloor`, the
+small-angle limit of `2*asin(rMaxLimit / 2*radiusFloor)`, and smaller than it
+since `asin(u) >= u`. rMaxLimit is a chord bound, and a chord subtends its
+widest angle at the smallest radius, so the floor is the worst case and the
+exact form is the one to use. The old form was safe only by the gap between
+where surface complexes sit (0.971 and 0.995 of sphereR) and the 0.9 floor.
+Cost: gammaCut moves 0.4% on the R=70 sample, leaving band and cell counts
+unchanged.
+
+`shell_index_test.cpp` now checks the property the simulation relies on --
+a pair within `rMaxLimit` by straight-line distance must be offered -- with
+points at the radius floor, keeping the angular check as a separate count:
+
+| R (nm) | cutoff | bands | cells | pairs within cutoff | missed | angle-missed | double counted |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 70 | 19.45 | 10 | 106 | 190 048 | 0 | 0 | 0 |
+| 100 | 9.77 | 28 | 962 | 23 416 | 0 | 0 | 0 |
+| 1000 | 30 | 94 | 11 040 | 4 882 | 0 | 0 | 0 |
+| 50 | 19.45 | 7 | 50 | 374 103 | 0 | 0 | 0 |
+| 30 | 19.45 | 4 | 12 | 584 039 | 0 | 0 | 0 |
+| 500 | 5 | 282 | 100 818 | 545 | 0 | 0 | 0 |
+| 70 | 2 | 98 | 12 102 | 4 583 | 0 | 0 | 0 |
+
+**`391a1a3`.** The budget scaled all three axes by one cube-root factor and
+clamped each at one SubBox. The factor assumes every axis absorbs its share and
+an axis at one cannot, so the product could stay above the cap:
+
+| grid requested | old result | new result | cap |
+| --- | --- | --- | --- |
+| 1 x 1 x 1 197 604 | 1 x 1 x 895 000 | 1 x 1 x 500 000 | 500 000 |
+| 7 x 7 x 8 399 (from 11 x 11 x 11 976) | within | 411 551 | 500 000 |
+| 79^3 (from 2000^3) | within | 493 039 | 500 000 |
+| 56^3 rev_3D | unchanged | 175 616 | under |
+| 3^3 trimer | unchanged | 27 | under |
+
+**`a576661`.** The checked pass restarts binning after
+`put_back_into_SimulVolume()`, and the restart was `molItr = 0` inside a
+`++molItr` loop, so it resumed at molecule 1. `clear_member_lists()` had just
+emptied every list, so molecule 0 ended the step absent from the grid along
+with every pair it belongs to. The counter is now signed and the restarts set
+it to -1.
+
+The message that marks this path, "Attempting to fit back into box", appears
+**zero times across all 18 cases**, which is why it survived and why the fix
+changes nothing measurable.
+
+### 21.4 Verdict
+
+All three are bitwise identical across all 18 cases, so the tip carries
+sections 19 and 20's results unchanged. The rebuilt tip hashes to
+`fe381b55964209a7`, matching the binary these checks were run against.
