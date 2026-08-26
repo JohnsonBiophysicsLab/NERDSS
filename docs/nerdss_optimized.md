@@ -824,6 +824,78 @@ distinct 2D tables the trajectory happens to need - and across five seeds the
 medians are 44.89 s before and 45.11 s after. A 2.2x spread between seeds
 against a 0.5% difference in medians.
 
+### Re-audit - cumulative drift, and three residual defects
+
+Sections above verified each commit against its own parent. Two questions that
+does not answer: does the sequence as a whole drift anywhere it was not meant
+to, and is anything left in the decomposition worth fixing. Section 21 of
+`RESULTS.md` has the tables.
+
+#### Cumulative drift
+
+Running the suite at the tip against the manifests from the build before any of
+this work, six of the eighteen cases differ, and they are exactly the union of
+the cases each stream-changing commit was expected to move: `trimer` and
+`rev_2D` from the z floor, `compartment` from the maxPairs budget, `rev_3D`,
+`rev_3Dto2D`, `rev_2D` and `compartment` from the 30 cap, and
+`cluster_gagsphere` from the shell index. The other twelve are byte-identical
+from the original baseline to the tip. Nothing moved that was not meant to.
+
+One timing in that run needs discounting rather than explaining: `homoTrimer`
+recorded 1698.693 s against a 6.060 s baseline while still producing
+byte-identical output. Its grid is 10^3 SubBoxes of 32.1 nm against a 29.7 nm
+range, which is correct and small, and the same binary, input and seed re-runs
+at 3.97, 3.95 and 3.91 s wall against 3.86, 3.88 and 3.85 s user. It is the
+host, which the preamble to `RESULTS.md` already records doing this to the same
+case. Bitwise verdicts are load-independent and the interleaved timings are
+load-tolerant; a single-shot suite timing on this host is not evidence.
+
+#### Three residual defects
+
+All three are bitwise identical across all 18 cases, so the results above carry
+over unchanged.
+
+**`3d253cc` - the shell cutoff angle was the small-angle limit of the right
+bound.** `ShellIndex` sized its cells from `rMaxLimit / radiusFloor`, which is
+the small-angle limit of `2*asin(rMaxLimit / 2*radiusFloor)` and smaller than
+it, since `asin(u) >= u`. rMaxLimit is a *chord* bound -- it is built so that
+two molecules close enough to react have `|COM1 - COM2| <= rMaxLimit` -- and a
+chord subtends its widest angle at the smallest radius, so the radius floor is
+the worst case and the exact form is the one the guarantee needs. The old form
+was correct only by the margin between where surface complexes actually sit,
+0.971 and 0.995 of `sphereR`, and the 0.9 floor. Making it exact costs 0.4% in
+cell width on the R=70 sample and leaves the band and cell counts unchanged.
+
+The test now checks the property the simulation relies on, rather than the
+index's internal consistency: a pair within `rMaxLimit` of each other by
+straight-line distance must be offered, with the points placed at the radius
+floor because that is the worst case. It keeps the angular check as a separate
+count, so a change that breaks one and not the other is distinguishable.
+
+**`391a1a3` - the sub-volume budget could fail to bind.** It scaled all three
+axes by one cube-root factor and clamped each at a minimum of one SubBox, and
+those two rules disagree: the factor assumes every axis absorbs its share, and
+an axis already at one cannot. A 1 x 1 x 1197604 grid came out of the single
+pass at 1 x 1 x 895000, still nearly twice the 500 000 cap. Iterating fixes it
+-- each pass either lowers the product or leaves it alone, and the loop stops
+on the latter. No sample input comes near the cap, so nothing in the suite
+moves; a cap that does not cap is the same class of defect as the guards this
+work removed, which is why it is worth the loop anyway.
+
+**`a576661` - the re-bin restart skipped molecule 0.** The checked pass calls
+`put_back_into_SimulVolume()` for a molecule found outside the box, empties
+every member list and restarts the binning. The restart was `molItr = 0` inside
+a `++molItr` loop, so it resumed at molecule 1 -- and since
+`clear_member_lists()` had just thrown away molecule 0's membership, nothing
+put it back. For that step molecule 0 was absent from the grid, and so was
+every pair it belongs to. The counter is now signed and the restarts set it to
+-1.
+
+The message that marks this path, "Attempting to fit back into box", appears
+zero times across all 18 cases. That is why it survived, and why fixing it
+changes nothing measurable. The `MpiContext` overload carries the same four
+restarts and is left alone, as with the other MPI-only paths here.
+
 ## Reproducing the measurements
 
 ```bash
