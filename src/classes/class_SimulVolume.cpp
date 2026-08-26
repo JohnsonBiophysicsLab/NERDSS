@@ -404,7 +404,14 @@ void SimulVolume::update_memberMolLists(
     }
   } else {
     /*make sure proteins are within bin limits, lipids are on membrane*/
-    for (unsigned molItr{0}; molItr < moleculeList.size(); ++molItr) {
+    // Signed, so that a restart can leave the counter at -1 and have ++molItr
+    // put it back to 0.  Written as `molItr = 0` in an ++molItr loop, each
+    // restart below resumed at molecule 1 instead -- and since
+    // clear_member_lists() had just emptied every member list, molecule 0 was
+    // left out of the grid for that step, taking every pair it belongs to with
+    // it.  None of the sample inputs reaches these branches, so no benchmark
+    // case changes.
+    for (int molItr{0}; molItr < int(moleculeList.size()); ++molItr) {
       Molecule &mol = moleculeList[molItr]; // just for legibility
 
       if (mol.isEmpty || mol.isImplicitLipid)
@@ -483,7 +490,7 @@ void SimulVolume::update_memberMolLists(
         complexList[mol.myComIndex].put_back_into_SimulVolume(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
-        molItr = 0;
+        molItr = -1; // ++molItr resumes at molecule 0
         clear_member_lists();
       } else if (mol.comCoord.y > (membraneObject.waterBox.y / 2) ||
                  mol.comCoord.y + 1E-6 < -(membraneObject.waterBox.y / 2)) {
@@ -494,7 +501,7 @@ void SimulVolume::update_memberMolLists(
         complexList[mol.myComIndex].put_back_into_SimulVolume(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
-        molItr = 0;
+        molItr = -1; // ++molItr resumes at molecule 0
         clear_member_lists();
       } else if (mol.comCoord.x > (membraneObject.waterBox.x / 2) ||
                  mol.comCoord.x + 1E-6 < -(membraneObject.waterBox.x / 2)) {
@@ -505,7 +512,7 @@ void SimulVolume::update_memberMolLists(
         complexList[mol.myComIndex].put_back_into_SimulVolume(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
-        molItr = 0;
+        molItr = -1; // ++molItr resumes at molecule 0
         clear_member_lists();
       } else if (currBin > (numSubCells.tot) || currBin < 0) {
         std::cout
@@ -515,7 +522,7 @@ void SimulVolume::update_memberMolLists(
         complexList[mol.myComIndex].put_back_into_SimulVolume(
             itr, mol, membraneObject, moleculeList, molTemplateList);
         // reset member search
-        molItr = 0;
+        molItr = -1; // ++molItr resumes at molecule 0
         clear_member_lists();
       } else {
         // The Molecule is in the simulation volume, okay to proceed
