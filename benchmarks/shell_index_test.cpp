@@ -36,7 +36,8 @@ static int check(double R, double h, int nPts, unsigned seed)
     for (int i = 0; i < nPts; ++i) {
         // uniform on the sphere
         double z = 2 * frand() - 1, phi = 2 * M_PI * frand(), r = sqrt(1 - z * z);
-        Vec3D p; p.x = R * r * cos(phi); p.y = R * r * sin(phi); p.z = R * z;
+        const double rf = idx.radiusFloor; // worst admitted radius
+        Vec3D p; p.x = rf * r * cos(phi); p.y = rf * r * sin(phi); p.z = rf * z;
         pts.push_back(p);
         cell.push_back(idx.cell_of(p));
     }
@@ -64,22 +65,33 @@ static int check(double R, double h, int nPts, unsigned seed)
         }
     }
 
-    // ground truth: every pair within the cutoff arc, at the radius floor
-    long long inRange = 0, missed = 0;
-    double gamma = idx.gammaCut;
+    // Ground truth is the property the simulation actually relies on: a pair
+    // whose straight-line separation is within the cutoff must be offered.
+    // Points are placed at the radius floor, which is the worst case -- the
+    // same chord subtends a wider angle the closer in it sits.
+    long long inRange = 0, missed = 0, angleMissed = 0;
     for (int i = 0; i < nPts; ++i)
         for (int j = i + 1; j < nPts; ++j) {
-            double d = (pts[i].x*pts[j].x + pts[i].y*pts[j].y + pts[i].z*pts[j].z) / (R*R);
-            if (d > 1) d = 1; if (d < -1) d = -1;
-            if (acos(d) > gamma) continue;
+            double dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, dz = pts[i].z - pts[j].z;
+            if (sqrt(dx*dx + dy*dy + dz*dz) > h) continue;
             ++inRange;
             if (!offered.count(std::make_pair(i, j))) ++missed;
         }
+    // and separately that the stencil covers its own declared angle
+    for (int i = 0; i < nPts; ++i)
+        for (int j = i + 1; j < nPts; ++j) {
+            double d = (pts[i].x*pts[j].x + pts[i].y*pts[j].y + pts[i].z*pts[j].z);
+            double n = sqrt((pts[i].x*pts[i].x+pts[i].y*pts[i].y+pts[i].z*pts[i].z)
+                          * (pts[j].x*pts[j].x+pts[j].y*pts[j].y+pts[j].z*pts[j].z));
+            d /= n; if (d > 1) d = 1; if (d < -1) d = -1;
+            if (acos(d) > idx.gammaCut) continue;
+            if (!offered.count(std::make_pair(i, j))) ++angleMissed;
+        }
 
     long long dup = offeredCount - (long long)offered.size();
-    printf("  R=%-7g h=%-6g bands=%-3d cells=%-6d offered=%-8lld inRange=%-7lld missed=%-6lld doubleCounted=%lld\n",
-           R, h, idx.nBands, idx.totalCells, (long long)offered.size(), inRange, missed, dup);
-    return (missed != 0 || dup != 0) ? 1 : 0;
+    printf("  R=%-7g h=%-6g bands=%-3d cells=%-6d inCutoff=%-7lld missed=%-3lld angleMissed=%-3lld doubleCounted=%lld\n",
+           R, h, idx.nBands, idx.totalCells, inRange, missed, angleMissed, dup);
+    return (missed != 0 || angleMissed != 0 || dup != 0) ? 1 : 0;
 }
 
 int main()

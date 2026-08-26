@@ -42,7 +42,10 @@ struct ShellIndex {
     double radius { 0.0 };      //!< sphereR
     double cutoff { 0.0 };      //!< rMaxLimit, read as an arc length on the shell
     double radiusFloor { 0.0 }; //!< below this a molecule stays on the Cartesian path
-    double gammaCut { 0.0 };    //!< the largest central angle a reacting pair can span
+    //! Largest central angle a reacting pair can span: 2*asin(cutoff / 2*radiusFloor).
+    //! rMaxLimit is a chord bound, and a chord subtends the widest angle at the
+    //! smallest radius, so the floor is the worst case.
+    double gammaCut { 0.0 };
     double bandWidth { 0.0 };   //!< colatitude covered by one band
     int nBands { 0 };
     int totalCells { 0 };

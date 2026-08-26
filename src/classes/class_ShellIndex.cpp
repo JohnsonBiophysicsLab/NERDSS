@@ -83,7 +83,23 @@ void ShellIndex::build(double sphereR, double rMaxLimit, bool anyExplicitPairRea
     radius = sphereR;
     cutoff = rMaxLimit;
     radiusFloor = radiusFloorFraction * sphereR;
-    gammaCut = cutoff / radiusFloor;
+
+    // Largest central angle a reacting pair can span, derived from the bound
+    // the Cartesian grid already relies on rather than from an arc estimate.
+    // rMaxLimit is a *chord*: it is built so that two molecules close enough to
+    // react have |COM1 - COM2| <= rMaxLimit, arms included.  A chord c at
+    // radius r subtends 2*asin(c / 2r), which grows as r shrinks, so the
+    // largest angle any admitted pair can span is at the radius floor.
+    //
+    // The earlier form, cutoff / radiusFloor, is the small-angle limit of this
+    // and is smaller, since asin(u) >= u.  It made the cells marginally too
+    // narrow, and was safe only by the margin between where surface complexes
+    // actually sit (0.971 and 0.995 of sphereR) and the floor at 0.9.  This
+    // form needs no such margin.  It is also barely wider in practice: on the
+    // R=70 sample it moves gammaCut from 0.30869 to 0.30994 rad, 0.4%, which
+    // leaves the band and cell counts unchanged.
+    const double halfChord{cutoff / (2.0 * radiusFloor)};
+    gammaCut = (halfChord >= 1.0) ? M_PI : 2.0 * std::asin(halfChord);
 
     // One cutoff spans the sphere, so every surface molecule is a candidate
     // partner for every other one and there is nothing for an index to rule
