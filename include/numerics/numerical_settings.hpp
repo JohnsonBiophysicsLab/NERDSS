@@ -46,9 +46,11 @@ struct NumericalSettings {
     } associationAngles;
 
     struct Vec3D {
-        // The default precision for Vec3D::operator== and related comparisons.
+        // This policy is process-global because Vec3D::operator== has no
+        // Parameters argument. Each MPI rank receives the same value through
+        // Parameters serialization before simulation work begins.
         // e.g. 10000 means 4 digits of precision, 100000 means 5 digits, etc.
-        int coordinateEqualityPrecision { 10000 };
+        static int coordinateEqualityPrecision;
     } vec3D;
 
     void validate() const
@@ -84,6 +86,10 @@ struct NumericalSettings {
             "numericsAssociationRotationTolerance", associationAngles.rotationConvergenceTolerance);
         require_positive(
             "numericsAssociationEndpointSignTolerance", associationAngles.endpointSignTolerance);
+
+        if (vec3D.coordinateEqualityPrecision <= 0)
+            throw std::invalid_argument(
+                "numericsVec3DCoordinatePrecision must be greater than zero.");
     }
 
 private:

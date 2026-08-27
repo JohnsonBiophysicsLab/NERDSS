@@ -78,7 +78,7 @@
  * \param var The value to round.
  *
  * \return The value rounded to the precision specified by
- *         NumericalSettings::vec3D.coordinateEqualityPrecision.
+ *         NumericalSettings::Vec3D::coordinateEqualityPrecision.
  *
  * \note A precision of 10000 corresponds to four decimal places, 100000
  *       corresponds to five decimal places, etc.
@@ -91,7 +91,7 @@
 inline double roundv(double var) noexcept
 {
     const int precision =
-        NumericalSettings::instance().vec3D.coordinateEqualityPrecision;
+        NumericalSettings::Vec3D::coordinateEqualityPrecision;
 
     // if-else is because neg and pos values will round differently
     double val = (int)(var > 0
@@ -368,7 +368,7 @@ inline Vec3D operator+(const std::array<double, 3>& arr, const Vec3D& v) noexcep
     return { arr[0] + v.x, arr[1] + v.y, arr[2] + v.z };
 }
 
-//! \brief Equality on values rounded to four decimals; see roundv().
+//! \brief Equality on values rounded to the configured precision; see roundv().
 inline bool operator==(const Vec3D& v1, const Vec3D& v2) noexcept
 {
     return roundv(v1.x) == roundv(v2.x) && roundv(v1.y) == roundv(v2.y) && roundv(v1.z) == roundv(v2.z);

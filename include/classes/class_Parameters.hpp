@@ -73,7 +73,8 @@ enum class ParamKeyword : int {
     numericsAssociationSameAngleAbsTolerance = 33,
     numericsAssociationSameAngleRelTolerance = 34,
     numericsAssociationRotationTolerance = 35,
-    numericsAssociationEndpointSignTolerance = 36
+    numericsAssociationEndpointSignTolerance = 36,
+    numericsVec3DCoordinatePrecision = 37
 };
 
 /*! \enum MolKeyword
@@ -265,6 +266,7 @@ struct Parameters {
         PUSH(numerics.associationAngles.sameAngle.relative);
         PUSH(numerics.associationAngles.rotationConvergenceTolerance);
         PUSH(numerics.associationAngles.endpointSignTolerance);
+        PUSH(numerics.vec3D.coordinateEqualityPrecision);
         PUSH(implicitLipid);
         PUSH(hasUniMolStateChange);
         PUSH(hasCreationDestruction);
@@ -324,6 +326,7 @@ struct Parameters {
         POP(numerics.associationAngles.sameAngle.relative);
         POP(numerics.associationAngles.rotationConvergenceTolerance);
         POP(numerics.associationAngles.endpointSignTolerance);
+        POP(numerics.vec3D.coordinateEqualityPrecision);
         POP(implicitLipid);
         POP(hasUniMolStateChange);
         POP(hasCreationDestruction);

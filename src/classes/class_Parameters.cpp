@@ -51,6 +51,7 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numericsassociationsameanglereltolerance", ParamKeyword::numericsAssociationSameAngleRelTolerance },
     { "numericsassociationrotationtolerance", ParamKeyword::numericsAssociationRotationTolerance },
     { "numericsassociationendpointsigntolerance", ParamKeyword::numericsAssociationEndpointSignTolerance },
+    { "numericsvec3dcoordinateprecision", ParamKeyword::numericsVec3DCoordinatePrecision },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -192,6 +193,9 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
         case 36:
             this->numerics.associationAngles.endpointSignTolerance = std::stod(value);
             break;
+        case 37:
+            this->numerics.vec3D.coordinateEqualityPrecision = std::stoi(value);
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -303,6 +307,8 @@ void Parameters::display()
     std::cout << "  association rotation/endpoint-sign tolerance: "
               << numerics.associationAngles.rotationConvergenceTolerance << " / "
               << numerics.associationAngles.endpointSignTolerance << '\n';
+    std::cout << "  Vec3D coordinate precision: "
+              << numerics.vec3D.coordinateEqualityPrecision << '\n';
 
     std::cout << "Molecule specific parameters:\n";
     std::cout << "Number of unique molecule types: " << numMolTypes << '\n';

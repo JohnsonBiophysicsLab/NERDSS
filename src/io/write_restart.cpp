@@ -57,7 +57,7 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
             restartFile << ' ' << index;
         restartFile << '\n';
 
-        restartFile << "#NumericalSettings version = 2\n" << std::scientific;
+        restartFile << "#NumericalSettings version = 3\n" << std::scientific;
         restartFile << "integrationAbsError = " << params.numerics.integration.tableAbsoluteError << '\n';
         restartFile << "integrationRelError = " << params.numerics.integration.tableRelativeError << '\n';
         restartFile << "integrationFallbackError = " << params.numerics.integration.fallbackError << '\n';
@@ -84,6 +84,8 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
                     << params.numerics.associationAngles.rotationConvergenceTolerance << '\n';
         restartFile << "associationEndpointSignTolerance = "
                     << params.numerics.associationAngles.endpointSignTolerance << '\n';
+        restartFile << "vec3DCoordinatePrecision = "
+                    << params.numerics.vec3D.coordinateEqualityPrecision << '\n';
         restartFile << "#EndNumericalSettings\n";
     }
     /*

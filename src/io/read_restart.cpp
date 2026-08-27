@@ -180,10 +180,16 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
         if (nextSection.find("#NumericalSettings") == 0) {
             const bool isVersion1 { nextSection.find("version = 1") != std::string::npos };
             const bool isVersion2 { nextSection.find("version = 2") != std::string::npos };
-            if (!isVersion1 && !isVersion2)
+            const bool isVersion3 { nextSection.find("version = 3") != std::string::npos };
+            if (!isVersion1 && !isVersion2 && !isVersion3)
                 throw std::string("Unsupported numerical-settings restart section: ") + nextSection;
 
             const auto readNumericalValue = [&restartFile](double& value) {
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+                restartFile >> value;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            };
+            const auto readNumericalInteger = [&restartFile](int& value) {
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
                 restartFile >> value;
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -201,12 +207,14 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             readNumericalValue(params.numerics.tableLookup.diffusionCoefficient.relative);
             readNumericalValue(params.numerics.classification.explicitLipidFlatDiffusion);
             readNumericalValue(params.numerics.classification.implicitLipidFlatDiffusion);
-            if (isVersion2) {
+            if (isVersion2 || isVersion3) {
                 readNumericalValue(params.numerics.associationAngles.sameAngle.absolute);
                 readNumericalValue(params.numerics.associationAngles.sameAngle.relative);
                 readNumericalValue(params.numerics.associationAngles.rotationConvergenceTolerance);
                 readNumericalValue(params.numerics.associationAngles.endpointSignTolerance);
             }
+            if (isVersion3)
+                readNumericalInteger(params.numerics.vec3D.coordinateEqualityPrecision);
 
             std::getline(restartFile, nextSection);
             if (nextSection.find("#EndNumericalSettings") != 0)
