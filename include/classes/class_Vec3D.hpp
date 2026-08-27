@@ -356,6 +356,32 @@ inline bool operator!=(const Vec3D& v1, const Vec3D& v2) noexcept { return !(v1 
 
 inline Vec3D round(const Vec3D& v) noexcept { return { roundv(v.x), roundv(v.y), roundv(v.z) }; }
 
+/**
+ * @brief Computes the vector rejection of this vector from a given normal.
+ * The rejection is the component of this vector that is perpendicular to
+ * @p normal. It is computed by subtracting the projection onto @p normal:
+ *
+ * rejection = *this - normal * ((*this · normal) / (normal · normal))
+ *
+ * Equivalently, the result is the component of this vector lying in the
+ * hyperplane perpendicular to @p normal.
+ * 
+ * @param normal The vector defining the direction from which this vector
+ * is rejected. It must be non-zero.
+ * 
+ * @return The component of this vector perpendicular to @p normal.
+ * 
+ * @note The intermediate projection term is intentionally computed as a
+ * separate statement. Keeping the multiplication and subtraction
+ * separate prevents the compiler from combining them into a fused
+ * multiply-add (FMA), which can produce slightly different rounding
+ * results on platforms that support FMA.
+ * 
+ * @note This function is @c noexcept and does not modify either vector.
+ * 
+ * @warning Passing a zero vector as @p normal results in division by zero
+ * and produces an undefined/invalid result.
+*/
 inline Vec3D Vec3D::rejection_from(const Vec3D& normal) const noexcept
 {
     double coefficient { this->dot(normal) / normal.dot(normal) };
