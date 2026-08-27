@@ -1,5 +1,8 @@
 /*! \file class_Vec3D.hpp
  *
+ * \author Matthew Varga
+ * \author Yue Ying
+ * 
  * \brief The one three-dimensional vector type.
  *
  * Replaces `Coord` (created 6/1/18 by Matthew Varga) and `Vector` (created
@@ -57,6 +60,7 @@
 #include "attributes.hpp"
 #include "classes/class_Membrane.hpp"
 #include "classes/class_Parameters.hpp"
+#include "numerics/numerical_settings.hpp"
 
 #include <array>
 #include <cmath>
@@ -65,18 +69,36 @@
 #include <vector>
 
 /*!
- * \brief Rounds to four decimal places.
+ * \brief Rounds according to the configured Vec3D coordinate precision.
  *
- * Coordinate comparisons are made on rounded values, so this is what defines
- * "the same point" for Vec3D::operator== and for the geometry checks in
- * check_bases.cpp and conservedMags.cpp.  Defined here rather than in the
- * translation unit so those comparisons inline.
+ * Coordinate comparisons are made on rounded values, so this defines what
+ * constitutes "the same point" for Vec3D::operator== and related geometry
+ * checks.
+ *
+ * \param var The value to round.
+ *
+ * \return The value rounded to the precision specified by
+ *         NumericalSettings::vec3D.coordinateEqualityPrecision.
+ *
+ * \note A precision of 10000 corresponds to four decimal places, 100000
+ *       corresponds to five decimal places, etc.
+ *
+ * \note The arithmetic is intentionally kept equivalent to the original
+ *       implementation. In particular, the multiplication, addition or
+ *       subtraction, integer conversion, and division are kept as separate
+ *       operations to preserve floating-point behavior.
  */
 inline double roundv(double var) noexcept
 {
+    const int precision =
+        NumericalSettings::instance().vec3D.coordinateEqualityPrecision;
+
     // if-else is because neg and pos values will round differently
-    double val = (int)(var > 0 ? var * 10000 + 0.5 : var * 10000 - 0.5);
-    return val / 10000;
+    double val = (int)(var > 0
+        ? var * precision + 0.5
+        : var * precision - 0.5);
+
+    return val / precision;
 }
 
 /*! \struct Vec3D

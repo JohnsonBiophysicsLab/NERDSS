@@ -45,6 +45,12 @@ struct NumericalSettings {
         double endpointSignTolerance { 1e-11 };
     } associationAngles;
 
+    struct Vec3D {
+        // The default precision for Vec3D::operator== and related comparisons.
+        // e.g. 10000 means 4 digits of precision, 100000 means 5 digits, etc.
+        int coordinateEqualityPrecision { 10000 };
+    } vec3D;
+
     void validate() const
     {
         require_positive("numericsIntegrationAbsError", integration.tableAbsoluteError);
