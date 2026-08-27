@@ -50,6 +50,7 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
         // if it's inside the box, check if it overlaps with any molecule
         std::vector<unsigned> checkedMols {};
         for (auto memMol : simulVolume.subCellList[currBin].memberMolList) {
+            if (memMol >= moleculeList.size()) continue;
             if (moleculeList[memMol].myComIndex == -1) continue;
             if (moleculeList[memMol].myComIndex >= complexList.size()) continue;
             const Complex& oneCom = complexList[moleculeList[memMol].myComIndex]; // legibility
