@@ -37,7 +37,7 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
             }
         }
         restartFile << '\n';
-        restartFile << "implicitLipidsParams = " << membraneObject.implicitLipid << ' ' << membraneObject.TwoD << ' ' << membraneObject.isBox << ' ' << membraneObject.isSphere << ' ' << membraneObject.sphereR <<' ' << membraneObject.hasCompartment << ' ' << membraneObject.compartmentR << '\n';
+        restartFile << "implicitLipidsParams = " << membraneObject.implicitLipid << ' ' << membraneObject.TwoD << ' ' << membraneObject.isBox() << ' ' << membraneObject.isSphere() << ' ' << membraneObject.sphereR <<' ' << membraneObject.hasCompartment << ' ' << membraneObject.compartmentR << '\n';
         restartFile << "ifaceOverlapSepLimit = " << params.overlapSepLimit << '\n';
         restartFile << "rMaxLimit = " << params.rMaxLimit << '\n';
         restartFile << "timeWrite = " << params.timeWrite << '\n';

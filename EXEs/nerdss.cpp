@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
     complexList.reserve(reservation);
 
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       if (membraneObject.hasCompartment == true) {
         std::cerr << "Compartment should not exist in a sphere system!"
                   << std::endl;
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
 
     // check the size of the compartment: make sure that the waterbox boundary
     // to the compartment should be larger than the rMaxLimit
-    if (membraneObject.isSphere == false &&
+    if (membraneObject.isSphere() == false &&
         membraneObject.hasCompartment == true) {
       bool tooSmallBox = false;
       if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
       }
 
       // create water box for sphere boundary
-      if (membraneObject.isSphere) {
+      if (membraneObject.isSphere()) {
         if (membraneObject.hasCompartment == true) {
           std::cerr << "Compartment should not exist in a sphere system!"
                     << std::endl;
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
 
       // check the size of the compartment: make sure that the waterbox boundary
       // to the compartment should be larger than the rMaxLimit
-      if (membraneObject.isSphere == false &&
+      if (membraneObject.isSphere() == false &&
           membraneObject.hasCompartment == true) {
         bool tooSmallBox = false;
         if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -511,7 +511,7 @@ int main(int argc, char *argv[]) {
     }
 
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       membraneObject.create_water_box();
       membraneObject.sphereVol =
           (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
@@ -782,7 +782,7 @@ int main(int argc, char *argv[]) {
     }
   }
   ShellIndex shellIndex;
-  shellIndex.build(membraneObject.isSphere ? membraneObject.sphereR : 0.0,
+  shellIndex.build(membraneObject.isSphere() ? membraneObject.sphereR : 0.0,
                    params.rMaxLimit, anyExplicitPairReaction);
   shellIndex.display();
 
@@ -1425,7 +1425,7 @@ int main(int argc, char *argv[]) {
                                          moleculeList, complexList, forwardRxns,
                                          molTemplateList, membraneObject);
           }
-          if (membraneObject.isSphere == true)
+          if (membraneObject.isSphere() == true)
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                     moleculeList, RS3Dinput, false);
         }
@@ -1434,7 +1434,7 @@ int main(int argc, char *argv[]) {
           // For proteins with ncross=0, they either moved independently,
           // or their displacements were selected based on the complex
           // they were part of, and they may not yet been moved.
-          if (membraneObject.isSphere == true) {
+          if (membraneObject.isSphere() == true) {
             if (mol.trajStatus == TrajStatus::none) {
               create_complex_propagation_vectors(
                   params, complexList[mol.myComIndex], moleculeList,

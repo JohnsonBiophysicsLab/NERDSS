@@ -293,7 +293,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
-                                        if (membraneObject.isSphere == true) {
+                                        if (membraneObject.isSphere() == true) {
                                             Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
                                             Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
                                             double r1 = iface11.length();
@@ -386,7 +386,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
-                                        if (membraneObject.isSphere == true) {
+                                        if (membraneObject.isSphere() == true) {
                                             Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
                                             Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
                                             double r1 = iface11.length();

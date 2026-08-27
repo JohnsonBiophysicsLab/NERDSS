@@ -24,7 +24,7 @@
  * that it already sits on the surface.  Hand one an interior point and it will
  * silently answer for the smaller sphere that point happens to lie on.
  *
- * `Membrane::isSphere` is the flag that selects these routines; the callers are
+ * `Membrane::isSphere()` is the flag that selects these routines; the callers are
  * the `_sphere` variants in reactions/ and trajectory_functions/.
  *
  * \section sphere_frames The two coordinate systems, and which is which

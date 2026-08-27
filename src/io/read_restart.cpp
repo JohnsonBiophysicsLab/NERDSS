@@ -74,7 +74,16 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             }
 
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
-            restartFile >> membraneObject.implicitLipid >> membraneObject.TwoD >> membraneObject.isBox >> membraneObject.isSphere >> membraneObject.sphereR >> membraneObject.hasCompartment >> membraneObject.compartmentR;
+            // The restart format still carries the two flags the shape used to
+            // be stored as, so files written by either version stay readable.
+            // A file with both set is a sphere, matching the precedence in
+            // Membrane::set_value_BC().
+            bool isBoxFlag { false };
+            bool isSphereFlag { false };
+            restartFile >> membraneObject.implicitLipid >> membraneObject.TwoD >> isBoxFlag >> isSphereFlag >> membraneObject.sphereR >> membraneObject.hasCompartment >> membraneObject.compartmentR;
+            membraneObject.shape = isSphereFlag ? BoundaryShape::Sphere
+                : isBoxFlag                     ? BoundaryShape::Box
+                                                : BoundaryShape::Unspecified;
 
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
             restartFile >> params.overlapSepLimit;

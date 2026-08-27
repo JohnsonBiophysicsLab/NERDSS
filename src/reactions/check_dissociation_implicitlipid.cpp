@@ -229,7 +229,7 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
                 // consider the reflecting-surface movement
                 Vec3D transVec1 {};
                 if (complexList[moleculeList[molItr].myComIndex].linksToSurface < 1 && membraneObject.TwoD == false) {
-                    if (membraneObject.isSphere) {
+                    if (membraneObject.isSphere()) {
                         Vec3D coord = moleculeList[molItr].interfaceList[relIface1].coord;
                         double rtmp = membraneObject.sphereR - RS3D;
                         Vec3D coordnew = rtmp / coord.length() * coord;

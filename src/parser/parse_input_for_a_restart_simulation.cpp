@@ -107,7 +107,7 @@ void parse_input_for_a_restart_simulation(
   }
 
   // Create water box for sphere boundary
-  if (membraneObject.isSphere) {
+  if (membraneObject.isSphere()) {
     membraneObject.create_water_box();
     membraneObject.sphereVol =
         (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;

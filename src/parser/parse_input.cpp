@@ -22,7 +22,12 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
             break;
         case 1:
             this->waterBox = WaterBox(parse_input_array(value));
-            this->isBox = true;
+            // A sphere already named by `isSphere` or `sphereR` keeps the
+            // boundary.  The boolean pair this member replaced allowed both
+            // flags to be set at once, and every consumer except display() read
+            // only isSphere, so a sphere won however the keywords were ordered.
+            if (this->shape != BoundaryShape::Sphere)
+                this->shape = BoundaryShape::Box;
             std::cout << "Read in waterBox: "
                       << "[" << waterBox.x << " nm, " << waterBox.y << " nm, " << waterBox.z << " nm]" << std::endl;
             break;
@@ -42,13 +47,17 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
                       << value << std::endl;
             break;
         case 5:
-            this->isSphere = read_boolean(value);
-            std::cout << "Read in isSphere: " << std::boolalpha << this->isSphere << std::endl;
+            // `isSphere = false` is not a request for a box; it leaves the
+            // boundary as whatever the other keywords named, which is what
+            // assigning false to the old flag did.
+            if (read_boolean(value))
+                this->shape = BoundaryShape::Sphere;
+            std::cout << "Read in isSphere: " << std::boolalpha << this->isSphere() << std::endl;
             break;
         case 6:
             this->sphereR = std::stod(value);
             std::cout << "Read in sphereR: " << this->sphereR << " nm" << std::endl;
-            this->isSphere = true;
+            this->shape = BoundaryShape::Sphere;
             break;
         case 7:
             this->hasCompartment = read_boolean(value);
@@ -78,11 +87,11 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
 
 void Membrane::display()
 {
-    std::cout << " isSphere? " << std::boolalpha << isSphere << std::endl;
+    std::cout << " isSphere? " << std::boolalpha << isSphere() << std::endl;
     std::cout << " sphere Radius " << sphereR << std::endl;
     std::cout << " hasCompartment? " << std::boolalpha << hasCompartment << std::endl;
     std::cout << " compartment Radius " << compartmentR << std::endl;
-    if (isBox == true) {
+    if (isBox() == true) {
         std::cout << " BOX geometry, dimensions: " << std::endl;
         std::cout << waterBox.x << ' ' << waterBox.y << ' ' << waterBox.z << std::endl;
     }

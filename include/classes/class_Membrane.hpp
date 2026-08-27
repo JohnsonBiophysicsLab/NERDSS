@@ -27,6 +27,23 @@ enum class BoundaryKeyword : int {
     compartmentSiteRho = 10, //!< The density of the surface binding sites
 };
 
+/*! \brief Which boundary the system is enclosed by.
+ *
+ * This replaces the `isBox` / `isSphere` boolean pair, which could represent
+ * two shapes at once and had no way to say "neither".  `Unspecified` is that
+ * fourth state made explicit: it is what a run has before the input names a
+ * boundary, and it is what the old pair meant when both were false.
+ *
+ * The underlying values are pinned because `serialize()` writes them, and
+ * because `write_restart()` derives the two integers of the on-disk restart
+ * format from this one member.
+ */
+enum class BoundaryShape : int {
+    Unspecified = 0, //!< no boundary keyword was read
+    Box = 1, //!< rectangular water box; dimensions in `waterBox`
+    Sphere = 2, //!< spherical boundary of radius `sphereR`
+};
+
 struct Membrane {
   //public:
 
@@ -131,8 +148,9 @@ struct Membrane {
     double lipidLength { 0.0 };
     bool implicitLipid = false;
     bool TwoD = false;
-    bool isBox = false;
-    bool isSphere = false;
+    //! The enclosing boundary.  Read through isBox() / isSphere(); those are
+    //! the only two questions the rest of the program asks of it.
+    BoundaryShape shape { BoundaryShape::Unspecified };
     std::string xBCtype; //allow reflect, or pbc
     std::string yBCtype;
     std::string zBCtype;
@@ -145,6 +163,11 @@ struct Membrane {
       BoundaryKeyword keywords are defined above.
       ParameterKeywords are in include/classes/class_Parameters.hpp
      */
+
+    //! \brief True when the system is enclosed by a rectangular water box.
+    bool isBox() const { return shape == BoundaryShape::Box; }
+    //! \brief True when the system is enclosed by a sphere of radius `sphereR`.
+    bool isSphere() const { return shape == BoundaryShape::Sphere; }
 
     void set_value_BC(std::string value, BoundaryKeyword keywords);
     /*In here, we could also store coordinate vector
@@ -190,8 +213,7 @@ struct Membrane {
     PUSH(lipidLength);
     PUSH(implicitLipid);
     PUSH(TwoD);
-    PUSH(isBox);
-    PUSH(isSphere);
+    PUSH(shape);
     serialize_string(xBCtype, arrayRank, nArrayRank);
     serialize_string(yBCtype, arrayRank, nArrayRank);
     serialize_string(zBCtype, arrayRank, nArrayRank);
@@ -226,8 +248,7 @@ struct Membrane {
     POP(lipidLength);
     POP(implicitLipid);
     POP(TwoD);
-    POP(isBox);
-    POP(isSphere);
+    POP(shape);
     deserialize_string(xBCtype, arrayRank, nArrayRank);
     deserialize_string(yBCtype, arrayRank, nArrayRank);
     deserialize_string(zBCtype, arrayRank, nArrayRank);
