@@ -2182,3 +2182,470 @@ changes nothing measurable.
 All three are bitwise identical across all 18 cases, so the tip carries
 sections 19 and 20's results unchanged. The rebuilt tip hashes to
 `fe381b55964209a7`, matching the binary these checks were run against.
+
+## 22. Flattening `Molecule` to structure-of-arrays: built, measured, reverted
+
+A review of this branch objected that
+
+> base data structure classes such as `Molecule` [are] a pointer-heavy
+> array-of-structures with many nested `std::vector`s and an `unordered_map`,
+> unsuitable for efficient device access without conversion to flat
+> structure-of-arrays storage.
+
+Two conditions were put on any such conversion: **bitwise identity**, and
+**similar or higher efficiency**. Both were tested by building a flattening
+rather than by arguing about it, together with a control that measures the same
+axis from the opposite side, and a size sweep because the answer turned out to
+depend on size.
+
+Summary of what was found:
+
+| | verdict |
+| --- | --- |
+| Bitwise identity, host-side flattening | **achievable** -- the build here is byte-identical on all 13 cases |
+| Bitwise identity, device | **already measured unachievable**, and not for layout reasons (22.2) |
+| Layout headroom exists | **yes, and it grows with size** -- inflating the stride costs 1.21x at 40,000 molecules (22.6) |
+| The flattening built here captures it | **no** -- 0.90x to 0.98x everywhere (22.5, 22.6), for the reason in 22.7 |
+| Device offload at NERDSS's current sizes | **three to five orders of magnitude below break-even** (22.8) |
+
+Measured 2026-08-27, same host and settings as section 21: Apple M5, 10
+physical cores, L1D 128 KB and L2 16 MB on the performance cores, Apple clang
+21.0.0, `-O3 -std=c++0x`, GSL 2.8, `make serial`, seed 20260810, at `cc1d954`
+plus the working tree's whitespace-only reformat of `EXEs/nerdss.cpp`. The
+reference build hashes to `c1db1694d0724b0c`. Everything below was reverted
+afterwards and the tree rebuilt to that same hash, so none of it is still in the
+source.
+
+### 22.1 What the class actually holds
+
+| | bytes | cache lines |
+| --- | ---: | ---: |
+| `Molecule` | 656 | 10.25 |
+| `Molecule::Iface` | 72 | 1.125 |
+| `Complex` | 312 | 4.875 |
+
+`Molecule` owns 22 heap-allocating members: `interfaceList`, `tmpICoords` and
+20 `std::vector`s of `int`, `double` or `std::array<int,3>`. At 24 bytes per
+header that is 528 of the 656 bytes -- **80% of the object is pointer triples**.
+
+The fields the pairwise search reads before deciding a candidate pair is worth
+evaluating are spread over four of those ten lines:
+
+| field | offset | line |
+| --- | ---: | ---: |
+| `myComIndex`, `molTypeIndex` | 0, 4 | 0 |
+| `comCoord` | 32 | 0 |
+| `interfaceList` | 56 | 0-1 |
+| `isImplicitLipid` | 91 | 1 |
+| `freelist` | 160 | 2 |
+| `bndlist` | 184 | 2-3 |
+| `bndpartner` | 208 | 3 |
+
+So the rejection cascade in `check_bimolecular_reactions()` touches about four
+cache lines per molecule, eight per candidate pair, to read 40 bytes of
+information. That part of the objection is accurate, and 22.6 shows it is not
+free.
+
+**The `unordered_map` is not accurate.** `Molecule::mapIdToIndex` and
+`Complex::mapIdToIndex` are `static` members -- one map per process, not one per
+object -- and the only translation unit that references them is
+`src/mpi/id_index.cpp`. `src/mpi` is in the Makefile's `INCLUDE_FOLDERS` only
+for `make mpi`; the serial and OpenMP builds never compile it. The maps
+contribute zero bytes per molecule and are touched on no hot path measured in
+this document.
+
+### 22.2 What bitwise identity constrains, and what it does not
+
+A layout change moves bytes; it does not change arithmetic. If a flattened
+container holds bit-exact copies of the same values, and the same code performs
+the same operations in the same order on them, the output is identical. That is
+why 22.4 works.
+
+Two things are constrained, and neither is a property of the container.
+
+**Append order is load-bearing.** `determine_if_reaction_occurs()` walks
+`mol.crossbase` in list order and draws one `rand_gsl64()` **per entry**,
+returning on the first draw that lands under that entry's probability. The
+number of random numbers consumed therefore depends on *where in the list* the
+accepted entry sits. Any scheme that changes the order in which the sweep
+appends to `crossbase`, `probvec`, `mycrossint` and `crossrxn` changes the
+random stream from that point onward and ends bitwise comparison. That is
+exactly why `openmp-production-lane` had to reconstruct the serial append order
+with conflict waves instead of simply parallelising the loop. It applies to
+array-of-structures storage just as much as to flat storage.
+
+**Device arithmetic is not host arithmetic.** This repository's own CUDA proof
+of concept (`gpu_poc/`, commit `303e620`) flattened precisely the independent
+numerical prefix of the 3D path and compared it against the same
+double-precision CPU functions. It reports zero discrete mismatches and a
+**maximum relative error of 9.55e-15** for reaction checking, 8.88e-16 for
+propagation. Nonzero. The probability path calls libm `erfc` and `exp` and
+`Faddeeva::erfcx`, whose last-ulp results are implementation-defined, and a
+device math library is a different implementation. **Flattening for device
+execution and bitwise identity are already measured to be incompatible here,
+and the obstacle is the math library, not the container.** A device lane has to
+be validated statistically, the way sections 5 and 10.2 validate the
+RNG-changing group.
+
+### 22.3 The two builds
+
+**The flattening.** `MolHotView`, 32 bytes, two to a cache line:
+
+```cpp
+struct MolHotView {
+    double x, y, z;          // comCoord, bit-exact copy
+    int molTypeIndex;
+    unsigned int flags;      // implicitLipid | hasBonds | hasFree | comOnSurface
+};
+```
+
+`comOnSurface` folds in `complexList[myComIndex].OnSurface`, so the gates stop
+following the molecule-to-complex indirection as well. The mirror is rebuilt
+once per timestep by an O(N) pass placed beside `shellIndex.rebin()`, which
+carries the same precondition: both must describe the molecule set the search is
+about to walk. That placement is sound because the search itself never moves a
+molecule, changes a bond list, or moves a complex on or off the surface --
+`check_implicit_reactions()` and `check_compartment_reaction()` compute
+probabilities and nothing else, and every association runs later in the
+timestep.
+
+Five gates were rewritten to read the mirror -- the implicit-lipid test, the
+`rxnPartners` type scan, the `excludeVolumeBound` test, the already-bound test
+and the `rMaxLimit` distance cutoff -- plus the four `typeMask` tests in the
+cell walk in `EXEs/nerdss.cpp`. Everything past the gates falls through to the
+existing code unchanged. The cascade's per-molecule footprint drops from about
+four cache lines to one.
+
+**The control.** A second build appended `char[1024]` to the tail of `Molecule`.
+No hot field's offset moves; only the array stride, from 656 to **1,680 bytes**.
+If the search is limited by molecule-data cache traffic, this build pays for it,
+and the size of what it pays is the headroom any layout change is competing for.
+
+### 22.4 Bitwise
+
+`run_suite.sh` over `cases.tsv`, then `compare_suites.sh` against the reference
+build: **13 of 13 cases byte-identical, for both builds.** So a host-side
+flattening satisfies the first condition, and this is the demonstration.
+
+### 22.5 Timing at the suite's sizes
+
+`interleaved_timing.sh` over `debugremoval_cases.tsv`, three builds interleaved
+per case, 7 repetitions, CPU time (user+sys) rather than wall clock, medians:
+
+| case | nItr | base (s) | pad (s) | mirror (s) | pad/base | mirror/base | base sd |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `clathrin` | 150,000 | 3.920 | 3.880 | 3.800 | 1.010 | 1.032 | 0.314 |
+| `hexamer` | 25,000 | 7.800 | 7.960 | 8.070 | 0.980 | 0.967 | 0.345 |
+| `implicit_lipid` | 100,000 | 3.750 | 3.750 | 3.820 | 1.000 | 0.982 | 0.092 |
+| `mem_localization` | 2,000 | 0.790 | 0.840 | 0.850 | 0.940 | 0.929 | 0.366 |
+| `michaelis_menten` | 150,000 | 4.770 | 4.790 | 4.810 | 0.996 | 0.992 | 0.095 |
+| `rev_3D` | 20,000 | 6.890 | 7.250 | 7.140 | 0.950 | 0.965 | 0.143 |
+| **total** | | **27.920** | **28.470** | **28.490** | **0.981** | **0.980** | |
+
+Multiplying the stride by 2.56 costs 1.9%; dividing the hot footprint by about
+20 costs 2.0%. Same magnitude, same sign, and every per-case difference inside
+one or two standard deviations. Read on its own this says the layout axis does
+not move the program.
+
+**That reading would have been wrong.** These cases hold 100 to 3,955
+molecules, 66 KB to 2.6 MB of `Molecule`, against a 128 KB L1D and a 16 MB L2.
+The suite cannot see an effect that only appears when the array stops fitting.
+`cases.tsv` was built to span the sizes the branch's other changes cared about,
+and it is not a size sweep.
+
+### 22.6 Timing above the suite: the headroom is real and it grows
+
+Four larger models. `scale_10k` and `scale_40k` are `rev_3D` with the copy
+numbers multiplied and the box side scaled by the cube root of the same factor,
+so the density, the reactions and the timestep are unchanged and only the size
+moves. `enzyme` is `sample_inputs/enzyme/parms_clat_enzyme.inp`, the largest
+model in `sample_inputs` that actually runs. Seven repetitions for the first
+three, five for `scale_40k`; medians of CPU time:
+
+| case | molecules | `Molecule` bytes | base (s) | pad/base | mirror/base | base sd | pad sd |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `scale_2k` | 2,000 | 1.3 MB | 4.630 | 0.953 | 0.971 | 0.217 | 0.269 |
+| `enzyme` | 6,410 | 4.2 MB | 5.160 | 0.942 | 0.974 | 0.286 | 0.396 |
+| `scale_10k` | 10,000 | 6.6 MB | 10.000 | 0.864 | 0.899 | 1.175 | 2.585 |
+| `scale_40k` | 40,000 | 26.2 MB | 29.540 | **0.827** | 0.979 | 1.293 | 1.436 |
+
+**The padding penalty rises monotonically with the working set, from within
+noise at 2,000 molecules to 1.21x at 40,000.** At `scale_40k` the gap is 6.2 s
+against a 1.29 s baseline standard deviation -- more than four standard
+deviations, and the one measurement in this section that is unambiguous on its
+own. Molecule-array memory traffic *is* on the critical path once the array is
+large, which is the substance of the review's complaint.
+
+The mirror does not capture it. It is 0.90x to 0.98x at every size, never
+faster, and its deficit does not shrink as the headroom grows.
+
+### 22.7 Why the mirror fails to collect headroom that exists
+
+The mirror shadows the class; it does not replace it. Two consequences.
+
+It only covers the gates. A pair that survives them still walks the full
+656-byte `Molecule` for `freelist`, `interfaceList` and `bndpartner`, and the
+312-byte `Complex` for `D`, `Dr` and `radius`. The bytes the padding control
+penalises are mostly still being touched.
+
+And the refresh is O(N) while the search is O(pairs). Rebuilding the mirror
+writes 32 bytes per molecule per timestep whether or not that molecule is ever
+examined. Measured pair counts (22.8) put `scale_40k` at 19,841 candidate pairs
+per timestep -- about 39,700 molecule visits -- against 40,000 refresh writes.
+**The refresh touches more molecules than the search it is accelerating.** At
+`scale_10k`, 1,132 pairs per timestep against 10,000 refresh writes, it is worse
+by an order of magnitude, and `scale_10k` is indeed the worst case in the table
+at 0.899x.
+
+That is a verdict on this design, not on flattening. A genuine conversion --
+where the flat arrays *are* the storage, so there is nothing to refresh and the
+whole object is narrow rather than just its gate fields -- carries neither cost
+and would be competing for the headroom the padding control measures. It is also
+a far larger change: `interfaceList` alone has 835 uses across `src`, `include`
+and `EXEs`, and each one would need the bitwise verification 22.4 gives here
+cheaply. Two smaller variants sit between the two and are not tested here:
+refreshing the mirror lazily per cell rather than per timestep, and simply
+reordering `Molecule`'s declarations so the gate fields share one line, which
+costs nothing at runtime and needs no refresh at all.
+
+### 22.8 The device question is a problem-size question
+
+A third build counted calls to `check_bimolecular_reactions()` -- one per
+candidate pair that survives the cell list and the type mask:
+
+| case | molecules | nItr | pair checks | per timestep |
+| --- | ---: | ---: | ---: | ---: |
+| `clathrin` | 100 | 150,000 | 9,365,681 | **62** |
+| `rev_3D` | 2,000 | 20,000 | 1,914,860 | **96** |
+| `hexamer` | 1,000 | 25,000 | 29,993,419 | **1,200** |
+| `scale_10k` | 10,000 | 5,000 | 5,661,633 | **1,132** |
+| `enzyme` | 6,410 | 2,000 | 11,363,595 | **5,682** |
+| `scale_40k` | 40,000 | 2,000 | 39,681,693 | **19,841** |
+
+The GPU proof of concept measured its end-to-end break-even -- kernel plus
+transfers, for the arithmetic prefix alone, with no packing or scatter cost --
+at about **1,000,000 pairs** per launch: 1.02x at 1,048,576, 0.92x at 262,144,
+0.97x at 65,536, 0.24x at 1,024. NERDSS produces 62 to 19,841 pairs per
+timestep across everything measurable here, and the pairs cannot be batched
+across timesteps because each step's positions depend on the previous step's
+outcome. `clathrin`'s **entire 150,000-iteration run** produces 9.4 million
+pairs, nine break-even batches in total.
+
+The dependency structure gives the same answer independently:
+`openmp-production-lane` measures about 41 pairs per conflict wave, against the
+parallel-region costs in section 13.2 and the break-even widths in 13.3.
+
+Flattening changes none of this. It is a prerequisite for device execution, not
+a reason for it.
+
+### 22.9 What flattening the ragged lists could buy, at most
+
+The 20 per-molecule vectors could be replaced by CSR-style offset and value
+arrays, and that can be made order-preserving and therefore bitwise identical.
+The ceiling on what it would win is already measured.
+
+`crossbase`, `mycrossint`, `crossrxn` and `probvec` are emptied with `.clear()`
+at `EXEs/nerdss.cpp:1808-1811`, and `clear_reweight_vecs()` swaps the six
+`curr*` lists into the six `prev*` lists and clears the `curr*` side. `clear()`
+retains capacity, so after the first few timesteps the sweep performs **no
+allocations at all**, and section 16.2 measured the allocator at **0.94%** of
+leaf samples once the `std::string` temporary was removed. That is the whole
+budget a perfect CSR conversion is competing for -- separately from the cache
+headroom in 22.6, which is about the 656-byte stride, not about the heap blocks.
+
+Against it: rows grow by data-dependent amounts during the sweep, so a flat
+layout needs either a per-row capacity cap -- a new failure mode when a dense
+model exceeds it -- or a counting pass, which doubles the sweep. And rows are
+emptied individually mid-timestep (`associate_box.cpp:1033` clears exactly the
+two reacting molecules while their partners' rows still name them), so the
+representation must support single-row truncation too.
+
+### 22.10 How large the models actually are, which is the crux
+
+The size at which this question changes answer is between 6,410 and 10,000
+molecules on this host, and `cases.tsv` tops out at 3,955. What the repository
+ships is a wider range than the suite covers:
+
+| model | explicit molecules | status |
+| --- | ---: | --- |
+| `clathrin_coat/flat_clat-ap2-pip2.dir/parms.inp` | 500,400 | does not reach the timestep loop, see below |
+| `clathrin_pioneer/parmsMacroRate.inp` | 10,310 | `pip2.mol` absent from the directory |
+| `enzyme/parms_clat_enzyme.inp` | 6,410 | runs; used above |
+| `clathrin_coat/.../parms_clath_ap_pip.inp` | 5,400 | not measured |
+| `mem_localization` | 3,955 | largest in `cases.tsv` |
+| `gagsphere` | 2,500 | used in section 13.4 |
+
+The 500,400-molecule model is explicit, not implicit: `pip2.mol` sets `isLipid`
+but not `isImplicitLipid`, and the run's own output confirms it with
+`NUMBER OF MOLECULES IN GEN COORDS: 500400`. That is 328 MB of `Molecule` and
+156 MB of `Complex` before any interface storage. It did not get past setup in
+ten minutes on this host, and the reason is not the layout: the line after that
+message is `fixOverlappingMolecules()`, whose fallback branch at
+`generate_coordinates.cpp:354` is an all-pairs O(N^2) double loop repeated up to
+`MAX_ITERATIONS = 50`. At N = 500,400 that is up to 1.25e13 pair tests before
+the first timestep.
+
+So the honest position on the review is: it is right that the layout costs
+something, it is right that the cost grows with size, and the sizes at which it
+starts to matter are ones this repository ships models for and this branch's
+suite does not measure. It is wrong about the `unordered_map`, and the
+conclusion it draws -- convert to flat storage for device access -- runs into
+22.2 and 22.8 rather than into any property of the containers. The first thing
+worth doing is not a conversion; it is a benchmark at 10,000 molecules and
+above, because as 22.5 and 22.6 together show, a suite that stops at 3,955
+returns "no effect" for a change that has a 1.21x effect at 40,000.
+
+## 23. Narrowing `Molecule`, stage 1: the reweighting vectors
+
+Section 22 established that `Molecule`'s 656-byte stride costs real time at
+scale -- a control build that inflated it to 1,680 bytes measured 0.827x at
+40,000 molecules -- and that the `MolHotView` proof of concept failed to collect
+that headroom because it shadowed the class instead of narrowing it. This is the
+first stage of narrowing it for real, on branch `molecule-layout`. The plan for
+the remaining stages is in
+[`docs/molecule_layout_plan.md`](../../docs/molecule_layout_plan.md).
+
+Measured 2026-08-27, Apple M5, Apple clang 21.0.0, `-O3 -std=c++0x`, GSL 2.8,
+seed 20260810, parent `cc1d954`, baseline binary `c1db1694d0724b0c`.
+
+### 23.1 What changed
+
+Twelve `std::vector`s -- `prevlist`, `currlist`, `prevmyface`, `currmyface`,
+`prevpface`, `currpface`, `prevnorm`, `currprevnorm`, `ps_prev`, `currps_prev`,
+`prevsep`, `currprevsep` -- were two groups of six **parallel arrays**, not
+twelve independent lists. Every read indexes all six at one position:
+`determine_3D_bimolecular_reaction_probability()` scans `prevlist` for a
+(partner, myFace, partnerFace) match and then reads `prevsep`, `ps_prev` and
+`prevnorm` at that same subscript. Every write pushes six values in lockstep.
+
+They are now one `Molecule::ReweightEntry` and two vectors of it. 288 bytes of
+vector header become 48, and the lookup follows one pointer instead of six.
+
+**`sizeof(Molecule)`: 656 -> 416 bytes**, 10.25 cache lines to 6.5.
+
+### 23.2 Bitwise
+
+| table | result |
+| --- | --- |
+| `cases.tsv` | 13 of 13 byte identical |
+| `coverage_cases.tsv` | 5 of 5 byte identical |
+| restart read path | 15 files byte identical |
+| `make mpi` | builds clean |
+
+`coverage_cases.tsv` was run because `cases.tsv` does not enter every edited
+path: `gagsphere` is the only model reaching the `excludeVolumeBound` half of
+`check_bimolecular_reactions()` and `compartment` the only one reaching the
+transmission path.
+
+The restart **read** path needed its own check. The suite hashes `RESTARTS/`, so
+it proves restart files are *written* identically and says nothing about reading
+them -- and the on-disk format still carries six separate length-prefixed
+arrays, which the reader now has to reassemble. Both builds were continued from
+the same `rev_3D/RESTARTS/restart10000.dat`; every file they then produced
+matched.
+
+One edited file is covered by no test at all.
+`determine_1D_bimolecular_reaction_probability()` is called only from the
+`com1.onFiber && com2.onFiber` arm of `check_bimolecular_reactions()`, and no
+input under `sample_inputs` sets `onFiber`. Section 15's rule applies: a bitwise
+suite that never reaches a function reports "identical" in the same words it
+uses for code it does reach. It was missing from `known_uncovered.tsv`, which
+listed the fiber *sweep* but not the probability function behind the same gate;
+it and its two exclusive callees are now listed there, and its change is argued
+by reading rather than by the suite.
+
+### 23.3 A measurement change, because this host is never idle
+
+The first timing pass reported 1.196x and 1.200x against baselines that were
+three times their own stage-0 values, with three unrelated `nerdss_mpi`
+processes at 99% CPU. Section 11.6 records this failure mode and says to check
+`uptime` first -- which tells you when to distrust a number, not how to take
+one, on a desktop that is rarely idle.
+
+`/usr/bin/time -l` on Apple silicon reports **retired instructions** and
+**elapsed cycles**. Four repetitions of each build on `scale_10k` under that
+same load:
+
+| | instructions | spread | cycles | spread | wall |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| base | 89.83 G | 0.1% | 104.9 G | 1.5% | inflated ~3x |
+| stage 1 | 87.68 G | 0.05% | 85.5 G | 0.6% | inflated ~3x |
+
+The counters are nearly load-proof where wall and CPU time are not. They also
+separate the two things a change can do, which is the distinction this whole
+line of work turns on: **instructions falling means less work; cycles falling at
+an unchanged instruction count means fewer stalls.**
+`interleaved_timing.sh` now records CPU time, wall time, instructions, cycles
+and peak RSS, and prints instructions per cycle.
+
+### 23.4 Result
+
+Interleaved, medians; `scale_2k`, `enzyme` and `scale_10k` at 5 repetitions,
+`scale_40k` at 7:
+
+| case | molecules | instructions | cycles | CPU time | RSS | IPC base -> stage 1 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `scale_2k` | 2,000 | 1.032x | 1.119x | 1.113x | 1.018x | 1.908 -> 2.069 |
+| `enzyme` | 6,410 | 1.022x | **1.389x** | 1.383x | 1.182x | 1.783 -> 2.422 |
+| `scale_10k` | 10,000 | 1.024x | 1.246x | 1.253x | 1.032x | 0.846 -> 1.029 |
+| `scale_40k` | 40,000 | 1.014x | 1.264x | 1.223x | 1.095x | 1.018 -> 1.270 |
+
+**Instructions fall by 1.4% to 3.2%; cycles fall by 11% to 28%.** The gap is the
+result. Merging six `push_back`s into one is the whole instruction saving, and
+it is far too small to explain the cycle saving; IPC rises by 8% to 36% to make
+up the difference. That is a stall reduction, which is what a narrower object is
+supposed to produce and what no amount of doing-less-work could imitate.
+
+### 23.5 RSS confirms the change landed where it was aimed
+
+240 bytes per molecule should disappear. Measured against predicted:
+
+| case | predicted | measured | ratio |
+| --- | ---: | ---: | ---: |
+| `scale_2k` | 0.48 MB | 0.56 MB | 1.16 |
+| `enzyme` | 1.54 MB | 2.03 MB | 1.32 |
+| `scale_10k` | 2.40 MB | 2.83 MB | 1.18 |
+| `scale_40k` | 9.60 MB | 11.17 MB | 1.16 |
+
+Consistently 16-32% *more* than the struct-size prediction, which is the second
+half of the change showing up: twelve heap-owning members became two, so a
+molecule that ever recorded an encounter also stops carrying up to ten separate
+allocator blocks.
+
+### 23.6 The size dependence is not the whole story
+
+Section 22.6's padding penalty rose monotonically with the model. This does not:
+`enzyme` at 6,410 molecules gains most (1.389x), more than `scale_40k` at
+40,000 (1.264x).
+
+The reason is that stage 1 helps in two ways, and only one of them is about
+stride. The narrower object helps every gather, and that part does scale with
+size. But the reweighting *lookup* went from six pointer chases to one, and that
+part scales with how much reweighting traffic a model generates, not with how
+many molecules it holds. `enzyme` runs 5,682 candidate pairs per timestep
+against 6,410 molecules -- 0.89 pairs per molecule, against 0.50 for
+`scale_40k` -- through the membrane and implicit-lipid probability paths, which
+is where those lookups live.
+
+So the headroom section 22.6 measured with the padding control is being
+collected, but this stage also collects something that control could not see.
+The two are separable in principle and were not separated here.
+
+### 23.7 Caveat on the magnitudes
+
+Every number above was taken on a host carrying one to two cores of unrelated
+load. Interleaving means both builds met the same conditions and the counters
+are robust to it, but memory contention plausibly *amplifies* a locality win:
+with other cores pressing on a shared L2, the build with the larger working set
+suffers more than it would alone. The load-proof floor is the instruction
+reduction, about 2%. The cycle ratios are the honest estimate under these
+conditions, not a quiet-machine guarantee, and `scale_40k`'s cycle standard
+deviations are 12% and 20% of their medians even at 7 repetitions.
+
+### 23.8 Verdict
+
+Stage 1 meets every exit criterion its plan set: byte identical on both case
+tables and across a restart, `sizeof(Molecule)` at 416, MPI still building, and
+a measured gain rather than the flat result section 22 recorded for the proof of
+concept. Stage 2 -- merging `crossbase`, `mycrossint`, `crossrxn` and `probvec`
+into one vector, 416 -> 344 bytes -- is warranted on this evidence.
