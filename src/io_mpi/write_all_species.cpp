@@ -9,6 +9,28 @@
 #include "debug/debug.hpp"
 #include "mpi/mpi_function.hpp"
 
+// The implicit lipid is a system-wide pseudo-molecule, not a spatially owned
+// one: every rank holds a copy of it and its own share of the free-lipid count,
+// and its comCoord is not a position any rank owns.  is_ghosted() is purely
+// positional, so it was gating each rank's lipid report on a coordinate that
+// drifts as the pseudo-molecule is propagated.  Measured at np=2 on
+// mem_localization/SmallBox/FastDsol/IL: rank 1 held 1779 free lipids from the
+// first step and reported 0 for as long as that coordinate happened to land in
+// its ghost zone (comCoord.x = -78.2 -> xBin = -3), then began reporting once
+// it drifted out (comCoord.x = 210.2 -> xBin = 8).  The merged trajectory was
+// therefore short by one rank's entire share -- about half the membrane at
+// np=2 -- on an interval whose length varied with the seed.
+//
+// Every other site that touches the implicit lipid already exempts it:
+// prepare() forces isGhosted = false for it, derive_ghost_from_ownership()
+// skips it, and update_memberMolLists() skips it.  This is the one place that
+// did not.
+static bool is_ghosted_for_output(Molecule& mol, MpiContext& mpiContext,
+                                  SimulVolume& simulVolume) {
+  if (mol.isImplicitLipid) return false;
+  return is_ghosted(mol, mpiContext, simulVolume);
+}
+
 void write_all_species(double simTime, std::vector<Molecule>& moleculeList,
                        std::ofstream& speciesFile, copyCounters& counterArrays,
                        const Membrane& membraneObject, MpiContext& mpiContext,
@@ -25,7 +47,8 @@ void write_all_species(double simTime, std::vector<Molecule>& moleculeList,
 
   for (p1 = 0; p1 < moleculeList.size(); p1++) {
     int numIfaces = moleculeList[p1].interfaceList.size();
-    bool isGhosted = is_ghosted(moleculeList[p1], mpiContext, simulVolume);
+    bool isGhosted =
+        is_ghosted_for_output(moleculeList[p1], mpiContext, simulVolume);
     for (j = 0; j < numIfaces; j++) {
       // partnerIndex is -1 for an unbound interface, so the partner may only be
       // looked up inside the PAIR branch below.  Reading it before the test
@@ -42,8 +65,8 @@ void write_all_species(double simTime, std::vector<Molecule>& moleculeList,
         if (isGhosted == true) continue;
       } else {
         // PAIR
-        bool isPatnerGhosted =
-            is_ghosted(moleculeList[partnerIndex], mpiContext, simulVolume);
+        bool isPatnerGhosted = is_ghosted_for_output(
+            moleculeList[partnerIndex], mpiContext, simulVolume);
         if (moleculeList[p1].id >
             moleculeList[p1].interfaceList[j].interaction.partnerId) {
           if (isGhosted == true) continue;
