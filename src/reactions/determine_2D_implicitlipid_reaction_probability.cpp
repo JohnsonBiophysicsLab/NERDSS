@@ -95,12 +95,8 @@ void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
             ++complexList[moleculeList[proA].myComIndex].ncross;
             //moleculeList[biMolData.pro2Index].probvec.back() = rxnProb * currnorm;
 
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
         } // Within reaction zone
     }
 }

@@ -132,10 +132,11 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             }
 
             double rxnProb {};
-            for (int s { 0 }; s < moleculeList[proA].prevlist.size(); ++s) {
-                if (moleculeList[proA].prevlist[s] == proB && moleculeList[proA].prevmyface[s] == ifaceA
-                    && moleculeList[proA].prevpface[s] == ifaceB) {
-                    if (moleculeList[proA].prevsep[s] >= RMax) {
+            for (int s { 0 }; s < moleculeList[proA].prevReweight.size(); ++s) {
+                const Molecule::ReweightEntry& prevEntry { moleculeList[proA].prevReweight[s] };
+                if (prevEntry.partner == proB && prevEntry.myFace == ifaceA
+                    && prevEntry.partnerFace == ifaceB) {
+                    if (prevEntry.sep >= RMax) {
                         // BEcause previous reweighting was for 3D, now
                         p0_ratio = 1.0;
                         // restart reweighting in 2D.
@@ -143,9 +144,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                     } else {
                         p0_ratio = DDpirr_pfree_ratio_ps(pirMatrices[probMatrixIndex], survMatrices[probMatrixIndex],
                             normMatrices[probMatrixIndex], R1, biMolData.Dtot, params.timeStep,
-                            moleculeList[proA].prevsep[s], moleculeList[proA].ps_prev[s], 1E-10,
+                            prevEntry.sep, prevEntry.survProb, 1E-10,
                             forwardRxns[rxnIndex].bindRadius);
-                        currnorm = moleculeList[proA].prevnorm[s] * p0_ratio;
+                        currnorm = prevEntry.norm * p0_ratio;
                     }
                     break;
                 }
@@ -198,13 +199,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             /*Store all the reweighting numbers for next step.*/
             // below used to be moleculeList[proA].vector[s] = value
             //                                            s =
-            //                                            moleculeList[proA].currlist.size();
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            //                                            moleculeList[proA].currReweight.size();
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
         } // Within reaction zone
     }
 }

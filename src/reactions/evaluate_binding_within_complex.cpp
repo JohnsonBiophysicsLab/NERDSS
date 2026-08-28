@@ -123,12 +123,8 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
                 moleculeList[proB].probvec.push_back(probvec1 * 1.0);
 
                 /*Store all the reweighting numbers for next step.*/
-                moleculeList[proA].currprevsep.push_back(R1);
-                moleculeList[proA].currlist.push_back(proB);
-                moleculeList[proA].currmyface.push_back(ifaceA);
-                moleculeList[proA].currpface.push_back(ifaceB);
-                moleculeList[proA].currprevnorm.push_back(1.0);
-                moleculeList[proA].currps_prev.push_back(1.0 - probvec1 * 1.0);
+                moleculeList[proA].currReweight.emplace_back(
+                    1.0, 1.0 - probvec1 * 1.0, R1, proB, ifaceA, ifaceB);
             }
         } // rate is >0
     } // did not just dissociate

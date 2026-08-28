@@ -83,12 +83,8 @@ void determine_3D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
 
             moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
 
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
 
             // std::cout << "bind prob: " << std::setprecision(20) << rxnProb << std::endl;
             // std::cout << "rho: " << std::setprecision(20) << rho << std::endl;

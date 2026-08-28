@@ -259,20 +259,49 @@ struct Molecule {
 
     // std::vector<double> probvec_dissociate;
 
-    /*Vectors for reweighting!*/
-    std::vector<int> prevlist;
-    std::vector<int> currlist;
-    std::vector<int> prevmyface;
-    std::vector<int> currmyface;
-    std::vector<int> prevpface;
-    std::vector<int> currpface;
+    /*! \struct Molecule::ReweightEntry
+     * \brief One encounter's reweighting history with one partner interface.
+     *
+     * This was twelve `std::vector`s -- six describing the previous timestep and
+     * six the current one -- and they were six-wide parallel arrays, not twelve
+     * independent lists.  Every read indexes all six at the same position:
+     * `determine_3D_bimolecular_reaction_probability()` scans `prevlist` for a
+     * (partner, myFace, partnerFace) match and then reads `prevsep`, `ps_prev`
+     * and `prevnorm` at that same subscript, and every write pushes all six in
+     * lockstep.
+     *
+     * Written as one struct they cost `Molecule` 48 bytes of vector header
+     * instead of 288 -- 44% of the object was these twelve headers -- and the
+     * lookup follows one pointer instead of six.  The values, their order and
+     * the arithmetic performed on them are unchanged, which is what keeps the
+     * output bit-for-bit identical.
+     *
+     * The restart file still writes six separate length-prefixed sequences; see
+     * `write_restart.cpp`.  The on-disk format is deliberately untouched.
+     */
+    struct ReweightEntry {
+        double norm { 0 }; //!< was prevnorm / currprevnorm
+        double survProb { 0 }; //!< was ps_prev / currps_prev
+        double sep { 0 }; //!< was prevsep / currprevsep
+        int partner { -1 }; //!< was prevlist / currlist: the partner Molecule's index
+        int myFace { -1 }; //!< was prevmyface / currmyface
+        int partnerFace { -1 }; //!< was prevpface / currpface
 
-    std::vector<double> prevnorm;
-    std::vector<double> currprevnorm;
-    std::vector<double> ps_prev;
-    std::vector<double> currps_prev;
-    std::vector<double> prevsep;
-    std::vector<double> currprevsep;
+        ReweightEntry() = default;
+        ReweightEntry(double norm, double survProb, double sep, int partner, int myFace, int partnerFace)
+            : norm(norm)
+            , survProb(survProb)
+            , sep(sep)
+            , partner(partner)
+            , myFace(myFace)
+            , partnerFace(partnerFace)
+        {
+        }
+    };
+
+    /*Vectors for reweighting!*/
+    std::vector<ReweightEntry> prevReweight; //!< the previous timestep's encounters
+    std::vector<ReweightEntry> currReweight; //!< this timestep's encounters
 
     // Following fields are for MPI version only:
     int id;  // unique molecule identifier in the system
@@ -410,12 +439,33 @@ struct Molecule {
         serialize_primitive_vector<int>(crossbase, arrayRank, nArrayRank);
         serialize_primitive_vector<int>(mycrossint, arrayRank, nArrayRank);
         serialize_vector_array<int, 3>(crossrxn, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(currlist, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(currmyface, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(currpface, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(currprevnorm, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(currps_prev, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(currprevsep, arrayRank, nArrayRank);
+        // currReweight goes on the wire as the same six parallel arrays, in the
+        // same order, so the format is byte-identical to the pre-merge build.
+        // The temporaries cost nothing that was not already being paid:
+        // serialize_primitive_vector() takes its vector by value, so all six
+        // were being copied here before as well.
+        std::vector<int> curr_list, curr_myface, curr_pface;
+        std::vector<double> curr_norm, curr_ps, curr_sep;
+        curr_list.reserve(currReweight.size());
+        curr_myface.reserve(currReweight.size());
+        curr_pface.reserve(currReweight.size());
+        curr_norm.reserve(currReweight.size());
+        curr_ps.reserve(currReweight.size());
+        curr_sep.reserve(currReweight.size());
+        for (const auto& oneEntry : currReweight) {
+            curr_list.push_back(oneEntry.partner);
+            curr_myface.push_back(oneEntry.myFace);
+            curr_pface.push_back(oneEntry.partnerFace);
+            curr_norm.push_back(oneEntry.norm);
+            curr_ps.push_back(oneEntry.survProb);
+            curr_sep.push_back(oneEntry.sep);
+        }
+        serialize_primitive_vector<int>(curr_list, arrayRank, nArrayRank);
+        serialize_primitive_vector<int>(curr_myface, arrayRank, nArrayRank);
+        serialize_primitive_vector<int>(curr_pface, arrayRank, nArrayRank);
+        serialize_primitive_vector<double>(curr_norm, arrayRank, nArrayRank);
+        serialize_primitive_vector<double>(curr_ps, arrayRank, nArrayRank);
+        serialize_primitive_vector<double>(curr_sep, arrayRank, nArrayRank);
         // std::cout << "+Total molecule size in bytes: " << start << std::endl;
     }
     void deserialize_back(unsigned char* arrayRank, int& nArrayRank) {
@@ -423,12 +473,23 @@ struct Molecule {
         deserialize_primitive_vector<int>(crossbase, arrayRank, nArrayRank);
         deserialize_primitive_vector<int>(mycrossint, arrayRank, nArrayRank);
         deserialize_vector_array<int, 3>(crossrxn, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(currlist, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(currmyface, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(currpface, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(currprevnorm, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(currps_prev, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(currprevsep, arrayRank, nArrayRank);
+        // Mirror of serialize_back(): six arrays off the wire, reassembled into
+        // currReweight.  The six always carry the same number of elements
+        // because they are written from one vector.
+        std::vector<int> curr_list, curr_myface, curr_pface;
+        std::vector<double> curr_norm, curr_ps, curr_sep;
+        deserialize_primitive_vector<int>(curr_list, arrayRank, nArrayRank);
+        deserialize_primitive_vector<int>(curr_myface, arrayRank, nArrayRank);
+        deserialize_primitive_vector<int>(curr_pface, arrayRank, nArrayRank);
+        deserialize_primitive_vector<double>(curr_norm, arrayRank, nArrayRank);
+        deserialize_primitive_vector<double>(curr_ps, arrayRank, nArrayRank);
+        deserialize_primitive_vector<double>(curr_sep, arrayRank, nArrayRank);
+        currReweight.clear();
+        currReweight.reserve(curr_list.size());
+        for (size_t entryItr { 0 }; entryItr < curr_list.size(); ++entryItr) {
+            currReweight.emplace_back(curr_norm[entryItr], curr_ps[entryItr], curr_sep[entryItr],
+                curr_list[entryItr], curr_myface[entryItr], curr_pface[entryItr]);
+        }
     }
 };
 
