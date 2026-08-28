@@ -22,10 +22,12 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
             break;
         case 1:
             this->waterBox = WaterBox(parse_input_array(value));
-            // A sphere already named by `isSphere` or `sphereR` keeps the
-            // boundary.  The boolean pair this member replaced allowed both
-            // flags to be set at once, and every consumer except display() read
-            // only isSphere, so a sphere won however the keywords were ordered.
+            // Provenance and geometry are recorded separately.  The old flag
+            // pair allowed both to be set at once and every consumer but
+            // display() read only isSphere, so a sphere won however the
+            // keywords were ordered; keeping waterBoxGiven independent
+            // reproduces that, including the `1 1` restart line.
+            this->waterBoxGiven = true;
             if (this->shape != BoundaryShape::Sphere)
                 this->shape = BoundaryShape::Box;
             std::cout << "Read in waterBox: "
@@ -47,12 +49,22 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
                       << value << std::endl;
             break;
         case 5:
-            // `isSphere = false` is not a request for a box; it leaves the
-            // boundary as whatever the other keywords named, which is what
-            // assigning false to the old flag did.
-            if (read_boolean(value))
-                this->shape = BoundaryShape::Sphere;
-            std::cout << "Read in isSphere: " << std::boolalpha << this->isSphere() << std::endl;
+            // This is an assignment, not a latch: `isSphere = false` clears a
+            // sphere an earlier `sphereR` established, which is what the old
+            // `isSphere = read_boolean(value)` did.  What it falls back to is
+            // whatever the old `isBox` would have left behind - a box if a
+            // waterBox has been read, nothing otherwise.
+            {
+                const bool wantSphere { read_boolean(value) };
+                if (wantSphere)
+                    this->shape = BoundaryShape::Sphere;
+                else if (this->shape == BoundaryShape::Sphere)
+                    this->shape = this->waterBoxGiven ? BoundaryShape::Box : BoundaryShape::Unspecified;
+                // Echo the value that was read, not the resulting state: they
+                // differ for `sphereR` followed by `isSphere = false`, and the
+                // log is the one place that would show it.
+                std::cout << "Read in isSphere: " << std::boolalpha << wantSphere << std::endl;
+            }
             break;
         case 6:
             this->sphereR = std::stod(value);
@@ -91,13 +103,21 @@ void Membrane::display()
     std::cout << " sphere Radius " << sphereR << std::endl;
     std::cout << " hasCompartment? " << std::boolalpha << hasCompartment << std::endl;
     std::cout << " compartment Radius " << compartmentR << std::endl;
-    if (isBox() == true) {
+    if (hasWaterBox()) {
         std::cout << " BOX geometry, dimensions: " << std::endl;
         std::cout << waterBox.x << ' ' << waterBox.y << ' ' << waterBox.z << std::endl;
     }
     std::cout << " hasImplicitLipid? " << std::boolalpha << implicitLipid << std::endl;
 }
 
+/*! \brief Fabricate the bounding box of a spherical system.
+ *
+ * The box this writes is a bounding box, not a `Box` boundary: `shape` is left
+ * alone, and hasWaterBox() stays false unless the input named a waterBox of its
+ * own.  Consumers that need the extent of a sphere run - SimulVolume's cell
+ * grid, generate_coordinates, the implicit-lipid setup - read `waterBox`
+ * unconditionally and must keep doing so.
+ */
 void Membrane::create_water_box()
 {
     waterBox.x = 2 * sphereR;

@@ -34,9 +34,15 @@ enum class BoundaryKeyword : int {
  * fourth state made explicit: it is what a run has before the input names a
  * boundary, and it is what the old pair meant when both were false.
  *
- * The underlying values are pinned because `serialize()` writes them, and
- * because `write_restart()` derives the two integers of the on-disk restart
- * format from this one member.
+ * This is the geometry alone.  Whether the input supplied a `waterBox` is a
+ * separate fact - see `waterBoxGiven` - because a sphere run gets a water box
+ * too, fabricated by create_water_box() as a bounding box.  The old `isBox`
+ * flag recorded that provenance, not a shape: only the `waterBox` keyword ever
+ * set it and nothing ever cleared it.
+ *
+ * The underlying values are not depended on anywhere; serialize() writes the
+ * shape as a byte and write_restart() writes the two flags through the
+ * accessors.  They are given explicitly only so the wire byte is readable.
  */
 enum class BoundaryShape : int {
     Unspecified = 0, //!< no boundary keyword was read
@@ -148,9 +154,13 @@ struct Membrane {
     double lipidLength { 0.0 };
     bool implicitLipid = false;
     bool TwoD = false;
-    //! The enclosing boundary.  Read through isBox() / isSphere(); those are
-    //! the only two questions the rest of the program asks of it.
+    //! The enclosing boundary.  Read it through isSphere(); that is the only
+    //! question the other 65 sites ask of it.
     BoundaryShape shape { BoundaryShape::Unspecified };
+    //! True once a `waterBox` keyword has been read.  This is the old `isBox`
+    //! flag under a name that says what it meant: it is parse provenance, not
+    //! geometry, and a sphere run can carry both it and a Sphere `shape`.
+    bool waterBoxGiven { false };
     std::string xBCtype; //allow reflect, or pbc
     std::string yBCtype;
     std::string zBCtype;
@@ -164,8 +174,11 @@ struct Membrane {
       ParameterKeywords are in include/classes/class_Parameters.hpp
      */
 
-    //! \brief True when the system is enclosed by a rectangular water box.
-    bool isBox() const { return shape == BoundaryShape::Box; }
+    //! \brief True when the input supplied a `waterBox`.  NOT the complement
+    //! of isSphere(): a sphere run that also names a waterBox answers true to
+    //! both, exactly as the old flag pair did.  Only display() and
+    //! write_restart() ask this.
+    bool hasWaterBox() const { return waterBoxGiven; }
     //! \brief True when the system is enclosed by a sphere of radius `sphereR`.
     bool isSphere() const { return shape == BoundaryShape::Sphere; }
 
@@ -213,7 +226,14 @@ struct Membrane {
     PUSH(lipidLength);
     PUSH(implicitLipid);
     PUSH(TwoD);
-    PUSH(shape);
+    // Serialized as a byte, not as the 4-byte enum: everything before this
+    // point leaves the cursor at an offset of 2 (mod 4), so a 4-byte store
+    // through PUSH's cast pointer would be misaligned, which is undefined
+    // behavior and a SIGBUS on a strict-alignment target.  A byte also keeps
+    // the record the same size as the two bools this replaced.
+    unsigned char shapeByte { static_cast<unsigned char>(shape) };
+    PUSH(shapeByte);
+    PUSH(waterBoxGiven);
     serialize_string(xBCtype, arrayRank, nArrayRank);
     serialize_string(yBCtype, arrayRank, nArrayRank);
     serialize_string(zBCtype, arrayRank, nArrayRank);
@@ -248,7 +268,10 @@ struct Membrane {
     POP(lipidLength);
     POP(implicitLipid);
     POP(TwoD);
-    POP(shape);
+    unsigned char shapeByte { 0 };
+    POP(shapeByte);
+    shape = static_cast<BoundaryShape>(shapeByte);
+    POP(waterBoxGiven);
     deserialize_string(xBCtype, arrayRank, nArrayRank);
     deserialize_string(yBCtype, arrayRank, nArrayRank);
     deserialize_string(zBCtype, arrayRank, nArrayRank);

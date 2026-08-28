@@ -162,8 +162,7 @@ void prepare_data_structures_for_parallel_execution(
   double ratio =
       1.0 * (mpiContext.endCell - mpiContext.startCell + 1) / totalxBins;
 
-  if (membraneObject.isSphere()) {
-  } else {
+  if (!membraneObject.isSphere()) {
     membraneObject.totalSA =
         membraneObject.waterBox.x * membraneObject.waterBox.y * ratio;
     membraneObject.waterBox.volume = membraneObject.waterBox.volume * ratio;

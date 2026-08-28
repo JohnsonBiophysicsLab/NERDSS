@@ -41,7 +41,7 @@ More seriously,
 [`reflect_dispatch.cpp`](../src/boundary_conditions/reflect_dispatch.cpp)
 documents the drift in its own header comment: of the six reflection entry
 points, *"the two that take a compartment flag consult it, the other four look
-only at `membraneObject.isSphere`."* That divergence was invisible while the six
+only at `membraneObject.isSphere()`."* That divergence was invisible while the six
 lived in six files. It is the characteristic failure of branching-by-copy: the
 decision is duplicated, so the copies fall out of step, and no single place can
 be corrected.

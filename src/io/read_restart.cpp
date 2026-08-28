@@ -74,13 +74,19 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             }
 
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
-            // The restart format still carries the two flags the shape used to
-            // be stored as, so files written by either version stay readable.
-            // A file with both set is a sphere, matching the precedence in
-            // Membrane::set_value_BC().
+            // The two flags this format carries map back one-to-one: the
+            // sphere bit is the geometry, the box bit is the waterBox
+            // provenance.  Nothing is folded away, so a file naming both round
+            // trips as `1 1` exactly as it did before.
+            //
+            // NOTE: this line wants seven fields and restart files under
+            // sample_inputs/ carry five, which sets failbit here and silently
+            // no-ops every read below it.  That predates this change and is
+            // not addressed here.
             bool isBoxFlag { false };
             bool isSphereFlag { false };
             restartFile >> membraneObject.implicitLipid >> membraneObject.TwoD >> isBoxFlag >> isSphereFlag >> membraneObject.sphereR >> membraneObject.hasCompartment >> membraneObject.compartmentR;
+            membraneObject.waterBoxGiven = isBoxFlag;
             membraneObject.shape = isSphereFlag ? BoundaryShape::Sphere
                 : isBoxFlag                     ? BoundaryShape::Box
                                                 : BoundaryShape::Unspecified;
