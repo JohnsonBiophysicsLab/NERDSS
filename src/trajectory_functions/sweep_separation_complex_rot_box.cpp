@@ -45,8 +45,8 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
 
     int maxRows { 1 };
     for (auto memMol : complexList[com1Index].memberList) {
-        if (moleculeList[memMol].crossbase.size() > maxRows)
-            maxRows = moleculeList[memMol].crossbase.size();
+        if (moleculeList[memMol].crossings.size() > maxRows)
+            maxRows = moleculeList[memMol].crossings.size();
     }
 
     int ifaceList[maxRows * com1Size];
@@ -61,16 +61,16 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
     /*figure out i2*/
     for (int memMolItr { 0 }; memMolItr < com1Size; ++memMolItr) {
         pro1Index = complexList[com1Index].memberList[memMolItr];
-        for (int i { 0 }; i < moleculeList[pro1Index].crossbase.size(); ++i) {
+        for (int i { 0 }; i < moleculeList[pro1Index].crossings.size(); ++i) {
             if (ignoreZBetweenSurfacePartners) {
-                int pro2Index { moleculeList[pro1Index].crossbase[i] };
+                int pro2Index { moleculeList[pro1Index].crossings[i].partner };
                 int com2Index { moleculeList[pro2Index].myComIndex };
                 // if (complexList[com2Index].D.z < 1E-15) {
                 memCheckList[maxRows * memMolItr + i] = complexList[com2Index].OnSurface ? 1 : 0;
             }
 
-            int i1 { moleculeList[pro1Index].mycrossint[i] };
-            std::array<int, 3> rxnItr = moleculeList[pro1Index].crossrxn[i];
+            int i1 { moleculeList[pro1Index].crossings[i].myIface };
+            std::array<int, 3> rxnItr = moleculeList[pro1Index].crossings[i].rxn;
 
             // get the partner interface
             ifaceList[maxRows * memMolItr + i] = (forwardRxns[rxnItr[0]].reactantListNew[0].relIfaceIndex == i1)
@@ -105,8 +105,8 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
 
         for (unsigned memMolItr { 0 }; memMolItr < com1Size; ++memMolItr) {
             pro1Index = complexList[com1Index].memberList[memMolItr];
-            for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossbase.size(); ++crossMolItr) {
-                int pro2Index { moleculeList[pro1Index].crossbase[crossMolItr] };
+            for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossings.size(); ++crossMolItr) {
+                int pro2Index { moleculeList[pro1Index].crossings[crossMolItr].partner };
                 if (moleculeList[pro2Index].isImplicitLipid)
                     continue;
 
@@ -115,8 +115,8 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
                  * another!
                  */
                 if (com1Index != com2Index) {
-                    int i1 { moleculeList[pro1Index].mycrossint[crossMolItr] };
-                    int rxnItr { moleculeList[pro1Index].crossrxn[crossMolItr][0] };
+                    int i1 { moleculeList[pro1Index].crossings[crossMolItr].myIface };
+                    int rxnItr { moleculeList[pro1Index].crossings[crossMolItr].rxn[0] };
                     int i2 { ifaceList[maxRows * memMolItr + crossMolItr] };
 
                     Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[i1].coord - complexList[com1Index].comCoord };

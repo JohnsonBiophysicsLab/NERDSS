@@ -275,7 +275,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
                                         if (R1 < RMax) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     }
                                     // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
@@ -305,7 +305,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                         if (R1 < RMax * 10.0) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     } else {
                                         //3D reaction
@@ -328,7 +328,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         if (R1 < RMax) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     } //end else 3D
                                 }
@@ -381,7 +381,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
                                         if (R1 < RMax) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     }
                                     else if (pairDim == Dim::Surface2D) {
@@ -415,7 +415,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                         if (R1 < RMax * 10.0) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     } else {
                                         //3D reaction
@@ -438,7 +438,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
                                         if (R1 < RMax) {
                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
                                         }
                                     } //end else 3D
                                 }

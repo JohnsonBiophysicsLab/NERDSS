@@ -528,30 +528,33 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
                 }
             }
 
-            // reweighting lists
-            restartFile << oneMol.prevlist.size();
-            for (const auto& oneElem : oneMol.prevlist)
-                restartFile << ' ' << oneElem;
+            // Reweighting lists.  These are one std::vector<ReweightEntry> in
+            // memory now, but the file still carries the six parallel arrays it
+            // always did, in the same order and with the same per-line counts,
+            // so restart files written by either build are interchangeable.
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.partner;
             restartFile << '\n';
-            restartFile << oneMol.prevmyface.size();
-            for (const auto& oneElem : oneMol.prevmyface)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.myFace;
             restartFile << '\n';
-            restartFile << oneMol.prevpface.size();
-            for (const auto& oneElem : oneMol.prevpface)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.partnerFace;
             restartFile << '\n';
-            restartFile << oneMol.prevnorm.size();
-            for (const auto& oneElem : oneMol.prevnorm)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.norm;
             restartFile << '\n';
-            restartFile << oneMol.ps_prev.size();
-            for (const auto& oneElem : oneMol.ps_prev)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.survProb;
             restartFile << '\n';
-            restartFile << oneMol.prevsep.size();
-            for (const auto& oneElem : oneMol.prevsep)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.sep;
             restartFile << '\n';
         }
 

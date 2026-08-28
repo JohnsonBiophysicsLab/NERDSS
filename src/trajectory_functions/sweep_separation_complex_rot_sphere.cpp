@@ -27,8 +27,8 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
 
     int maxRows { 1 };
     for (auto memMol : complexList[com1Index].memberList) {
-        if (moleculeList[memMol].crossbase.size() > maxRows)
-            maxRows = moleculeList[memMol].crossbase.size();
+        if (moleculeList[memMol].crossings.size() > maxRows)
+            maxRows = moleculeList[memMol].crossings.size();
     }
 
     int ifaceList[maxRows * com1Size];
@@ -45,9 +45,9 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
     /*figure out i2*/
     for (int memMolItr { 0 }; memMolItr < com1Size; ++memMolItr) {
         pro1Index = complexList[com1Index].memberList[memMolItr];
-        for (int i { 0 }; i < moleculeList[pro1Index].crossbase.size(); ++i) {
-            int i1 { moleculeList[pro1Index].mycrossint[i] };
-            std::array<int, 3> rxnItr = moleculeList[pro1Index].crossrxn[i];
+        for (int i { 0 }; i < moleculeList[pro1Index].crossings.size(); ++i) {
+            int i1 { moleculeList[pro1Index].crossings[i].myIface };
+            std::array<int, 3> rxnItr = moleculeList[pro1Index].crossings[i].rxn;
 
             ifaceList[maxRows * memMolItr + i] = (forwardRxns[rxnItr[0]].reactantListNew[0].relIfaceIndex == i1)
                 ? forwardRxns[rxnItr[0]].reactantListNew[1].relIfaceIndex
@@ -83,8 +83,8 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
         double dr2 {};
         for (unsigned memMolItr { 0 }; memMolItr < com1Size; ++memMolItr) {
             pro1Index = complexList[com1Index].memberList[memMolItr];
-            for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossbase.size(); ++crossMolItr) {
-                int pro2Index { moleculeList[pro1Index].crossbase[crossMolItr] };
+            for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossings.size(); ++crossMolItr) {
+                int pro2Index { moleculeList[pro1Index].crossings[crossMolItr].partner };
                 if (moleculeList[pro2Index].isImplicitLipid)
                     continue;
 
@@ -93,8 +93,8 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
                  * another!
                  */
                 if (com1Index != com2Index) {
-                    int i1 { moleculeList[pro1Index].mycrossint[crossMolItr] };
-                    std::array<int, 3> rxnItr = moleculeList[pro1Index].crossrxn[crossMolItr];
+                    int i1 { moleculeList[pro1Index].crossings[crossMolItr].myIface };
+                    std::array<int, 3> rxnItr = moleculeList[pro1Index].crossings[crossMolItr].rxn;
                     int i2 { ifaceList[maxRows * memMolItr + crossMolItr] };
 
                     double dx1, dy1, dz1;
@@ -208,7 +208,7 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
             if (com1Index != com2Index) {
                 // std::cout << " WARNING ***************************************************** " << '\n';
                 // std::cout << "can't solve overlap: " << pro1Index
-                //           << " max cross: " << moleculeList[pro1Index].crossbase.size() << " n overlap: " << tsave
+                //           << " max cross: " << moleculeList[pro1Index].crossings.size() << " n overlap: " << tsave
                 //           << " pro1: " << overlapList[0] << " D: " << complexList[com1Index].D.x << " "
                 //           << complexList[com2Index].D.x << " Last separation: " << sqrt(dr2) << '\n';
 
@@ -220,10 +220,10 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
                     //           << moleculeList[pro1Index].freelist.size() << ' ' << moleculeList[pro1Index].comCoord
                     //           << '\t';
                     // std::cout << "traj 1: " << ' ' << complexList[com2Index].trajTrans << '\n';
-                    for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossbase.size(); ++crossMolItr) {
-                        int pro2Index { moleculeList[pro1Index].crossbase[crossMolItr] };
+                    for (int crossMolItr { 0 }; crossMolItr < moleculeList[pro1Index].crossings.size(); ++crossMolItr) {
+                        int pro2Index { moleculeList[pro1Index].crossings[crossMolItr].partner };
                         com2Index = moleculeList[pro2Index].myComIndex;
-                        int relIface1 { moleculeList[pro1Index].mycrossint[crossMolItr] };
+                        int relIface1 { moleculeList[pro1Index].crossings[crossMolItr].myIface };
                         int relIface2 { ifaceList[maxRows * memMolItr + crossMolItr] };
                         // std::cout << "cross num: " << crossMolItr << " relIface1: " << relIface1
                         //           << " relIface2: " << relIface2 << " pro: " << pro2Index << ' ' << " nfree; "

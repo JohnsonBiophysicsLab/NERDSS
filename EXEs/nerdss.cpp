@@ -1121,7 +1121,7 @@ int main(int argc, char *argv[]) {
         }
       }
       // Skip any proteins that just dissociated during this time step
-      if (moleculeList[molItr].crossbase.size() > 0) {
+      if (moleculeList[molItr].crossings.size() > 0) {
         /* Evaluate whether to perform a reaction with protein i, and with whom.
          * Flag=1 means reaction is performed. Returns correct ci1 and ci2 for
          * this rxn. Loop over all reactions individually, instead of summing
@@ -1130,7 +1130,7 @@ int main(int argc, char *argv[]) {
         // For debug, print the number of possible reactions for this molecule
         // if (molItr==0 || molItr==1){
         //   std::cout << "Itr (" << simItr << ") Molecule (" << molItr << ") has ("
-        //   << moleculeList[molItr].crossbase.size() << ") possible reactions." << std::endl;
+        //   << moleculeList[molItr].crossings.size() << ") possible reactions." << std::endl;
         // }
         // these are indices in crossbase/mycrossint/crossrxn of the reaction
         // for molecules 1 and 2, should it occur
@@ -1146,16 +1146,16 @@ int main(int argc, char *argv[]) {
           willReact = false; // we chose an association reaction
           crossIndex1 = 0;
           int molItr2 = moleculeList[molItr]
-                            .crossbase[crossIndex1]; // crosspart[p1][ci1];
-          double pmatch = moleculeList[molItr].probvec[crossIndex1];
+                            .crossings[crossIndex1].partner; // crosspart[p1][ci1];
+          double pmatch = moleculeList[molItr].crossings[crossIndex1].prob;
           if (pmatch > 0)
             willReact = true;
           if (!moleculeList[molItr].isImplicitLipid) {
-            for (unsigned j = 0; j < moleculeList[molItr2].crossbase.size(); ++j) {
-              if (moleculeList[molItr2].probvec[j] == pmatch) {
+            for (unsigned j = 0; j < moleculeList[molItr2].crossings.size(); ++j) {
+              if (moleculeList[molItr2].crossings[j].prob == pmatch) {
                 crossIndex2 = j;
-                if (moleculeList[molItr].crossrxn[crossIndex1] ==
-                    moleculeList[molItr2].crossrxn[crossIndex2])
+                if (moleculeList[molItr].crossings[crossIndex1].rxn ==
+                    moleculeList[molItr2].crossings[crossIndex2].rxn)
                   break;
               }
             }
@@ -1168,17 +1168,17 @@ int main(int argc, char *argv[]) {
            * either physically associate two molecules into a complex (A+B->AB)
            * or change state of one (or both) reactants (A+B->A+B')
            */
-          int molItr2{moleculeList[molItr].crossbase[crossIndex1]};
+          int molItr2{moleculeList[molItr].crossings[crossIndex1].partner};
 
-          int ifaceIndex1{moleculeList[molItr].mycrossint[crossIndex1]};
+          int ifaceIndex1{moleculeList[molItr].crossings[crossIndex1].myIface};
           int ifaceIndex2;
           if (moleculeList[molItr2].isImplicitLipid == false) {
-            ifaceIndex2 = moleculeList[molItr2].mycrossint[crossIndex2];
+            ifaceIndex2 = moleculeList[molItr2].crossings[crossIndex2].myIface;
           } else {
             ifaceIndex2 = 0;
           }
           std::array<int, 3> rxnIndex =
-              moleculeList[molItr].crossrxn[crossIndex1];
+              moleculeList[molItr].crossings[crossIndex1].rxn;
 
           /*First if statement is to determine if reactants are physically
            * associating*/
@@ -1366,19 +1366,19 @@ int main(int argc, char *argv[]) {
           // doesn't try to react again but the partners still will avoid
           // overlapping.
           for (unsigned crossItr{0};
-               crossItr < moleculeList[molItr].crossbase.size(); ++crossItr) {
-            int skipMol{moleculeList[molItr].crossbase[crossItr]};
+               crossItr < moleculeList[molItr].crossings.size(); ++crossItr) {
+            int skipMol{moleculeList[molItr].crossings[crossItr].partner};
             for (unsigned crossItr2{0};
-                 crossItr2 < moleculeList[skipMol].crossbase.size();
+                 crossItr2 < moleculeList[skipMol].crossings.size();
                  ++crossItr2) {
-              if (moleculeList[skipMol].crossbase[crossItr2] ==
+              if (moleculeList[skipMol].crossings[crossItr2].partner ==
                   moleculeList[molItr].index)
-                moleculeList[skipMol].probvec[crossItr2] = 0;
+                moleculeList[skipMol].crossings[crossItr2].prob = 0;
             }
           }
         }
 
-      } else if (moleculeList[molItr].crossbase.size() == 0) {
+      } else if (moleculeList[molItr].crossings.size() == 0) {
         /* this protein has ncross=0,
          * meaning it neither dissociated nor tried to associate.
          * however, it could have movestat=2 if it is part of a multi-protein
@@ -1688,10 +1688,7 @@ int main(int argc, char *argv[]) {
       clear_reweight_vecs(oneMol);
       oneMol.trajStatus = TrajStatus::none;
       oneMol.isDissociated = false;
-      oneMol.crossbase.clear();
-      oneMol.mycrossint.clear();
-      oneMol.crossrxn.clear();
-      oneMol.probvec.clear();
+      oneMol.crossings.clear();
 
       // update complexes. if the complex has more than one member, it'll be
       // updated more than once, but this is probably more efficient than

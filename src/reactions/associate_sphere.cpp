@@ -556,8 +556,8 @@ void associate_sphere(long long int iter,
 
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     reactCom1.ncross = -1;
-    reactMol1.crossbase.clear();
-    reactMol2.crossbase.clear();
+    reactMol1.crossings.clear();
+    reactMol2.crossings.clear();
 
     /*update the number of bound species*/
     update_Nboundpairs(reactMol1.molTypeIndex, reactMol2.molTypeIndex, 1, params, counterArrays);

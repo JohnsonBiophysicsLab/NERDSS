@@ -129,10 +129,17 @@ void disconnect_molecule_partners(unsigned &targMolIndex, Molecule &mol,
     if (partnerIndex != -1) {
       Molecule &partner = moleculeList[partnerIndex];
 
-      for (int i = 0; i < partner.bndpartner.size(); i++) {
+      // Erasing while iterating forwards without stepping back skipped the
+      // second of two consecutive entries.  Walking backwards removes every
+      // match and leaves the indices below the cursor untouched.  bndlist is
+      // erased at the same slot, which is the invariant break_interaction.cpp
+      // now maintains; the size guard keeps this safe if some other path has
+      // not.
+      for (int i = static_cast<int>(partner.bndpartner.size()) - 1; i >= 0; --i) {
         if (partner.bndpartner[i] == targMolIndex) {
           partner.bndpartner.erase(partner.bndpartner.begin() + i);
-          partner.bndlist.erase(partner.bndlist.begin() + i);
+          if (i < static_cast<int>(partner.bndlist.size()))
+            partner.bndlist.erase(partner.bndlist.begin() + i);
         }
       }
 

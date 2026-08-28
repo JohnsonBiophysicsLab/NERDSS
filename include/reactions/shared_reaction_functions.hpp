@@ -31,23 +31,55 @@
 bool isReactant(const Molecule::Iface& reactIface, const Molecule& reactMol, const RxnIface& tempReactant);
 
 /*!
+ * \brief Finds a bond in `bndlist` by the interface that carries it.
+ *
+ * `Molecule::bndlist` holds the relative indices of this molecule's bound
+ * interfaces and `Molecule::bndpartner` the molecule each one is bound to, so
+ * entry *k* of one describes the same bond as entry *k* of the other.  An
+ * interface can be bound to at most one partner, which makes `bndlist` the only
+ * key that identifies a bond uniquely -- `bndpartner` can hold the same
+ * molecule more than once, when two interfaces bind the same neighbour.
+ *
+ * Every erase must therefore locate the bond through `bndlist` and then act on
+ * both vectors at that position.  Three sites used to do it three different
+ * ways, and one of them left the two permuted; see
+ * `docs/bond_bookkeeping_defects.md`.
+ *
+ * \return the position of the bond, or `bndlist.size()` if the interface is not
+ * bound.  Callers must check: erasing at a not-found position is what the
+ * previous implicit-lipid code did, by calling `erase()` on `end()`.
+ */
+size_t find_bond_slot(const Molecule& mol, int relIface);
+
+/*!
+ * \brief Erases one bond from `bndlist` and `bndpartner` together.
+ *
+ * Does nothing if `relIface` is not bound, which is the guard the previous
+ * `erase(std::find_if(...))` call sites lacked.
+ *
+ * \return true if a bond was erased.
+ */
+bool erase_bond(Molecule& mol, int relIface);
+
+/*!
  * \brief Records that two molecules are close enough to interact this timestep.
  *
- * Each of them appends the other to `crossbase`, the interface it presents to
- * `mycrossint`, and `crossRxn` to `crossrxn`; each parent complex bumps
- * `ncross`.  Six sites wrote this out: `get_distance()`, and five in the
+ * Each of them appends one `Molecule::CrossEntry` naming the other, the
+ * interface it presents and the reaction they might do; each parent complex
+ * bumps `ncross`.  Six sites wrote this out: `get_distance()`, and five in the
  * volume-exclusion half of `check_bimolecular_reactions()`.
+ *
+ * The entry's probability starts at zero. Callers that evaluate one overwrite it
+ * through `crossings.back().prob`; the exclusion sites leave it at zero, which
+ * is what they used to push explicitly.
  *
  * \param[in] crossRxn the `{rxnIndex, rateIndex, isStateChangeBackRxn}` triple.
  * Every copy pushed the same value onto both molecules, so it is one parameter.
  * The exclusion sites pass `{rxnIndex, 0, false}`, because no probability is
  * evaluated for them.
- * \param[in] alsoInitProbvec append a zero to both `probvec`s, keeping them
- * index-aligned with `crossbase`.  The exclusion sites do; `get_distance()` does
- * not, because its caller pushes the probability it computes.
  */
 void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
-    const std::array<int, 3>& crossRxn, bool alsoInitProbvec, std::vector<Molecule>& moleculeList,
+    const std::array<int, 3>& crossRxn, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList);
 
 /*!

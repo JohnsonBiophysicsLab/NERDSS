@@ -66,8 +66,6 @@ void check_for_destruction(unsigned simItr, const Parameters& params, const std:
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
     const std::vector<MolTemplate>& molTemplateList);
 
-void correct_structure(const std::vector<Molecule> &moleculeList, Complex &complex,
-                       const std::vector<ForwardRxn> &forwardRxns);
 
 bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
 // <<<<<<< HEAD

@@ -997,8 +997,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
   reactMol2.bndlist.push_back(ifaceIndex2);
   reactMol1.bndpartner.push_back(reactMol2.index);
   reactMol2.bndpartner.push_back(reactMol1.index);
-  reactMol1.bndRxnList.push_back(currRxn.relRxnIndex);
-  reactMol2.bndRxnList.push_back(currRxn.relRxnIndex);
 
   {
     size_t tmpItr{0};
@@ -1030,8 +1028,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
   // Update the crossed molecule lists so that the current molecules won't avoid
   // anything, but others will.
   reactCom1.ncross = -1;
-  reactMol1.crossbase.clear();
-  reactMol2.crossbase.clear();
+  reactMol1.crossings.clear();
+  reactMol2.crossings.clear();
 
   /*update the number of bound species*/
   update_Nboundpairs(reactMol1.molTypeIndex, reactMol2.molTypeIndex, 1, params, counterArrays);

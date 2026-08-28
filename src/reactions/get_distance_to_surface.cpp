@@ -26,9 +26,10 @@ bool get_distance_to_surface(int pro1, int pro2, int iface1, int iface2, int rxn
     /*Rmax should be the binding radius plus ~max diffusion distance, using 3*sqrt(6*Dtot*deltat)*/
     if (R1 < Rmax) {
         /*in this case we evaluate the probability of this reaction*/
-        moleculeList[pro1].crossbase.push_back(pro2);
-        moleculeList[pro1].mycrossint.push_back(iface1);
-        moleculeList[pro1].crossrxn.push_back(std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
+        // Only pro1 records anything: pro2 is the implicit lipid.  That is why
+        // this is not a record_crossing_pair() call.
+        moleculeList[pro1].crossings.emplace_back(
+            pro2, iface1, std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
         ++complexList[moleculeList[pro1].myComIndex].ncross;
         return true;
     }

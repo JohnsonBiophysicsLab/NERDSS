@@ -124,9 +124,9 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
       }
     }
 
-    // map the prevlist of the molecule back to index
-    for (auto &prevId : mol.prevlist) {
-      prevId = find_molecule(moleculeList, prevId);
+    // map the reweighting history's partner IDs back to indices
+    for (auto &prevEntry : mol.prevReweight) {
+      prevEntry.partner = find_molecule(moleculeList, prevEntry.partner);
     }
   }
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
@@ -150,9 +150,9 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
   }
   // Set myComIndex to the ID of the complex:
   mol.myComIndex = complexList[mol.myComIndex].id;
-  // Map the prevlist of the molecule to IDs:
-  for (auto &prevIndex : mol.prevlist) {
-    prevIndex = moleculeList[prevIndex].id;
+  // Map the reweighting history's partner indices to IDs:
+  for (auto &prevEntry : mol.prevReweight) {
+    prevEntry.partner = moleculeList[prevEntry.partner].id;
   }
   if (VERBOSE) cout << "indices_to_IDs ends" << endl;
 }

@@ -896,6 +896,81 @@ zero times across all 18 cases. That is why it survived, and why fixing it
 changes nothing measurable. The `MpiContext` overload carries the same four
 restarts and is left alone, as with the other MPI-only paths here.
 
+### Structure-of-arrays - built, measured, reverted
+
+A review of this branch objected that `Molecule` is a pointer-heavy
+array-of-structures with many nested `std::vector`s and an `unordered_map`, and
+so is unsuitable for efficient device access without conversion to flat
+structure-of-arrays storage. Two conditions were put on any such conversion:
+bitwise identity, and no loss of speed. Both were tested by building the
+conversion rather than by arguing about it.
+
+The description of the class is accurate. `Molecule` is 656 bytes, 528 of which
+are the 24-byte headers of 22 heap-owning members, and the rejection cascade in
+`check_bimolecular_reactions()` reads four scattered cache lines per molecule to
+use about 40 bytes of them. The `unordered_map` is the one part that does not
+hold up: `Molecule::mapIdToIndex` is a `static` member, one per process rather
+than one per object, referenced only from `src/mpi/id_index.cpp`, which the
+serial and OpenMP builds do not compile.
+
+**Bitwise identity is achievable.** A flattening of the fields that cascade
+reads was built -- a 32-byte `MolHotView` per molecule, two to a cache line,
+rebuilt once per timestep beside the spatial indices, driving five gates in
+`check_bimolecular_reactions()` and the four type-mask tests in the cell walk --
+and it is **byte-identical on all 13 cases**. A layout change moves bytes, not
+arithmetic.
+
+**The layout cost is real, and it grows with the model.** The control that
+measures it is a second build with 1,024 inert bytes appended to `Molecule`,
+moving no hot field but taking the array stride from 656 to 1,680. Its penalty
+rises monotonically with the working set: 0.953x at 2,000 molecules, 0.942x at
+6,410, 0.864x at 10,000 and **0.827x at 40,000** -- the last being six seconds
+against a 1.3-second standard deviation. Once the molecule array stops fitting
+in cache, the 656-byte stride costs about 20%.
+
+**The flattening built here does not collect that headroom.** It measures
+0.980x across the six suite cases and 0.90x to 0.98x across the four larger
+ones -- never faster. Two reasons, both properties of this design rather than of
+flattening: a mirror shadows the class instead of replacing it, so a pair that
+survives the gates still walks the full 656-byte object; and rebuilding the
+mirror is O(N) per timestep while the search is O(pairs). At 40,000 molecules
+the search examines 19,841 pairs per timestep -- about 39,700 molecule visits --
+against 40,000 refresh writes, so the refresh touches more molecules than the
+search it accelerates. A genuine conversion, where the flat arrays are the
+storage, pays neither cost; it is also a far larger change, `interfaceList`
+alone having 835 uses. Both builds were reverted, and the tree rebuilds to the
+same binary hash it had before.
+
+**The device half of the objection is not about layout.** Bitwise identity is
+unreachable on a device regardless of storage: the probability path calls libm
+`erfc`, `exp` and `Faddeeva::erfcx`, whose last-ulp results are
+implementation-defined, and this branch's own CUDA proof of concept (`gpu_poc/`)
+flattened exactly the arithmetic prefix and measured a maximum relative error of
+9.55e-15 against the CPU -- correct, but not identical. A device lane has to be
+validated statistically, the way the RNG-changing group already is. And the work
+is far below the size a device pays off at: counting calls to
+`check_bimolecular_reactions()` gives 62 candidate pairs per timestep for
+`clathrin`, 96 for `rev_3D`, 5,682 for `enzyme` and 19,841 for a
+40,000-molecule model, against an end-to-end break-even the proof of concept
+puts near 1,000,000 pairs per launch. Pairs cannot be batched across timesteps,
+because each step's positions depend on the last one's outcome.
+
+**What the measurement mainly shows is a gap in the suite.** The answer changes
+between 6,410 and 10,000 molecules; `cases.tsv` tops out at 3,955. The
+repository ships `enzyme` at 6,410, `clathrin_coat/.../parms_clath_ap_pip.inp`
+at 5,400, and `clathrin_coat/flat_clat-ap2-pip2.dir/parms.inp` at 500,400
+explicit molecules -- 328 MB of `Molecule` alone. That last one never reaches
+the timestep loop, and not because of the layout: the call after coordinate
+generation is `fixOverlappingMolecules()`, whose fallback branch at
+`generate_coordinates.cpp:354` is an all-pairs O(N^2) double loop repeated up to
+50 times. A suite that stops at 3,955 molecules reports "no effect" for a change
+that has a 1.21x effect at 40,000, so a benchmark at 10,000 and above is the
+prerequisite for revisiting any of this.
+
+Full layout tables, timings with standard deviations, pair counts, the size
+sweep and the bound on flattening the ragged lists are in section 22 of
+[`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
+
 ## Reproducing the measurements
 
 ```bash

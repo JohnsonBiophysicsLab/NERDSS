@@ -30,8 +30,8 @@ void collect_cluster_partners(int comIndex, const std::vector<Molecule>& molecul
 {
     for (unsigned memMolItr { 0 }; memMolItr < complexList[comIndex].memberList.size(); ++memMolItr) {
         int pro1Index = complexList[comIndex].memberList[memMolItr];
-        for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossbase.size(); ++crossMemItr) {
-            int pro2Index { moleculeList[pro1Index].crossbase[crossMemItr] };
+        for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossings.size(); ++crossMemItr) {
+            int pro2Index { moleculeList[pro1Index].crossings[crossMemItr].partner };
             if (moleculeList[pro2Index].isImplicitLipid)
                 continue;
             partnerList.push_back(pro2Index);

@@ -296,7 +296,7 @@ void associate_implicitlipid_sphere(
         // Update the crossed molecule lists so that the current molecules won't
         // avoid anything, but others will.
         reactCom1.ncross = -1;
-        reactMol1.crossbase.clear();
+        reactMol1.crossings.clear();
         // mol2 is the implicit lipid.
     }
 
