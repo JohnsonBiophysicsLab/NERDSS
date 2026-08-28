@@ -367,15 +367,25 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                     double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
                                         + ifaceVec2.z * ifaceVec2.z };
                                     // if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                    // NOTE: unlike the pro1 block above, this one has no fiber
-                                    // branch, so a pair of complexes on a fiber is measured here
-                                    // as a 3D reaction.  That asymmetry is in the original code
-                                    // and is preserved deliberately; pair_dim() is not used here
-                                    // because it would route such a pair to Fiber1D and change
-                                    // the Dtot this block computes.
-                                    if (complexList[moleculeList[pro1Index].myComIndex].OnSurface && complexList[moleculeList[pro2Index].myComIndex].OnSurface) {
+                                    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
+                                    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
+
+                                    if (pairDim == Dim::Fiber1D) {
+                                        // this is on 1D (a fiber)
+                                        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
+                                        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        }
+                                        double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
+                                        if (R1 < RMax) {
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, true, moleculeList, complexList);
+                                        }
+                                    }
+                                    else if (pairDim == Dim::Surface2D) {
                                         // both Complexes are on the membrane, evaluate as 2D reaction
-                                        const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, Dim::Surface2D) };
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -409,7 +419,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                     } else {
                                         //3D reaction
-                                        const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, Dim::Bulk3D) };
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
