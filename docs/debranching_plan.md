@@ -486,6 +486,40 @@ needed a compartment model to validate against.
    unmodified code as well. Not investigated further; it is on the compartment
    restart path, which no test covers.
 
+### How the result-preservation claim was actually tested
+
+Not by the four models alone. In order of what each one can rule out:
+
+| probe | scope | result |
+| --- | --- | --- |
+| Model sweep | every runnable input in the tree, 2 seeds, baseline vs HEAD | 178 runs, 0 diffs |
+| Optimisation levels | `-O0` and `-O3 -ffp-contract=off`, 3 models | identical at both |
+| Randomised differential | 1.5M random states through the merged reflectors vs the deleted originals transcribed verbatim | 0 bitwise mismatches, all four radial branches firing |
+| `weighted_D_sum` check | 12M comparisons against the four original expressions | 0 mismatches |
+| Serialization round trip | every boundary state through `Membrane::serialize`/`deserialize` | shape and accessors survive |
+
+The optimisation-level probe exists because the one real numerical bug in this
+work was FMA contraction, which the models did not catch: a loop and a
+straight-line expression that are algebraically identical compiled differently
+at `-O3`, and every model still agreed. An A/B at a single optimisation level
+cannot see that class of bug, so the claim is only worth what a second level
+buys it.
+
+The randomised differential matters for the opposite reason: it reaches the
+`RadialSide::Outside` compartment branches that no shipped model exercises,
+which is exactly where a sign-parameterised merge would go wrong.
+
+### MPI cannot be validated this way at all
+
+`bin/nerdss_mpi` does not reproduce itself run to run with a fixed seed. Running
+the *same* binary twice on the same input produces different physics output -
+not just differing timestamps, but molecules reported outside the simulation
+volume in one run and not the other. So no MPI A/B can distinguish a real
+regression from a rerun, and none of the bitwise claims above extend to it.
+`run_code_tests/membrane_serialization_check.cpp` exists because of this: it
+tests the thing the MPI change actually touched, without needing MPI to be
+deterministic.
+
 ### Coverage gaps that make some of this unvalidatable by running models
 
 Worth knowing before trusting a bitwise A/B:
