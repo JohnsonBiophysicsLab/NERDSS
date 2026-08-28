@@ -211,6 +211,13 @@ Because no input file in the tree exercises the 1D fiber path, this cannot be
 validated by running models alone; it needs a direct comparison of the helper
 against the expressions it replaced.
 
+## Axis 3 - implicit lipid and compartment
+
+> **This section's design was not built.** The `SurfaceField` interface below
+> does not earn its keep; what the code actually wanted is in *What the
+> measurement showed* at the end of the section. The original reasoning is kept
+> because the argument for it is the reason the measurement was worth making.
+
 ## Axis 3 - implicit lipid and compartment become partners
 
 This is the largest single reduction and the least obvious. Today the implicit
@@ -241,6 +248,41 @@ for (auto& field : fields) field->checkBinding(targMolIndex, ...);
 An explicit-lipid box system has zero fields; implicit lipid adds one; a
 compartment adds another. The `params.implicitLipid == true` guards disappear,
 because an empty vector is its own guard.
+
+### What the measurement showed
+
+Three things, each of which sinks part of the above.
+
+**The 251 sites are not where this reaches.** 145 of them are skip-guards -
+`if (mol.isImplicitLipid) continue;` - and they are spread across about forty
+files deep inside the reaction code: `break_interaction`, `find_which_reaction`,
+`functions_for_spherical_system`, `associate_ImplicitLipid_box`. `SurfaceField`
+touches none of them. They exist because the implicit lipid is a `Molecule`
+sitting in `moleculeList` that generic code has to step over, which is a
+property of the representation. Only filtering the iteration removes them - the
+participant lists of step 5.
+
+**The two functions share no algorithm.** `check_implicit_reactions` walks
+pro1's freelist against its reaction partners and evaluates 2D/3D binding
+through the lookup tables, in 220 lines. `check_compartment_reaction` iterates
+nothing: it computes one `Dtot`, one distance to the compartment surface, and
+sets `transmissionProb`, in 120. They are the same *concept* - binding to a
+continuous surface rather than to a discrete partner - and unrelated
+computations. A common base class over them shares no code; it only makes two
+dissimilar calls look alike.
+
+**The call site is hot.** Both calls sit inside the per-molecule loop over
+occupied sub-cells, so they run once per candidate molecule per timestep.
+Putting a virtual call there buys two removed `if`s at the cost of an indirect
+call on the hot path - the wrong trade, and one this document argues against a
+few paragraphs later under *Filter the input, do not test in the body*.
+
+So the interface was not built. What the code did want was the duplication
+*inside* `check_compartment_reaction`: its entering and exiting branches were
+thirty lines each, differing in the signed distance and the probability routine
+called, and identical character for character in between. That is collapsed,
+and it is the same shape as the sphere/compartment merge in step 3 - which is
+the honest version of "the compartment is the sphere with a sign flipped".
 
 ### Filter the input, do not test in the body
 
@@ -276,7 +318,7 @@ result-preserving and stream-changing commits are validated by different means
 | 1 | `isBox` / `isSphere` -> `enum class BoundaryShape` | very low | yes, bitwise |
 | 2 | `pair_dim()` + a single `weighted_D_sum()` | low | yes, if the expressions are kept verbatim |
 | 3 | Merge the sphere/compartment reflectors behind `RadialSide` | medium | yes, bitwise |
-| 4 | `SurfaceField` for implicit lipid and compartment | medium | yes |
+| 4 | ~~`SurfaceField`~~ - not built; collapse `check_compartment_reaction` instead | low | yes, bitwise |
 | 5 | Participant lists (`activeMols` and friends) | very low | yes |
 | 6 | Merge `associate_box` / `associate_sphere` | high | to be determined |
 
