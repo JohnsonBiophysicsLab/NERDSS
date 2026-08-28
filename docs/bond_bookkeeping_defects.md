@@ -19,12 +19,15 @@ Measured 2026-08-28, Apple M5, Apple clang 21.0.0, `-O3 -std=c++0x`, seed
 | | defect 1 | defect 2 |
 | --- | --- | --- |
 | what | `bndRxnList` is never erased and has no live reader | `bndlist` and `bndpartner` are maintained by three mutually inconsistent erase paths |
-| status | **actively wrong in 13 of 18 cases** | **latent: never fires in any tested model** |
-| observable today | no | no |
-| why it does not bite | its only reader is dead code | no tested model double-bonds one pair of molecules |
-| what would make it bite | re-enabling `correct_structure()` | any model where two molecules bind through two interfaces |
+| status | **actively wrong in 13 of 18 cases** | **actively wrong on `homoTrimer` and `closed_homoTrimer`** |
+| observable in serial output today | no | no |
+| why it does not bite | its only reader is dead code | nothing in the serial path pairs the two lists by index |
+| what would make it bite | re-enabling `correct_structure()` | the two MPI sites that do pair them by index |
 
-Neither changes any output today. Both are traps for the next person.
+Neither changes any **serial** output today: defect 1's reader is dead code, and
+nothing in the serial path pairs `bndlist` with `bndpartner` by index. Both are
+wrong in the data structures themselves, both are reachable by MPI code that
+does rely on them, and both are traps for the next person.
 
 ## The three lists
 
@@ -48,6 +51,9 @@ Rather than reason about it, a build was instrumented to compare all three lists
 against the interfaces themselves at the end of every timestep, for every live
 molecule, and to count:
 
+- `interfaceList[bndlist[k]].interaction.partnerIndex != bndpartner[k]` — the
+  pairing itself, which is the invariant the MPI code relies on and the only one
+  of these that a permutation violates;
 - `bndlist.size() != bndpartner.size()` — the two disagreeing with each other;
 - either disagreeing with the set of interfaces actually flagged `isBound`;
 - the same partner appearing twice in `bndpartner`, which is the precondition
@@ -221,34 +227,77 @@ decrementing `i`, so two consecutive matching entries leave the second in place.
 
 ### Measured
 
-Across all 18 cases: `sizeMismatch=0`, `listVsTruth=0`, `partnerVsTruth=0`,
-**`dupPartner=0`**.
+**Correction to the first version of this document.** It reported this defect as
+latent -- "never fires in any tested model" -- on the strength of a probe that
+compared list *sizes*, set membership, and duplicate partners, all of which came
+back clean across 18 cases. That probe could not see a **permutation**: two lists
+of the same length, holding the same elements, paired up wrongly. Re-measured
+against the actual invariant, the defect is live.
 
-`dupPartner` is the one that matters. It counts molecules holding the same
-partner index twice in `bndpartner` — the precondition for (a)'s asymmetry. It
-is zero everywhere, including `gagsphere` and `cluster_gagsphere`, the two models
-with ring closure and therefore the likeliest to form a second bond between an
-already-bound pair.
+The invariant the MPI sites rely on is that for every `k`,
+`interfaceList[bndlist[k]].interaction.partnerIndex == bndpartner[k]`. Checked
+every timestep for every live molecule:
 
-**So the two lists agree with each other and with the interfaces in every tested
-model, and this defect never fires.** The maximum number of simultaneous bonds
-on any molecule reaches 3 (`clathrin`), but never twice to the same partner.
+| case | broken slots | molecule-timesteps affected |
+| --- | ---: | ---: |
+| `homoTrimer` | **88,490** | 44,245 |
+| `closed_homoTrimer` | **88,490** | 44,245 |
+| the other 11 in `cases.tsv` | 0 | 0 |
+| all 5 in `coverage_cases.tsv` | 0 | 0 |
 
-### Why it is still worth fixing
+A representative instance, and it persists once it happens:
 
-The invariant is not enforced anywhere; it holds by accident of which models are
-run. A model in which two molecules bind through two interface pairs — which the
-reaction language permits, and which `bindRadSameCom` and `irrevRingClosure`
-exist to support — breaks it on the first dissociation of such a pair. The
-consequences are not subtle:
+```
+BOND_PAIR_BROKEN itr=1150 mol=725 slot=0 bndlist=0 bndpartner=890 truePartner=472 nBonds=2
+BOND_PAIR_BROKEN itr=1150 mol=725 slot=1 bndlist=1 bndpartner=472 truePartner=890 nBonds=2
+BOND_PAIR_BROKEN itr=1151 mol=725 slot=0 bndlist=0 bndpartner=890 truePartner=472 nBonds=2
+```
 
-- `check_bimolecular_reactions()` decides whether a pair is already bound by
-  scanning `bndpartner`. A molecule that has dropped a partner it is still bound
-  to would be offered that binding again, and could form a second bond on an
-  interface that already has one.
-- `bndlist.size() > 0` gates the `excludeVolumeBound` path.
-- `delete_disappeared.cpp` would erase mismatched index pairs, corrupting the
-  partner list of a third molecule.
+Molecule 725's interface 0 is bound to 472 and interface 1 to 890; `bndpartner`
+says the opposite. The two entries are cleanly transposed.
+
+The size-based counters remain zero everywhere -- `sizeMismatch=0`,
+`listVsTruth=0`, `partnerVsTruth=0`, `dupPartner=0`, including both `gagsphere`
+models with ring closure. So mechanism (a) below, the `std::remove` asymmetry,
+genuinely does not fire: no tested model binds one pair of molecules through two
+interfaces. What fires is the cancel-dissociation path.
+
+### Cause: erase-then-append in the cancel path
+
+`break_interaction.cpp:20` removes the partner from wherever it sits, because
+`determine_parent_complex_IL` downstream reads `bndpartner` and must not see the
+bond being broken:
+
+```cpp
+reactMol1.bndpartner.erase(remove(begin, end, reactMol2.index), end);
+```
+
+If the dissociation is then cancelled, `break_interaction.cpp:177` puts it back
+-- at the **end**:
+
+```cpp
+reactMol1.bndpartner.push_back(reactMol2.index);
+```
+
+`bndlist` is never touched on this path. A molecule with two bonds whose *first*
+bond has a cancelled dissociation therefore ends up with `bndpartner` permuted
+against `bndlist`, exactly the transposition above. `homoTrimer` and
+`closed_homoTrimer` are the two models here that combine multiply-bonded
+molecules with enough loop closure to exercise the cancellation.
+
+### Why no serial output is wrong today
+
+Nothing in the serial path reads the two lists at a common subscript.
+`check_bimolecular_reactions()` scans `bndpartner` for membership, which is
+order-independent; `bndlist.size()` gates `excludeVolumeBound`; and `bndlist[k]`
+is read as an interface index in `check_dissociation*` and
+`check_bimolecular_reactions` without pairing it to `bndpartner`.
+
+The two MPI sites named above *do* pair them by index, so a run that reaches them
+with `homoTrimer`-like topology gets a partner list entry rewritten for the wrong
+interface, or a third molecule's lists erased at mismatched positions.
+
+It is also a trap for any new code that assumes what the comment promises.
 
 ### The fix already exists, commented out
 
