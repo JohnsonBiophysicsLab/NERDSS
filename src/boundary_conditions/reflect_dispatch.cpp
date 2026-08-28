@@ -44,14 +44,23 @@ void reflect_traj_complex_rad_rot(
 {
     if (isInsideCompartment == false) {
         if (membraneObject.isSphere() == true)
-            reflect_traj_complex_rad_rot_sphere(params, moleculeList, targCom, membraneObject, membraneObject.sphereR, RS3Dinput);
+            reflect_traj_complex_radial(params, moleculeList, targCom, membraneObject, membraneObject.sphereR,
+                RadialSide::Inside, RS3Dinput, /*skipOnSurface=*/true, /*recheckSpan=*/true);
         else
             reflect_traj_complex_rad_rot_box(params, moleculeList, targCom, membraneObject, RS3Dinput);
         if (moleculeList[targCom.memberList[0]].enforceCompartmentBC == true) {
-            reflect_traj_complex_compartment(params, moleculeList, targCom, membraneObject, RS3Dinput);
+            // The compartment excludes, and is applied on top of whichever outer
+            // boundary ran above.  It neither skips surface complexes nor
+            // re-checks the span; both omissions are the original behaviour.
+            reflect_traj_complex_radial(params, moleculeList, targCom, membraneObject, membraneObject.compartmentR,
+                RadialSide::Outside, RS3Dinput, /*skipOnSurface=*/false, /*recheckSpan=*/false);
         }
     } else {
-        reflect_traj_complex_rad_rot_sphere(params, moleculeList, targCom, membraneObject, membraneObject.compartmentR, RS3Dinput);
+        // A molecule whose template declares insideCompartment is confined
+        // within the compartment, so the compartment radius is its containing
+        // boundary and no outer reflection runs at all.
+        reflect_traj_complex_radial(params, moleculeList, targCom, membraneObject, membraneObject.compartmentR,
+            RadialSide::Inside, RS3Dinput, /*skipOnSurface=*/true, /*recheckSpan=*/true);
     }
 }
 
@@ -81,14 +90,17 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
     */
     if (isInsideCompartment == false) {
         if (membraneObject.isSphere() == true)
-            reflect_traj_tmp_crds_sphere(params, moleculeList, targCom, traj, membraneObject, membraneObject.sphereR, RS3Dinput);
+            reflect_traj_tmp_crds_radial(
+                params, moleculeList, targCom, traj, membraneObject.sphereR, RadialSide::Inside, RS3Dinput);
         else
             reflect_traj_tmp_crds_box(params, moleculeList, targCom, traj, membraneObject, RS3Dinput);
         if (moleculeList[targCom.memberList[0]].enforceCompartmentBC == true) {
-            reflect_traj_tmp_crds_compartment(params, moleculeList, targCom, traj, membraneObject, RS3Dinput);
+            reflect_traj_tmp_crds_radial(
+                params, moleculeList, targCom, traj, membraneObject.compartmentR, RadialSide::Outside, RS3Dinput);
         }
     } else {
-        reflect_traj_tmp_crds_sphere(params, moleculeList, targCom, traj, membraneObject, membraneObject.compartmentR, RS3Dinput);
+        reflect_traj_tmp_crds_radial(
+            params, moleculeList, targCom, traj, membraneObject.compartmentR, RadialSide::Inside, RS3Dinput);
     }
 }
 

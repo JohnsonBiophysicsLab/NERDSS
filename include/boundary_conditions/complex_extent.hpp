@@ -39,6 +39,7 @@
  */
 #pragma once
 
+#include "boundary_conditions/reflect_functions.hpp"
 #include "classes/class_Molecule_Complex.hpp"
 #include "math/matrix.hpp"
 
@@ -74,12 +75,13 @@ typedef std::array<WallExtent, 3> BoxExtent;
  *        boundaries, where "farthest out" is one number rather than six.
  *
  * The box routines all score a point the same way - its coordinate along one
- * axis - so \ref scan_axis_extent can do the whole scan.  The spherical ones do
- * not: one wants the largest radius, one the largest amount by which a point
- * pokes out past the membrane, and the compartment ones want the *smallest*
- * radius, each seeded differently and each with its own tie-breaking.  Those
- * differences decide real branches, so rather than hide them behind a flag the
- * callers keep their own one-line score expression and hand the point here.
+ * axis - so \ref scan_axis_extent can do the whole scan.  The spherical ones use
+ * one of two conventions: \ref radial_escape, how far past the boundary a point
+ * has got, seeded at zero; or \ref radial_signed_radius, the signed radius
+ * itself, seeded at the boundary.  Which one a routine uses is not a free
+ * choice - the two disagree on ties in floating point - so each keeps the one
+ * it was written with, and both are spelled out next to \ref RadialSide rather
+ * than open-coded per caller.  The caller still seeds `score` and `point`.
  *
  * `score` and `point` are seeded by the caller, and `consider` uses a strict
  * `>` so that the first point to reach a given score wins the tie, as every one
@@ -97,6 +99,98 @@ struct ExtremePoint {
         }
     }
 };
+
+/*! \ingroup BoundaryConditions
+ * \brief The boundary radius after the reflecting-surface offset is applied.
+ *
+ * The offset always shrinks the region the complex is allowed to occupy, which
+ * for a containing boundary means a smaller radius and for an excluding one a
+ * larger one.  The sphere routines wrote `radius - RS3D` and the compartment
+ * routines `compartmentR + RS3D`; both are this.
+ */
+inline double radial_boundary(double radius, double RS3D, RadialSide side)
+{
+    return radius - radial_sign(side) * RS3D;
+}
+
+/*! \ingroup BoundaryConditions
+ * \brief How far a point sits on the wrong side of a spherical boundary.
+ *
+ * Positive means the point has escaped and must be reflected back.  All six
+ * radial routines scored their points with this, three of them with the sign
+ * written out and three with it negated.
+ */
+inline double radial_escape(const Vec3D& point, double boundaryR, RadialSide side)
+{
+    return radial_sign(side) * (point.length() - boundaryR);
+}
+
+/*! \ingroup BoundaryConditions
+ * \brief A point's radius, signed so that "farther onto the wrong side" ranks
+ *        higher.
+ *
+ * The second of the two scoring conventions these routines use, and it is kept
+ * distinct from \ref radial_escape on purpose.  The two rank points in the same
+ * order mathematically, but not always in floating point: `|p| - R` can round
+ * two distinct radii to the same double and hand the tie to whichever point was
+ * scanned first, where `|p|` alone would have separated them.  Multiplying by
+ * +/-1 cannot round, so each routine keeps whichever convention it was written
+ * with and no tie changes hands.
+ *
+ * Seed an \ref ExtremePoint used with this at `radial_signed_boundary`.
+ */
+inline double radial_signed_radius(const Vec3D& point, RadialSide side)
+{
+    return radial_sign(side) * point.length();
+}
+
+//! \brief Seed and threshold for an \ref ExtremePoint ranked by \ref radial_signed_radius.
+inline double radial_signed_boundary(double boundaryR, RadialSide side)
+{
+    return radial_sign(side) * boundaryR;
+}
+
+/*! \ingroup BoundaryConditions
+ * \brief Does a complex of this radius, centred here, need checking at all?
+ *
+ * The cheap bounding test every radial routine opens with, before it walks the
+ * member molecules.  Written signed, it is the one test the sphere routines
+ * spelled `base.length() + targCom.radius > sphereR` and the compartment ones
+ * spelled `base.length() + targCom.radius < sphereR`.
+ *
+ * Note that the complex radius is *added* on both sides, not subtracted for the
+ * excluding case as a tighter bound would have it.  That is what the original
+ * routines did and it only ever makes the test more inclusive, so the scan that
+ * follows still decides.
+ */
+inline bool radial_may_escape(const Vec3D& base, double complexRadius, double boundaryR, RadialSide side)
+{
+    const double sign { radial_sign(side) };
+    return sign * (base.length() + complexRadius) > sign * boundaryR;
+}
+
+/*! \ingroup BoundaryConditions
+ * \brief Displacement that reflects `point` back across a spherical boundary.
+ *
+ * The tail shared by all six radial routines, and the reason none of them needs
+ * to know its side: `lamda` already carries the right sign.  A point outside a
+ * containing boundary has `targR > boundaryR`, so `lamda` is negative and the
+ * shift pulls inward; a point inside an excluding one has `targR < boundaryR`,
+ * so `lamda` is positive and the shift pushes outward.
+ *
+ * `targR` is recomputed from the point rather than reused from a score, because
+ * that is what five of the six did, and the sixth scored by the same
+ * `length()` call on the same vector, so it is the identical double either way.
+ *
+ * The caller must not pass a point at the origin; every seed in this file is
+ * chosen so that cannot happen.
+ */
+inline Vec3D radial_reflection_shift(const Vec3D& point, double boundaryR)
+{
+    const double targR { point.length() };
+    const double lamda { -2.0 * (targR - boundaryR) / targR };
+    return lamda * point;
+}
 
 /*! \ingroup BoundaryConditions
  * \brief The reflecting-surface offset that applies to this complex.

@@ -92,6 +92,62 @@ compartment, because there is no longer anything to forget. The same holds for
 `check_if_spans`, the `sweep_separation_*` family, and the association-time span
 checks.
 
+### What survived contact with the code
+
+Most of the above did not, and the part that did paid off more than expected.
+Recorded here rather than quietly rewritten, because the reasoning is the useful
+part.
+
+**The scan was already extracted.**
+[`complex_extent.hpp`](../include/boundary_conditions/complex_extent.hpp)
+had already collected the doubly-nested walk over member COMs and interfaces
+that all sixteen routines shared. What was left to unify was the *decision*, not
+the traversal.
+
+**The box is not a constraint list.** A box reflection treats its three axes
+independently: each axis is corrected on its own, and the routine re-samples
+only if a correction pushes the complex out through the opposing wall *of that
+axis*. Expressing that as a loop over six half-space constraints changes what
+"the opposing constraint" means and loses the per-axis pairing. The box
+reflectors are left as they are.
+
+**Sphere and compartment are one reflector.** This is where the win actually
+was. The three `*_compartment` files were their `*_sphere` twins with a handful
+of signs flipped, and every one of those flips is the same flip:
+
+| | sphere (contains) | compartment (excludes) |
+| --- | --- | --- |
+| boundary radius | `radius - RS3D` | `compartmentR + RS3D` |
+| bounding test | `L + r > R` | `L + r < R` |
+| point score | `+` | `-` |
+| reflection tail | *identical* | *identical* |
+
+All three are `sign * x` for `sign = +1` inside and `-1` outside, so a single
+`RadialSide` parameter covers them - including the reflecting-surface offset,
+which always shrinks the region the complex may occupy and therefore *adds* to
+an excluding radius and *subtracts* from a containing one. The reflection tail
+needs no sign at all: `lamda = -2 (targR - R) / targR` is already negative
+outside a containing boundary and positive inside an excluding one.
+
+So `hasCompartment` does stop being a separate code path - three files, and the
+duplication in them, are gone - even though it remains a branch in the
+dispatcher. That is the honest version of the claim above.
+
+**Two scoring conventions, deliberately kept apart.** The radial routines rank
+candidate points in one of two ways: by how far past the boundary a point has
+got (`|p| - R`, seeded at zero), or by signed radius (`±|p|`, seeded at `±R`).
+They agree mathematically and not in floating point - `|p| - R` can round two
+distinct radii to the same double and hand a tie to whichever point was scanned
+first. Each routine keeps the convention it was written with. Merging them would
+be a silent, untestable change in which point wins a tie.
+
+**Two compartment omissions preserved, not fixed.** The compartment reflector
+never skipped surface-bound complexes and never re-checked the span after
+reflecting ("assume the complex is not huge enough" - unchecked). Both are now
+explicit arguments at the call site rather than a missing branch, so the
+asymmetry is visible; correcting either changes results and needs its own
+commit and its own argument.
+
 The cost is one indirect call per complex per timestep at the reflection level -
 not per interface and not per candidate pair. Set against the `sqrt` and
 `GaussV()` calls already on that path, it is not measurable.
@@ -219,7 +275,7 @@ result-preserving and stream-changing commits are validated by different means
 | --- | --- | --- | --- |
 | 1 | `isBox` / `isSphere` -> `enum class BoundaryShape` | very low | yes, bitwise |
 | 2 | `pair_dim()` + a single `weighted_D_sum()` | low | yes, if the expressions are kept verbatim |
-| 3 | `Boundary` constraint set replacing the six dispatchers | medium | **no** - see below |
+| 3 | Merge the sphere/compartment reflectors behind `RadialSide` | medium | yes, bitwise |
 | 4 | `SurfaceField` for implicit lipid and compartment | medium | yes |
 | 5 | Participant lists (`activeMols` and friends) | very low | yes |
 | 6 | Merge `associate_box` / `associate_sphere` | high | to be determined |
@@ -235,11 +291,12 @@ no fiber branch, so a pair on a fiber is measured there as a 3D reaction. That
 asymmetry looks like copy-paste drift rather than intent, but correcting it is a
 behaviour change and belongs in its own commit.
 
-**Step 3** is where the compartment inconsistency quoted above actually gets
-fixed, which means a deliberate behavior change. Before writing the constraint
-set, decide which of the six reflection routines was right about the compartment
-and record the decision; the four that ignore it are either a latent bug or an
-intentional optimisation, and the code does not currently say which.
+**Step 3** turned out to be result-preserving after all - see *What survived
+contact with the code*. The compartment inconsistency is now visible as
+arguments (`skipOnSurface`, `recheckSpan`) instead of as a missing branch, which
+is the prerequisite for deciding it, but the decision itself is deferred to its
+own commit. Note also that the header comment in `reflect_dispatch.cpp` miscounts
+it: three of the six routines consult the compartment, not two.
 
 **Step 6 is last on purpose.** `associate_box.cpp` (1073 lines) and
 `associate_sphere.cpp` (598) are the least mergeable pair in the codebase -
