@@ -338,18 +338,43 @@ the 40,000-molecule case, with instruction counts unchanged to within 2%
 throughout. See section 25.4 of
 [`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
 
-### Stage 4 -- decide about the rest
+### Stage 4 -- measured, and declined
 
-`tmpComCoord` and `tmpICoords` (48 bytes) are association-only scratch; the MPI
-fields are 16 bytes. Together 64 of the remaining 328.
+Two blocks were candidates. Only one survived inspection, and it did not survive
+measurement.
 
-On stage 3's evidence this is worth little. The cascade now reads two cache
-lines and would still read two: those 64 bytes are already past `interfaceList`
-at offset 144 and beyond, so moving them out shortens the object without
-shortening what the hot path touches. The gain would be whatever a 328 -> 264
-stride is worth, against a diff that has to thread a side container through
-every association site. Not attempted, and not recommended without a measurement
-showing stride alone still pays at that scale.
+**The bond lists cannot be merged.** `bndlist`, `bndpartner` and `bndRxnList`
+look parallel -- `bndpartner`'s comment even says *"Make this have the same
+numbering !!"* -- but `break_interaction.cpp` erases `bndpartner` by partner
+index through `std::remove` (which drops every match) and `bndlist` by interface
+index, on different branches, and line 177 re-pushes `bndpartner` alone. The
+comment is an intention, not an invariant.
+
+Separately, `bndRxnList` is close to vestigial and looks like a latent defect:
+pushed only by `associate_box`, read only at `[0]`, and its erase-on-dissociation
+commented out, so on a box model it grows and never shrinks. A correctness
+question, not a layout one; left alone and recorded.
+
+**The association scratch was measured before being written.** `tmpComCoord` and
+`tmpICoords` are 48 bytes across 290 references in 41 mostly-geometry files.
+Instead of paying that to find out, section 22.4's control was run in reverse:
+48 inert bytes appended to the current 328-byte struct, taking the stride to 376
+and moving no field. Widening by exactly what stage 4 would remove bounds what
+removing it could return.
+
+**The ceiling is 1.019x aggregate** -- 1.4-1.6% on the two tightest cases,
+instructions flat at 1.000x confirming the probe measured stride alone. And it
+is a ceiling: any side container adds an indirection to all 290 accesses.
+
+Stage 3 removed 16 bytes for a measured 1.032x, because those bytes were fields
+the cascade reads. Stage 4 would remove three times as many for half the gain,
+because they already sit past `interfaceList` at offset 144 -- the cascade reads
+two cache lines today and would read two afterwards.
+
+**Closed as measured-and-declined rather than untried.** See section 26 of
+[`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md). If `Molecule` ever
+needs to be narrower, this is where the next 48 bytes are and what they are
+worth.
 
 ## What is explicitly not being done
 

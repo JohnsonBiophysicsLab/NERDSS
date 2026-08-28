@@ -2952,3 +2952,99 @@ Stage 4 -- the association scratch (`tmpComCoord`, `tmpICoords`, 48 bytes) and
 the MPI-only fields (16 bytes) -- remains. On the evidence here it is worth
 little: those 64 bytes are 20% of what is left, against a cascade that now
 reads two cache lines and would still read two.
+
+## 26. Narrowing `Molecule`, stage 4: the ceiling, measured before the work
+
+Stage 4 of the plan in
+[`docs/molecule_layout_plan.md`](../../docs/molecule_layout_plan.md) proposed
+removing the last movable bytes from `Molecule`. The plan gated it on "a
+measurement showing stride alone still pays at that scale". This is that
+measurement, and it says no. Measured 2026-08-28, same host and settings as
+sections 23-25.
+
+### 26.1 Two candidate blocks, and why only one survived inspection
+
+**The bond lists cannot be merged.** `bndlist`, `bndpartner` and `bndRxnList`
+look like the parallel arrays sections 23 and 24 merged, and `bndpartner`'s own
+comment -- *"Make this have the same numbering !!"* -- reads like the invariant
+is intended. It does not hold:
+
+- `break_interaction.cpp:20` erases `bndpartner` by **partner index** through
+  `std::remove`, which drops *every* matching element. `bndlist` is erased 260
+  lines later, on a different branch, by **interface index**. A molecule bound
+  to one partner through two interfaces has that partner twice in `bndpartner`;
+  breaking one bond removes both entries while `bndlist` loses one.
+- `break_interaction.cpp:177`, the cancel-dissociation path, pushes
+  `bndpartner` alone.
+
+So the comment records an intention, not an invariant, and a merge would corrupt
+bond bookkeeping. 48 bytes ruled out.
+
+**`bndRxnList` is very nearly vestigial, and looks like a latent defect.** It is
+pushed only in `associate_box.cpp:1000-1001` -- not by the sphere or the two
+implicit-lipid association paths -- read only as `bndRxnList[0]` in
+`correct_structutre.cpp:41`, and the code that would erase it on dissociation is
+**commented out** at `break_interaction.cpp:110-128`. On a box model it therefore
+grows monotonically across associations and never shrinks, and `[0]` is whichever
+reaction bound first, possibly one broken long ago. That is a correctness
+question rather than a layout one and is left alone here, but it should not stay
+unexamined.
+
+That leaves the association scratch -- `tmpComCoord` and `tmpICoords`, 48 bytes
+-- at a cost of **290 references across 41 files**, most of them association
+geometry.
+
+### 26.2 The ceiling
+
+Rather than spend 290 edits to find out, the control from section 22.4 was run
+in reverse: 48 inert bytes appended to the tail of the current 328-byte
+`Molecule`, moving no field, taking the stride to 376. Widening by exactly what
+stage 4 would remove bounds what removing it could return. Seven repetitions,
+interleaved, medians:
+
+| case | molecules | stage 3 cycles | padded cycles | padded/stage 3 | stage 3 sd |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `scale_2k` | 2,000 | 12.71 G | 12.91 G | 0.984x | 2.5% |
+| `enzyme` | 6,410 | 17.11 G | 17.36 G | 0.986x | 1.9% |
+| `scale_10k` | 10,000 | 27.70 G | 28.52 G | 0.971x | 4.0% |
+| `scale_40k` | 40,000 | 64.20 G | 65.30 G | 0.983x | 11.0% |
+| **total** | | **121.7 G** | **124.1 G** | **0.981x** | |
+
+Instructions are 1.000x, as they must be for inert padding, which confirms the
+probe measured stride and nothing else.
+
+**So stage 4's ceiling is about 1.9% aggregate.** `scale_40k`'s 0.983x sits
+inside an 11% standard deviation and should not be read; the two tightest cases,
+`enzyme` and `scale_2k`, agree at 1.4-1.6% and are outside their spreads.
+
+And a ceiling is all it is. It assumes removing the scratch is free, whereas any
+side container adds an indirection to every one of those 290 accesses, on the
+association path, which would eat into the 1.9% by an unmeasured amount.
+
+### 26.3 Verdict: not done, and not worth doing
+
+| stage | bytes removed | measured gain |
+| --- | ---: | --- |
+| 1 | 240 | 1.058x - 1.172x |
+| 2 | 72 | 1.078x - 1.325x cumulative |
+| 3 | 16 | 1.085x - 1.673x cumulative |
+| 4 | 48 | **1.019x ceiling** |
+
+Stage 3 removed 16 bytes for a measured 1.032x because it moved fields the
+rejection cascade reads. Stage 4 would remove three times as many bytes for half
+the gain, because those bytes are already past `interfaceList` at offset 144 --
+the cascade reads two cache lines today and would read two afterwards. Only the
+whole-array stride is left to improve, and 328 -> 280 is a 1.17x narrowing where
+the earlier stages delivered 1.91x.
+
+This is the same conclusion section 11 reached about `find_which_reaction()`,
+arrived at more cheaply: there, the optimization was built, measured at 0.999x
+and reverted. Here the ceiling was measured first, for one build and one sweep,
+and the 290 edits were never written. **A control that bounds a change is worth
+more than the change when the bound comes back small.**
+
+The plan's remaining item is therefore closed as measured-and-declined rather
+than untried. If `Molecule` ever needs to be narrower -- for a device port, or
+for models past the 25,000-molecule crossover in section 22.8 -- the association
+scratch is where the next 48 bytes are, and this section is the estimate of what
+they are worth.
