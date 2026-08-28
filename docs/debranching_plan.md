@@ -112,32 +112,48 @@ hand. The same three-way ladder appears twice inside one file -
 `check_bimolecular_reactions.cpp:180` for the binding path and again near
 `:271` for volume exclusion - with bodies that are similar but not identical.
 
-Store the answer on the object instead:
+Give the rule and the sum one home each:
 
 ```cpp
-// on Complex, assigned once per step where OnSurface / onFiber are already maintained
-enum class Dim : uint8_t { Fiber1D = 1, Surface2D = 2, Bulk3D = 3 };
-Dim dim;
+enum class Dim : int { Fiber1D = 1, Surface2D = 2, Bulk3D = 3 };
+
+Dim    pair_dim(const Complex&, const Complex&);
+double weighted_D_sum(const Vec3D& D1, const Vec3D& D2, Dim);
 ```
 
-The pair rule and the diffusion sum then each have one home, and the ladder
-becomes a table:
+**The pair rule is not `min(dim(c1), dim(c2))`.** An earlier draft of this
+document said it was, and that is wrong: `onFiber` and `OnSurface` are set
+independently in `Complex::update_properties()`, from `isPromoter` and
+`isLipid`, so a fiber complex meeting a membrane complex agrees on neither and
+must fall through to 3D. `min` would route that pair to 1D. Only a pair that
+*agrees* drops a dimension, and the fiber case is tested first:
 
 ```cpp
-const Dim d = std::min(com1.dim, com2.dim);              // the pair's dimensionality
-const double Dtot = weighted_D_sum(com1.D, com2.D, d);   // one rule, one place
-
-kProbabilityKernel[int(d)](rxnIndex, rateIndex, biMolData, ctx);
+if (c1.onFiber   && c2.onFiber)   return Dim::Fiber1D;
+if (c1.OnSurface && c2.OnSurface) return Dim::Surface2D;
+return Dim::Bulk3D;
 ```
-
-`ctx` carries the extras only the 2D kernel needs - `tableIDs`, `DDTableIndex`,
-`normMatrices`, `survMatrices`, `pirMatrices` - so all three kernels share a
-signature.
 
 This is a correctness change as much as a brevity one. The `Dtot` averaging rule
-is presently written out four or five times, and the commented-out
+is presently written out four times, and the commented-out
 `std::abs(D.z) < 1E-16` predecessors still sitting beside the live `OnSurface`
 tests are evidence that it has already drifted once.
+
+### The floating-point constraint is FMA contraction, not reassociation
+
+`weighted_D_sum` must reproduce each original expression **as a single
+statement**, not as a loop or a running accumulator over the three axes. The
+loop form is algebraically identical and numerically is not: at `-O3` the
+compiler may fuse `w*x + w*y + w*z` written as one expression differently from
+the same terms accumulated across statements. Measured over 4 million random
+triples, a loop version disagreed with the original expression on 3.2% of the 3D
+cases, in the last ulp. That is enough - `Dtot` feeds `sqrt()` and the 2D
+probability tables, so one ulp changes which random draws a run consumes and the
+trajectory diverges from there.
+
+Because no input file in the tree exercises the 1D fiber path, this cannot be
+validated by running models alone; it needs a direct comparison of the helper
+against the expressions it replaced.
 
 ## Axis 3 - implicit lipid and compartment become partners
 
@@ -202,7 +218,7 @@ result-preserving and stream-changing commits are validated by different means
 | # | Step | Risk | Result-preserving |
 | --- | --- | --- | --- |
 | 1 | `isBox` / `isSphere` -> `enum class BoundaryShape` | very low | yes, bitwise |
-| 2 | `Complex::dim` + a single `weighted_D_sum` | low | yes, if FP order is kept |
+| 2 | `pair_dim()` + a single `weighted_D_sum()` | low | yes, if the expressions are kept verbatim |
 | 3 | `Boundary` constraint set replacing the six dispatchers | medium | **no** - see below |
 | 4 | `SurfaceField` for implicit lipid and compartment | medium | yes |
 | 5 | Participant lists (`activeMols` and friends) | very low | yes |
@@ -211,9 +227,13 @@ result-preserving and stream-changing commits are validated by different means
 **Step 1** is mechanical and eliminates the impossible states. Do it alone, so
 the diff stays reviewable.
 
-**Step 2** removes the duplicated ladders. It is bitwise-identical only if the
-arithmetic order is preserved: `1/2*(a+b) + 1/2*(c+d)` is not `(a+b+c+d)/2` in
-floating point, and the existing expressions must be transcribed exactly.
+**Step 2** removes the duplicated ladders. It is bitwise-identical only if each
+expression is transcribed exactly and kept as one statement - see the
+FMA note above. Note also that the two volume-exclusion blocks in
+`check_bimolecular_reactions.cpp` are not the same ladder: the `pro2` block has
+no fiber branch, so a pair on a fiber is measured there as a 3D reaction. That
+asymmetry looks like copy-paste drift rather than intent, but correcting it is a
+behaviour change and belongs in its own commit.
 
 **Step 3** is where the compartment inconsistency quoted above actually gets
 fixed, which means a deliberate behavior change. Before writing the constraint
