@@ -1380,6 +1380,16 @@ int main(int argc, char *argv[]) {
 
     // Now we have to check for overlap!!!
     for (auto &mol : moleculeList) {
+      // A destroyed molecule has no position to update, and its complex has
+      // been emptied.  Every other per-molecule loop in the timestep skips
+      // these; this one did not, and create_complex_propagation_vectors()
+      // reads moleculeList[targCom.memberList[0]] unconditionally, so an
+      // emptied complex reaching it dereferences memberList[0] on an empty
+      // vector.  That is the null dereference the compartment sample model
+      // died on, since its transmission reactions destroy molecules.
+      if (mol.isEmpty)
+        continue;
+
       // Now track each complex (ncrosscom), and test for overlap of all
       // proteins in that complex before performing final position updates.
       // determine RS3Dinput
