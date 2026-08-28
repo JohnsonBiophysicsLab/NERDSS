@@ -219,6 +219,11 @@ int main(int argc, char *argv[]) {
     moleculeList.reserve(reservation);
     complexList.reserve(reservation);
 
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
+
     // create water box for sphere boundary
     if (membraneObject.isSphere()) {
       if (membraneObject.hasCompartment == true) {
@@ -450,6 +455,11 @@ int main(int argc, char *argv[]) {
         }
       }
 
+      // A boundaries block naming neither a waterBox nor a sphere leaves
+      // shape Unspecified, which every dispatch treats as a box - against a
+      // waterBox of all zeros.  Fail here instead.
+      membraneObject.require_boundary();
+
       // create water box for sphere boundary
       if (membraneObject.isSphere()) {
         if (membraneObject.hasCompartment == true) {
@@ -509,6 +519,11 @@ int main(int argc, char *argv[]) {
 
       write_psf(params, moleculeList, molTemplateList);
     }
+
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
 
     // create water box for sphere boundary
     if (membraneObject.isSphere()) {

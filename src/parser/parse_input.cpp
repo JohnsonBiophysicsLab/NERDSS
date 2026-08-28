@@ -97,6 +97,30 @@ void Membrane::set_value_BC(std::string value, BoundaryKeyword keywords)
     }
 }
 
+/*! \brief Abort unless the input named a boundary.
+ *
+ * `shape` is Unspecified until a `waterBox` or a sphere keyword sets it, and no
+ * accessor reports that state: isSphere() answers false for it, and every
+ * boundary dispatch is a two-way `isSphere() ? sphere : box`.  So a boundaries
+ * block naming neither ran box physics against the default WaterBox, whose
+ * dimensions are all zero - a zero-volume system, silently, with the failure
+ * showing up much later as unusable output or a division by zero.
+ *
+ * Checked once, after parsing, rather than defended against at each of the
+ * dispatch sites.
+ */
+void Membrane::require_boundary() const
+{
+    if (shape != BoundaryShape::Unspecified)
+        return;
+
+    std::cerr << "No boundary was specified. The 'start boundaries' block must "
+                 "give either a WaterBox (for a box system) or sphereR (for a "
+                 "spherical one)."
+              << std::endl;
+    exit(1);
+}
+
 void Membrane::display()
 {
     std::cout << " isSphere? " << std::boolalpha << isSphere() << std::endl;

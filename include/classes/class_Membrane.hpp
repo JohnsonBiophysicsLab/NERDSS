@@ -182,6 +182,9 @@ struct Membrane {
     //! \brief True when the system is enclosed by a sphere of radius `sphereR`.
     bool isSphere() const { return shape == BoundaryShape::Sphere; }
 
+    //! \brief Abort unless the input named a boundary.  See parse_input.cpp.
+    void require_boundary() const;
+
     void set_value_BC(std::string value, BoundaryKeyword keywords);
     /*In here, we could also store coordinate vector
       for a single representative lipid
