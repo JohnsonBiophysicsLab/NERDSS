@@ -37,7 +37,7 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
             double R1 { 0 };
             double bindSep { oneRxn.bindRadSameCom * oneRxn.bindRadius };
             withinRmax = get_distance(pro1Index, pro2Index, iface1Index, iface2Index, rxnIndex, rateIndex,
-                isBiMolStateChange, sep, R1, bindSep, complexList, oneRxn, moleculeList, membraneObject.isSphere);
+                isBiMolStateChange, sep, R1, bindSep, complexList, oneRxn, moleculeList, membraneObject.isSphere());
             /*Proteins are in the same complex!*/
             /*If these proteins are at contact (sep=0) or close to at contact (<bindrad) then
             they will associate.

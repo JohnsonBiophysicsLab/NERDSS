@@ -2,6 +2,74 @@
 #include "tracing.hpp"
 #include <chrono>
 #include <ctime>
+#include <string>
+
+namespace {
+
+/*! \brief Consume the next `key =` and abort unless it is the expected key.
+ *
+ * The reader used to skip to the next `=` without looking at what preceded it,
+ * so the header was matched by position alone.  Every field added to the format
+ * since therefore shifted an older file's values silently: a restart file
+ * written before `accocDissocWrite` existed has its `checkPoint` read into
+ * `assocDissocWrite`, its `scaleMaxDisplace` into `checkPoint`, and so on down
+ * the block, and the run proceeds with the wrong output intervals and no
+ * warning at all.
+ * `sample_inputs/gagLatticeRemodeling/4-runRemodelingSim/restart1.dat` is such
+ * a file: it predates `accocDissocWrite`, `RNGwrite`, `bondedComplexWrite` and
+ * the two compartment fields of `implicitLipidsParams`.
+ *
+ * Checking the key does not make those files readable - that would need real
+ * versioning of the format, and there is no reference output to validate such a
+ * reader against - but it turns silent corruption into a diagnostic that names
+ * the field which went missing.
+ */
+void expect_restart_key(std::ifstream& restartFile, const std::string& expected)
+{
+    // A short or malformed value on the PREVIOUS line leaves the stream in a
+    // failed state, and every read after that is a no-op - which is the other
+    // half of how an old file used to sail through unnoticed.  Report it here,
+    // where the name of the field that was being looked for says where the file
+    // stopped making sense.
+    if (!restartFile) {
+        std::cerr << "Cannot read this restart file: ran out of values before the field '"
+                  << expected << "'. The field before it is missing values or malformed.\n"
+                  << "This build's format may be newer than the one that wrote the file; "
+                     "re-run from the input file instead." << std::endl;
+        exit(1);
+    }
+
+    // Bounded. The ignore(max, '=') this replaced allocated nothing, so a file
+    // corrupted such that no '=' ever follows used to run off the end harmlessly;
+    // accumulating into a string would instead buffer the entire remainder, and
+    // restart files for large systems run to hundreds of megabytes. No real key
+    // is anywhere near this long, so hitting the cap is itself a malformed file.
+    const std::size_t maxKeyLength { 256 };
+    std::string key;
+    char c;
+    while (key.size() < maxKeyLength && restartFile.get(c)) {
+        if (c == '=')
+            break;
+        key += c;
+    }
+
+    const std::size_t first { key.find_first_not_of(" \t\r\n") };
+    const std::string found { first == std::string::npos
+            ? std::string()
+            : key.substr(first, key.find_last_not_of(" \t\r\n") - first + 1) };
+
+    if (found == expected)
+        return;
+
+    std::cerr << "Cannot read this restart file: expected the field '" << expected
+              << "' next, but found '" << found << "'.\n"
+              << "The restart format has gained fields over time and is matched by "
+                 "position, so a file written by an older build cannot be read by "
+                 "this one. Re-run from the input file instead." << std::endl;
+    exit(1);
+}
+
+} // namespace
 
 void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
@@ -16,115 +84,130 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
         std::cout << "READ IN PARMATERS from restart file" << std::endl;
         restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         {
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numItr");
             restartFile >> params.nItr;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "currItr");
             restartFile >> simItr;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cout << "Restarting simulation from iteration " << simItr << '\n';
             params.itrRestartFrom = simItr;
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "currSimTime (s)");
             restartFile >> params.timeRestartFrom;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cout << "Current simulation time (s): " << params.timeRestartFrom << '\n';
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numMolTypes");
             restartFile >> params.numMolTypes;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numTotalSpecies");
             restartFile >> params.numTotalSpecies;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numComplexs");
             restartFile >> params.numTotalComplex;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numTotalUnits");
             restartFile >> params.numTotalUnits;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "numLipids");
             restartFile >> params.numLipids;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "timestep");
             restartFile >> params.timeStep;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "max2DRxns");
             restartFile >> params.max2DRxns;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "simulDimensions");
             restartFile >> membraneObject.waterBox.x >> membraneObject.waterBox.y >> membraneObject.waterBox.z;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             membraneObject.waterBox.volume = membraneObject.waterBox.x * membraneObject.waterBox.y * membraneObject.waterBox.z;
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "membrane");
             restartFile >> membraneObject.implicitlipidIndex >> membraneObject.nSites >> membraneObject.nStates >> membraneObject.No_free_lipids >> membraneObject.No_protein >> membraneObject.totalSA;
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "implicitLipidStates");
             for (int i = 0; i < membraneObject.nStates; i++) {
                 membraneObject.numberOfFreeLipidsEachState.emplace_back(0);
                 restartFile >> membraneObject.numberOfFreeLipidsEachState[i];
             }
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
-            restartFile >> membraneObject.implicitLipid >> membraneObject.TwoD >> membraneObject.isBox >> membraneObject.isSphere >> membraneObject.sphereR >> membraneObject.hasCompartment >> membraneObject.compartmentR;
+            expect_restart_key(restartFile, "implicitLipidsParams");
+            // The two flags this format carries map back one-to-one: the
+            // sphere bit is the geometry, the box bit is the waterBox
+            // provenance.  Nothing is folded away, so a file naming both round
+            // trips as `1 1` exactly as it did before.
+            //
+            // NOTE: this line wants seven fields and restart files under
+            // sample_inputs/ carry five, which sets failbit here and silently
+            // no-ops every read below it.  That predates this change and is
+            // not addressed here.
+            bool isBoxFlag { false };
+            bool isSphereFlag { false };
+            restartFile >> membraneObject.implicitLipid >> membraneObject.TwoD >> isBoxFlag >> isSphereFlag >> membraneObject.sphereR >> membraneObject.hasCompartment >> membraneObject.compartmentR;
+            membraneObject.waterBoxGiven = isBoxFlag;
+            membraneObject.shape = isSphereFlag ? BoundaryShape::Sphere
+                : isBoxFlag                     ? BoundaryShape::Box
+                                                : BoundaryShape::Unspecified;
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "ifaceOverlapSepLimit");
             restartFile >> params.overlapSepLimit;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "rMaxLimit");
             restartFile >> params.rMaxLimit;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "timeWrite");
             restartFile >> params.timeWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "trajWrite");
             restartFile >> params.trajWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "restartWrite");
             restartFile >> params.restartWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "pdbWrite");
             restartFile >> params.pdbWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "accocDissocWrite");
             restartFile >> params.assocDissocWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "checkPoint");
             restartFile >> params.checkPoint;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "scaleMaxDisplace");
             restartFile >> params.scaleMaxDisplace;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "transitionWrite");
             restartFile >> params.transitionWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "clusterOverlapCheck");
             restartFile >> params.clusterOverlapCheck;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "RNGwrite");
             restartFile >> params.rngwrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+            expect_restart_key(restartFile, "bondedComplexWrite");
             restartFile >> params.bondedComplexWrite;
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 

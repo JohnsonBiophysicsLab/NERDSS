@@ -13,6 +13,24 @@
  * \brief Functions associated with enforcing various boundary conditions
  */
 
+/*! \ingroup BoundaryConditions
+ * \brief Which side of a spherical boundary a complex is required to stay on.
+ *
+ * A sphere boundary contains: the complex must stay at radius below it.  A
+ * compartment excludes: the complex must stay at radius above it.  The two are
+ * otherwise the same reflection, which is why the three `*_compartment` files
+ * were character-for-character their `*_sphere` twins with a handful of signs
+ * flipped.  The values are +1 / -1 so they can multiply a radial distance
+ * directly.
+ */
+enum class RadialSide : int {
+    Inside = 1, //!< stay within the radius; a sphere or membrane boundary
+    Outside = -1, //!< stay beyond the radius; a compartment
+};
+
+//! \brief `side` as the factor +1 / -1 it stands for.
+inline double radial_sign(RadialSide side) { return static_cast<double>(static_cast<int>(side)); }
+
 /* DISSOCIATION REFLECTION */
 
 /*! \ingroup BoundaryConditions
@@ -32,8 +50,10 @@ void reflect_complex_compartment(const Membrane& membraneObject, Complex& targCo
  */
 void reflect_traj_complex_rad_rot(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, const Membrane& membraneObject, double RS3Dinput, bool isInsideCompartment);
 void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, const Membrane& membraneObject, double RS3Dinput);
-void reflect_traj_complex_rad_rot_sphere(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, const Membrane& membraneObject, double radius, double RS3Dinput);
-void reflect_traj_complex_compartment(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, const Membrane& membraneObject, double RS3Dinput);
+//! \brief Reflects the sampled translation back across a spherical boundary; see reflect_traj_complex_radial.cpp.
+void reflect_traj_complex_radial(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom,
+    const Membrane& membraneObject, double radius, RadialSide side, double RS3Dinput, bool skipOnSurface,
+    bool recheckSpan);
 // void reflect_traj_complex_rad_rot_new(
 //     const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 9>& M, const Membrane& membraneObject, double RS3Dinput);
 
@@ -81,8 +101,9 @@ void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex&
 // void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput);
 void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput, bool isInsideCompartment);
 void reflect_traj_tmp_crds_box(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput);
-void reflect_traj_tmp_crds_sphere(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double radius, double RS3Dinput);
-void reflect_traj_tmp_crds_compartment(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput);
+//! \brief Reflects a trial translation back across a spherical boundary; see reflect_traj_tmp_crds_radial.cpp.
+void reflect_traj_tmp_crds_radial(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom,
+    std::array<double, 3>& traj, double radius, RadialSide side, double RS3Dinput);
 
 // function to calculate the position of one interface after translation and rotation on sphere surface
 Vec3D calculate_update_position_interface(const Complex& targCom, const Vec3D ifacecrds); // iface is cardesian coords

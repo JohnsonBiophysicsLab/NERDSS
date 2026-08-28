@@ -24,12 +24,13 @@ ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>&
 {
     const Vec3D base { targCom.comCoord + targCom.trajTrans };
     // Seeded at the membrane, so "nothing found" reads as "nothing is outside".
-    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR },
+        radial_signed_boundary(sphereR, RadialSide::Inside) };
 
     for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
         const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
         const Vec3D curr { base + rot };
-        farthest.consider(curr, curr.length());
+        farthest.consider(curr, radial_signed_radius(curr, RadialSide::Inside));
     });
     return farthest;
 }
@@ -62,8 +63,7 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
 
         // check whether this complex is out of the box, if so, change trajTrans by considering the reflection
         if (farthest.score > sphereR + 1E-15) {
-            double lamda = -2.0 * (farthest.score - sphereR) / farthest.score;
-            targCom.trajTrans += lamda * farthest.point;
+            targCom.trajTrans += radial_reflection_shift(farthest.point, sphereR);
             // check whether the reflection made the complex inside the sphere
             farthest = farthest_point(targCom, moleculeList, M, sphereR);
         }

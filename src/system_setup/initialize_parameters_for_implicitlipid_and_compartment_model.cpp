@@ -55,7 +55,7 @@ void initialize_paramters_for_implicitlipid_and_compartment_model(int& implicitl
         }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
         membraneObject.totalSA = 4.0 * M_PI * pow(membraneObject.sphereR, 2.0);
     } else {
         membraneObject.totalSA = membraneObject.waterBox.x * membraneObject.waterBox.y;
@@ -213,7 +213,7 @@ void initialize_paramters_for_implicitlipid_model(
     }
   }
   /////////////////////////////////////////////////////////////////////////////////////////////
-  if (membraneObject.isSphere) {
+  if (membraneObject.isSphere()) {
     membraneObject.totalSA = 4.0 * M_PI * pow(membraneObject.sphereR, 2.0);
   } else {
     membraneObject.totalSA =

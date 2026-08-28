@@ -24,9 +24,9 @@ namespace {
  */
 ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>& moleculeList, double sphereR)
 {
-    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, radial_signed_boundary(sphereR, RadialSide::Inside) };
     for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
-        farthest.consider(point, point.length());
+        farthest.consider(point, radial_signed_radius(point, RadialSide::Inside));
     });
     return farthest;
 }
@@ -38,6 +38,10 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
     // TRACE();
     // only works for the complex after association or diffusion, spherical system
     // For the sphere system, many times of reflections may need to move the complex back inside the sphere!!
+    //
+    // NOTE: reflect_complex_compartment() is this routine's excluding twin and
+    // has no such loop - it reflects once and accepts the result.  The two are
+    // not merged for that reason; see docs/debranching_plan.md.
 
     // declare the boundary
     double sphereR;
@@ -51,11 +55,9 @@ void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& tar
         ExtremePoint farthest { farthest_point(targCom, moleculeList, sphereR) };
 
         int times = 0; // to count the loop-times of 'while'
-        while (farthest.score > sphereR) {
+        while (farthest.score > radial_signed_boundary(sphereR, RadialSide::Inside)) {
             times++;
-            const double rtmp { farthest.point.length() };
-            double lamda = -2.0 * (rtmp - sphereR) / rtmp;
-            Vec3D dtrans = lamda * farthest.point;
+            const Vec3D dtrans { radial_reflection_shift(farthest.point, sphereR) };
             targCom.comCoord += dtrans;
             for (auto memMol : targCom.memberList) {
                 moleculeList[memMol].comCoord += dtrans;

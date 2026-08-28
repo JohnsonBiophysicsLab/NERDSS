@@ -12,7 +12,7 @@ bool get_distance_to_surface(int pro1, int pro2, int iface1, int iface2, int rxn
         dz = 0;
         R1 = 0;
     } else {
-        if (membraneObject.isSphere) {
+        if (membraneObject.isSphere()) {
             double r = sqrt(dx * dx + dy * dy + dz * dz);
             R1 = std::abs(membraneObject.sphereR - r);
 

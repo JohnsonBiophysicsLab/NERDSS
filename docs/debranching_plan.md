@@ -1,0 +1,541 @@
+# De-branching the NERDSS main loop
+
+NERDSS grew by branching. Each new capability - a spherical boundary, an
+implicit-lipid membrane, a compartment, diffusion on a fiber - arrived as an
+`if` beside the code that came before it, and, where the bodies diverged far
+enough, as a second file with `_sphere` or `_implicitlipid` appended to the
+name. The result works and is well tested, but the branch count now grows as the
+product of the capabilities rather than their sum, and the same decision is
+written down in many places, where it drifts.
+
+This document is a plan for removing most of that branching without changing
+what the program computes. It is written to be executed in order; each step is
+small enough to validate on its own.
+
+## The problem is not the number of `if`s
+
+It is that three unrelated kinds of variation are all expressed the same way, so
+they multiply instead of composing.
+
+| Axis | Examples | Decided | Sites |
+| --- | --- | --- | --- |
+| Static model configuration | `isSphere` / `isBox`, `hasCompartment`, `implicitLipid`, `clusterOverlapCheck` | once, at parse time; never changes again | 65 + 22 + ~40 |
+| Dynamic per-complex state | `OnSurface`, `onFiber`, `D.z < 1e-16` - i.e. 1D / 2D / 3D | every timestep | pervasive in `src/reactions` |
+| Entity kind | `isImplicitLipid`, `insideCompartment`, `bindToSurface` | per molecule, per type | 251 |
+
+Each axis wants a different remedy, and applying one remedy to all three is why
+the combinatorics feel unmanageable. A static configuration flag should not be a
+runtime branch at all. A genuinely dynamic per-complex property should be a
+value stored on the complex, not a predicate re-derived at each use. An entity
+kind that the loop must skip should be filtered out of the loop's input, not
+tested inside its body.
+
+### Two symptoms already visible in the code
+
+[`class_Membrane.hpp:134-135`](../include/classes/class_Membrane.hpp) declares
+both `isBox` and `isSphere` as independent booleans. That is a two-state choice
+encoded in a way that permits two nonsensical states, and nothing in the type
+system prevents them.
+
+More seriously,
+[`reflect_dispatch.cpp`](../src/boundary_conditions/reflect_dispatch.cpp)
+documents the drift in its own header comment: of the six reflection entry
+points, *"the two that take a compartment flag consult it, the other four look
+only at `membraneObject.isSphere()`."* That divergence was invisible while the six
+lived in six files. It is the characteristic failure of branching-by-copy: the
+decision is duplicated, so the copies fall out of step, and no single place can
+be corrected.
+
+A third instance: `check_bimolecular_reactions.cpp` re-derives the
+sphere-versus-box geodesic separation inline in its volume-exclusion path rather
+than calling the one already written in
+[`get_distance.cpp`](../src/reactions/get_distance.cpp).
+
+## Axis 1 - static geometry becomes a constraint set
+
+The obvious refactor is a `Geometry` base class with a virtual `reflect()`. It
+does not work directly, because the box and sphere routines are not the same
+algorithm with a different distance function.
+[`reflect_traj_complex_rad_rot_box.cpp`](../src/boundary_conditions/reflect_traj_complex_rad_rot_box.cpp)
+loops over three axes tracking a wall extent on each;
+[`reflect_traj_complex_rad_rot_sphere.cpp`](../src/boundary_conditions/reflect_traj_complex_rad_rot_sphere.cpp)
+finds a single farthest radial point. Different shapes of computation.
+
+One level up, they are the same. Both routines are:
+
+> For each boundary constraint, find the complex's worst violation. Reflect by
+> twice the overshoot along the outward normal. If that correction pushes the
+> complex out through an opposing constraint, resample.
+
+Under that description a box is six planar constraints, a sphere is one radial
+constraint violated when `|r| > R`, and a compartment is one radial constraint
+with the sign reversed.
+
+```cpp
+struct Constraint {                          // signed gap: > 0 inside, < 0 violated
+    virtual double gap(const Vec3D& p) const = 0;
+    virtual Vec3D  outwardNormal(const Vec3D& p) const = 0;
+};
+struct PlaneConstraint  : Constraint { int axis; double wall; double sign; };
+struct RadialConstraint : Constraint { double R; double sign; };  // +1 inside, -1 outside
+
+class Boundary {
+    std::vector<std::unique_ptr<Constraint>> constraints;  // built once, from parsed input
+    double surfaceOffset(const Complex&, double RS3Dinput) const;
+};
+```
+
+The payoff is that **`hasCompartment` stops being a branch**. A compartment is
+one more entry in `constraints`. The six reflection functions with inconsistent
+compartment handling collapse into a single loop that cannot forget the
+compartment, because there is no longer anything to forget. The same holds for
+`check_if_spans`, the `sweep_separation_*` family, and the association-time span
+checks.
+
+### What survived contact with the code
+
+Most of the above did not, and the part that did paid off more than expected.
+Recorded here rather than quietly rewritten, because the reasoning is the useful
+part.
+
+**The scan was already extracted.**
+[`complex_extent.hpp`](../include/boundary_conditions/complex_extent.hpp)
+had already collected the doubly-nested walk over member COMs and interfaces
+that all sixteen routines shared. What was left to unify was the *decision*, not
+the traversal.
+
+**The box is not a constraint list.** A box reflection treats its three axes
+independently: each axis is corrected on its own, and the routine re-samples
+only if a correction pushes the complex out through the opposing wall *of that
+axis*. Expressing that as a loop over six half-space constraints changes what
+"the opposing constraint" means and loses the per-axis pairing. The box
+reflectors are left as they are.
+
+**Sphere and compartment are one reflector.** This is where the win actually
+was. The three `*_compartment` files were their `*_sphere` twins with a handful
+of signs flipped, and every one of those flips is the same flip:
+
+| | sphere (contains) | compartment (excludes) |
+| --- | --- | --- |
+| boundary radius | `radius - RS3D` | `compartmentR + RS3D` |
+| bounding test | `L + r > R` | `L + r < R` |
+| point score | `+` | `-` |
+| reflection tail | *identical* | *identical* |
+
+All three are `sign * x` for `sign = +1` inside and `-1` outside, so a single
+`RadialSide` parameter covers them - including the reflecting-surface offset,
+which always shrinks the region the complex may occupy and therefore *adds* to
+an excluding radius and *subtracts* from a containing one. The reflection tail
+needs no sign at all: `lamda = -2 (targR - R) / targR` is already negative
+outside a containing boundary and positive inside an excluding one.
+
+So `hasCompartment` does stop being a separate code path - three files, and the
+duplication in them, are gone - even though it remains a branch in the
+dispatcher. That is the honest version of the claim above.
+
+**Two scoring conventions, deliberately kept apart.** The radial routines rank
+candidate points in one of two ways: by how far past the boundary a point has
+got (`|p| - R`, seeded at zero), or by signed radius (`±|p|`, seeded at `±R`).
+They agree mathematically and not in floating point - `|p| - R` can round two
+distinct radii to the same double and hand a tie to whichever point was scanned
+first. Each routine keeps the convention it was written with. Merging them would
+be a silent, untestable change in which point wins a tie.
+
+**Two compartment omissions preserved, not fixed.** The compartment reflector
+never skipped surface-bound complexes and never re-checked the span after
+reflecting ("assume the complex is not huge enough" - unchecked). Both are now
+explicit arguments at the call site rather than a missing branch, so the
+asymmetry is visible; correcting either changes results and needs its own
+commit and its own argument.
+
+The cost is one indirect call per complex per timestep at the reflection level -
+not per interface and not per candidate pair. Set against the `sqrt` and
+`GaussV()` calls already on that path, it is not measurable.
+
+Geometry does reach two genuinely hot inner loops: the pair-distance calls in
+`get_distance` and the exclusion path of `check_bimolecular_reactions`. Those
+should stay non-virtual. Give `Boundary` an inlineable `pairDistance()` that
+switches on a small enum, or template that one kernel. Do not template the
+simulation loop as a whole: the code bloat is not repaid, and the branch is
+perfectly predicted anyway, since it takes the same direction on every one of
+the billion iterations of a run.
+
+## Axis 2 - dimensionality becomes a value
+
+The 1D / 2D / 3D decision is currently re-derived from `onFiber`, `OnSurface`
+and `D.z` at each use site, and each site then rewrites the `Dtot` average by
+hand. The same three-way ladder appears twice inside one file -
+`check_bimolecular_reactions.cpp:180` for the binding path and again near
+`:271` for volume exclusion - with bodies that are similar but not identical.
+
+Give the rule and the sum one home each:
+
+```cpp
+enum class Dim : int { Fiber1D = 1, Surface2D = 2, Bulk3D = 3 };
+
+Dim    pair_dim(const Complex&, const Complex&);
+double weighted_D_sum(const Vec3D& D1, const Vec3D& D2, Dim);
+```
+
+**The pair rule is not `min(dim(c1), dim(c2))`.** An earlier draft of this
+document said it was, and that is wrong: `onFiber` and `OnSurface` are set
+independently in `Complex::update_properties()`, from `isPromoter` and
+`isLipid`, so a fiber complex meeting a membrane complex agrees on neither and
+must fall through to 3D. `min` would route that pair to 1D. Only a pair that
+*agrees* drops a dimension, and the fiber case is tested first:
+
+```cpp
+if (c1.onFiber   && c2.onFiber)   return Dim::Fiber1D;
+if (c1.OnSurface && c2.OnSurface) return Dim::Surface2D;
+return Dim::Bulk3D;
+```
+
+This is a correctness change as much as a brevity one. The `Dtot` averaging rule
+is presently written out four times, and the commented-out
+`std::abs(D.z) < 1E-16` predecessors still sitting beside the live `OnSurface`
+tests are evidence that it has already drifted once.
+
+### The floating-point constraint is FMA contraction, not reassociation
+
+`weighted_D_sum` must reproduce each original expression **as a single
+statement**, not as a loop or a running accumulator over the three axes. The
+loop form is algebraically identical and numerically is not: at `-O3` the
+compiler may fuse `w*x + w*y + w*z` written as one expression differently from
+the same terms accumulated across statements. Measured over 4 million random
+triples, a loop version disagreed with the original expression on 3.2% of the 3D
+cases, in the last ulp. That is enough - `Dtot` feeds `sqrt()` and the 2D
+probability tables, so one ulp changes which random draws a run consumes and the
+trajectory diverges from there.
+
+Because no input file in the tree exercises the 1D fiber path, this cannot be
+validated by running models alone; it needs a direct comparison of the helper
+against the expressions it replaced.
+
+## Axis 3 - implicit lipid and compartment
+
+> **This section's design was not built.** The `SurfaceField` interface below
+> does not earn its keep; what the code actually wanted is in *What the
+> measurement showed* at the end of the section. The original reasoning is kept
+> because the argument for it is the reason the measurement was worth making.
+
+## Axis 3 - implicit lipid and compartment become partners
+
+This is the largest single reduction and the least obvious. Today the implicit
+lipid is a molecule that every loop must remember to skip: `if
+(mol.isImplicitLipid) continue;` appears roughly fifteen times in
+[`nerdss.cpp`](../EXEs/nerdss.cpp) alone, alongside parallel
+`associate_implicitlipid_*` and `check_implicit_reactions` paths.
+
+Note that `check_implicit_reactions` and `check_compartment_reaction` are
+already invoked back to back, at `nerdss.cpp:1035-1057`, with near-identical
+signatures. They are one concept: binding to a continuous surface field rather
+than to a discrete partner molecule.
+
+```cpp
+struct SurfaceField {          // implicit-lipid membrane; compartment inner / outer
+    virtual void checkBinding(int molIndex, ..., ReactionContext&) = 0;
+    virtual void checkDissociation(int molIndex, ...) = 0;
+};
+std::vector<std::unique_ptr<SurfaceField>> fields;   // built once, from parsed input
+```
+
+The main loop becomes:
+
+```cpp
+for (auto& field : fields) field->checkBinding(targMolIndex, ...);
+```
+
+An explicit-lipid box system has zero fields; implicit lipid adds one; a
+compartment adds another. The `params.implicitLipid == true` guards disappear,
+because an empty vector is its own guard.
+
+### What the measurement showed
+
+Three things, each of which sinks part of the above.
+
+**The 251 sites are not where this reaches.** 145 of them are skip-guards -
+`if (mol.isImplicitLipid) continue;` - and they are spread across about forty
+files deep inside the reaction code: `break_interaction`, `find_which_reaction`,
+`functions_for_spherical_system`, `associate_ImplicitLipid_box`. `SurfaceField`
+touches none of them. They exist because the implicit lipid is a `Molecule`
+sitting in `moleculeList` that generic code has to step over, which is a
+property of the representation. Only filtering the iteration removes them - the
+participant lists of step 5.
+
+**The two functions share no algorithm.** `check_implicit_reactions` walks
+pro1's freelist against its reaction partners and evaluates 2D/3D binding
+through the lookup tables, in 220 lines. `check_compartment_reaction` iterates
+nothing: it computes one `Dtot`, one distance to the compartment surface, and
+sets `transmissionProb`, in 120. They are the same *concept* - binding to a
+continuous surface rather than to a discrete partner - and unrelated
+computations. A common base class over them shares no code; it only makes two
+dissimilar calls look alike.
+
+**The call site is hot.** Both calls sit inside the per-molecule loop over
+occupied sub-cells, so they run once per candidate molecule per timestep.
+Putting a virtual call there buys two removed `if`s at the cost of an indirect
+call on the hot path - the wrong trade, and one this document argues against a
+few paragraphs later under *Filter the input, do not test in the body*.
+
+So the interface was not built. What the code did want was the duplication
+*inside* `check_compartment_reaction`: its entering and exiting branches were
+thirty lines each, differing in the signed distance and the probability routine
+called, and identical character for character in between. That is collapsed,
+and it is the same shape as the sphere/compartment merge in step 3 - which is
+the honest version of "the compartment is the sphere with a sign flipped".
+
+### Filter the input, do not test in the body
+
+> **Measured, and not built.** The argument below is sound in general and wrong
+> for this program's per-molecule loops. See *What the measurement showed*
+> immediately after.
+
+
+The fastest way to remove a branch from a hot loop is to arrange that the loop
+never visits the objects the branch would reject. NERDSS already does this -
+`occupiedSubCells` and the SubBox `typeMask` in the main sweep are exactly that
+idea. Extend it. Build, once per step for the dynamic sets and once per run for
+the static ones:
+
+```cpp
+std::vector<int> activeMols;         // not isEmpty, not isImplicitLipid
+std::vector<int> surfaceBinders;     // molTemplate.bindToSurface
+std::vector<int> compartmentBinders;
+```
+
+`for (int m : activeMols)` then replaces `for (all molecules) { if (isEmpty ||
+isImplicitLipid) continue; }` at every one of those sites. The branch is gone
+outright rather than merely made cheaper, and the loop touches less memory.
+For the innermost loops this is strictly better than any form of polymorphism.
+
+#### What the measurement showed
+
+The premise is that the guard skips enough molecules to be worth avoiding.
+Counting visits and skips across the three per-molecule loops of the timestep,
+over the four validation models:
+
+| model | loop iterations | skipped | |
+| --- | --- | --- | --- |
+| box bimolecular | 119,994,000 | 0 | 0.0000% |
+| Gag | 5,997 | 0 | 0.0000% |
+| compartment | 5,999,708 | 4 | 0.0001% |
+| sphere implicit-lipid | 659,967 | 39,998 | 6.06% |
+
+In three of the four, building a filtered list would cost a full extra pass over
+`moleculeList` plus an allocation, every timestep, in order to skip **zero**
+molecules. Only the implicit-lipid model skips a meaningful fraction, and even
+there the thing avoided is one perfectly-predicted branch.
+
+The reason is structural rather than model-specific: an implicit-lipid system
+holds exactly *one* implicit-lipid molecule however many real ones it has, and
+`isEmpty` slots only accumulate in models that destroy molecules, which most do
+not. The skipped fraction is therefore ~`1/N`, not the large fraction the
+argument assumes.
+
+There is also a correctness cost that the perf argument was hiding. Molecules
+are created and destroyed *inside* a timestep - by
+`check_for_unimolecular_reactions_population`, by
+`check_for_zeroth_order_creation`, and by the reaction loop itself - so a cached
+index list would need invalidating at each of those points. That is a real
+staleness hazard traded for approximately nothing.
+
+Where this argument *does* hold is the pairwise inner loops, and the program
+already does it there: `occupiedSubCells` and the SubBox `typeMask` are exactly
+this idea, applied where the skipped fraction is large.
+
+So step 5 was not built. What came out of looking was one dead condition: the
+implicit-lipid dissociation loop re-tested `params.implicitLipid == false`
+inside an `if (params.implicitLipid == true)` that already guaranteed it.
+
+## Order of work
+
+NERDSS is a validated scientific code, so the sequence is chosen to keep every
+step independently checkable. `run_code_tests/` provides golden trajectories:
+pin them with a fixed RNG seed first and make **bit-identical output** the
+acceptance criterion for every step below that claims to be result-preserving.
+This mirrors the split already used on the `nerdss-optimized` branch, where
+result-preserving and stream-changing commits are validated by different means
+(see [`nerdss_optimized.md`](nerdss_optimized.md)).
+
+| # | Step | Risk | Result-preserving |
+| --- | --- | --- | --- |
+| 1 | `isBox` / `isSphere` -> `enum class BoundaryShape` | very low | yes, bitwise |
+| 2 | `pair_dim()` + a single `weighted_D_sum()` | low | yes, if the expressions are kept verbatim |
+| 3 | Merge the sphere/compartment reflectors behind `RadialSide` | medium | yes, bitwise |
+| 4 | ~~`SurfaceField`~~ - not built; collapse `check_compartment_reaction` instead | low | yes, bitwise |
+| 5 | ~~Participant lists~~ - measured, not built; skipped fraction is ~0 | - | n/a |
+| 6 | Merge `associate_box` / `associate_sphere` | high | to be determined |
+
+**Step 1** is mechanical and eliminates the impossible states. Do it alone, so
+the diff stays reviewable.
+
+**Step 2** removes the duplicated ladders. It is bitwise-identical only if each
+expression is transcribed exactly and kept as one statement - see the
+FMA note above. Note also that the two volume-exclusion blocks in
+`check_bimolecular_reactions.cpp` are not the same ladder: the `pro2` block has
+no fiber branch, so a pair on a fiber is measured there as a 3D reaction. That
+asymmetry looks like copy-paste drift rather than intent, but correcting it is a
+behaviour change and belongs in its own commit.
+
+**Step 3** turned out to be result-preserving after all - see *What survived
+contact with the code*. The compartment inconsistency is now visible as
+arguments (`skipOnSurface`, `recheckSpan`) instead of as a missing branch, which
+is the prerequisite for deciding it, but the decision itself is deferred to its
+own commit. Note also that the header comment in `reflect_dispatch.cpp` miscounts
+it: three of the six routines consult the compartment, not two.
+
+**Step 6 is last on purpose.** `associate_box.cpp` (1073 lines) and
+`associate_sphere.cpp` (598) are the least mergeable pair in the codebase -
+genuinely different geometry throughout, not a shared body with a swapped
+distance. Attempting them first would produce one large, risky diff. After steps
+1 through 5 the shared primitives exist to merge *into*, and the remaining
+difference is small enough to see.
+
+### Where this ended up
+
+Steps 1-3 were built and are bitwise result-preserving, with the single
+exception noted under *The one place the bitwise claim has an exception*. Step 4's interface and
+step 5 were both measured and rejected, each in favour of a smaller change the
+measurement pointed at. That is two of five proposals surviving contact with the
+code unchanged, one surviving in altered form, and two dying - which is roughly
+what should be expected of a plan written before reading the code closely, and
+is the reason each step was made to justify itself against a bitwise A/B rather
+than against the plan.
+
+The remaining branching is now concentrated where it is honest: a box and a
+sphere really are different reflection algorithms, and the dispatcher says so in
+one place instead of sixteen.
+
+## Open items
+
+Carried forward deliberately, with the reasoning, so they are decisions rather
+than omissions.
+
+### The compartment span re-check - a decision for a domain expert
+
+The compartment reflector does not re-check the span after reflecting. Its
+comment reads "assume the complex is not huge enough", and that assumption is
+unchecked. It is now the explicit `recheckSpan` argument of
+`reflect_traj_complex_radial` rather than a branch that is simply absent, so it
+can be decided; this document does not decide it, because it is a physics and
+numerics question rather than a structural one.
+
+The gap is real but bounded. The compartment reflection runs *after* the outer
+box or sphere reflection and pushes the complex radially outward, i.e. toward
+the outer wall, and nothing re-checks. What bounds it is that
+[`nerdss.cpp`](../EXEs/nerdss.cpp) already refuses to start unless
+`waterBox/2 - compartmentR > rMaxLimit`, so there is at least `rMaxLimit` of
+clearance, and the reflection displacement is at most about twice the
+penetration depth, which is itself bounded by the trajectory step. Escaping the
+box therefore needs an unusually large step or an unusually large complex.
+
+Fixing it is not simply "call the span check afterwards": that check tests the
+*outer* boundary, so re-running it can push the complex back into the
+compartment, and a correct fix needs an iterate-until-consistent loop with a
+convergence argument. The spherical reflector already has such a loop, capped at
+100 attempts, and it calls `exit(1)` when it fails to converge - which is the
+shape of the problem, and the reason this wants a domain judgement about which
+constraint should win.
+
+By contrast the compartment reflector's *other* apparent omission - that it does
+not skip surface-bound complexes - was checked and is correct, not an
+oversight. `OnSurface` means bound to the implicit-lipid membrane, which is a
+different surface from the compartment; there is no reason to exempt those
+complexes from compartment reflection. It is `skipOnSurface = false` at the call
+site and stays that way.
+
+### The one place the bitwise claim has an exception
+
+The `isEmpty` guard in the overlap loop is a crash fix, and for any model that
+destroys molecules it is also a **results change** - not just a crash-to-run
+change. The skipped molecules previously reached
+`create_complex_propagation_vectors()` and consumed RNG draws there, so removing
+them shifts every subsequent random number. For models without destruction the
+guard cannot fire and nothing moves, which is what the four validation models
+show; for models with it, there is no earlier correct behaviour to preserve,
+because those runs segfaulted.
+
+### Two limits that only bite fiber systems
+
+Both unreachable in every shipped model, since nothing sets `isPromoter`, and
+therefore invisible to any A/B:
+
+* `radial_may_escape()` adds the complex radius on the excluding side, which
+  makes the bound *stricter* rather than conservative: a complex straddling the
+  compartment wall returns early and is never pushed out. Preserved from the
+  deleted compartment routine, not introduced. The correct bound is
+  `|base| - radius < R`.
+* The `comSep > rMaxLimit` early-out in `check_bimolecular_reactions()` exempts
+  surface pairs but not fiber pairs. `set_rMaxLimit()` sizes the limit from the
+  3D average while the 1D path uses `Dtot = D1.x + D2.x`, whose reach is up to
+  sqrt(3) larger, so reacting 1D pairs beyond `rMaxLimit` are dropped before the
+  interface loop. This became reachable when the fiber branch was added to the
+  pro2 exclusion block.
+
+### Two pre-existing crashes found while looking for validation models
+
+Neither is caused by the de-branching work; both were found because this work
+needed a compartment model to validate against.
+
+1. **Fixed.** The overlap loop propagated destroyed molecules, so an emptied
+   complex reached `create_complex_propagation_vectors()`, which reads
+   `memberList[0]` unconditionally. `sample_inputs/compartment/` segfaulted a
+   few iterations in.
+2. **Open.** Restarting the compartment model segfaults in
+   `initialize_paramters_for_implicitlipid_and_compartment_model()`, on the
+   unmodified code as well. Not investigated further; it is on the compartment
+   restart path, which no test covers.
+
+### How the result-preservation claim was actually tested
+
+Not by the four models alone. In order of what each one can rule out:
+
+| probe | scope | result |
+| --- | --- | --- |
+| Model sweep | every runnable input in the tree, 2 seeds, baseline vs HEAD | 178 runs, 0 diffs |
+| Optimisation levels | `-O0` and `-O3 -ffp-contract=off`, 3 models | identical at both |
+| Randomised differential | 1.5M random states through the merged reflectors vs the deleted originals transcribed verbatim | 0 bitwise mismatches, all four radial branches firing |
+| `weighted_D_sum` check | 12M comparisons against the four original expressions | 0 mismatches |
+| Serialization round trip | every boundary state through `Membrane::serialize`/`deserialize` | shape and accessors survive |
+
+The optimisation-level probe exists because the one real numerical bug in this
+work was FMA contraction, which the models did not catch: a loop and a
+straight-line expression that are algebraically identical compiled differently
+at `-O3`, and every model still agreed. An A/B at a single optimisation level
+cannot see that class of bug, so the claim is only worth what a second level
+buys it.
+
+The randomised differential matters for the opposite reason: it reaches the
+`RadialSide::Outside` compartment branches that no shipped model exercises,
+which is exactly where a sign-parameterised merge would go wrong.
+
+### MPI cannot be validated this way at all
+
+`bin/nerdss_mpi` does not reproduce itself run to run with a fixed seed. Running
+the *same* binary twice on the same input produces different physics output -
+not just differing timestamps, but molecules reported outside the simulation
+volume in one run and not the other. So no MPI A/B can distinguish a real
+regression from a rerun, and none of the bitwise claims above extend to it.
+`run_code_tests/membrane_serialization_check.cpp` exists because of this: it
+tests the thing the MPI change actually touched, without needing MPI to be
+deterministic.
+
+### Coverage gaps that make some of this unvalidatable by running models
+
+Worth knowing before trusting a bitwise A/B:
+
+* **No fiber model exists.** Nothing under `sample_inputs/` or
+  `run_code_tests/` sets `isPromoter`, so `Dim::Fiber1D` is unreachable in every
+  shipped model and the 1D paths cannot be exercised. `weighted_D_sum` is
+  covered instead by a direct comparison against the expressions it replaced
+  (`run_code_tests/weighted_D_sum_check.cpp`).
+* **One compartment model**, and it needed a crash fix before it would run.
+* **No model reaches the compartment restart path** at all, per crash 2 above.
+
+## What this does not address
+
+MPI. [`nerdss_mpi.cpp`](../EXEs/nerdss_mpi.cpp) is a second 1058-line main with
+its own copy of much of this structure. Every step above should be applied to
+the shared code it calls rather than to either main, so that the two mains
+converge rather than diverge further; but unifying the two mains themselves is a
+separate piece of work with its own risks, and is out of scope here.

@@ -331,7 +331,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
    * rotation. Saves time, but could be changed easily.
    */
   bool outOfBox{false}; // TODO: commented out for testing purposes only
-  if (membraneObject.isSphere)
+  if (membraneObject.isSphere())
   {
     double R = membraneObject.sphereR;
 
@@ -1004,8 +1004,8 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
   /*end debug*/
 
   // for the complex on the sphere surface, propagation is special
-  // if (membraneObject.isSphere && this->D.z < 1E-14) {
-  if (membraneObject.isSphere && this->OnSurface) {
+  // if (membraneObject.isSphere() && this->D.z < 1E-14) {
+  if (membraneObject.isSphere() && this->OnSurface) {
     Vec3D COM = comCoord;
     Vec3D COMnew = comCoord + trajTrans;
     std::array<double, 9> Crdset = inner_coord_set(COM, COMnew);
@@ -1142,7 +1142,7 @@ void Molecule::create_position_implicit_lipid(Molecule &reactMol1,
                                               int ifaceIndex2,
                                               double bindRadius,
                                               const Membrane &membraneObject) {
-  if (membraneObject.isSphere) {
+  if (membraneObject.isSphere()) {
     Vec3D displace = interfaceList[ifaceIndex2].coord - comCoord;
     double mag = displace.length();
     /*

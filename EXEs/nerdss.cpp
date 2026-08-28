@@ -219,8 +219,13 @@ int main(int argc, char *argv[]) {
     moleculeList.reserve(reservation);
     complexList.reserve(reservation);
 
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
+
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       if (membraneObject.hasCompartment == true) {
         std::cerr << "Compartment should not exist in a sphere system!"
                   << std::endl;
@@ -233,7 +238,7 @@ int main(int argc, char *argv[]) {
 
     // check the size of the compartment: make sure that the waterbox boundary
     // to the compartment should be larger than the rMaxLimit
-    if (membraneObject.isSphere == false &&
+    if (membraneObject.isSphere() == false &&
         membraneObject.hasCompartment == true) {
       bool tooSmallBox = false;
       if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -450,8 +455,13 @@ int main(int argc, char *argv[]) {
         }
       }
 
+      // A boundaries block naming neither a waterBox nor a sphere leaves
+      // shape Unspecified, which every dispatch treats as a box - against a
+      // waterBox of all zeros.  Fail here instead.
+      membraneObject.require_boundary();
+
       // create water box for sphere boundary
-      if (membraneObject.isSphere) {
+      if (membraneObject.isSphere()) {
         if (membraneObject.hasCompartment == true) {
           std::cerr << "Compartment should not exist in a sphere system!"
                     << std::endl;
@@ -464,7 +474,7 @@ int main(int argc, char *argv[]) {
 
       // check the size of the compartment: make sure that the waterbox boundary
       // to the compartment should be larger than the rMaxLimit
-      if (membraneObject.isSphere == false &&
+      if (membraneObject.isSphere() == false &&
           membraneObject.hasCompartment == true) {
         bool tooSmallBox = false;
         if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -510,8 +520,13 @@ int main(int argc, char *argv[]) {
       write_psf(params, moleculeList, molTemplateList);
     }
 
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
+
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       membraneObject.create_water_box();
       membraneObject.sphereVol =
           (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
@@ -782,7 +797,7 @@ int main(int argc, char *argv[]) {
     }
   }
   ShellIndex shellIndex;
-  shellIndex.build(membraneObject.isSphere ? membraneObject.sphereR : 0.0,
+  shellIndex.build(membraneObject.isSphere() ? membraneObject.sphereR : 0.0,
                    params.rMaxLimit, anyExplicitPairReaction);
   shellIndex.display();
 
@@ -905,10 +920,12 @@ int main(int argc, char *argv[]) {
       // check dissociation (implicit)
       for (unsigned molItr{0}; molItr < moleculeList.size(); ++molItr) {
         // only do checks if the Molecule exists
+        // `params.implicitLipid == false` was also tested here, inside a loop
+        // the enclosing `if` already guarantees is only entered when it is
+        // true.  Left over from before that guard existed.
         if (moleculeList[molItr].isEmpty ||
             moleculeList[molItr].isImplicitLipid == true ||
-            complexList[moleculeList[molItr].myComIndex].OnSurface == false ||
-            params.implicitLipid == false)
+            complexList[moleculeList[molItr].myComIndex].OnSurface == false)
           continue;
         check_dissociation_implicitlipid(
             simItr, params, simulVolume, molTemplateList, observablesList,
@@ -1380,6 +1397,16 @@ int main(int argc, char *argv[]) {
 
     // Now we have to check for overlap!!!
     for (auto &mol : moleculeList) {
+      // A destroyed molecule has no position to update, and its complex has
+      // been emptied.  Every other per-molecule loop in the timestep skips
+      // these; this one did not, and create_complex_propagation_vectors()
+      // reads moleculeList[targCom.memberList[0]] unconditionally, so an
+      // emptied complex reaching it dereferences memberList[0] on an empty
+      // vector.  That is the null dereference the compartment sample model
+      // died on, since its transmission reactions destroy molecules.
+      if (mol.isEmpty)
+        continue;
+
       // Now track each complex (ncrosscom), and test for overlap of all
       // proteins in that complex before performing final position updates.
       // determine RS3Dinput
@@ -1425,7 +1452,7 @@ int main(int argc, char *argv[]) {
                                          moleculeList, complexList, forwardRxns,
                                          molTemplateList, membraneObject);
           }
-          if (membraneObject.isSphere == true)
+          if (membraneObject.isSphere() == true)
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                     moleculeList, RS3Dinput, false);
         }
@@ -1434,7 +1461,7 @@ int main(int argc, char *argv[]) {
           // For proteins with ncross=0, they either moved independently,
           // or their displacements were selected based on the complex
           // they were part of, and they may not yet been moved.
-          if (membraneObject.isSphere == true) {
+          if (membraneObject.isSphere() == true) {
             if (mol.trajStatus == TrajStatus::none) {
               create_complex_propagation_vectors(
                   params, complexList[mol.myComIndex], moleculeList,

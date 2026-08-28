@@ -182,10 +182,12 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                 // binding with explicit-lipid model.
                                 //write_rng_state();
-                                if (com1.onFiber && com2.onFiber) {
+                                const Dim pairDim { pair_dim(com1, com2) };
+                                const double Dtot { weighted_D_sum(com1.D, com2.D, pairDim) };
+
+                                if (pairDim == Dim::Fiber1D) {
                                     // both complexes are on the fiber
                                     // Assume diffusion only occurs in x direction (1 D)
-                                    double Dtot = com1.D.x + com2.D.x;
 
                                     BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -197,10 +199,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         backRxns);
                                 }
                                 // else if (std::abs(com1.D.z) < 1E-16 && std::abs(com2.D.z) < 1E-16) {
-                                else if (com1.OnSurface && com2.OnSurface) {
+                                else if (pairDim == Dim::Surface2D) {
                                     // both Complexes are on the membrane, evaluate as 2D reaction
-                                    double Dtot = 1.0 / 2.0 * (com1.D.x + com2.D.x)
-                                        + 1.0 / 2.0 * (com1.D.y + com2.D.y);
 
                                     BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -215,9 +215,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                 }
                                 else {
                                     //3D reaction
-                                    double Dtot = 1.0 / 3.0 * (com1.D.x + com2.D.x)
-                                        + 1.0 / 3.0 * (com1.D.y + com2.D.y)
-                                        + 1.0 / 3.0 * (com1.D.z + com2.D.z);
 
                                     BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -264,9 +261,11 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         + ifaceVec.z * ifaceVec.z };
                                     double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
                                         + ifaceVec2.z * ifaceVec2.z };
-                                    if (complexList[moleculeList[pro1Index].myComIndex].onFiber == true && complexList[moleculeList[pro2Index].myComIndex].onFiber == true){
+                                    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
+                                    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
+
+                                    if (pairDim == Dim::Fiber1D) {
                                         // this is on 1D (a fiber)
-                                        double Dtot = complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x;
                                         double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
                                         if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
                                             RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
@@ -280,11 +279,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                     }
                                     // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                    else if (complexList[moleculeList[pro1Index].myComIndex].OnSurface && 
-                                        complexList[moleculeList[pro2Index].myComIndex].OnSurface) {
+                                    else if (pairDim == Dim::Surface2D) {
                                         // both Complexes are on the membrane, evaluate as 2D reaction
-                                        double Dtot = 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                            + 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y);
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -293,7 +289,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
-                                        if (membraneObject.isSphere == true) {
+                                        if (membraneObject.isSphere() == true) {
                                             Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
                                             Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
                                             double r1 = iface11.length();
@@ -313,9 +309,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                     } else {
                                         //3D reaction
-                                        double Dtot = 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                            + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y)
-                                            + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.z + complexList[moleculeList[pro2Index].myComIndex].D.z);
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -374,10 +367,25 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                     double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
                                         + ifaceVec2.z * ifaceVec2.z };
                                     // if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                    if (complexList[moleculeList[pro1Index].myComIndex].OnSurface && complexList[moleculeList[pro2Index].myComIndex].OnSurface) {
+                                    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
+                                    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
+
+                                    if (pairDim == Dim::Fiber1D) {
+                                        // this is on 1D (a fiber)
+                                        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
+                                        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
+                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+                                        }
+                                        double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
+                                        if (R1 < RMax) {
+                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+                                        }
+                                    }
+                                    else if (pairDim == Dim::Surface2D) {
                                         // both Complexes are on the membrane, evaluate as 2D reaction
-                                        double Dtot = 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                            + 1.0 / 2.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y);
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };
@@ -386,7 +394,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
 
                                         double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
                                         double R1 { 0.0 };
-                                        if (membraneObject.isSphere == true) {
+                                        if (membraneObject.isSphere() == true) {
                                             Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
                                             Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
                                             double r1 = iface11.length();
@@ -411,9 +419,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                                         }
                                     } else {
                                         //3D reaction
-                                        double Dtot = 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x + complexList[moleculeList[pro2Index].myComIndex].D.x)
-                                            + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.y + complexList[moleculeList[pro2Index].myComIndex].D.y)
-                                            + 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.z + complexList[moleculeList[pro2Index].myComIndex].D.z);
 
                                         BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
                                             absIface1, absIface2, Dtot, magMol1, magMol2 };

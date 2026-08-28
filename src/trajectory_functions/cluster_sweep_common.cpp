@@ -58,14 +58,14 @@ void resample_partner_trajectories(const std::vector<int>& partnerList, std::vec
             }
             if (flag == 0) {
 
-                // if (membraneObject.isSphere == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
-                if (membraneObject.isSphere == true && complexList[k].OnSurface) { // complex on sphere surface
+                // if (membraneObject.isSphere() == true && complexList[k].D.z < 1E-15) { // complex on sphere surface
+                if (membraneObject.isSphere() == true && complexList[k].OnSurface) { // complex on sphere surface
                     // The box copies of this branch drew the translation from
                     // complexList[k1] - an index left over from an enclosing loop
                     // rather than the complex being resampled.  It cannot have
                     // mattered: the box sweep is only ever reached from
                     // sweep_separation_complex_rot_memtest_cluster() under
-                    // !membraneObject.isSphere, so this branch never runs there.
+                    // !membraneObject.isSphere(), so this branch never runs there.
                     Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k]);
                     complexList[k].trajTrans.x = targTrans.x;
                     complexList[k].trajTrans.y = targTrans.y;
