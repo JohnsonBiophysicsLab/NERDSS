@@ -128,6 +128,12 @@ void parse_input_for_a_new_simulation(
   moleculeList.reserve(reservation);
   complexList.reserve(reservation);
 
+  // The MPI main reaches its boundary set-up only through here, so the check
+  // lives at this site too; without it `bin/nerdss` would fail fast on a
+  // boundary-less input while `bin/nerdss_mpi` silently ran box physics against
+  // an all-zero WaterBox.
+  membraneObject.require_boundary();
+
   // Create water box for sphere boundary
   if (membraneObject.isSphere()) {
     membraneObject.create_water_box();

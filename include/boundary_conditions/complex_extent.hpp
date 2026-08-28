@@ -116,9 +116,10 @@ inline double radial_boundary(double radius, double RS3D, RadialSide side)
 /*! \ingroup BoundaryConditions
  * \brief How far a point sits on the wrong side of a spherical boundary.
  *
- * Positive means the point has escaped and must be reflected back.  All six
- * radial routines scored their points with this, three of them with the sign
- * written out and three with it negated.
+ * Positive means the point has escaped and must be reflected back.  This is the
+ * convention of the tmp-coordinate pair, which seeded its accumulator at zero;
+ * the others seed at the boundary and rank by \ref radial_signed_radius.  Two
+ * conventions, not one, and they are not interchangeable - see there.
  */
 inline double radial_escape(const Vec3D& point, double boundaryR, RadialSide side)
 {
@@ -158,10 +159,20 @@ inline double radial_signed_boundary(double boundaryR, RadialSide side)
  * spelled `base.length() + targCom.radius > sphereR` and the compartment ones
  * spelled `base.length() + targCom.radius < sphereR`.
  *
- * Note that the complex radius is *added* on both sides, not subtracted for the
- * excluding case as a tighter bound would have it.  That is what the original
- * routines did and it only ever makes the test more inclusive, so the scan that
- * follows still decides.
+ * Note that the complex radius is *added* on both sides.  For a containing
+ * boundary that is conservative - it only widens the set of complexes that go
+ * on to the scan, which then decides.  For an excluding one it is the opposite,
+ * and that is a real gap rather than a safe approximation: a complex whose
+ * centre sits inside the compartment by less than its own radius fails
+ * `-(|base| + radius) > -R` and returns here, so it is never pushed back out
+ * and the point scan never runs.  With `compartmentR` 100, a centre at radius
+ * 90 and a complex radius of 20, the test is `-110 > -100`, false.
+ *
+ * This reproduces the deleted `reflect_traj_complex_compartment` exactly
+ * (`if (base.length() + radius >= sphereR) return;`), so it is preserved
+ * behaviour, not a new defect - but it is a defect, and it belongs with the
+ * other compartment questions in docs/debranching_plan.md rather than being
+ * described here as harmless.
  */
 inline bool radial_may_escape(const Vec3D& base, double complexRadius, double boundaryR, RadialSide side)
 {
@@ -182,8 +193,14 @@ inline bool radial_may_escape(const Vec3D& base, double complexRadius, double bo
  * that is what five of the six did, and the sixth scored by the same
  * `length()` call on the same vector, so it is the identical double either way.
  *
- * The caller must not pass a point at the origin; every seed in this file is
- * chosen so that cannot happen.
+ * A point at the origin divides by zero here.  The seeds in this file are all
+ * chosen so that a seed cannot reach this, but a *scanned* point can: under
+ * RadialSide::Outside a point at the centre scores `-0.0`, which beats the
+ * `-boundaryR` seed, so it wins the accumulator and yields
+ * `lamda = -2 (0 - R) / 0 = +inf`, then `inf * Vec3D(0,0,0)` = NaN in all three
+ * components, written straight into the trajectory.  It needs a molecule exactly
+ * at the compartment centre, which is why it has never been seen; the arithmetic
+ * is unchanged from the routines this replaced, so the exposure is not new.
  */
 inline Vec3D radial_reflection_shift(const Vec3D& point, double boundaryR)
 {
