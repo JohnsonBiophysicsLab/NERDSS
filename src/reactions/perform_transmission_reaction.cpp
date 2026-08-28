@@ -47,7 +47,7 @@ void perform_transmission_reaction(int moleculeIndex, std::vector<Molecule>& mol
     // forbid this molecule to react with other molecules
     zero_partner_probvec(moleculeList[moleculeIndex], moleculeList);
     complexList[moleculeList[moleculeIndex].myComIndex].ncross = -1;
-    moleculeList[moleculeIndex].crossbase.clear();
+    moleculeList[moleculeIndex].crossings.clear();
 
     //destroy molecule
     for (auto& memMol : complexList[moleculeList[moleculeIndex].myComIndex].memberList) {

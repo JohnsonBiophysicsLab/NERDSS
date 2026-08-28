@@ -1042,21 +1042,19 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                     tmpMol.interfaceList.emplace_back(tmpIface);
                 }
 
-                // reweighting lists
+                // Reweighting lists.  The file carries six parallel arrays, as
+                // it always has; they are read in the same order and assembled
+                // into the single prevReweight vector.  Each array carries its
+                // own count, and a file written by any build gives all six the
+                // same count, so the first one sizes the vector and the rest
+                // fill fields of entries that already exist.
                 unsigned listSize { 0 };
                 restartFile >> listSize;
+                tmpMol.prevReweight.resize(listSize);
                 for (unsigned itr { 0 }; itr < listSize; ++itr) {
                     int elem { 0 };
                     restartFile >> elem;
-                    tmpMol.prevlist.emplace_back(elem);
-                }
-                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-                restartFile >> listSize;
-                for (unsigned itr { 0 }; itr < listSize; ++itr) {
-                    int elem { 0 };
-                    restartFile >> elem;
-                    tmpMol.prevmyface.emplace_back(elem);
+                    tmpMol.prevReweight[itr].partner = elem;
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
@@ -1064,7 +1062,23 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 for (unsigned itr { 0 }; itr < listSize; ++itr) {
                     int elem { 0 };
                     restartFile >> elem;
-                    tmpMol.prevpface.emplace_back(elem);
+                    // Always consume, store only what fits: a malformed file
+                    // whose arrays disagree in length must not leave numbers in
+                    // the stream for the next record to misread.
+                    if (itr < tmpMol.prevReweight.size())
+                        tmpMol.prevReweight[itr].myFace = elem;
+                }
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                restartFile >> listSize;
+                for (unsigned itr { 0 }; itr < listSize; ++itr) {
+                    int elem { 0 };
+                    restartFile >> elem;
+                    // Always consume, store only what fits: a malformed file
+                    // whose arrays disagree in length must not leave numbers in
+                    // the stream for the next record to misread.
+                    if (itr < tmpMol.prevReweight.size())
+                        tmpMol.prevReweight[itr].partnerFace = elem;
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
@@ -1072,7 +1086,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 for (unsigned itr { 0 }; itr < listSize; ++itr) {
                     double elem { 0 };
                     restartFile >> elem;
-                    tmpMol.prevnorm.emplace_back(elem);
+                    // Always consume, store only what fits: a malformed file
+                    // whose arrays disagree in length must not leave numbers in
+                    // the stream for the next record to misread.
+                    if (itr < tmpMol.prevReweight.size())
+                        tmpMol.prevReweight[itr].norm = elem;
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
@@ -1080,7 +1098,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 for (unsigned itr { 0 }; itr < listSize; ++itr) {
                     double elem { 0 };
                     restartFile >> elem;
-                    tmpMol.ps_prev.emplace_back(elem);
+                    // Always consume, store only what fits: a malformed file
+                    // whose arrays disagree in length must not leave numbers in
+                    // the stream for the next record to misread.
+                    if (itr < tmpMol.prevReweight.size())
+                        tmpMol.prevReweight[itr].survProb = elem;
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
@@ -1088,7 +1110,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 for (unsigned itr { 0 }; itr < listSize; ++itr) {
                     double elem { 0 };
                     restartFile >> elem;
-                    tmpMol.prevsep.emplace_back(elem);
+                    // Always consume, store only what fits: a malformed file
+                    // whose arrays disagree in length must not leave numbers in
+                    // the stream for the next record to misread.
+                    if (itr < tmpMol.prevReweight.size())
+                        tmpMol.prevReweight[itr].sep = elem;
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
