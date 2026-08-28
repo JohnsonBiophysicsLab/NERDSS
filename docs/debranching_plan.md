@@ -393,7 +393,8 @@ difference is small enough to see.
 
 ### Where this ended up
 
-Steps 1-3 were built and are bitwise result-preserving. Step 4's interface and
+Steps 1-3 were built and are bitwise result-preserving, with the single
+exception noted under *The one place the bitwise claim has an exception*. Step 4's interface and
 step 5 were both measured and rejected, each in favour of a smaller change the
 measurement pointed at. That is two of five proposals surviving contact with the
 code unchanged, one surviving in altered form, and two dying - which is roughly
@@ -442,6 +443,34 @@ oversight. `OnSurface` means bound to the implicit-lipid membrane, which is a
 different surface from the compartment; there is no reason to exempt those
 complexes from compartment reflection. It is `skipOnSurface = false` at the call
 site and stays that way.
+
+### The one place the bitwise claim has an exception
+
+The `isEmpty` guard in the overlap loop is a crash fix, and for any model that
+destroys molecules it is also a **results change** - not just a crash-to-run
+change. The skipped molecules previously reached
+`create_complex_propagation_vectors()` and consumed RNG draws there, so removing
+them shifts every subsequent random number. For models without destruction the
+guard cannot fire and nothing moves, which is what the four validation models
+show; for models with it, there is no earlier correct behaviour to preserve,
+because those runs segfaulted.
+
+### Two limits that only bite fiber systems
+
+Both unreachable in every shipped model, since nothing sets `isPromoter`, and
+therefore invisible to any A/B:
+
+* `radial_may_escape()` adds the complex radius on the excluding side, which
+  makes the bound *stricter* rather than conservative: a complex straddling the
+  compartment wall returns early and is never pushed out. Preserved from the
+  deleted compartment routine, not introduced. The correct bound is
+  `|base| - radius < R`.
+* The `comSep > rMaxLimit` early-out in `check_bimolecular_reactions()` exempts
+  surface pairs but not fiber pairs. `set_rMaxLimit()` sizes the limit from the
+  3D average while the 1D path uses `Dtot = D1.x + D2.x`, whose reach is up to
+  sqrt(3) larger, so reacting 1D pairs beyond `rMaxLimit` are dropped before the
+  interface loop. This became reachable when the fiber branch was added to the
+  pro2 exclusion block.
 
 ### Two pre-existing crashes found while looking for validation models
 

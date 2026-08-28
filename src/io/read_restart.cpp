@@ -39,9 +39,15 @@ void expect_restart_key(std::ifstream& restartFile, const std::string& expected)
         exit(1);
     }
 
+    // Bounded. The ignore(max, '=') this replaced allocated nothing, so a file
+    // corrupted such that no '=' ever follows used to run off the end harmlessly;
+    // accumulating into a string would instead buffer the entire remainder, and
+    // restart files for large systems run to hundreds of megabytes. No real key
+    // is anywhere near this long, so hitting the cap is itself a malformed file.
+    const std::size_t maxKeyLength { 256 };
     std::string key;
     char c;
-    while (restartFile.get(c)) {
+    while (key.size() < maxKeyLength && restartFile.get(c)) {
         if (c == '=')
             break;
         key += c;
