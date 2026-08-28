@@ -548,9 +548,19 @@ struct Molecule {
         deserialize_primitive_vector<int>(cross_base, arrayRank, nArrayRank);
         deserialize_primitive_vector<int>(cross_int, arrayRank, nArrayRank);
         deserialize_vector_array<int, 3>(cross_rxn, arrayRank, nArrayRank);
+        // Bound by the shortest of the four, not by the first.  Each array
+        // carries its own count off the wire, so a truncated message can leave
+        // them disagreeing; indexing the siblings by cross_base's length would
+        // then read past their ends.  The four always match when written by
+        // serialize_back(), so this costs nothing and only bounds the damage.
+        // read_restart.cpp guards the same hazard the same way.
+        size_t crossCount { cross_base.size() };
+        if (cross_int.size() < crossCount) crossCount = cross_int.size();
+        if (cross_rxn.size() < crossCount) crossCount = cross_rxn.size();
+        if (cross_prob.size() < crossCount) crossCount = cross_prob.size();
         crossings.clear();
-        crossings.reserve(cross_base.size());
-        for (size_t crossItr { 0 }; crossItr < cross_base.size(); ++crossItr) {
+        crossings.reserve(crossCount);
+        for (size_t crossItr { 0 }; crossItr < crossCount; ++crossItr) {
             crossings.emplace_back(cross_base[crossItr], cross_int[crossItr],
                 cross_rxn[crossItr], cross_prob[crossItr]);
         }
@@ -565,9 +575,16 @@ struct Molecule {
         deserialize_primitive_vector<double>(curr_norm, arrayRank, nArrayRank);
         deserialize_primitive_vector<double>(curr_ps, arrayRank, nArrayRank);
         deserialize_primitive_vector<double>(curr_sep, arrayRank, nArrayRank);
+        // Bounded by the shortest of the six, for the reason above.
+        size_t rwCount { curr_list.size() };
+        if (curr_myface.size() < rwCount) rwCount = curr_myface.size();
+        if (curr_pface.size() < rwCount) rwCount = curr_pface.size();
+        if (curr_norm.size() < rwCount) rwCount = curr_norm.size();
+        if (curr_ps.size() < rwCount) rwCount = curr_ps.size();
+        if (curr_sep.size() < rwCount) rwCount = curr_sep.size();
         currReweight.clear();
-        currReweight.reserve(curr_list.size());
-        for (size_t entryItr { 0 }; entryItr < curr_list.size(); ++entryItr) {
+        currReweight.reserve(rwCount);
+        for (size_t entryItr { 0 }; entryItr < rwCount; ++entryItr) {
             currReweight.emplace_back(curr_norm[entryItr], curr_ps[entryItr], curr_sep[entryItr],
                 curr_list[entryItr], curr_myface[entryItr], curr_pface[entryItr]);
         }

@@ -45,6 +45,22 @@ WORK_DIR=${WORK_DIR:-$SCRIPT_DIR/results/interleaved}
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
 
+# `time -l` is a BSD flag, and on Apple silicon it is what reports retired
+# instructions and elapsed cycles.  GNU time rejects it and some Linux images
+# ship no /usr/bin/time at all, either of which would abort this script under
+# `set -e`.  Probe once and degrade: -l gives everything, POSIX -p gives CPU
+# time, and bare gives wall time only.  The summary below already skips a
+# metric that any build is missing.
+TIME_PREFIX=()
+if /usr/bin/time -l true >/dev/null 2>&1; then
+    TIME_PREFIX=(/usr/bin/time -l)
+elif /usr/bin/time -p true >/dev/null 2>&1; then
+    TIME_PREFIX=(/usr/bin/time -p)
+    echo "note: /usr/bin/time -l unavailable; no instruction or cycle counts" >&2
+else
+    echo "note: no usable /usr/bin/time; wall clock only" >&2
+fi
+
 if command -v perl >/dev/null 2>&1; then
     now() { perl -MTime::HiRes=time -e 'printf "%.6f\n", time'; }
 else
@@ -83,16 +99,23 @@ while IFS=$'\t' read -r id dir parm n_itr; do
             # fewer stalls -- which is exactly the distinction a layout change
             # turns on.  Both are empty on platforms whose `time -l` omits them.
             start=$(now)
-            ( cd "$run_dir" && /usr/bin/time -l "${BINARIES[$i]}" -f "$parm" -s "$SEED" \
+            ( cd "$run_dir" && "${TIME_PREFIX[@]}" "${BINARIES[$i]}" -f "$parm" -s "$SEED" \
                 > stdout.log 2> stderr.log )
             finish=$(now)
 
+            # Two layouts: `time -l` puts real/user/sys on one line, POSIX
+            # `time -p` puts them on three.  Either may be absent entirely.
             counters=$(awk '
-                / real .* user .* sys/ { cpu = $3 + $5 }
+                / real .* user .* sys/ { cpu = $3 + $5; haveCpu = 1 }
+                /^user /               { u = $2; havePosix = 1 }
+                /^sys /                { s = $2; havePosix = 1 }
                 /instructions retired/ { ins = $1 }
                 /cycles elapsed/       { cyc = $1 }
                 /maximum resident set size/ { rss = $1 }
-                END { printf "%.3f\t%s\t%s\t%s", cpu, ins, cyc, rss }
+                END {
+                    if (!haveCpu && havePosix) { cpu = u + s; haveCpu = 1 }
+                    printf "%s\t%s\t%s\t%s", haveCpu ? sprintf("%.3f", cpu) : "", ins, cyc, rss
+                }
             ' "$run_dir/stderr.log")
 
             printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "${SUITE_NITR:-$n_itr}" "${LABELS[$i]}" "$rep" \
