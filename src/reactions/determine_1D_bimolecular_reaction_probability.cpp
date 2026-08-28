@@ -1,5 +1,6 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 #include "tracing.hpp"
 #include <iostream>
 #include <sstream>
@@ -84,21 +85,12 @@ void determine_1D_bimolecular_reaction_probability(
   if (withinRmax) {
     // std::cout << "RMax3D " << RMax3D << " Mol1Index: " << biMolData.pro1Index << " Mol2Index: " << biMolData.pro2Index << std::endl;
     /*in this case we evaluate the probability of this reaction*/
-    moleculeList[biMolData.pro1Index].crossbase.push_back(biMolData.pro2Index);
-    moleculeList[biMolData.pro2Index].crossbase.push_back(biMolData.pro1Index);
-    moleculeList[biMolData.pro1Index].mycrossint.push_back(biMolData.relIface1);
-    moleculeList[biMolData.pro2Index].mycrossint.push_back(biMolData.relIface2);
-    moleculeList[biMolData.pro1Index].crossrxn.push_back(
-        std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
-    moleculeList[biMolData.pro2Index].crossrxn.push_back(
-        std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
-    ++complexList[moleculeList[biMolData.pro1Index].myComIndex].ncross;
-    ++complexList[moleculeList[biMolData.pro2Index].myComIndex].ncross;
-    // in case they dissociated
-    // moleculeList[biMolData.pro1Index].display_all();
-    // moleculeList[biMolData.pro2Index].display_all();
-    moleculeList[biMolData.pro1Index].probvec.push_back(0);
-    moleculeList[biMolData.pro2Index].probvec.push_back(0);
+    // This was the seventh hand-written copy of record_crossing_pair(): the same
+    // two crossbase pushes, two mycrossint pushes, two crossrxn pushes, two
+    // ncross bumps and two probvec seeds, in the same order.  get_distance()
+    // does not handle the 1D case, which is why the copy was here.
+    record_crossing_pair(biMolData.pro1Index, biMolData.pro2Index, biMolData.relIface1, biMolData.relIface2,
+        std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn }, moleculeList, complexList);
   } 
 
   // if (moleculeList[biMolData.pro1Index].isDissociated == true ||
@@ -189,8 +181,8 @@ void determine_1D_bimolecular_reaction_probability(
       // } 
       // END
 
-      moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-      moleculeList[biMolData.pro2Index].probvec.back() = rxnProb * currnorm;
+      moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
+      moleculeList[biMolData.pro2Index].crossings.back().prob = rxnProb * currnorm;
       if (rxnProb > 1.000001) {
         std::cerr << "Error: prob of reaction is: " << rxnProb
                   << " > 1. Avoid this using a smaller time step." << std::endl;

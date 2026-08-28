@@ -2580,21 +2580,30 @@ and peak RSS, and prints instructions per cycle.
 
 ### 23.4 Result
 
+> **Superseded, and by how much matters.** The table below was measured on a
+> host carrying three unrelated `nerdss_mpi` processes at 99% CPU plus a Python
+> at 98.6%. Section 24 re-measures all three builds together under far lighter
+> load and gets 1.058x to 1.172x where this says 1.119x to 1.389x. **Contention
+> inflated stage 1's apparent gain by up to 30 points.** 23.7 warned that it
+> might; it did. The numbers here are kept because the warning is only worth
+> anything next to what it was warning about -- use section 24's.
+
 Interleaved, medians; `scale_2k`, `enzyme` and `scale_10k` at 5 repetitions,
 `scale_40k` at 7:
 
 | case | molecules | instructions | cycles | CPU time | RSS | IPC base -> stage 1 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | `scale_2k` | 2,000 | 1.032x | 1.119x | 1.113x | 1.018x | 1.908 -> 2.069 |
-| `enzyme` | 6,410 | 1.022x | **1.389x** | 1.383x | 1.182x | 1.783 -> 2.422 |
+| `enzyme` | 6,410 | 1.022x | 1.389x | 1.383x | 1.182x | 1.783 -> 2.422 |
 | `scale_10k` | 10,000 | 1.024x | 1.246x | 1.253x | 1.032x | 0.846 -> 1.029 |
 | `scale_40k` | 40,000 | 1.014x | 1.264x | 1.223x | 1.095x | 1.018 -> 1.270 |
 
-**Instructions fall by 1.4% to 3.2%; cycles fall by 11% to 28%.** The gap is the
-result. Merging six `push_back`s into one is the whole instruction saving, and
-it is far too small to explain the cycle saving; IPC rises by 8% to 36% to make
-up the difference. That is a stall reduction, which is what a narrower object is
-supposed to produce and what no amount of doing-less-work could imitate.
+The one thing here that section 24 confirms rather than overturns is the shape:
+**instructions fall by 1.4% to 3.2% while cycles fall by much more.** Merging six
+`push_back`s into one is the whole instruction saving, and it is far too small to
+explain the cycle saving; IPC rises to make up the difference. That is a stall
+reduction, which is what a narrower object is supposed to produce and what no
+amount of doing-less-work could imitate.
 
 ### 23.5 RSS confirms the change landed where it was aimed
 
@@ -2610,37 +2619,44 @@ supposed to produce and what no amount of doing-less-work could imitate.
 Consistently 16-32% *more* than the struct-size prediction, which is the second
 half of the change showing up: twelve heap-owning members became two, so a
 molecule that ever recorded an encounter also stops carrying up to ten separate
-allocator blocks.
+allocator blocks. RSS is barely affected by load, and section 24 reproduces
+these figures within a few percent.
 
-### 23.6 The size dependence is not the whole story
+### 23.6 A size-dependence claim that did not survive re-measurement
 
-Section 22.6's padding penalty rose monotonically with the model. This does not:
-`enzyme` at 6,410 molecules gains most (1.389x), more than `scale_40k` at
-40,000 (1.264x).
+This section originally read: "The size dependence is not the whole story",
+and argued from the table in 23.4 that `enzyme` at 6,410 molecules gained more
+(1.389x) than `scale_40k` at 40,000 (1.264x), so part of the win had to come
+from the reweighting *lookup* -- six pointer chases becoming one -- which scales
+with reweighting traffic rather than with molecule count.
 
-The reason is that stage 1 helps in two ways, and only one of them is about
-stride. The narrower object helps every gather, and that part does scale with
-size. But the reweighting *lookup* went from six pointer chases to one, and that
-part scales with how much reweighting traffic a model generates, not with how
-many molecules it holds. `enzyme` runs 5,682 candidate pairs per timestep
-against 6,410 molecules -- 0.89 pairs per molecule, against 0.50 for
-`scale_40k` -- through the membrane and implicit-lipid probability paths, which
-is where those lookups live.
+**The premise was an artifact of the contaminated measurement.** Under the
+lighter load of section 24 the ordering is monotone in size after all -- 1.058x
+at 2,000, 1.059x at 6,410, 1.101x at 10,000, 1.172x at 40,000 -- which is the
+same shape section 22.6's padding control produced. `enzyme` is not special; it
+was simply the case whose measurement contention distorted most.
 
-So the headroom section 22.6 measured with the padding control is being
-collected, but this stage also collects something that control could not see.
-The two are separable in principle and were not separated here.
+The lookup argument may still be true in part, but nothing here measures it, and
+the evidence that was offered for it has evaporated. Recorded rather than
+deleted because the reasoning error is the useful part: a mechanism was inferred
+from a ranking, and the ranking was noise.
 
-### 23.7 Caveat on the magnitudes
+### 23.7 Caveat on the magnitudes, and how it turned out
 
-Every number above was taken on a host carrying one to two cores of unrelated
+Every number in 23.4 was taken on a host carrying one to two cores of unrelated
 load. Interleaving means both builds met the same conditions and the counters
 are robust to it, but memory contention plausibly *amplifies* a locality win:
 with other cores pressing on a shared L2, the build with the larger working set
 suffers more than it would alone. The load-proof floor is the instruction
-reduction, about 2%. The cycle ratios are the honest estimate under these
-conditions, not a quiet-machine guarantee, and `scale_40k`'s cycle standard
-deviations are 12% and 20% of their medians even at 7 repetitions.
+reduction, about 2%.
+
+That caveat was correct and the amplification was large. Section 24's re-measure,
+with all three builds interleaved under lighter load, puts stage 1 at 1.058x to
+1.172x rather than 1.119x to 1.389x. **The right lesson is not that the
+counters failed -- instructions and RSS reproduced to within a few percent --
+but that cycles are load-proof only in the sense of being measurable, not in the
+sense of measuring the same thing.** Stalls are a property of the machine's
+memory system at that moment, and that moment included four busy cores.
 
 ### 23.8 Verdict
 
@@ -2649,3 +2665,163 @@ tables and across a restart, `sizeof(Molecule)` at 416, MPI still building, and
 a measured gain rather than the flat result section 22 recorded for the proof of
 concept. Stage 2 -- merging `crossbase`, `mycrossint`, `crossrxn` and `probvec`
 into one vector, 416 -> 344 bytes -- is warranted on this evidence.
+
+## 24. Narrowing `Molecule`, stage 2: the crossing lists
+
+Stage 2 of the plan in
+[`docs/molecule_layout_plan.md`](../../docs/molecule_layout_plan.md). Measured
+2026-08-27, same host and build settings as section 23, with all three builds
+interleaved in one pass so they meet identical conditions.
+
+### 24.1 What changed
+
+`probvec`, `crossbase`, `mycrossint` and `crossrxn` were four parallel vectors
+indexed by one subscript everywhere they are read. They are now one
+`Molecule::CrossEntry` and one vector of it: 96 bytes of vector header become 24,
+and the traversals follow one pointer instead of four.
+
+**`sizeof(Molecule)`: 416 -> 344 bytes.** With stage 1, 656 -> 344 -- 10.25 cache
+lines to 5.38.
+
+Two pieces of scaffolding went with it. `record_crossing_pair()` carried an
+`alsoInitProbvec` flag whose only purpose was keeping the four lists in step;
+with one entry there is nothing to keep in step. And
+`determine_1D_bimolecular_reaction_probability()` held a seventh hand-written
+copy of that helper -- the same two crossbase pushes, two mycrossint pushes, two
+crossrxn pushes, two ncross bumps and two probvec seeds, in the same order --
+which is now a call.
+
+### 24.2 What had to be established first
+
+The merge looked blocked. **Sixteen sites call `crossbase.clear()` alone**
+mid-timestep, after an association, deliberately leaving the other three
+populated for the rest of the timestep. One merged vector clears all four.
+
+Three findings settle it.
+
+*Nothing loops on the other three's sizes.* Every traversal in the program --
+`determine_if_reaction_occurs()`, `perform_bimolecular_reactions()`,
+`zero_partner_probvec()`, the four overlap sweeps, `Cluster` -- bounds itself by
+`crossbase.size()` and reads the rest at that subscript. A search for
+`probvec.size()`, `mycrossint.size()` and `crossrxn.size()` returns nothing but
+a commented-out debug line. So after `crossbase.clear()` the leftovers are
+unreachable: dead data until the end-of-timestep clear. Dropping them with the
+same call changes nothing that can be read.
+
+*Alignment holds while they are populated.* Checked rather than argued: an
+instrumented build reported any molecule whose four lists disagreed in length at
+the end of the pairwise sweep. **Zero reports across all 13 cases in
+`cases.tsv` and all 5 in `coverage_cases.tsv`.**
+
+*One site could have broken it, and is the one real semantic change.*
+`determine_2D_implicitlipid_reaction_probability()` pushed `probvec`
+unconditionally at entry, while the matching `crossbase`, `mycrossint` and
+`crossrxn` pushes sit inside its `!isDissociated && rate > 0` branch. On any path
+that skips that branch, the molecule ended the timestep with one more `probvec`
+entry than `crossbase` entry -- and since every traversal reads them at a common
+subscript, a later entry would have been paired with the *wrong* probability.
+One entry carrying all four values cannot express that state, so the merge
+removes the possibility.
+
+The instrumented run says it never happens: either that branch is not reached by
+any case here, or it is never taken early. So nothing measurable changes. But
+this is a latent defect the merge closes rather than a mechanical rewrite, and
+it is marked as such at the site.
+
+### 24.3 Bitwise
+
+Against the **pre-branch** baseline `c1db1694d0724b0c`, so this covers stages 1
+and 2 together:
+
+| table | result |
+| --- | --- |
+| `cases.tsv` | 13 of 13 byte identical |
+| `coverage_cases.tsv` | 5 of 5 byte identical |
+| restart read path | 15 files byte identical |
+| `make mpi` | builds clean |
+
+The MPI wire format is unchanged: `serialize_back()` and `deserialize_back()`
+split and reassemble the same four arrays in the same order.
+
+### 24.4 Result
+
+Three builds interleaved, 5 repetitions, medians. Host load average 4.25 at the
+start and 4.34 at the end -- two busy cores, against the four-plus that
+contaminated section 23.4. Baseline standard deviations are 0.5% to 3%.
+
+**Cycles**, the load-robust measure:
+
+| case | molecules | base | stage 1 | stage 2 | stage 1/base | stage 2/base |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `scale_2k` | 2,000 | 14.29 G | 13.51 G | 13.17 G | 1.058x | 1.085x |
+| `enzyme` | 6,410 | 18.31 G | 17.29 G | 16.98 G | 1.059x | 1.078x |
+| `scale_10k` | 10,000 | 25.52 G | 23.18 G | 22.14 G | 1.101x | 1.153x |
+| `scale_40k` | 40,000 | 85.52 G | 72.97 G | 64.52 G | 1.172x | **1.325x** |
+| **total** | | **143.6 G** | **126.9 G** | **116.8 G** | **1.132x** | **1.230x** |
+
+CPU time agrees closely: 1.134x and 1.226x aggregate, and 1.317x for
+`scale_40k`.
+
+**Instructions barely move**, which is the point:
+
+| case | stage 1/base | stage 2/base |
+| --- | ---: | ---: |
+| `scale_2k` | 1.033x | 1.038x |
+| `enzyme` | 1.022x | 1.025x |
+| `scale_10k` | 1.023x | 1.028x |
+| `scale_40k` | 1.013x | 1.016x |
+
+A 2.2% instruction saving accompanies a 23.0% cycle saving. The difference is
+stalls, and **instructions per cycle** shows it directly:
+
+| case | base | stage 1 | stage 2 |
+| --- | ---: | ---: | ---: |
+| `scale_2k` | 3.734 | 3.825 | 3.904 |
+| `enzyme` | 5.279 | 5.472 | 5.558 |
+| `scale_10k` | 3.499 | 3.765 | 3.925 |
+| `scale_40k` | 2.867 | 3.316 | 3.741 |
+
+`scale_40k` gains 30% of IPC across the two stages while executing 1.6% fewer
+instructions.
+
+**RSS**, against a prediction of 312 bytes per molecule for the two stages:
+
+| case | predicted | measured | ratio |
+| --- | ---: | ---: | ---: |
+| `scale_2k` | 0.62 MB | 0.77 MB | 1.24 |
+| `enzyme` | 2.00 MB | 2.59 MB | 1.29 |
+| `scale_10k` | 3.12 MB | 3.78 MB | 1.21 |
+| `scale_40k` | 12.48 MB | 14.99 MB | 1.20 |
+
+Again 20-29% beyond the struct arithmetic, from sixteen heap-owning members
+becoming three.
+
+### 24.5 The size dependence, restated
+
+Under lighter load both stages are monotone in model size, which is the shape
+section 22.6's padding control produced and which section 23.6 mistakenly
+thought it had refuted:
+
+| molecules | stage 1 | stage 2 |
+| ---: | ---: | ---: |
+| 2,000 | 1.058x | 1.085x |
+| 6,410 | 1.059x | 1.078x |
+| 10,000 | 1.101x | 1.153x |
+| 40,000 | 1.172x | 1.325x |
+
+This is what section 22 predicted and what the `MolHotView` proof of concept
+failed to deliver. The control build that *widened* `Molecule` by 2.56x cost
+0.827x at 40,000 molecules; narrowing it by 1.91x returns 1.325x there. The two
+are the same effect measured in opposite directions, and the headroom the
+padding identified is now being collected -- by narrowing the object rather than
+shadowing it.
+
+### 24.6 Verdict
+
+Stage 2 meets its exit criteria: byte identical on both case tables and across a
+restart, `sizeof(Molecule)` at 344, MPI building, and 1.230x aggregate against
+the pre-branch baseline in cycles.
+
+Stages 3 and 4 of the plan -- reordering the survivors so the rejection
+cascade's fields share one cache line, and deciding about the association
+scratch -- remain. Neither has been attempted.

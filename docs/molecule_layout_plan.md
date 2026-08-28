@@ -258,46 +258,50 @@ RSS, and prints instructions per cycle.
 
 Both are in the harness, so this applies to every stage from here on.
 
-**Result, with the counters.** Interleaved medians; `scale_40k` at 7
-repetitions, the rest at 5:
-
-| case | molecules | instructions | cycles | CPU time | RSS | IPC base -> stage 1 |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `scale_2k` | 2,000 | 1.032x | 1.119x | 1.113x | 1.018x | 1.908 -> 2.069 |
-| `enzyme` | 6,410 | 1.022x | **1.389x** | 1.383x | 1.182x | 1.783 -> 2.422 |
-| `scale_10k` | 10,000 | 1.024x | 1.246x | 1.253x | 1.032x | 0.846 -> 1.029 |
-| `scale_40k` | 40,000 | 1.014x | 1.264x | 1.223x | 1.095x | 1.018 -> 1.270 |
-
-Instructions fall 1.4-3.2%, cycles fall 11-28%, and IPC rises 8-36% to make up
-the gap. Merging six `push_back`s into one is the entire instruction saving and
-is far too small to explain the cycles: this is a stall reduction. RSS falls by
-16-32% *more* than the 240-bytes-per-molecule the struct shrank, which is twelve
-heap-owning members becoming two.
-
-Full tables, the RSS-against-prediction check, and the caveat about measuring on
-a loaded host are in section 23 of
+**Result.** The first pass of these numbers was taken against three unrelated
+`nerdss_mpi` processes at 99% CPU and reported 1.119x to 1.389x. Re-measured
+with all three builds interleaved under lighter load, stage 1 is **1.058x to
+1.172x** in cycles, monotone in model size. Contention had inflated it by up to
+30 points -- the caveat recorded at the time was right, and the corrected
+figures are in section 24.4 of
 [`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
 
-**Stage 1 passes. Proceed to stage 2.**
+Instructions fall about 2% while cycles fall much more, so the win is stalls
+rather than work; RSS falls 16-32% beyond the 240 bytes per molecule the struct
+shrank, from twelve heap-owning members becoming two.
 
-### Stage 2 -- merge the crossing lists
+**Stage 1 passes.**
 
-`Molecule` 416 -> 344 bytes. 190 member references.
+### Stage 2 -- merge the crossing lists: done
 
-Larger and riskier than stage 1, and it must wait for stage 1's measurement,
-because if stage 1 shows no gain at 40,000 molecules the premise is wrong and
-this stage should not be attempted.
+`Molecule` 416 -> 344 bytes; with stage 1, 656 -> 344.
 
-Constraints:
+Three things had to be established before the merge was safe, because sixteen
+sites clear `crossbase` alone mid-timestep and one merged vector clears all four:
 
-- `serialize_back()` / `deserialize_back()` **do** carry all four lists, so the
-  MPI wire format is affected. It has no on-disk compatibility requirement, but
-  both sides must change together.
-- `determine_if_reaction_occurs()` compares `crossrxn` entries with `==` on
-  `std::array<int,3>`; keeping the member an `std::array` preserves that.
-- Rows are truncated individually mid-timestep (`associate_box.cpp:1033` and
-  eight similar sites clear exactly the two reacting molecules). One vector
-  still supports that; four separate `.clear()` calls become one.
+* **Nothing loops on the other three's sizes.** Every traversal bounds itself by
+  `crossbase.size()`, so after that clear the leftovers are unreachable.
+* **Alignment holds while populated.** An instrumented build reported any
+  molecule whose four lists disagreed in length: zero across all 18 cases.
+* **One site could have broken it.**
+  `determine_2D_implicitlipid_reaction_probability()` seeded `probvec`
+  unconditionally while pushing the other three only inside a branch, so a
+  skipped branch left a stray entry that would pair later entries with the wrong
+  probability. The merge removes the possibility. Inert on every tested case,
+  but a latent defect closed rather than a mechanical rewrite, and marked as such
+  at the site.
+
+Byte identical on both tables and across a restart, against the **pre-branch**
+baseline. **1.230x aggregate in cycles, 1.325x at 40,000 molecules.**
+
+Two constraints from the plan as first written held up: `serialize_back()` and
+`deserialize_back()` do carry all four lists, so both sides split and reassemble
+the same four arrays and the wire format is unchanged; and
+`determine_if_reaction_occurs()` compares reaction triples with `==` on
+`std::array<int,3>`, so `CrossEntry::rxn` stays an `std::array`. 190 member
+references were rewritten across 29 files.
+
+**Stage 2 passes. Stages 3 and 4 remain unattempted.**
 
 ### Stage 3 -- reorder the survivors
 

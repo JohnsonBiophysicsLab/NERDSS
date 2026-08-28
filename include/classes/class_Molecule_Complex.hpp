@@ -250,12 +250,44 @@ struct Molecule {
     // std::vector<int> bndiface; // If it is bound, though which interface!
     //    int ncross = 0;
     //    int movestat = 0;
-    std::vector<double> probvec;
-    std::vector<int> crossbase; // proteins base encountered
-    std::vector<int> mycrossint; // interfaces base encountered other proteins with
-    //    std::vector<int> crossrxn;
+    /*! \struct Molecule::CrossEntry
+     * \brief One candidate reaction this Molecule was offered during a timestep.
+     *
+     * This was four parallel vectors -- `probvec`, `crossbase`, `mycrossint` and
+     * `crossrxn` -- indexed by the same subscript everywhere they are read.
+     * Every traversal in the program bounds itself by `crossbase.size()` and
+     * then reads the other three at that position:
+     * `determine_if_reaction_occurs()`, `perform_bimolecular_reactions()`,
+     * `zero_partner_probvec()`, the four overlap sweeps and `Cluster` all do.
+     * Nothing anywhere loops on the size of the other three.
+     *
+     * As one struct they cost `Molecule` 24 bytes of vector header instead of
+     * 96, and the traversals follow one pointer instead of four.
+     *
+     * **The wholesale clear is deliberate and is a behavior-preserving
+     * simplification.** Sixteen sites used to call `crossbase.clear()` alone
+     * after an association, leaving the other three populated for the rest of
+     * the timestep. Because every loop is bounded by `crossbase`, those
+     * leftovers were unreachable -- dead until the end-of-timestep clear -- so
+     * dropping them with the same call changes nothing that can be read.
+     */
+    struct CrossEntry {
+        double prob { 0 }; //!< was probvec
+        std::array<int, 3> rxn { { -1, -1, 0 } }; //!< was crossrxn: {rxnIndex, rateIndex, isStateChangeBackRxn}
+        int partner { -1 }; //!< was crossbase: the encountered Molecule's index
+        int myIface { -1 }; //!< was mycrossint: this Molecule's interface in the encounter
 
-    std::vector<std::array<int, 3>> crossrxn;
+        CrossEntry() = default;
+        CrossEntry(int partner, int myIface, const std::array<int, 3>& rxn, double prob = 0)
+            : prob(prob)
+            , rxn(rxn)
+            , partner(partner)
+            , myIface(myIface)
+        {
+        }
+    };
+
+    std::vector<CrossEntry> crossings; //!< candidate reactions offered this timestep
 
     // std::vector<double> probvec_dissociate;
 
@@ -435,10 +467,25 @@ struct Molecule {
     */
     void serialize_back(unsigned char* arrayRank, int& nArrayRank) {
         // std::cout << "+Molecule serialization starts here..." << std::endl;
-        serialize_primitive_vector<double>(probvec, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(crossbase, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(mycrossint, arrayRank, nArrayRank);
-        serialize_vector_array<int, 3>(crossrxn, arrayRank, nArrayRank);
+        // crossings goes on the wire as the same four parallel arrays, in the
+        // same order, so the format is byte-identical to the pre-merge build.
+        std::vector<double> cross_prob;
+        std::vector<int> cross_base, cross_int;
+        std::vector<std::array<int, 3>> cross_rxn;
+        cross_prob.reserve(crossings.size());
+        cross_base.reserve(crossings.size());
+        cross_int.reserve(crossings.size());
+        cross_rxn.reserve(crossings.size());
+        for (const auto& oneCross : crossings) {
+            cross_prob.push_back(oneCross.prob);
+            cross_base.push_back(oneCross.partner);
+            cross_int.push_back(oneCross.myIface);
+            cross_rxn.push_back(oneCross.rxn);
+        }
+        serialize_primitive_vector<double>(cross_prob, arrayRank, nArrayRank);
+        serialize_primitive_vector<int>(cross_base, arrayRank, nArrayRank);
+        serialize_primitive_vector<int>(cross_int, arrayRank, nArrayRank);
+        serialize_vector_array<int, 3>(cross_rxn, arrayRank, nArrayRank);
         // currReweight goes on the wire as the same six parallel arrays, in the
         // same order, so the format is byte-identical to the pre-merge build.
         // The temporaries cost nothing that was not already being paid:
@@ -469,10 +516,20 @@ struct Molecule {
         // std::cout << "+Total molecule size in bytes: " << start << std::endl;
     }
     void deserialize_back(unsigned char* arrayRank, int& nArrayRank) {
-        deserialize_primitive_vector<double>(probvec, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(crossbase, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(mycrossint, arrayRank, nArrayRank);
-        deserialize_vector_array<int, 3>(crossrxn, arrayRank, nArrayRank);
+        // Mirror of serialize_back(): four arrays off the wire, reassembled.
+        std::vector<double> cross_prob;
+        std::vector<int> cross_base, cross_int;
+        std::vector<std::array<int, 3>> cross_rxn;
+        deserialize_primitive_vector<double>(cross_prob, arrayRank, nArrayRank);
+        deserialize_primitive_vector<int>(cross_base, arrayRank, nArrayRank);
+        deserialize_primitive_vector<int>(cross_int, arrayRank, nArrayRank);
+        deserialize_vector_array<int, 3>(cross_rxn, arrayRank, nArrayRank);
+        crossings.clear();
+        crossings.reserve(cross_base.size());
+        for (size_t crossItr { 0 }; crossItr < cross_base.size(); ++crossItr) {
+            crossings.emplace_back(cross_base[crossItr], cross_int[crossItr],
+                cross_rxn[crossItr], cross_prob[crossItr]);
+        }
         // Mirror of serialize_back(): six arrays off the wire, reassembled into
         // currReweight.  The six always carry the same number of elements
         // because they are written from one vector.

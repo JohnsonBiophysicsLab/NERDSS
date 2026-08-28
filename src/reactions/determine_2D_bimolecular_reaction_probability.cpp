@@ -17,11 +17,8 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
     double R1 {};
     bool withinRmax { get_distance(biMolData.pro1Index, biMolData.pro2Index, biMolData.relIface1, biMolData.relIface2,
         rxnIndex, rateIndex, isStateChangeBackRxn, sep, R1, RMax, complexList, forwardRxns[rxnIndex], moleculeList, membraneObject.isSphere) };
-    if (withinRmax) {
-        // in case they dissociated
-        moleculeList[biMolData.pro1Index].probvec.push_back(0);
-        moleculeList[biMolData.pro2Index].probvec.push_back(0);
-    }
+    // get_distance() already pushed one crossings entry onto each molecule
+    // under this same condition, with its probability at zero.
 
     if (moleculeList[biMolData.pro1Index].isDissociated != true
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
@@ -153,8 +150,8 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             }
             rxnProb = get_prevSurv(
                 survMatrices[probMatrixIndex], biMolData.Dtot, params.timeStep, R1, forwardRxns[rxnIndex].bindRadius);
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-            moleculeList[biMolData.pro2Index].probvec.back() = rxnProb * currnorm;
+            moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
+            moleculeList[biMolData.pro2Index].crossings.back().prob = rxnProb * currnorm;
             if (rxnProb > 1.000001) {
                 std::cerr << "Error: prob of reaction is: " << rxnProb << " > 1. Avoid this using a smaller time step." << std::endl;
                 //exit(1);

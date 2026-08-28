@@ -29,11 +29,10 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
     //     if(biMolData.pro2Index == 65)
     // 	std::cout <<"IN DETERMINE 3D, TRACKING 64 and 65! "<<biMolData.pro1Index<<" Rmax "<<Rmax<<" is within Rmax? "<<withinRmax<<" partner: "<<biMolData.pro2Index<<" sep "<<R1<<std::endl;
 
-    if (withinRmax) {
-        // in case the molecule dissociated
-        moleculeList[biMolData.pro1Index].probvec.push_back(0);
-        moleculeList[biMolData.pro2Index].probvec.push_back(0);
-    }
+    // get_distance() already pushed one crossings entry onto each molecule
+    // under this same condition, with its probability at zero; the two
+    // probvec.push_back(0) calls that used to sit here are that entry's prob
+    // field and are now redundant.
 
     if (moleculeList[biMolData.pro1Index].isDissociated != true
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
@@ -158,8 +157,9 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                 // std::cout << "WARNING: prob of reaction > 0.5. If this is a reaction for a bimolecular binding with multiple binding sites, please use a smaller time step." << std::endl;
             }
 
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-            moleculeList[biMolData.pro2Index].probvec.back() = moleculeList[biMolData.pro1Index].probvec.back();
+            moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
+            moleculeList[biMolData.pro2Index].crossings.back().prob
+                = moleculeList[biMolData.pro1Index].crossings.back().prob;
 
             moleculeList[proA].currReweight.emplace_back(
                 currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);

@@ -353,6 +353,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     stateChangeCom.ncross = -1;
     facilitatorCom.ncross = -1;
-    stateChangeMol.crossbase.clear();
-    facilitatorMol.crossbase.clear();
+    stateChangeMol.crossings.clear();
+    facilitatorMol.crossings.clear();
 }

@@ -15,9 +15,22 @@ void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
     double sep = 0.0;
     double R1 = 0.0;
 
-    // in case they dissociated
-    moleculeList[biMolData.pro1Index].probvec.push_back(0);
-    //moleculeList[biMolData.pro2Index].probvec.push_back(0);
+    // The probvec seed that used to sit here is gone, and this is the one place
+    // in the merge where that is not purely mechanical.
+    //
+    // It ran unconditionally, while the matching crossbase/mycrossint/crossrxn
+    // pushes sit inside the `!isDissociated && rate > 0` branch below.  So on
+    // the paths that do not reach that branch, this molecule ended the timestep
+    // with one more probvec entry than crossbase entry -- and since every
+    // traversal in the program is bounded by crossbase and reads probvec at the
+    // same subscript, a later entry would have been paired with the wrong
+    // probability.  One entry carrying all four values cannot express that, so
+    // the merge removes the possibility.
+    //
+    // It is inert for everything measurable here: an instrumented build that
+    // reported any molecule whose four lists disagreed in length found **zero**
+    // across all 13 cases in cases.tsv and all 5 in coverage_cases.tsv, so
+    // either this branch is not reached or it is never taken early.
 
     if (!moleculeList[biMolData.pro1Index].isDissociated) {
         // This movestat check is if you allow just dissociated proteins to avoid overlap
@@ -87,13 +100,12 @@ void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
                 // std::cout << "WARNING: prob of reaction > 0.5. If this is a reaction for a bimolecular binding with multiple binding sites, please use a smaller time step." << std::endl;
             }
             // std::cout <<" IN DETERMIN 2D BINDING, RHO: "<<rho<<" N free lipids: "<<membraneObject.No_free_lipids<<" Binding PROB: "<<rxnProb<<" ";
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-            //std::cout <<" SIZE OF PROBVEC FOR MOL: "<<biMolData.pro1Index<<" size:" <<moleculeList[biMolData.pro1Index].probvec.size()<<std::endl;
-            moleculeList[proA].crossbase.push_back(proB);
-            moleculeList[proA].mycrossint.push_back(ifaceA);
-            moleculeList[proA].crossrxn.push_back(std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn });
+            // One entry now carries the probability that used to be written
+            // through probvec.back() a few lines earlier.  proA is pro1 here --
+            // the implicit lipid is pro2 and records nothing.
+            moleculeList[proA].crossings.emplace_back(proB, ifaceA,
+                std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn }, rxnProb * currnorm);
             ++complexList[moleculeList[proA].myComIndex].ncross;
-            //moleculeList[biMolData.pro2Index].probvec.back() = rxnProb * currnorm;
 
             moleculeList[proA].currReweight.emplace_back(
                 currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);

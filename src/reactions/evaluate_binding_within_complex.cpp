@@ -119,8 +119,11 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
                     ifaceB = iface1Index;
                 }
 
-                moleculeList[proA].probvec.push_back(probvec1 * 1.0);
-                moleculeList[proB].probvec.push_back(probvec1 * 1.0);
+                // get_distance() pushed one crossings entry onto each of them
+                // under the same `withinRmax` this block sits inside; these two
+                // pushes were that entry's probability.
+                moleculeList[proA].crossings.back().prob = probvec1 * 1.0;
+                moleculeList[proB].crossings.back().prob = probvec1 * 1.0;
 
                 /*Store all the reweighting numbers for next step.*/
                 moleculeList[proA].currReweight.emplace_back(

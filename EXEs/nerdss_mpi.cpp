@@ -685,10 +685,7 @@ int main(int argc, char* argv[]) {
 
       clear_reweight_vecs(oneMol);
       // oneMol.trajStatus = TrajStatus::none;
-      oneMol.crossbase.clear();
-      oneMol.mycrossint.clear();
-      oneMol.crossrxn.clear();
-      oneMol.probvec.clear();
+      oneMol.crossings.clear();
     }
 
     if (DEBUG) {
@@ -863,10 +860,7 @@ int main(int argc, char* argv[]) {
 
       clear_reweight_vecs(oneMol);
       oneMol.trajStatus = TrajStatus::none;
-      oneMol.crossbase.clear();
-      oneMol.mycrossint.clear();
-      oneMol.crossrxn.clear();
-      oneMol.probvec.clear();
+      oneMol.crossings.clear();
       oneMol.justBoundThisStep = false;
       oneMol.justUnboundThisStep = false;
 

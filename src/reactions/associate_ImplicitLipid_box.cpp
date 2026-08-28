@@ -377,7 +377,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
 
         // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
         reactCom1.ncross = -1;
-        reactMol1.crossbase.clear();
+        reactMol1.crossings.clear();
         //mol2 is the implicit lipid.
     } else {
         //Mol1 is implicit lipid.
@@ -459,7 +459,7 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
 
         // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
         reactCom2.ncross = -1;
-        reactMol2.crossbase.clear();
+        reactMol2.crossings.clear();
     } //reactmol1 is implicit lipid
 
     //update the number of bound species
