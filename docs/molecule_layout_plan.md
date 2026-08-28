@@ -353,7 +353,10 @@ comment is an intention, not an invariant.
 Separately, `bndRxnList` is close to vestigial and looks like a latent defect:
 pushed only by `associate_box`, read only at `[0]`, and its erase-on-dissociation
 commented out, so on a box model it grows and never shrinks. A correctness
-question, not a layout one; left alone and recorded.
+question, not a layout one; left alone here and investigated separately in
+[`bond_bookkeeping_defects.md`](bond_bookkeeping_defects.md), which measures it
+at 24 entries for a molecule never bound more than twice, and finds its only
+reader is dead code.
 
 **The association scratch was measured before being written.** `tmpComCoord` and
 `tmpICoords` are 48 bytes across 290 references in 41 mostly-geometry files.
