@@ -308,6 +308,70 @@ difference is small enough to see.
 Steps 1, 2 and 5 carry almost no risk and deliver most of the readability. Steps
 3 and 4 are where the architecture actually changes.
 
+## Open items
+
+Carried forward deliberately, with the reasoning, so they are decisions rather
+than omissions.
+
+### The compartment span re-check - a decision for a domain expert
+
+The compartment reflector does not re-check the span after reflecting. Its
+comment reads "assume the complex is not huge enough", and that assumption is
+unchecked. It is now the explicit `recheckSpan` argument of
+`reflect_traj_complex_radial` rather than a branch that is simply absent, so it
+can be decided; this document does not decide it, because it is a physics and
+numerics question rather than a structural one.
+
+The gap is real but bounded. The compartment reflection runs *after* the outer
+box or sphere reflection and pushes the complex radially outward, i.e. toward
+the outer wall, and nothing re-checks. What bounds it is that
+[`nerdss.cpp`](../EXEs/nerdss.cpp) already refuses to start unless
+`waterBox/2 - compartmentR > rMaxLimit`, so there is at least `rMaxLimit` of
+clearance, and the reflection displacement is at most about twice the
+penetration depth, which is itself bounded by the trajectory step. Escaping the
+box therefore needs an unusually large step or an unusually large complex.
+
+Fixing it is not simply "call the span check afterwards": that check tests the
+*outer* boundary, so re-running it can push the complex back into the
+compartment, and a correct fix needs an iterate-until-consistent loop with a
+convergence argument. The spherical reflector already has such a loop, capped at
+100 attempts, and it calls `exit(1)` when it fails to converge - which is the
+shape of the problem, and the reason this wants a domain judgement about which
+constraint should win.
+
+By contrast the compartment reflector's *other* apparent omission - that it does
+not skip surface-bound complexes - was checked and is correct, not an
+oversight. `OnSurface` means bound to the implicit-lipid membrane, which is a
+different surface from the compartment; there is no reason to exempt those
+complexes from compartment reflection. It is `skipOnSurface = false` at the call
+site and stays that way.
+
+### Two pre-existing crashes found while looking for validation models
+
+Neither is caused by the de-branching work; both were found because this work
+needed a compartment model to validate against.
+
+1. **Fixed.** The overlap loop propagated destroyed molecules, so an emptied
+   complex reached `create_complex_propagation_vectors()`, which reads
+   `memberList[0]` unconditionally. `sample_inputs/compartment/` segfaulted a
+   few iterations in.
+2. **Open.** Restarting the compartment model segfaults in
+   `initialize_paramters_for_implicitlipid_and_compartment_model()`, on the
+   unmodified code as well. Not investigated further; it is on the compartment
+   restart path, which no test covers.
+
+### Coverage gaps that make some of this unvalidatable by running models
+
+Worth knowing before trusting a bitwise A/B:
+
+* **No fiber model exists.** Nothing under `sample_inputs/` or
+  `run_code_tests/` sets `isPromoter`, so `Dim::Fiber1D` is unreachable in every
+  shipped model and the 1D paths cannot be exercised. `weighted_D_sum` is
+  covered instead by a direct comparison against the expressions it replaced
+  (`run_code_tests/weighted_D_sum_check.cpp`).
+* **One compartment model**, and it needed a crash fix before it would run.
+* **No model reaches the compartment restart path** at all, per crash 2 above.
+
 ## What this does not address
 
 MPI. [`nerdss_mpi.cpp`](../EXEs/nerdss_mpi.cpp) is a second 1058-line main with
