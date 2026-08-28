@@ -286,6 +286,11 @@ the honest version of "the compartment is the sphere with a sign flipped".
 
 ### Filter the input, do not test in the body
 
+> **Measured, and not built.** The argument below is sound in general and wrong
+> for this program's per-molecule loops. See *What the measurement showed*
+> immediately after.
+
+
 The fastest way to remove a branch from a hot loop is to arrange that the loop
 never visits the objects the branch would reject. NERDSS already does this -
 `occupiedSubCells` and the SubBox `typeMask` in the main sweep are exactly that
@@ -303,6 +308,45 @@ isImplicitLipid) continue; }` at every one of those sites. The branch is gone
 outright rather than merely made cheaper, and the loop touches less memory.
 For the innermost loops this is strictly better than any form of polymorphism.
 
+#### What the measurement showed
+
+The premise is that the guard skips enough molecules to be worth avoiding.
+Counting visits and skips across the three per-molecule loops of the timestep,
+over the four validation models:
+
+| model | loop iterations | skipped | |
+| --- | --- | --- | --- |
+| box bimolecular | 119,994,000 | 0 | 0.0000% |
+| Gag | 5,997 | 0 | 0.0000% |
+| compartment | 5,999,708 | 4 | 0.0001% |
+| sphere implicit-lipid | 659,967 | 39,998 | 6.06% |
+
+In three of the four, building a filtered list would cost a full extra pass over
+`moleculeList` plus an allocation, every timestep, in order to skip **zero**
+molecules. Only the implicit-lipid model skips a meaningful fraction, and even
+there the thing avoided is one perfectly-predicted branch.
+
+The reason is structural rather than model-specific: an implicit-lipid system
+holds exactly *one* implicit-lipid molecule however many real ones it has, and
+`isEmpty` slots only accumulate in models that destroy molecules, which most do
+not. The skipped fraction is therefore ~`1/N`, not the large fraction the
+argument assumes.
+
+There is also a correctness cost that the perf argument was hiding. Molecules
+are created and destroyed *inside* a timestep - by
+`check_for_unimolecular_reactions_population`, by
+`check_for_zeroth_order_creation`, and by the reaction loop itself - so a cached
+index list would need invalidating at each of those points. That is a real
+staleness hazard traded for approximately nothing.
+
+Where this argument *does* hold is the pairwise inner loops, and the program
+already does it there: `occupiedSubCells` and the SubBox `typeMask` are exactly
+this idea, applied where the skipped fraction is large.
+
+So step 5 was not built. What came out of looking was one dead condition: the
+implicit-lipid dissociation loop re-tested `params.implicitLipid == false`
+inside an `if (params.implicitLipid == true)` that already guaranteed it.
+
 ## Order of work
 
 NERDSS is a validated scientific code, so the sequence is chosen to keep every
@@ -319,7 +363,7 @@ result-preserving and stream-changing commits are validated by different means
 | 2 | `pair_dim()` + a single `weighted_D_sum()` | low | yes, if the expressions are kept verbatim |
 | 3 | Merge the sphere/compartment reflectors behind `RadialSide` | medium | yes, bitwise |
 | 4 | ~~`SurfaceField`~~ - not built; collapse `check_compartment_reaction` instead | low | yes, bitwise |
-| 5 | Participant lists (`activeMols` and friends) | very low | yes |
+| 5 | ~~Participant lists~~ - measured, not built; skipped fraction is ~0 | - | n/a |
 | 6 | Merge `associate_box` / `associate_sphere` | high | to be determined |
 
 **Step 1** is mechanical and eliminates the impossible states. Do it alone, so
@@ -347,8 +391,19 @@ distance. Attempting them first would produce one large, risky diff. After steps
 1 through 5 the shared primitives exist to merge *into*, and the remaining
 difference is small enough to see.
 
-Steps 1, 2 and 5 carry almost no risk and deliver most of the readability. Steps
-3 and 4 are where the architecture actually changes.
+### Where this ended up
+
+Steps 1-3 were built and are bitwise result-preserving. Step 4's interface and
+step 5 were both measured and rejected, each in favour of a smaller change the
+measurement pointed at. That is two of five proposals surviving contact with the
+code unchanged, one surviving in altered form, and two dying - which is roughly
+what should be expected of a plan written before reading the code closely, and
+is the reason each step was made to justify itself against a bitwise A/B rather
+than against the plan.
+
+The remaining branching is now concentrated where it is honest: a box and a
+sphere really are different reflection algorithms, and the dispatcher says so in
+one place instead of sixteen.
 
 ## Open items
 

@@ -920,10 +920,12 @@ int main(int argc, char *argv[]) {
       // check dissociation (implicit)
       for (unsigned molItr{0}; molItr < moleculeList.size(); ++molItr) {
         // only do checks if the Molecule exists
+        // `params.implicitLipid == false` was also tested here, inside a loop
+        // the enclosing `if` already guarantees is only entered when it is
+        // true.  Left over from before that guard existed.
         if (moleculeList[molItr].isEmpty ||
             moleculeList[molItr].isImplicitLipid == true ||
-            complexList[moleculeList[molItr].myComIndex].OnSurface == false ||
-            params.implicitLipid == false)
+            complexList[moleculeList[molItr].myComIndex].OnSurface == false)
           continue;
         check_dissociation_implicitlipid(
             simItr, params, simulVolume, molTemplateList, observablesList,
