@@ -372,3 +372,78 @@ CASES_FILE=cases.tsv          ./benchmarks/nerdss_optimized/run_suite.sh bin/ner
 CASES_FILE=coverage_cases.tsv ./benchmarks/nerdss_optimized/run_suite.sh bin/nerdss bond_cov  1
 grep -rh BOND_SUMMARY benchmarks/nerdss_optimized/results/bond_*/runs/*/rep1/stderr.log
 ```
+
+
+## Resolution
+
+Both defects are fixed on branch `bond-bookkeeping-fix`. Filed as
+[#18](https://github.com/JohnsonBiophysicsLab/NERDSS/issues/18) and
+[#19](https://github.com/JohnsonBiophysicsLab/NERDSS/issues/19).
+
+### Defect 1 — deleted
+
+`bndRxnList` and `correct_structure()` are removed, along with the two pushes in
+`associate_box.cpp`, the two clears in `class_Molecule_Complex.cpp`, and the
+commented-out call sites. Nothing read either, so the bitwise suite proves the
+deletion is a no-op. **`sizeof(Molecule)`: 328 -> 304 bytes.**
+
+This is option 1 of the three the investigation listed. Options 2 and 3 keep a
+list nothing reads, or revive a function that cannot write back through its own
+`const` parameter; neither is worth doing before somebody establishes what
+`correct_structure()` was for. The deletion does not foreclose either: the git
+history holds both, and the reaction that formed a bond is recoverable from
+`interfaceList[i].interaction.conjBackRxn`.
+
+### Defect 2 — one erase path instead of three
+
+A shared `erase_bond(mol, relIface)` in `reaction_bookkeeping.cpp` locates the
+bond through `bndlist` -- the only key that names it uniquely -- and removes the
+entry from both vectors at that position, or does nothing if the interface is
+not bound. `find_bond_slot()` exposes the lookup for the one caller that needs
+the slot without erasing.
+
+The three sites now go through it:
+
+- **`break_interaction.cpp`.** The early `bndpartner` erase has to stay early,
+  because `determine_parent_complex_IL` downstream must not see the bond, so the
+  slot is located once at the top and reused. The cancel path
+  **`insert`s at that slot instead of `push_back`ing**, which is the actual
+  cause of the measured breakage. The committed path erases `bndlist` at the
+  same slot. The `std::remove` calls, which dropped every matching entry rather
+  than the one being broken, are gone.
+- **`break_interaction_implicitlipid.cpp`.** Two unguarded `find_if` + `erase`
+  calls selecting by different keys become one `erase_bond()`. The
+  `erase(end())` undefined behaviour is gone with them.
+- **`src/mpi/delete_disappeared.cpp`.** Now walks backwards, so erasing does not
+  skip the entry after a match, and bounds the `bndlist` access.
+
+### Verified
+
+| check | result |
+| --- | --- |
+| pairing probe, `cases.tsv` | **88,490 broken slots -> 0**, all 13 cases clean |
+| `cases.tsv`, non-restart output | 13 of 13 byte identical |
+| `cases.tsv`, restart files | differ on `homoTrimer` and `closed_homoTrimer` only |
+| `coverage_cases.tsv` | 5 of 5 byte identical |
+| `make mpi` | builds clean |
+
+**The physics does not move.** Every `DATA/` trajectory, observable, histogram
+and species file is byte identical across all 18 cases. The only files that
+change are `RESTARTS/*.dat` and `DATA/restart.dat`, on exactly the two models
+where the pairing was measured broken -- and they change because
+`write_restart.cpp:508-513` serialises `bndlist` and `bndpartner`, so they are
+recording the data that was wrong. A seed-averaged comparison over six
+independent seeds finds the copy numbers bit-identical, `|z| = 0.00`.
+
+That the set of changed files is exactly `{restart}` and the set of changed
+cases is exactly `{homoTrimer, closed_homoTrimer}` -- the two the probe flagged
+-- is the strongest evidence available that the fix changes what it was meant to
+and nothing else.
+
+### One consequence worth stating
+
+A restart file written by an older build carries the permuted lists. The fix
+corrects how they are maintained, not what a stale file contains; a run resumed
+from such a file inherits the permutation until the affected bonds break. Since
+no serial path reads the two lists pairwise, this is only a concern for the MPI
+sites named above.

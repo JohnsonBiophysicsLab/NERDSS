@@ -19,7 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
+ROOT_DIR=${ROOT_DIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}
 
 BINARY=${1:?usage: run_suite.sh <path-to-nerdss> <label> [repetitions] [result-root]}
 LABEL=${2:?missing label}

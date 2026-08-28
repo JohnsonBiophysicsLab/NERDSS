@@ -997,8 +997,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
   reactMol2.bndlist.push_back(ifaceIndex2);
   reactMol1.bndpartner.push_back(reactMol2.index);
   reactMol2.bndpartner.push_back(reactMol1.index);
-  reactMol1.bndRxnList.push_back(currRxn.relRxnIndex);
-  reactMol2.bndRxnList.push_back(currRxn.relRxnIndex);
 
   {
     size_t tmpItr{0};

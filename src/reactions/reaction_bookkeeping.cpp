@@ -93,3 +93,25 @@ void update_state_change_observable(bool isStateChangeBackRxn, int rxnIndex, int
         }
     }
 }
+
+size_t find_bond_slot(const Molecule& mol, int relIface)
+{
+    for (size_t slot { 0 }; slot < mol.bndlist.size(); ++slot) {
+        if (mol.bndlist[slot] == relIface)
+            return slot;
+    }
+    return mol.bndlist.size();
+}
+
+bool erase_bond(Molecule& mol, int relIface)
+{
+    const size_t slot { find_bond_slot(mol, relIface) };
+    if (slot == mol.bndlist.size())
+        return false;
+    mol.bndlist.erase(mol.bndlist.begin() + slot);
+    // bndpartner can be shorter than bndlist only if some other site has
+    // already broken the invariant; bound the access rather than trust it.
+    if (slot < mol.bndpartner.size())
+        mol.bndpartner.erase(mol.bndpartner.begin() + slot);
+    return true;
+}

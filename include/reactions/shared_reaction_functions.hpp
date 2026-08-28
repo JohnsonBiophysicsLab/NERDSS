@@ -31,6 +31,37 @@
 bool isReactant(const Molecule::Iface& reactIface, const Molecule& reactMol, const RxnIface& tempReactant);
 
 /*!
+ * \brief Finds a bond in `bndlist` by the interface that carries it.
+ *
+ * `Molecule::bndlist` holds the relative indices of this molecule's bound
+ * interfaces and `Molecule::bndpartner` the molecule each one is bound to, so
+ * entry *k* of one describes the same bond as entry *k* of the other.  An
+ * interface can be bound to at most one partner, which makes `bndlist` the only
+ * key that identifies a bond uniquely -- `bndpartner` can hold the same
+ * molecule more than once, when two interfaces bind the same neighbour.
+ *
+ * Every erase must therefore locate the bond through `bndlist` and then act on
+ * both vectors at that position.  Three sites used to do it three different
+ * ways, and one of them left the two permuted; see
+ * `docs/bond_bookkeeping_defects.md`.
+ *
+ * \return the position of the bond, or `bndlist.size()` if the interface is not
+ * bound.  Callers must check: erasing at a not-found position is what the
+ * previous implicit-lipid code did, by calling `erase()` on `end()`.
+ */
+size_t find_bond_slot(const Molecule& mol, int relIface);
+
+/*!
+ * \brief Erases one bond from `bndlist` and `bndpartner` together.
+ *
+ * Does nothing if `relIface` is not bound, which is the guard the previous
+ * `erase(std::find_if(...))` call sites lacked.
+ *
+ * \return true if a bond was erased.
+ */
+bool erase_bond(Molecule& mol, int relIface);
+
+/*!
  * \brief Records that two molecules are close enough to interact this timestep.
  *
  * Each of them appends one `Molecule::CrossEntry` naming the other, the

@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
+ROOT_DIR=${ROOT_DIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}
 
 BASE_BIN=${1:?usage: statistical_check.sh <baseline-binary> <candidate-binary> [seeds] [result-root]}
 CAND_BIN=${2:?missing candidate binary}

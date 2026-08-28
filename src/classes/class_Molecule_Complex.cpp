@@ -259,7 +259,6 @@ void Molecule::destroy() {
   bndpartner.clear();
   bndlist.clear();
   interfaceList.clear();
-  bndRxnList.clear();
 
   receivedFromNeighborRank = true;
 
@@ -316,7 +315,6 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule> &moleculeList, std
   bndpartner.clear();
   bndlist.clear();
   interfaceList.clear();
-  bndRxnList.clear();
 
   // iterate the total number of molecules
   --numberOfMolecules;

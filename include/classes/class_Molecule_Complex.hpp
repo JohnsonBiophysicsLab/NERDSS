@@ -267,7 +267,6 @@ struct Molecule {
     //    std::vector<Encounter> encounterList; //!< list of Molecule Encounters during a timestep
     //    std::vector<Encounter> prevEncounterList; //!< list of Molecule Encounters during a timestep
 
-    std::vector<int> bndRxnList;
     // std::vector<int> bndiface; // If it is bound, though which interface!
     //    int ncross = 0;
     //    int movestat = 0;
