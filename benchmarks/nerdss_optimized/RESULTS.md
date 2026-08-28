@@ -2825,3 +2825,130 @@ the pre-branch baseline in cycles.
 Stages 3 and 4 of the plan -- reordering the survivors so the rejection
 cascade's fields share one cache line, and deciding about the association
 scratch -- remain. Neither has been attempted.
+
+## 25. Narrowing `Molecule`, stage 3: field order
+
+Stage 3 of the plan in
+[`docs/molecule_layout_plan.md`](../../docs/molecule_layout_plan.md). Measured
+2026-08-28, same host and build settings as sections 23 and 24.
+
+### 25.1 What changed
+
+Nothing but the order of the member declarations. The pairwise search rejects
+most candidate pairs before doing any work, and the fields that cascade reads
+were scattered:
+
+| field | offset before | line | offset after | line |
+| --- | ---: | ---: | ---: | ---: |
+| `comCoord` | 32 | 0 | 0 | 0 |
+| `myComIndex` | 0 | 0 | 24 | 0 |
+| `molTypeIndex` | 4 | 0 | 28 | 0 |
+| `isImplicitLipid` | 91 | 1 | 41 | 0 |
+| `freelist` | 160 | 2 | 48 | 0 |
+| `bndlist` | 184 | 2 | 72 | 1 |
+| `bndpartner` | 208 | 3 | 96 | 1 |
+
+**Four cache lines per molecule became two**, eight per candidate pair became
+four, to read about 40 bytes. `interfaceList` follows at 120 -- it is read only
+once a pair survives the cascade -- and everything cold starts at 144.
+
+**`sizeof(Molecule)`: 344 -> 328 bytes.** That 16 bytes is a side effect rather
+than the aim: the twelve `bool`s now sit in one 8-byte run instead of being
+scattered between wider fields, so the padding between them disappears. Across
+the three stages, **656 -> 328 -- exactly half.**
+
+Three things had to be true for a pure reorder to be safe, and each was checked
+rather than assumed. `Molecule` has user-provided constructors, so it is never
+aggregate-initialised and no positional initialiser can be silently repointed.
+`operator==` and `operator!=` name their fields through `std::tie`.
+`serialize()`/`deserialize()` push and pop in their own fixed order, which is
+deliberately untouched, so the MPI wire format does not move. The one real
+hazard is that C++ initialises members in *declaration* order regardless of what
+a constructor's member-init list says: `Molecule(int, Vec3D)`'s list was
+reordered to match, and the build runs clean under `-Wreorder`.
+
+### 25.2 Bitwise
+
+Against the pre-branch baseline `c1db1694d0724b0c`, so this covers all three
+stages together:
+
+| table | result |
+| --- | --- |
+| `cases.tsv` | 13 of 13 byte identical |
+| `coverage_cases.tsv` | 5 of 5 byte identical |
+| restart read path | 15 files byte identical |
+| `make mpi` | builds clean |
+
+**RSS is an independent check that a reorder did only what a reorder can do.**
+It should move memory by exactly the packing delta and nothing else: 16 bytes x
+40,000 molecules = 0.640 MB predicted on `scale_40k`, 0.606 MB measured here and
+0.639 MB in an earlier pass. Instructions move 0.2%, which is addressing-mode
+noise.
+
+### 25.3 Result
+
+Three builds interleaved, 7 repetitions, medians of cycles. Host load 3.57
+falling to 2.06, nothing above 33% CPU; baseline standard deviations 0.3% to 2%,
+the tightest of any pass in sections 23-25.
+
+| case | molecules | base | stage 2 | stage 3 | stage 2/base | stage 3/base | stage 3/stage 2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `scale_2k` | 2,000 | 13.92 G | 12.72 G | 12.50 G | 1.094x | 1.113x | 1.018x |
+| `enzyme` | 6,410 | 18.19 G | 16.86 G | 16.65 G | 1.079x | 1.093x | 1.013x |
+| `scale_10k` | 10,000 | 23.63 G | 20.61 G | 20.38 G | 1.146x | 1.159x | 1.011x |
+| `scale_40k` | 40,000 | 106.68 G | 66.71 G | 63.78 G | 1.599x | **1.673x** | 1.046x |
+| **total** | | **162.4 G** | **116.9 G** | **113.3 G** | **1.389x** | **1.433x** | **1.032x** |
+
+**Stage 3 is worth about 3% aggregate and 4.6% at 40,000 molecules.** Small, and
+measured twice: a noisier earlier pass put the same figure at 1.027x aggregate,
+so two independent runs agree to within half a point. It costs nothing at
+runtime -- no new state, no refresh, no extra work -- so a few percent for a
+declaration reorder is a good trade.
+
+IPC across the three builds: 3.831 -> 4.039 -> 4.124 on `scale_2k`, and
+2.298 -> 3.616 -> 3.790 on `scale_40k`.
+
+### 25.4 The cumulative figure depends on which core it runs on
+
+Section 24.4 measured stage 2 at 1.230x aggregate and 1.325x on `scale_40k`.
+This pass measures the same binary against the same baseline at 1.389x and
+1.599x. Both runs were interleaved, both had tight standard deviations, and
+neither is wrong.
+
+Dividing cycles by CPU seconds says why:
+
+| pass | effective clock | core type |
+| --- | ---: | --- |
+| section 24.4, 22:49 | 3.98 GHz | performance |
+| section 25.3, 03:29 | 2.22 GHz | efficiency |
+
+The second pass ran on this host's efficiency cores, which carry **64 KB of L1D
+and 6 MB of L2 against the performance cores' 128 KB and 16 MB**. `scale_40k`'s
+molecule array is 26.2 MB at baseline and 13.1 MB after stage 3. Against a 16 MB
+L2 the baseline only just spills and the narrowed build fits; against a 6 MB L2
+both spill, but the narrowed build generates proportionally far less traffic,
+and an efficiency core has less memory-level parallelism to hide what remains.
+
+So the honest headline is a range, not a number: **narrowing `Molecule` from 656
+to 328 bytes is worth roughly 1.23x on a performance core and 1.43x on an
+efficiency core, aggregated over the size sweep, rising to 1.33x and 1.67x on
+the 40,000-molecule case.** The instruction count is unchanged to within 2% in
+every pass, so all of it is stalls.
+
+That spread is not noise to be averaged away. It is the same mechanism section
+22.6's padding control measured, seen from a third angle: the narrower the
+memory hierarchy, the more a narrower object is worth. It also means an MPI or
+OpenMP run that spreads work across both core types -- which
+`OMP_PROC_BIND=spread` does on this host, per section 13.6 -- benefits more than
+a single-threaded performance-core run suggests.
+
+### 25.5 Verdict
+
+Stage 3 meets its exit criteria: byte identical on both case tables and across a
+restart, `sizeof(Molecule)` at 328, MPI building, and a small but reproducible
+gain for a change that costs nothing at runtime.
+
+Stage 4 -- the association scratch (`tmpComCoord`, `tmpICoords`, 48 bytes) and
+the MPI-only fields (16 bytes) -- remains. On the evidence here it is worth
+little: those 64 bytes are 20% of what is left, against a cascade that now
+reads two cache lines and would still read two.

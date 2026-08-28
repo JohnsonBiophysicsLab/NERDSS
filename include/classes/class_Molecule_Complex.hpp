@@ -206,29 +206,56 @@ struct Molecule {
 
     // WHEN ADDING A FIELD TO THE MOLECULE OR COMPLEX STRUCT, UPDATE SERIALIZE AND DESERIALIZE METHODS AS WELL
 
+    // ---- Declaration order is a layout decision, not a stylistic one. -------
+    //
+    // The pairwise search rejects most candidate pairs before doing any work,
+    // and the fields that cascade reads are the ones grouped below.  Ordered as
+    // they were, they sat on four separate cache lines: molTypeIndex on line 0,
+    // isImplicitLipid on line 1, freelist and bndlist on line 2, bndpartner on
+    // line 3 -- four lines fetched per molecule, eight per candidate pair, to
+    // read about 40 bytes.  Grouped here they occupy lines 0 and 1.
+    //
+    // Nothing else depends on this order.  Molecule has user-provided
+    // constructors, so it is never aggregate-initialised; operator== names its
+    // fields through std::tie; and serialize()/deserialize() push and pop in
+    // their own fixed order, which is deliberately left alone so the MPI wire
+    // format does not move.  Keep the constructor's member-init list in this
+    // same order, because C++ initialises members by declaration order and a
+    // mismatch is a warning (and a trap, if a field ever comes to depend on
+    // another).
+    //
+    // ---- gather-hot: read for every candidate pair -------------------------
+    Vec3D comCoord; //!< center of mass coordinate
     int myComIndex { -1 }; //!< which complex does the molecule belong to
     int molTypeIndex { -1 }; //!< index of the Molecule's MolTemplate in molTemplateList
-    int mySubVolIndex { -1 };
     int index { -1 }; //!< index of the Molecule in moleculeList
-    double mass { -1 }; //!< mass of this molecule
+    TrajStatus trajStatus { TrajStatus::none }; //!< Status of the molecule in that timestep
+    bool isEmpty { false }; //!< true if the molecule has been destroyed and is void
+    bool isImplicitLipid = false;
     bool isLipid { false }; //!< is the molecule a lipid
     bool isPromoter {false}; //!< is the molecule a promoter for transcription initiation
-    Vec3D comCoord; //!< center of mass coordinate
-    std::vector<Iface> interfaceList; //!< interface coordinates
-    bool isEmpty { false }; //!< true if the molecule has been destroyed and is void
-    TrajStatus trajStatus { TrajStatus::none }; //!< Status of the molecule in that timestep
     bool isDissociated {false}; //!< true if the molecule just dissociated in this timestep
     bool justBoundThisStep{false};  //!< true if the molecule just bound this step
     bool justUnboundThisStep{false};  //!< true if the molecule just unbound this step
+    bool enforceCompartmentBC {false}; //Boundary conditions for the compartment
+    /*Vectors for possible association reactions*/
+    std::vector<int> freelist; // legacy, may be replaced
+    // std::vector<int> assoclist. // These species are capable of binding.
+    std::vector<int> bndlist; // These species are capable of dissociation
+    std::vector<int> bndpartner; // It if is bound, who is it bound to? Make this have the same numbering !!
 
-    bool isImplicitLipid = false;
+    // ---- warm: read once a pair survives the cascade -----------------------
+    std::vector<Iface> interfaceList; //!< interface coordinates
+
+    // ---- cold ---------------------------------------------------------------
+    int mySubVolIndex { -1 };
     int linksToSurface { 0 }; //!<store each proteins links to surface, to ease updating complex.
+    double mass { -1 }; //!< mass of this molecule
+    double transmissionProb {-1} ; //The transmission probability
+
     // static variables
     static int numberOfMolecules; //!< counter for the number of molecules in the system
     static std::vector<int> emptyMolList; //!< list of indices to empty Molecules in moleculeList
-
-    double transmissionProb {-1} ; //The transmission probability
-    bool enforceCompartmentBC {false}; //Boundary conditions for the compartment
 
     // association variables
     // temporary positions
@@ -240,12 +267,6 @@ struct Molecule {
     //    std::vector<Encounter> encounterList; //!< list of Molecule Encounters during a timestep
     //    std::vector<Encounter> prevEncounterList; //!< list of Molecule Encounters during a timestep
 
-    // Legacy encounter lists
-    /*Vectors for possible association reactions*/
-    std::vector<int> freelist; // legacy, may be replaced
-    // std::vector<int> assoclist; // These species are capable of binding.
-    std::vector<int> bndlist; // These species are capable of dissociation
-    std::vector<int> bndpartner; // It if is bound, who is it bound to? Make this have the same numbering !!
     std::vector<int> bndRxnList;
     // std::vector<int> bndiface; // If it is bound, though which interface!
     //    int ncross = 0;
@@ -372,9 +393,12 @@ struct Molecule {
     bool operator!=(const Molecule& rhs) const;
 
     Molecule() {}
+    // Listed comCoord first to match the declaration order above, which is what
+    // members are actually initialised in.  Neither depends on the other, so
+    // this is about keeping the two orders honest rather than about behavior.
     Molecule(int _mycomplex, Vec3D _comcoords)
-        : myComIndex(_mycomplex)
-        , comCoord(_comcoords)
+        : comCoord(_comcoords)
+        , myComIndex(_mycomplex)
     {
     }
 

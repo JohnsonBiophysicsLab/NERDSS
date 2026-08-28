@@ -303,18 +303,53 @@ references were rewritten across 29 files.
 
 **Stage 2 passes. Stages 3 and 4 remain unattempted.**
 
-### Stage 3 -- reorder the survivors
+### Stage 3 -- reorder the survivors: done
 
-Once the object is 344 bytes, move the gather-hot fields to the front so the
-rejection cascade reads one line instead of four. Free at runtime, no refresh,
-no new state. Measured last because it is only worth doing on the narrowed
-object.
+`Molecule` 344 -> 328 bytes; across the three stages, **656 -> 328, exactly
+half**.
+
+Only the order of the member declarations changed. The rejection cascade's
+fields -- `comCoord`, `myComIndex`, `molTypeIndex`, `isImplicitLipid`,
+`freelist`, `bndlist`, `bndpartner` -- sat on four cache lines and now sit on
+two. The 16-byte size drop is a side effect: the twelve `bool`s cluster into one
+8-byte run instead of being scattered between wider fields.
+
+A pure reorder is safe here because `Molecule` has user-provided constructors
+(never aggregate-initialised), `operator==` names its fields through `std::tie`,
+and `serialize()`/`deserialize()` keep their own fixed order so the MPI wire
+format does not move. The one hazard is that members initialise in *declaration*
+order regardless of a constructor's init list; that list was reordered to match
+and the build is clean under `-Wreorder`.
+
+Byte identical on both tables and across a restart. **1.032x over stage 2**,
+1.046x at 40,000 molecules -- small, but free at runtime, and reproduced within
+half a point by a second, noisier pass.
+
+**Stage 3 passes.**
+
+**A range, not a number.** Stage 2 measured 1.230x aggregate against baseline on
+one pass and 1.389x on another; both were interleaved with tight spreads.
+Dividing cycles by CPU seconds shows the first ran at 3.98 GHz and the second at
+2.22 GHz -- performance cores versus efficiency cores, 128 KB/16 MB of cache
+versus 64 KB/6 MB. The narrower the memory hierarchy, the more a narrower object
+is worth. Cumulatively the three stages are worth roughly **1.23x on a
+performance core and 1.43x on an efficiency core**, rising to 1.33x and 1.67x on
+the 40,000-molecule case, with instruction counts unchanged to within 2%
+throughout. See section 25.4 of
+[`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
 
 ### Stage 4 -- decide about the rest
 
 `tmpComCoord` and `tmpICoords` (48 bytes) are association-only scratch; the MPI
-fields are 16 bytes. Both are candidates, neither is obviously worth its diff.
-Decide from stage 3's numbers, not now.
+fields are 16 bytes. Together 64 of the remaining 328.
+
+On stage 3's evidence this is worth little. The cascade now reads two cache
+lines and would still read two: those 64 bytes are already past `interfaceList`
+at offset 144 and beyond, so moving them out shortens the object without
+shortening what the hot path touches. The gain would be whatever a 328 -> 264
+stride is worth, against a diff that has to thread a side container through
+every association site. Not attempted, and not recommended without a measurement
+showing stride alone still pays at that scale.
 
 ## What is explicitly not being done
 
