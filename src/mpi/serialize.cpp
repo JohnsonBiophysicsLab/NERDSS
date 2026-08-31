@@ -69,9 +69,15 @@ void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
     
     // complexesSet.insert(mol.myComIndex);
     int myComIndex = mol.myComIndex;
+    // indices_to_IDs rewrites the reweighting history in place from local
+    // indices to global IDs, exactly as it does myComIndex, so it has to be
+    // restored the same way.  It was not, which left this rank's own reweighting
+    // history holding IDs where every consumer reads indices.
+    std::vector<Molecule::ReweightEntry> prevReweight = mol.prevReweight;
     indices_to_IDs(mol, moleculeList, complexList);
     mol.serialize(arrayRank, nArrayRank);
     mol.myComIndex = myComIndex;
+    mol.prevReweight = prevReweight;
     mol.receivedFromNeighborRank = false;
     nMols++;
   
@@ -129,6 +135,9 @@ void serialize_molecules_partial(MpiContext &mpiContext,
         // Store current myComIndex,
         // as the one for serialization will be replaced by complexId:
         int myComIndex = mol.myComIndex;
+        // Same for the reweighting history, which indices_to_IDs also
+        // rewrites in place.
+        std::vector<Molecule::ReweightEntry> prevReweight = mol.prevReweight;
 
         // Based on interfaces' partnerIndex, assign partnerIDs:
         indices_to_IDs(mol, moleculeList, complexList);
@@ -138,6 +147,7 @@ void serialize_molecules_partial(MpiContext &mpiContext,
 
         // Restore original myComIndex, instead of complexId:
         mol.myComIndex = myComIndex;
+        mol.prevReweight = prevReweight;
 
         // Before sending molecules to the neighbor rank,
         // mark each molecule as not received back from the other rank,

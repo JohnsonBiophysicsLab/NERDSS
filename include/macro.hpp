@@ -4,6 +4,10 @@
 #define VERBOSE false
 #define PROFILE false
 #define COUNT_COMMUNICATIONS false
+// Verify that every molecule is owned by exactly one rank.  O(N) communication
+// per call, so it runs every CHECK_OWNERSHIP_EVERY steps when enabled.
+#define CHECK_OWNERSHIP false
+#define CHECK_OWNERSHIP_EVERY 250
 #define RANK0_BUFFER_SIZE 100000000
 #define NEIGHBOR_BUFFER_SIZE 50000000
 

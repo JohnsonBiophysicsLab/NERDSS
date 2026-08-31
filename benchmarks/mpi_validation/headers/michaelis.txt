@@ -1,0 +1,1 @@
+Time (s),S(ser~U),S(ser~P),E(kin),E(kin!1).S(ser~U!1)

@@ -258,13 +258,12 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
 
     mol.receivedFromNeighborRank = true;
 
-    mol.isGhosted = false;
-    if (mpiContext.rank) {  // if not first rank
-      int xBin = get_x_bin(mpiContext, mol);
-      if (xBin <= 0) {
-        mol.isGhosted = true;
-      }
-    }
+    // Ghost status is NOT decided here.  It used to be recomputed from
+    // get_x_bin against this rank's own xOffset, while the sender had already
+    // decided by column index -- two criteria on two ranks that did not
+    // partition the boundary, so a molecule could end up owned by neither.
+    // derive_ghost_from_ownership() sets it once, after the complexes carrying
+    // the ownership stamp have arrived.
 
     int molIndex = find_molecule(moleculeList, mol.id);
 
@@ -373,14 +372,12 @@ void deserialize_molecules_right(
 
     mol.receivedFromNeighborRank = true;
 
-    mol.isGhosted = false;
-    // If the deserialized stripe is ghost stripe, mark molecule as ghosted:
-    if (mpiContext.rank < mpiContext.nprocs - 1) {  // if not last rank
-      int xBin = get_x_bin(mpiContext, mol);
-      if (xBin >= simulVolume.numSubCells.x - 1) {
-        mol.isGhosted = true;
-      }
-    }
+    // Ghost status is NOT decided here.  It used to be recomputed from
+    // get_x_bin against this rank's own xOffset, while the sender had already
+    // decided by column index -- two criteria on two ranks that did not
+    // partition the boundary, so a molecule could end up owned by neither.
+    // derive_ghost_from_ownership() sets it once, after the complexes carrying
+    // the ownership stamp have arrived.
 
     int molIndex = find_molecule(moleculeList, mol.id);
 

@@ -21,9 +21,10 @@ jobs:
     
     - name: make serial
       run: make serial
-    
-    - name: Clean before MPI build
-      run: make clean
-    
-    - name: make mpi
+
+    # Deliberately no clean between the two builds.  This sequence used to
+    # produce an MPI binary linked out of serial-compiled objects, which ran
+    # and reported zero of every species; the two modes now keep separate
+    # object trees, and building them back to back here keeps that true.
+    - name: make mpi (immediately after serial, no clean)
       run: make mpi

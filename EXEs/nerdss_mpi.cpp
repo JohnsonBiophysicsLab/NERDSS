@@ -498,11 +498,23 @@ int main(int argc, char* argv[]) {
     }
 
     mpiContext.simItr = simItr;
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "step top");
 
     for (auto& oneMol : moleculeList) {
       if (oneMol.isEmpty || oneMol.isImplicitLipid) continue;
 
       oneMol.trajStatus = TrajStatus::none;
+      // isDissociated marks "dissociated during THIS step", so that a molecule
+      // cannot immediately rebind the partner it just left.  The serial loop
+      // clears it once per step (nerdss.cpp); this loop did not, so the flag
+      // latched on.  Every probability routine skips a molecule that carries it
+      // -- determine_3D/2D/1D_bimolecular, determine_3D/2D_implicitlipid,
+      // evaluate_binding_within_complex -- so a molecule that dissociated once
+      // never reacted again for the rest of the run, and the reactive pool
+      // drained monotonically to nothing.
+      oneMol.isDissociated = false;
 
       complexList[oneMol.myComIndex].ncross = 0;
       complexList[oneMol.myComIndex].trajStatus = TrajStatus::none;
@@ -641,6 +653,9 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the left part...\n");
     }
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol#1");
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
@@ -793,6 +808,9 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Update the states of molecules in the right part...\n");
     }
+    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
+      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after left exchange");
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
