@@ -10,7 +10,8 @@ void determine_3D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
 {
     // TRACE();
     /*3D reaction*/
-    add_3D_rotational_diffusion(biMolData, complexList, params, 1E-15);
+    add_3D_rotational_diffusion(
+        biMolData, complexList, params, params.numerics.classification.implicitLipidFlatDiffusion);
 
     double Rmax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
     // std::cout << "Rmax: " << std::setprecision(20) << Rmax << std::endl;
@@ -22,11 +23,9 @@ void determine_3D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
         rxnIndex, rateIndex, isStateChangeBackRxn, sep, R1, Rmax, complexList,
         forwardRxns[rxnIndex], moleculeList, membraneObject);
 
-    if (withinRmax) {
-        // in case the molecule dissociated
-        moleculeList[biMolData.pro1Index].probvec.push_back(0);
-        //moleculeList[biMolData.pro2Index].probvec.push_back(0);
-    }
+    // get_distance_to_surface() already pushed one crossings entry onto pro1
+    // under this same condition, with its probability at zero.  pro2 is the
+    // implicit lipid and never recorded one.
 
     // if (moleculeList[biMolData.pro1Index].trajStatus != TrajStatus::propagated && moleculeList[biMolData.pro2Index].trajStatus != TrajStatus::propagated)
     if (!moleculeList[biMolData.pro1Index].isDissociated) {
@@ -80,14 +79,10 @@ void determine_3D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
             if (sep < 0)
                 rxnProb = 1.0;
 
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
+            moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
 
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
 
             // std::cout << "bind prob: " << std::setprecision(20) << rxnProb << std::endl;
             // std::cout << "rho: " << std::setprecision(20) << rho << std::endl;

@@ -99,7 +99,8 @@ double calc_pirr(
  * \brief Integrator for the functions involved in the creation of the 2D reaxtion matrix creation
  */
 double integrator(gsl_function F, IntegrandParams params, gsl_integration_workspace* w, double r0, double bindrad,
-    double Dtot, double kr, double deltat, char* funcID, double (*f)(double, void*));
+    double Dtot, double kr, double deltat, char* funcID, double (*f)(double, void*),
+    const NumericalSettings::Integration& settings);
 
 /* 2D MATRIX CREATION FUNCTIONS */
 /*! \inground 2DReactions

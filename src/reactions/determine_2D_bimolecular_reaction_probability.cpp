@@ -16,12 +16,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
     double sep {};
     double R1 {};
     bool withinRmax { get_distance(biMolData.pro1Index, biMolData.pro2Index, biMolData.relIface1, biMolData.relIface2,
-        rxnIndex, rateIndex, isStateChangeBackRxn, sep, R1, RMax, complexList, forwardRxns[rxnIndex], moleculeList, membraneObject.isSphere) };
-    if (withinRmax) {
-        // in case they dissociated
-        moleculeList[biMolData.pro1Index].probvec.push_back(0);
-        moleculeList[biMolData.pro2Index].probvec.push_back(0);
-    }
+        rxnIndex, rateIndex, isStateChangeBackRxn, sep, R1, RMax, complexList, forwardRxns[rxnIndex], moleculeList, membraneObject.isSphere()) };
+    // get_distance() already pushed one crossings entry onto each molecule
+    // under this same condition, with its probability at zero.
 
     if (moleculeList[biMolData.pro1Index].isDissociated != true
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
@@ -38,7 +35,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                 ktemp *= 2.0; // for A(a)+A(a)->A(a!).A(a!) case
 
             for (int l = 0; l < DDTableIndex; ++l) {
-                if (std::abs(tableIDs[l] - ktemp) < 1e-8 && std::abs(tableIDs[params.max2DRxns + l] - biMolData.Dtot) < 1E-4) {
+                if (approximately_equal(tableIDs[l], ktemp, params.numerics.tableLookup.reactionRate)
+                    && approximately_equal(tableIDs[params.max2DRxns + l], biMolData.Dtot,
+                        params.numerics.tableLookup.diffusionCoefficient)) {
                     probValExists = true;
                     probMatrixIndex = l;
                     break;
@@ -130,10 +129,11 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             }
 
             double rxnProb {};
-            for (int s { 0 }; s < moleculeList[proA].prevlist.size(); ++s) {
-                if (moleculeList[proA].prevlist[s] == proB && moleculeList[proA].prevmyface[s] == ifaceA
-                    && moleculeList[proA].prevpface[s] == ifaceB) {
-                    if (moleculeList[proA].prevsep[s] >= RMax) {
+            for (int s { 0 }; s < moleculeList[proA].prevReweight.size(); ++s) {
+                const Molecule::ReweightEntry& prevEntry { moleculeList[proA].prevReweight[s] };
+                if (prevEntry.partner == proB && prevEntry.myFace == ifaceA
+                    && prevEntry.partnerFace == ifaceB) {
+                    if (prevEntry.sep >= RMax) {
                         // BEcause previous reweighting was for 3D, now
                         p0_ratio = 1.0;
                         // restart reweighting in 2D.
@@ -141,17 +141,17 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                     } else {
                         p0_ratio = DDpirr_pfree_ratio_ps(pirMatrices[probMatrixIndex], survMatrices[probMatrixIndex],
                             normMatrices[probMatrixIndex], R1, biMolData.Dtot, params.timeStep,
-                            moleculeList[proA].prevsep[s], moleculeList[proA].ps_prev[s], 1E-10,
+                            prevEntry.sep, prevEntry.survProb, 1E-10,
                             forwardRxns[rxnIndex].bindRadius);
-                        currnorm = moleculeList[proA].prevnorm[s] * p0_ratio;
+                        currnorm = prevEntry.norm * p0_ratio;
                     }
                     break;
                 }
             }
             rxnProb = get_prevSurv(
                 survMatrices[probMatrixIndex], biMolData.Dtot, params.timeStep, R1, forwardRxns[rxnIndex].bindRadius);
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-            moleculeList[biMolData.pro2Index].probvec.back() = rxnProb * currnorm;
+            moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
+            moleculeList[biMolData.pro2Index].crossings.back().prob = rxnProb * currnorm;
             if (rxnProb > 1.000001) {
                 std::cerr << "Error: prob of reaction is: " << rxnProb << " > 1. Avoid this using a smaller time step." << std::endl;
                 //exit(1);
@@ -196,13 +196,9 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             /*Store all the reweighting numbers for next step.*/
             // below used to be moleculeList[proA].vector[s] = value
             //                                            s =
-            //                                            moleculeList[proA].currlist.size();
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            //                                            moleculeList[proA].currReweight.size();
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
         } // Within reaction zone
     }
 }

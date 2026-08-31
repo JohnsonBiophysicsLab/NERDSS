@@ -1,5 +1,8 @@
 /*! \file class_Vec3D.hpp
  *
+ * \author Matthew Varga
+ * \author Yue Ying
+ * 
  * \brief The one three-dimensional vector type.
  *
  * Replaces `Coord` (created 6/1/18 by Matthew Varga) and `Vector` (created
@@ -57,6 +60,7 @@
 #include "attributes.hpp"
 #include "classes/class_Membrane.hpp"
 #include "classes/class_Parameters.hpp"
+#include "numerics/numerical_settings.hpp"
 
 #include <array>
 #include <cmath>
@@ -65,18 +69,36 @@
 #include <vector>
 
 /*!
- * \brief Rounds to four decimal places.
+ * \brief Rounds according to the configured Vec3D coordinate precision.
  *
- * Coordinate comparisons are made on rounded values, so this is what defines
- * "the same point" for Vec3D::operator== and for the geometry checks in
- * check_bases.cpp and conservedMags.cpp.  Defined here rather than in the
- * translation unit so those comparisons inline.
+ * Coordinate comparisons are made on rounded values, so this defines what
+ * constitutes "the same point" for Vec3D::operator== and related geometry
+ * checks.
+ *
+ * \param var The value to round.
+ *
+ * \return The value rounded to the precision specified by
+ *         NumericalSettings::Vec3D::coordinateEqualityPrecision.
+ *
+ * \note A precision of 10000 corresponds to four decimal places, 100000
+ *       corresponds to five decimal places, etc.
+ *
+ * \note The arithmetic is intentionally kept equivalent to the original
+ *       implementation. In particular, the multiplication, addition or
+ *       subtraction, integer conversion, and division are kept as separate
+ *       operations to preserve floating-point behavior.
  */
 inline double roundv(double var) noexcept
 {
+    const int precision =
+        NumericalSettings::Vec3D::coordinateEqualityPrecision;
+
     // if-else is because neg and pos values will round differently
-    double val = (int)(var > 0 ? var * 10000 + 0.5 : var * 10000 - 0.5);
-    return val / 10000;
+    double val = (int)(var > 0
+        ? var * precision + 0.5
+        : var * precision - 0.5);
+
+    return val / precision;
 }
 
 /*! \struct Vec3D
@@ -346,7 +368,7 @@ inline Vec3D operator+(const std::array<double, 3>& arr, const Vec3D& v) noexcep
     return { arr[0] + v.x, arr[1] + v.y, arr[2] + v.z };
 }
 
-//! \brief Equality on values rounded to four decimals; see roundv().
+//! \brief Equality on values rounded to the configured precision; see roundv().
 inline bool operator==(const Vec3D& v1, const Vec3D& v2) noexcept
 {
     return roundv(v1.x) == roundv(v2.x) && roundv(v1.y) == roundv(v2.y) && roundv(v1.z) == roundv(v2.z);
@@ -356,6 +378,32 @@ inline bool operator!=(const Vec3D& v1, const Vec3D& v2) noexcept { return !(v1 
 
 inline Vec3D round(const Vec3D& v) noexcept { return { roundv(v.x), roundv(v.y), roundv(v.z) }; }
 
+/**
+ * @brief Computes the vector rejection of this vector from a given normal.
+ * The rejection is the component of this vector that is perpendicular to
+ * @p normal. It is computed by subtracting the projection onto @p normal:
+ *
+ * rejection = *this - normal * ((*this · normal) / (normal · normal))
+ *
+ * Equivalently, the result is the component of this vector lying in the
+ * hyperplane perpendicular to @p normal.
+ * 
+ * @param normal The vector defining the direction from which this vector
+ * is rejected. It must be non-zero.
+ * 
+ * @return The component of this vector perpendicular to @p normal.
+ * 
+ * @note The intermediate projection term is intentionally computed as a
+ * separate statement. Keeping the multiplication and subtraction
+ * separate prevents the compiler from combining them into a fused
+ * multiply-add (FMA), which can produce slightly different rounding
+ * results on platforms that support FMA.
+ * 
+ * @note This function is @c noexcept and does not modify either vector.
+ * 
+ * @warning Passing a zero vector as @p normal results in division by zero
+ * and produces an undefined/invalid result.
+*/
 inline Vec3D Vec3D::rejection_from(const Vec3D& normal) const noexcept
 {
     double coefficient { this->dot(normal) / normal.dot(normal) };

@@ -25,14 +25,16 @@ void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Compl
         return;
 
     // for the outside sphere situation: find the furthest point from the sphere centre
-    ExtremePoint farthest { Vec3D { 0, 0, sphereR }, sphereR };
+    ExtremePoint farthest { Vec3D { 0, 0, sphereR },
+        radial_signed_boundary(sphereR, RadialSide::Inside) };
     for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
         const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
         const Vec3D curr { base + rot };
-        farthest.consider(curr, curr.length());
+        farthest.consider(curr, radial_signed_radius(curr, RadialSide::Inside));
     });
 
     // Applied even when nothing was found outside, where the seed makes it a no-op.
-    double lamda = -2.0 * (farthest.score - sphereR) / farthest.score;
-    targCom.trajTrans += lamda * farthest.point;
+    // Bit-identical to the open-coded form this replaced: the score is
+    // `curr.length()` of the same vector radial_reflection_shift() re-measures.
+    targCom.trajTrans += radial_reflection_shift(farthest.point, sphereR);
 }

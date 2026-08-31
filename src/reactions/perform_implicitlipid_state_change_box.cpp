@@ -147,7 +147,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
 
         apply_state_change_rotations(reactIface1, reactIface2, stateChangeIface, facilitatorIface,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom, assocAngles, currRxn,
-            moleculeList, molTemplateList);
+            moleculeList, molTemplateList, params.numerics.associationAngles);
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
@@ -359,11 +359,11 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     // Enforce boundary conditions
     reflect_complex_rad_rot(membraneObject, facilitatorCom, moleculeList, RS3D, false);
 
-    //for (unsigned crossItr { 0 }; crossItr < stateChangeMol.crossbase.size(); ++crossItr) {
-    //    int skipMol { stateChangeMol.crossbase[crossItr] };
-    //    for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-    //        if (moleculeList[skipMol].crossbase[crossItr2] == stateChangeMol.index)
-    //            moleculeList[skipMol].probvec[crossItr2] = 0;
+    //for (unsigned crossItr { 0 }; crossItr < stateChangeMol.crossings.size(); ++crossItr) {
+    //    int skipMol { stateChangeMol.crossings[crossItr].partner };
+    //    for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossings.size(); ++crossItr2) {
+    //        if (moleculeList[skipMol].crossings[crossItr2].partner == stateChangeMol.index)
+    //            moleculeList[skipMol].crossings[crossItr2].prob = 0;
     //    }
     //}
 
@@ -382,6 +382,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     stateChangeCom.ncross = -1;
     facilitatorCom.ncross = -1;
-    stateChangeMol.crossbase.clear();
-    facilitatorMol.crossbase.clear();
+    stateChangeMol.crossings.clear();
+    facilitatorMol.crossings.clear();
 }

@@ -27,16 +27,16 @@ void cluster_one_complex(int k1, std::vector<Molecule>& moleculeList, std::vecto
     int flag;
     for (c = 0; c < csize; c++) {
         p1 = complexList[k1].memberList[c];
-        int p1basesize = moleculeList[p1].crossbase.size();
+        int p1basesize = moleculeList[p1].crossings.size();
         for (i = 0; i < p1basesize; i++) {
             t++;
-            p2 = moleculeList[p1].crossbase[i];
+            p2 = moleculeList[p1].crossings[i].partner;
             ClusterPair newPair(p1, p2);
             k2 = moleculeList[p2].myComIndex;
             if (k2 != k1) {
                 // no pairs within the same complex
-                i1 = moleculeList[p1].mycrossint[i];
-                std::array<int, 3> rxnItr = moleculeList[p1].crossrxn[i];
+                i1 = moleculeList[p1].crossings[i].myIface;
+                std::array<int, 3> rxnItr = moleculeList[p1].crossings[i].rxn;
                 rxn = rxnItr[0];
                 newPair.i1 = i1;
                 newPair.bindrad = forwardRxns[rxn].bindRadius;
@@ -134,8 +134,8 @@ void resample_traj(
             }
             if (flag == 0) {
 
-                // if (membraneObject.isSphere == true && complexList[k1].D.z < 1E-15) { // complex on sphere surface
-                if (membraneObject.isSphere == true && complexList[k1].OnSurface) { // complex on sphere surface
+                // if (membraneObject.isSphere() == true && complexList[k1].D.z < 1E-15) { // complex on sphere surface
+                if (membraneObject.isSphere() == true && complexList[k1].OnSurface) { // complex on sphere surface
                     Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k1]);
                     complexList[k1].trajTrans.x = targTrans.x;
                     complexList[k1].trajTrans.y = targTrans.y;
@@ -166,8 +166,8 @@ void resample_traj(
             }
             if (flag == 0) {
 
-                // if (membraneObject.isSphere == true && complexList[k2].D.z < 1E-15) { // complex on sphere surface
-                if (membraneObject.isSphere == true && complexList[k2].OnSurface){
+                // if (membraneObject.isSphere() == true && complexList[k2].D.z < 1E-15) { // complex on sphere surface
+                if (membraneObject.isSphere() == true && complexList[k2].OnSurface){
                     Vec3D targTrans = create_complex_propagation_vectors_on_sphere(params, complexList[k2]);
                     complexList[k2].trajTrans.x = targTrans.x;
                     complexList[k2].trajTrans.y = targTrans.y;

@@ -24,8 +24,8 @@ void sweep_separation_complex_rot_fiber_box(
 
   int maxRows{1};
   for (auto memMol : complexList[comIndex1].memberList) {
-    if (moleculeList[memMol].crossbase.size() > maxRows)
-      maxRows = moleculeList[memMol].crossbase.size();
+    if (moleculeList[memMol].crossings.size() > maxRows)
+      maxRows = moleculeList[memMol].crossings.size();
   }
 
   std::vector<int> ifaceList(maxRows * com1Size, -1);
@@ -42,16 +42,16 @@ void sweep_separation_complex_rot_fiber_box(
   /*figure out i2*/
   for (int c{0}; c < com1Size; ++c) {
     int proIndex = complexList[comIndex1].memberList[c];
-    for (int i{0}; i < moleculeList[proIndex].crossbase.size(); ++i) {
-      int p2{moleculeList[proIndex].crossbase[i]};
+    for (int i{0}; i < moleculeList[proIndex].crossings.size(); ++i) {
+      int p2{moleculeList[proIndex].crossings[i].partner};
       int k2{moleculeList[p2].myComIndex};
       // if (complexList[k2].D.z < 1E-15) {
       if (complexList[k2].onFiber) {
         memCheckList[maxRows * c + i] = 1;
       } else
         memCheckList[maxRows * c + i] = 0;
-      int i1{moleculeList[proIndex].mycrossint[i]};
-      std::array<int, 3> rxnItr = moleculeList[proIndex].crossrxn[i];
+      int i1{moleculeList[proIndex].crossings[i].myIface};
+      std::array<int, 3> rxnItr = moleculeList[proIndex].crossings[i].rxn;
 
       // get the partner interface
       ifaceList[maxRows * c + i] =
@@ -90,14 +90,14 @@ void sweep_separation_complex_rot_fiber_box(
     {
       int pro1Index = complexList[comIndex1].memberList[memMolItr];
       // if (simItr==3226 && selfIndex==52){
-      //   for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossbase.size();
+      //   for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossings.size();
       //      ++crossMemItr) {
-      //       std::cout << "Mol 2: " << moleculeList[pro1Index].crossbase[crossMemItr] << std::endl;
+      //       std::cout << "Mol 2: " << moleculeList[pro1Index].crossings[crossMemItr].partner << std::endl;
       //      }
       // }
-      for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossbase.size();
+      for (int crossMemItr{0}; crossMemItr < moleculeList[pro1Index].crossings.size();
            ++crossMemItr) {
-        int pro2Index{moleculeList[pro1Index].crossbase[crossMemItr]};
+        int pro2Index{moleculeList[pro1Index].crossings[crossMemItr].partner};
         if (moleculeList[pro2Index].isImplicitLipid) continue;
 
         // For co-localized proteins, they do not affect other 1D objects
@@ -112,8 +112,8 @@ void sweep_separation_complex_rot_fiber_box(
          * cannot move relative to one another!
          */
         if (comIndex1 != comIndex2) {
-          int relIface1{moleculeList[pro1Index].mycrossint[crossMemItr]};
-          int rxnItr{moleculeList[pro1Index].crossrxn[crossMemItr][0]};
+          int relIface1{moleculeList[pro1Index].crossings[crossMemItr].myIface};
+          int rxnItr{moleculeList[pro1Index].crossings[crossMemItr].rxn[0]};
           int relIface2{ifaceList[maxRows * memMolItr + crossMemItr]};
 
           Vec3D iface1Vec{

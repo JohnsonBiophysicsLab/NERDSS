@@ -90,14 +90,16 @@ void associate_implicitlipid_sphere(
         //           << "THETA 1" << std::endl
         //           << std::setw(8) << ' ' << std::setfill(' ') << std::endl;
         theta_rotation(reactIface1, reactIface2, reactMol1, reactMol2,
-            currRxn.assocAngles.theta1, reactCom1, reactCom2, moleculeList);
+            currRxn.assocAngles.theta1, reactCom1, reactCom2, moleculeList,
+            params.numerics.associationAngles);
         // std::cout << std::setw(30) << std::setfill('-') << ' '
         //           << std::setfill(' ') << std::endl;
         // std::cout << "THETA 2" << std::endl
         //           << std::setw(8) << std::setfill('-') << ' ' << std::setfill(' ')
         //           << std::endl;
         theta_rotation(reactIface2, reactIface1, reactMol2, reactMol1,
-            currRxn.assocAngles.theta2, reactCom2, reactCom1, moleculeList);
+            currRxn.assocAngles.theta2, reactCom2, reactCom1, moleculeList,
+            params.numerics.associationAngles);
 
         // OMEGA
         // if protein has theta M_PI, uses protein norm instead of com_iface vector
@@ -108,7 +110,7 @@ void associate_implicitlipid_sphere(
             omega_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1,
                 reactMol2, reactCom1, reactCom2,
                 currRxn.assocAngles.omega, currRxn, moleculeList,
-                molTemplateList);
+                molTemplateList, params.numerics.associationAngles);
         } //else
         // std::cout << "P1 or P2 is a rod-type protein, no dihedral for associated complex." << std::endl;
 
@@ -120,7 +122,8 @@ void associate_implicitlipid_sphere(
 
         if (!std::isnan(currRxn.assocAngles.phi1)) {
             phi_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2,
-                currRxn.norm1, currRxn.assocAngles.phi1, currRxn, moleculeList, molTemplateList);
+                currRxn.norm1, currRxn.assocAngles.phi1, currRxn, moleculeList, molTemplateList,
+                params.numerics.associationAngles);
         } //else
         // std::cout << "P1 has no valid phi angle." << std::endl;
 
@@ -131,7 +134,8 @@ void associate_implicitlipid_sphere(
 
         if (!std::isnan(currRxn.assocAngles.phi2)) {
             phi_rotation(reactIface2, reactIface1, ifaceIndex1, reactMol2, reactMol1, reactCom2, reactCom1,
-                currRxn.norm2, currRxn.assocAngles.phi2, currRxn, moleculeList, molTemplateList);
+                currRxn.norm2, currRxn.assocAngles.phi2, currRxn, moleculeList, molTemplateList,
+                params.numerics.associationAngles);
         } //else
         // std::cout << "P2 has no valid phi angle." << std::endl;
     } // end of if points.
@@ -141,7 +145,7 @@ void associate_implicitlipid_sphere(
         Molecule memProtein;
         Molecule Lipid;
         set_memProtein_sphere(reactCom2, memProtein, moleculeList, membraneObject);
-        find_Lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
+        find_lipid_sphere(reactCom2, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
         Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/
@@ -292,7 +296,7 @@ void associate_implicitlipid_sphere(
         // Update the crossed molecule lists so that the current molecules won't
         // avoid anything, but others will.
         reactCom1.ncross = -1;
-        reactMol1.crossbase.clear();
+        reactMol1.crossings.clear();
         // mol2 is the implicit lipid.
     }
 

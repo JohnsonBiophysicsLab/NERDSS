@@ -26,6 +26,7 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
+#include "classes/class_ShellIndex.hpp"
 #include "system_setup/system_setup.hpp"
 #include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
@@ -218,8 +219,13 @@ int main(int argc, char *argv[]) {
     moleculeList.reserve(reservation);
     complexList.reserve(reservation);
 
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
+
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       if (membraneObject.hasCompartment == true) {
         std::cerr << "Compartment should not exist in a sphere system!"
                   << std::endl;
@@ -232,7 +238,7 @@ int main(int argc, char *argv[]) {
 
     // check the size of the compartment: make sure that the waterbox boundary
     // to the compartment should be larger than the rMaxLimit
-    if (membraneObject.isSphere == false &&
+    if (membraneObject.isSphere() == false &&
         membraneObject.hasCompartment == true) {
       bool tooSmallBox = false;
       if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -449,8 +455,13 @@ int main(int argc, char *argv[]) {
         }
       }
 
+      // A boundaries block naming neither a waterBox nor a sphere leaves
+      // shape Unspecified, which every dispatch treats as a box - against a
+      // waterBox of all zeros.  Fail here instead.
+      membraneObject.require_boundary();
+
       // create water box for sphere boundary
-      if (membraneObject.isSphere) {
+      if (membraneObject.isSphere()) {
         if (membraneObject.hasCompartment == true) {
           std::cerr << "Compartment should not exist in a sphere system!"
                     << std::endl;
@@ -463,7 +474,7 @@ int main(int argc, char *argv[]) {
 
       // check the size of the compartment: make sure that the waterbox boundary
       // to the compartment should be larger than the rMaxLimit
-      if (membraneObject.isSphere == false &&
+      if (membraneObject.isSphere() == false &&
           membraneObject.hasCompartment == true) {
         bool tooSmallBox = false;
         if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
@@ -509,8 +520,13 @@ int main(int argc, char *argv[]) {
       write_psf(params, moleculeList, molTemplateList);
     }
 
+    // A boundaries block naming neither a waterBox nor a sphere leaves
+    // shape Unspecified, which every dispatch treats as a box - against a
+    // waterBox of all zeros.  Fail here instead.
+    membraneObject.require_boundary();
+
     // create water box for sphere boundary
-    if (membraneObject.isSphere) {
+    if (membraneObject.isSphere()) {
       membraneObject.create_water_box();
       membraneObject.sphereVol =
           (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
@@ -713,6 +729,78 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Bit t2 of interactionMask[t1] is set iff a (t1, t2) pair can do anything
+  // inside check_bimolecular_reactions().  The pairwise search offers every
+  // pair the cell stencil produces regardless of what the two molecules are,
+  // and on a membrane model that is nearly all of them: mem_localization holds
+  // 3755 lipids among 3955 molecules, offers about 165 000 pairs per step, and
+  // 699 of them -- 0.42% -- get past the molecule-type test inside the
+  // function.  The other 99.6% are lipid-lipid pairs that no reaction names.
+  //
+  // Skipping them here rather than inside the function removes only pairs that
+  // the function would have rejected without side effects, so the pairs that
+  // remain are offered in the same order as before and the trajectory does not
+  // change.
+  //
+  // One bit per molecule type, so the table only exists for models with at
+  // most 64 of them; left empty, the search offers every pair as it did before.
+  std::vector<uint64_t> interactionMask;
+  if (molTemplateList.size() <= 64) {
+    interactionMask.assign(molTemplateList.size(), 0);
+    for (size_t typeItr1{0}; typeItr1 < molTemplateList.size(); ++typeItr1) {
+      for (size_t typeItr2{0}; typeItr2 < molTemplateList.size(); ++typeItr2) {
+        // check_bimolecular_reactions() looks for the partner's type in the
+        // target's rxnPartners, in that order, so this table is not symmetric.
+        bool pairMatters{false};
+        for (int partner : molTemplateList[typeItr1].rxnPartners) {
+          if (partner == static_cast<int>(typeItr2)) {
+            pairMatters = true;
+            break;
+          }
+        }
+        // Its volume-exclusion path does not consult rxnPartners and turns on
+        // an interface being bound, which is runtime state.  Testing the
+        // template flag instead keeps every pair that path could ever want.
+        if (molTemplateList[typeItr1].excludeVolumeBound ||
+            molTemplateList[typeItr2].excludeVolumeBound)
+          pairMatters = true;
+        if (pairMatters)
+          interactionMask[typeItr1] |= (uint64_t(1) << typeItr2);
+      }
+    }
+  }
+  const bool useTypeMask{!interactionMask.empty()};
+
+  // A second neighbour index, over the membrane of a spherical system only.
+  // SimulVolume's grid covers the (2R)^3 box that bounds the sphere, so for
+  // molecules pinned to the shell it spends its resolution on interior volume
+  // that is empty by construction, and it bins on Cartesian coordinates while
+  // get_distance() measures those pairs by geodesic arc.  This index covers
+  // surface-to-surface pairs; molecules stay in the Cartesian grid as well, so
+  // surface-to-interior pairs are untouched.  It stays inactive for every
+  // non-spherical system, which then behaves exactly as before.
+  //
+  // It also stays inactive when no two explicit molecules can react with each
+  // other, since then it would hold only pairs the search discards anyway.
+  bool anyExplicitPairReaction{false};
+  for (size_t typeItr1{0};
+       typeItr1 < molTemplateList.size() && !anyExplicitPairReaction; ++typeItr1) {
+    if (molTemplateList[typeItr1].isImplicitLipid)
+      continue;
+    for (int partner : molTemplateList[typeItr1].rxnPartners) {
+      if (partner < 0 || size_t(partner) >= molTemplateList.size())
+        continue;
+      if (molTemplateList[partner].isImplicitLipid)
+        continue;
+      anyExplicitPairReaction = true;
+      break;
+    }
+  }
+  ShellIndex shellIndex;
+  shellIndex.build(membraneObject.isSphere() ? membraneObject.sphereR : 0.0,
+                   params.rMaxLimit, anyExplicitPairReaction);
+  shellIndex.display();
+
   for (auto &oneComplex : complexList) {
     oneComplex.update_properties(moleculeList, molTemplateList);
   }
@@ -832,10 +920,12 @@ int main(int argc, char *argv[]) {
       // check dissociation (implicit)
       for (unsigned molItr{0}; molItr < moleculeList.size(); ++molItr) {
         // only do checks if the Molecule exists
+        // `params.implicitLipid == false` was also tested here, inside a loop
+        // the enclosing `if` already guarantees is only entered when it is
+        // true.  Left over from before that guard existed.
         if (moleculeList[molItr].isEmpty ||
             moleculeList[molItr].isImplicitLipid == true ||
-            complexList[moleculeList[molItr].myComIndex].OnSurface == false ||
-            params.implicitLipid == false)
+            complexList[moleculeList[molItr].myComIndex].OnSurface == false)
           continue;
         check_dissociation_implicitlipid(
             simItr, params, simulVolume, molTemplateList, observablesList,
@@ -847,8 +937,21 @@ int main(int argc, char *argv[]) {
 
     // Measure separations between proteins in neighboring cells to identify all
     // possible reactions.
-    for (unsigned cellItr{0}; cellItr < simulVolume.subCellList.size();
-         ++cellItr) {
+    //
+    // Only the SubBoxes that hold molecules are visited.  Walking all of
+    // subCellList cost time proportional to the SubBox count however few
+    // molecules the system held, and that count is typically far larger than
+    // the number of occupied SubBoxes: rev_3D holds 2 000 molecules in 27 000
+    // SubBoxes, of which about 1 800 are occupied, and clathrin fills 97 of
+    // 2 744.  Sorted, occupiedSubCells visits exactly the same SubBoxes in
+    // exactly the same order as the old sweep, so the output is unchanged.
+    simulVolume.refresh_occupied_cells();
+    // After the dissociation blocks above, for the same reason
+    // refresh_occupied_cells() is here: both indices have to describe the
+    // molecule set the search is about to walk.
+    shellIndex.rebin(moleculeList, complexList);
+    const bool shellActive{shellIndex.active};
+    for (int cellItr : simulVolume.occupiedSubCells) {
       for (unsigned memItr{0};
            memItr < simulVolume.subCellList[cellItr].memberMolList.size();
            ++memItr) {
@@ -863,6 +966,11 @@ int main(int argc, char *argv[]) {
                     .excludeVolumeBound == true) {
           // first, check for implicit-lipid binding
           int protype = moleculeList[targMolIndex].molTypeIndex;
+          const uint64_t targMask{useTypeMask ? interactionMask[protype]
+                                              : ~uint64_t(0)};
+          // Pairs the shell index owns are skipped here and offered there.
+          const bool targOnShell{shellActive &&
+                                 shellIndex.isShellBinned[targMolIndex] != 0};
           if (molTemplateList[protype].bindToSurface == true) {
             check_implicit_reactions(
                 targMolIndex, implicitlipidIndex, simItr, params, moleculeList,
@@ -889,6 +997,12 @@ int main(int argc, char *argv[]) {
                ++memItr2) {
             int partMolIndex{
                 simulVolume.subCellList[cellItr].memberMolList[memItr2]};
+            if (targOnShell && shellIndex.isShellBinned[partMolIndex])
+              continue; // the shell index offers this pair
+            if (useTypeMask &&
+                !(targMask &
+                  (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+              continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                 params, normMatrices, survMatrices, pirMatrices, moleculeList,
@@ -899,11 +1013,19 @@ int main(int argc, char *argv[]) {
           // cells. for PBC, all cells have maxnbor neighbor cells. For
           // reflecting, edge have fewer.
           for (auto &neighCellItr : simulVolume.subCellList[cellItr].neighborList) {
+            if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) == 0)
+              continue; // nothing in that SubBox can pair with this molecule
             for (unsigned memItr2{0};
                  memItr2 < simulVolume.subCellList[neighCellItr].memberMolList.size();
                  ++memItr2) {
               int partMolIndex{
                   simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
+              if (targOnShell && shellIndex.isShellBinned[partMolIndex])
+                continue; // the shell index offers this pair
+              if (useTypeMask &&
+                  !(targMask &
+                    (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                continue;
               check_bimolecular_reactions(
                   targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                   params, normMatrices, survMatrices, pirMatrices, moleculeList,
@@ -914,6 +1036,62 @@ int main(int argc, char *argv[]) {
         }     // if protein i is free to bind
       }       // loop over all proteins in initial cell
     }         // End looping over all cells.
+
+    // Second pass: the surface-to-surface pairs the Cartesian pass skipped.
+    // Only check_bimolecular_reactions() runs here.  The implicit-lipid and
+    // compartment checks are per-molecule, not per-pair, and already ran above.
+    if (shellActive) {
+      for (int shellCellItr : shellIndex.occupiedCells) {
+        const std::vector<int> &shellMembers =
+            shellIndex.memberMolList[shellCellItr];
+        for (unsigned memItr{0}; memItr < shellMembers.size(); ++memItr) {
+          const int targMolIndex{shellMembers[memItr]};
+          if (moleculeList[targMolIndex].isImplicitLipid)
+            continue;
+          if (!(moleculeList[targMolIndex].freelist.size() > 0 ||
+                molTemplateList[moleculeList[targMolIndex].molTypeIndex]
+                        .excludeVolumeBound == true))
+            continue;
+
+          const int protype = moleculeList[targMolIndex].molTypeIndex;
+          const uint64_t targMask{useTypeMask ? interactionMask[protype]
+                                              : ~uint64_t(0)};
+
+          for (unsigned memItr2{memItr + 1}; memItr2 < shellMembers.size();
+               ++memItr2) {
+            const int partMolIndex{shellMembers[memItr2]};
+            if (useTypeMask &&
+                !(targMask &
+                  (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+              continue;
+            check_bimolecular_reactions(
+                targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
+                params, normMatrices, survMatrices, pirMatrices, moleculeList,
+                complexList, molTemplateList, forwardRxns, backRxns,
+                counterArrays, membraneObject);
+          }
+
+          for (int neighCellItr : shellIndex.neighborList[shellCellItr]) {
+            if ((shellIndex.typeMask[neighCellItr] & targMask) == 0)
+              continue;
+            const std::vector<int> &neighMembers =
+                shellIndex.memberMolList[neighCellItr];
+            for (unsigned memItr2{0}; memItr2 < neighMembers.size(); ++memItr2) {
+              const int partMolIndex{neighMembers[memItr2]};
+              if (useTypeMask &&
+                  !(targMask &
+                    (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                continue;
+              check_bimolecular_reactions(
+                  targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
+                  params, normMatrices, survMatrices, pirMatrices, moleculeList,
+                  complexList, molTemplateList, forwardRxns, backRxns,
+                  counterArrays, membraneObject);
+            }
+          }
+        }
+      }
+    }
 
     /*Now that separations and reaction probabilities are calculated, decide
      * whether to perform reactions for each protein.*/
@@ -943,7 +1121,7 @@ int main(int argc, char *argv[]) {
         }
       }
       // Skip any proteins that just dissociated during this time step
-      if (moleculeList[molItr].crossbase.size() > 0) {
+      if (moleculeList[molItr].crossings.size() > 0) {
         /* Evaluate whether to perform a reaction with protein i, and with whom.
          * Flag=1 means reaction is performed. Returns correct ci1 and ci2 for
          * this rxn. Loop over all reactions individually, instead of summing
@@ -952,7 +1130,7 @@ int main(int argc, char *argv[]) {
         // For debug, print the number of possible reactions for this molecule
         // if (molItr==0 || molItr==1){
         //   std::cout << "Itr (" << simItr << ") Molecule (" << molItr << ") has ("
-        //   << moleculeList[molItr].crossbase.size() << ") possible reactions." << std::endl;
+        //   << moleculeList[molItr].crossings.size() << ") possible reactions." << std::endl;
         // }
         // these are indices in crossbase/mycrossint/crossrxn of the reaction
         // for molecules 1 and 2, should it occur
@@ -968,16 +1146,16 @@ int main(int argc, char *argv[]) {
           willReact = false; // we chose an association reaction
           crossIndex1 = 0;
           int molItr2 = moleculeList[molItr]
-                            .crossbase[crossIndex1]; // crosspart[p1][ci1];
-          double pmatch = moleculeList[molItr].probvec[crossIndex1];
+                            .crossings[crossIndex1].partner; // crosspart[p1][ci1];
+          double pmatch = moleculeList[molItr].crossings[crossIndex1].prob;
           if (pmatch > 0)
             willReact = true;
           if (!moleculeList[molItr].isImplicitLipid) {
-            for (unsigned j = 0; j < moleculeList[molItr2].crossbase.size(); ++j) {
-              if (moleculeList[molItr2].probvec[j] == pmatch) {
+            for (unsigned j = 0; j < moleculeList[molItr2].crossings.size(); ++j) {
+              if (moleculeList[molItr2].crossings[j].prob == pmatch) {
                 crossIndex2 = j;
-                if (moleculeList[molItr].crossrxn[crossIndex1] ==
-                    moleculeList[molItr2].crossrxn[crossIndex2])
+                if (moleculeList[molItr].crossings[crossIndex1].rxn ==
+                    moleculeList[molItr2].crossings[crossIndex2].rxn)
                   break;
               }
             }
@@ -990,17 +1168,17 @@ int main(int argc, char *argv[]) {
            * either physically associate two molecules into a complex (A+B->AB)
            * or change state of one (or both) reactants (A+B->A+B')
            */
-          int molItr2{moleculeList[molItr].crossbase[crossIndex1]};
+          int molItr2{moleculeList[molItr].crossings[crossIndex1].partner};
 
-          int ifaceIndex1{moleculeList[molItr].mycrossint[crossIndex1]};
+          int ifaceIndex1{moleculeList[molItr].crossings[crossIndex1].myIface};
           int ifaceIndex2;
           if (moleculeList[molItr2].isImplicitLipid == false) {
-            ifaceIndex2 = moleculeList[molItr2].mycrossint[crossIndex2];
+            ifaceIndex2 = moleculeList[molItr2].crossings[crossIndex2].myIface;
           } else {
             ifaceIndex2 = 0;
           }
           std::array<int, 3> rxnIndex =
-              moleculeList[molItr].crossrxn[crossIndex1];
+              moleculeList[molItr].crossings[crossIndex1].rxn;
 
           /*First if statement is to determine if reactants are physically
            * associating*/
@@ -1188,19 +1366,19 @@ int main(int argc, char *argv[]) {
           // doesn't try to react again but the partners still will avoid
           // overlapping.
           for (unsigned crossItr{0};
-               crossItr < moleculeList[molItr].crossbase.size(); ++crossItr) {
-            int skipMol{moleculeList[molItr].crossbase[crossItr]};
+               crossItr < moleculeList[molItr].crossings.size(); ++crossItr) {
+            int skipMol{moleculeList[molItr].crossings[crossItr].partner};
             for (unsigned crossItr2{0};
-                 crossItr2 < moleculeList[skipMol].crossbase.size();
+                 crossItr2 < moleculeList[skipMol].crossings.size();
                  ++crossItr2) {
-              if (moleculeList[skipMol].crossbase[crossItr2] ==
+              if (moleculeList[skipMol].crossings[crossItr2].partner ==
                   moleculeList[molItr].index)
-                moleculeList[skipMol].probvec[crossItr2] = 0;
+                moleculeList[skipMol].crossings[crossItr2].prob = 0;
             }
           }
         }
 
-      } else if (moleculeList[molItr].crossbase.size() == 0) {
+      } else if (moleculeList[molItr].crossings.size() == 0) {
         /* this protein has ncross=0,
          * meaning it neither dissociated nor tried to associate.
          * however, it could have movestat=2 if it is part of a multi-protein
@@ -1219,6 +1397,16 @@ int main(int argc, char *argv[]) {
 
     // Now we have to check for overlap!!!
     for (auto &mol : moleculeList) {
+      // A destroyed molecule has no position to update, and its complex has
+      // been emptied.  Every other per-molecule loop in the timestep skips
+      // these; this one did not, and create_complex_propagation_vectors()
+      // reads moleculeList[targCom.memberList[0]] unconditionally, so an
+      // emptied complex reaching it dereferences memberList[0] on an empty
+      // vector.  That is the null dereference the compartment sample model
+      // died on, since its transmission reactions destroy molecules.
+      if (mol.isEmpty)
+        continue;
+
       // Now track each complex (ncrosscom), and test for overlap of all
       // proteins in that complex before performing final position updates.
       // determine RS3Dinput
@@ -1264,7 +1452,7 @@ int main(int argc, char *argv[]) {
                                          moleculeList, complexList, forwardRxns,
                                          molTemplateList, membraneObject);
           }
-          if (membraneObject.isSphere == true)
+          if (membraneObject.isSphere() == true)
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                     moleculeList, RS3Dinput, false);
         }
@@ -1273,7 +1461,7 @@ int main(int argc, char *argv[]) {
           // For proteins with ncross=0, they either moved independently,
           // or their displacements were selected based on the complex
           // they were part of, and they may not yet been moved.
-          if (membraneObject.isSphere == true) {
+          if (membraneObject.isSphere() == true) {
             if (mol.trajStatus == TrajStatus::none) {
               create_complex_propagation_vectors(
                   params, complexList[mol.myComIndex], moleculeList,
@@ -1500,10 +1688,7 @@ int main(int argc, char *argv[]) {
       clear_reweight_vecs(oneMol);
       oneMol.trajStatus = TrajStatus::none;
       oneMol.isDissociated = false;
-      oneMol.crossbase.clear();
-      oneMol.mycrossint.clear();
-      oneMol.crossrxn.clear();
-      oneMol.probvec.clear();
+      oneMol.crossings.clear();
 
       // update complexes. if the complex has more than one member, it'll be
       // updated more than once, but this is probably more efficient than

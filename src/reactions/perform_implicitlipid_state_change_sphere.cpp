@@ -142,7 +142,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
 
         apply_state_change_rotations(reactIface1, reactIface2, stateChangeIface, facilitatorIface,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom, assocAngles, currRxn,
-            moleculeList, molTemplateList);
+            moleculeList, molTemplateList, params.numerics.associationAngles);
     } //only rotate if they are not both points.
 
     // need to adjust Lipid's orientation, make it verticle to sphere
@@ -150,7 +150,7 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
         Molecule memProtein;
         Molecule Lipid;
         set_memProtein_sphere(stateChangeCom, memProtein, moleculeList, membraneObject);
-        find_Lipid_sphere(stateChangeCom, Lipid, moleculeList, membraneObject);
+        find_lipid_sphere(stateChangeCom, Lipid, moleculeList, membraneObject);
         Quat memRot = save_mem_orientation(memProtein, Lipid, molTemplateList[Lipid.molTypeIndex]);
         Vec3D pivot = Lipid.tmpComCoord;
         /*rotate the molecules and their complexes.*/
@@ -267,11 +267,11 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     // Enforce boundary conditions
     reflect_complex_rad_rot(membraneObject, facilitatorCom, moleculeList, RS3D, false);
 
-    //for (unsigned crossItr { 0 }; crossItr < stateChangeMol.crossbase.size(); ++crossItr) {
-    //    int skipMol { stateChangeMol.crossbase[crossItr] };
-    //    for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossbase.size(); ++crossItr2) {
-    //        if (moleculeList[skipMol].crossbase[crossItr2] == stateChangeMol.index)
-    //            moleculeList[skipMol].probvec[crossItr2] = 0;
+    //for (unsigned crossItr { 0 }; crossItr < stateChangeMol.crossings.size(); ++crossItr) {
+    //    int skipMol { stateChangeMol.crossings[crossItr].partner };
+    //    for (unsigned crossItr2 { 0 }; crossItr2 < moleculeList[skipMol].crossings.size(); ++crossItr2) {
+    //        if (moleculeList[skipMol].crossings[crossItr2].partner == stateChangeMol.index)
+    //            moleculeList[skipMol].crossings[crossItr2].prob = 0;
     //    }
     //}
 
@@ -290,6 +290,6 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     stateChangeCom.ncross = -1;
     facilitatorCom.ncross = -1;
-    stateChangeMol.crossbase.clear();
-    facilitatorMol.crossbase.clear();
+    stateChangeMol.crossings.clear();
+    facilitatorMol.crossings.clear();
 }

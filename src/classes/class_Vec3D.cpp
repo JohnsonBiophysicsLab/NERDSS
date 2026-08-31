@@ -16,6 +16,8 @@
 #include <iomanip>
 #include <vector>
 
+int NumericalSettings::Vec3D::coordinateEqualityPrecision = 10000;
+
 /* ---------------------------------------------------------------- construction */
 
 Vec3D::Vec3D(const std::vector<double>& vals)

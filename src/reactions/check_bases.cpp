@@ -6,8 +6,11 @@
 void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& reactIface2, int ifaceIndex1,
     int ifaceIndex2, const Molecule& reactMol1, const Molecule& reactMol2, const Complex& reactCom1,
     const Complex& reactCom2, const ForwardRxn& currRxn, const std::vector<Molecule>& moleculeList,
-    const std::vector<MolTemplate>& molTemplateList)
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings)
 {
+    const auto sameAngle = [&settings](double lhs, double rhs) {
+        return areSameAngle(lhs, rhs, settings.sameAngle);
+    };
     // TRACE();
     Vec3D sigma { reactIface1 - reactIface2 };
     Vec3D v1 { reactIface1 - reactMol1.tmpComCoord };
@@ -39,7 +42,7 @@ void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& react
         double phi { roundv(calculate_phi(reactIface1, ifaceIndex2, reactMol1, reactMol2, currRxn.norm1,
             Vec3D { reactIface1 - reactMol1.tmpComCoord }, 0.0, currRxn, molTemplateList)) };
 
-        if (areSameAngle(currRxn.assocAngles.phi1, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
+        if (sameAngle(currRxn.assocAngles.phi1, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
             phi = std::abs(phi);
 
         if (roundv(currRxn.assocAngles.phi1) != roundv(phi)) {
@@ -55,7 +58,7 @@ void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& react
         double phi { roundv(calculate_phi(reactIface2, ifaceIndex1, reactMol2, reactMol1, currRxn.norm2,
             Vec3D { reactIface2 - reactMol2.tmpComCoord }, 0.0, currRxn, molTemplateList)) };
 
-        if (areSameAngle(currRxn.assocAngles.phi2, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
+        if (sameAngle(currRxn.assocAngles.phi2, M_PI) && ((std::abs(phi) > 3.1414) && std::abs(phi) < 3.1417))
             phi = std::abs(phi);
 
         if (roundv(currRxn.assocAngles.phi2) != roundv(phi)) {
@@ -75,10 +78,10 @@ void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& react
     if (!std::isnan(currRxn.assocAngles.omega)) {
         double omega { roundv(
             calculate_omega(reactIface1, ifaceIndex2, sigma, sigma.length(), currRxn, reactMol1, reactMol2,
-                molTemplateList)) };
+                molTemplateList, settings)) };
 
         // check this weirdness
-        if (areSameAngle(currRxn.assocAngles.omega, M_PI) && ((std::abs(omega) > 3.1414) && std::abs(omega) < 3.1417))
+        if (sameAngle(currRxn.assocAngles.omega, M_PI) && ((std::abs(omega) > 3.1414) && std::abs(omega) < 3.1417))
             omega = std::abs(omega);
 
         if (roundv(currRxn.assocAngles.omega) != roundv(omega)) {

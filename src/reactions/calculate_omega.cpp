@@ -2,8 +2,12 @@
 #include "tracing.hpp"
 
 double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, double sigmaLength,
-    const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2, const std::vector<MolTemplate>& molTemplateList)
+    const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2,
+    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings)
 {
+    const auto sameAngle = [&settings](double lhs, double rhs) {
+        return areSameAngle(lhs, rhs, settings.sameAngle);
+    };
     // TRACE();
     /*Re-aligns the molecules so that Sigma faces purely along the z-axis. 
      */
@@ -12,7 +16,7 @@ double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, d
     Vec3D v1 {};
     Vec3D v2 {};
 
-    if (areSameAngle(currRxn.assocAngles.theta1, M_PI) || areSameAngle(currRxn.assocAngles.theta2, M_PI)) {
+    if (sameAngle(currRxn.assocAngles.theta1, M_PI) || sameAngle(currRxn.assocAngles.theta2, M_PI)) {
         v1 = determine_normal(currRxn.norm1, molTemplateList[reactMol1.molTypeIndex], reactMol1);
         v2 = determine_normal(currRxn.norm2, molTemplateList[reactMol2.molTypeIndex], reactMol2);
     } else {
@@ -24,9 +28,9 @@ double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, d
     Vec3D projVec2 { v2.x, v2.y, 0 };
     Vec3D test = projVec1.unit_cross(projVec2);
     double omega = projVec1.angle_between(projVec2);
-    double tol = 1E-11;
     /*DO NOT FLIP SIGN IF IT IS PI OR ZERO, DUE TO PRECISION, z COULD BE >0! */
-    if (test.z > 0 and std::abs(omega) > tol and (M_PI - std::abs(omega)) > tol) //positive z, flip theta sign
+    if (test.z > 0 and std::abs(omega) > settings.endpointSignTolerance
+        and (M_PI - std::abs(omega)) > settings.endpointSignTolerance) //positive z, flip theta sign
         omega = -omega;
     return omega;
 

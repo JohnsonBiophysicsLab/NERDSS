@@ -8,8 +8,8 @@ void create_normMatrix(gsl_matrix*& normMatrix, double bindRadius, double Dtot, 
     //    double result, error;
     const double xLowB { bindRadius };
     int itr { 0 };
-    const double epsAbs { 1e-6 };
-    const double epsRel { 1e-6 };
+    const double epsAbs { params.numerics.integration.normalizationAbsoluteError };
+    const double epsRel { params.numerics.integration.normalizationRelativeError };
 
     gsl_function F;
     F.function = &norm_function;

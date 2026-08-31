@@ -33,7 +33,7 @@ EDIR   = EXEs
 
 PROF   =
 
-.PHONY: any debug profile clean
+.PHONY: any debug profile clean checks
 
 # ---------------- REQUIREMENTS: gsl and directories
 hasGSL = $(shell type gsl-config >/dev/null 2>&1; echo $$?)
@@ -177,6 +177,30 @@ $(ODIR)/%.o: $(SDIR)/%.cpp
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -c $< -o $@ $(PLANG) $(DEFS)
 	@echo "------------"
+
+# ---------------- STANDALONE CHECKS
+# run_code_tests/*_check.cpp are self-contained programs with their own main().
+# They cover the two things the model-level A/B cannot: weighted_D_sum's 1D arm,
+# which no input file in the tree reaches because nothing sets isPromoter, and
+# Membrane's serialization, which the MPI path cannot validate because
+# nerdss_mpi does not reproduce itself run to run even with a fixed seed.
+#
+# They were added with no way to build them, which makes a test that decays
+# silently.  `make serial && make checks` builds and runs each; a non-zero exit
+# from any one fails the target.
+CHECK_SRCS = $(wildcard run_code_tests/*_check.cpp)
+CHECK_BINS = $(patsubst run_code_tests/%.cpp,$(BDIR)/%,$(CHECK_SRCS))
+
+$(BDIR)/%: run_code_tests/%.cpp $(OBJS)
+	@mkdir -p $(BDIR)
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) -o $@ $< $(OBJS) $(LIBS) $(PLANG)
+
+checks: $(CHECK_BINS)
+	@for t in $(CHECK_BINS); do \
+	    echo "running $$t"; \
+	    $$t || exit 1; \
+	done
+	@echo "all checks passed"
 
 clean:
 	rm -rf $(ODIR) bin

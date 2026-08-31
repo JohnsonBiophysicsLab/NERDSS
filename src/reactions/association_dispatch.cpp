@@ -26,7 +26,7 @@ void associate(long long int iter,
     Membrane& membraneObject, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, std::ofstream& assocDissocFile)
 {
-    if (membraneObject.isSphere == true) {
+    if (membraneObject.isSphere() == true) {
         associate_sphere(iter, ifaceIndex1, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, params,
             currRxn, moleculeList, molTemplateList, observablesList,
             counterArrays, complexList, membraneObject, forwardRxns, backRxns, assocDissocFile);
@@ -46,7 +46,7 @@ void associate_implicitlipid(long long int iter,
     Membrane& membraneObject, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, std::ofstream& assocDissocFile)
 {
-    if (membraneObject.isSphere == true) {
+    if (membraneObject.isSphere() == true) {
         associate_implicitlipid_sphere(iter, ifaceIndex1, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, params,
             currRxn, moleculeList, molTemplateList, observablesList,
             counterArrays, complexList, membraneObject, forwardRxns, backRxns, assocDissocFile);
@@ -63,7 +63,7 @@ void perform_bimolecular_state_change(int stateChangeIface, int facilitatorIface
     std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, Membrane& membraneObject)
 {
-    if (membraneObject.isSphere == true) {
+    if (membraneObject.isSphere() == true) {
         perform_bimolecular_state_change_sphere(stateChangeIface, facilitatorIface, rxnItr,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom,
             counterArrays, params, forwardRxns,
@@ -84,7 +84,7 @@ void perform_implicitlipid_state_change(int stateChangeIface, int facilitatorIfa
     std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, Membrane& membraneObject)
 {
-    if (membraneObject.isSphere == true) {
+    if (membraneObject.isSphere() == true) {
         perform_implicitlipid_state_change_sphere(stateChangeIface, facilitatorIface, rxnItr,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom,
             counterArrays, params, forwardRxns,

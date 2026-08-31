@@ -26,7 +26,7 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                 //     * Constants::nm3ToLiters * params.timeStep * Constants::usToSeconds };
                 double Volume = 0.0;
                 // Change Volume depending upon box or sphere simulation
-                if (membraneObject.isSphere)
+                if (membraneObject.isSphere())
                 {
                     Volume = membraneObject.sphereVol;
                 }
@@ -103,7 +103,7 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                 // timestep (s)
                 double Volume = 0.0;
                 // Change Volume depending upon box or sphere simulation
-                if (membraneObject.isSphere)
+                if (membraneObject.isSphere())
                 {
                     Volume = membraneObject.sphereVol;
                 }

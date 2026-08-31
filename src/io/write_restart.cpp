@@ -37,7 +37,7 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
             }
         }
         restartFile << '\n';
-        restartFile << "implicitLipidsParams = " << membraneObject.implicitLipid << ' ' << membraneObject.TwoD << ' ' << membraneObject.isBox << ' ' << membraneObject.isSphere << ' ' << membraneObject.sphereR <<' ' << membraneObject.hasCompartment << ' ' << membraneObject.compartmentR << '\n';
+        restartFile << "implicitLipidsParams = " << membraneObject.implicitLipid << ' ' << membraneObject.TwoD << ' ' << membraneObject.hasWaterBox() << ' ' << membraneObject.isSphere() << ' ' << membraneObject.sphereR <<' ' << membraneObject.hasCompartment << ' ' << membraneObject.compartmentR << '\n';
         restartFile << "ifaceOverlapSepLimit = " << params.overlapSepLimit << '\n';
         restartFile << "rMaxLimit = " << params.rMaxLimit << '\n';
         restartFile << "timeWrite = " << params.timeWrite << '\n';
@@ -56,6 +56,37 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         for (auto& index : Parameters::lastUpdateTransition)
             restartFile << ' ' << index;
         restartFile << '\n';
+
+        restartFile << "#NumericalSettings version = 3\n" << std::scientific;
+        restartFile << "integrationAbsError = " << params.numerics.integration.tableAbsoluteError << '\n';
+        restartFile << "integrationRelError = " << params.numerics.integration.tableRelativeError << '\n';
+        restartFile << "integrationFallbackError = " << params.numerics.integration.fallbackError << '\n';
+        restartFile << "integrationTailCutoff = " << params.numerics.integration.tailCutoff << '\n';
+        restartFile << "normalizationAbsError = "
+                    << params.numerics.integration.normalizationAbsoluteError << '\n';
+        restartFile << "normalizationRelError = "
+                    << params.numerics.integration.normalizationRelativeError << '\n';
+        restartFile << "tableRateAbsTolerance = " << params.numerics.tableLookup.reactionRate.absolute << '\n';
+        restartFile << "tableRateRelTolerance = " << params.numerics.tableLookup.reactionRate.relative << '\n';
+        restartFile << "tableDiffusionAbsTolerance = "
+                    << params.numerics.tableLookup.diffusionCoefficient.absolute << '\n';
+        restartFile << "tableDiffusionRelTolerance = "
+                    << params.numerics.tableLookup.diffusionCoefficient.relative << '\n';
+        restartFile << "explicitLipidFlatDiffusion = "
+                    << params.numerics.classification.explicitLipidFlatDiffusion << '\n';
+        restartFile << "implicitLipidFlatDiffusion = "
+                    << params.numerics.classification.implicitLipidFlatDiffusion << '\n';
+        restartFile << "associationSameAngleAbsTolerance = "
+                    << params.numerics.associationAngles.sameAngle.absolute << '\n';
+        restartFile << "associationSameAngleRelTolerance = "
+                    << params.numerics.associationAngles.sameAngle.relative << '\n';
+        restartFile << "associationRotationTolerance = "
+                    << params.numerics.associationAngles.rotationConvergenceTolerance << '\n';
+        restartFile << "associationEndpointSignTolerance = "
+                    << params.numerics.associationAngles.endpointSignTolerance << '\n';
+        restartFile << "vec3DCoordinatePrecision = "
+                    << params.numerics.vec3D.coordinateEqualityPrecision << '\n';
+        restartFile << "#EndNumericalSettings\n";
     }
     /*
     // write Simulation Volume
@@ -497,30 +528,33 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
                 }
             }
 
-            // reweighting lists
-            restartFile << oneMol.prevlist.size();
-            for (const auto& oneElem : oneMol.prevlist)
-                restartFile << ' ' << oneElem;
+            // Reweighting lists.  These are one std::vector<ReweightEntry> in
+            // memory now, but the file still carries the six parallel arrays it
+            // always did, in the same order and with the same per-line counts,
+            // so restart files written by either build are interchangeable.
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.partner;
             restartFile << '\n';
-            restartFile << oneMol.prevmyface.size();
-            for (const auto& oneElem : oneMol.prevmyface)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.myFace;
             restartFile << '\n';
-            restartFile << oneMol.prevpface.size();
-            for (const auto& oneElem : oneMol.prevpface)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.partnerFace;
             restartFile << '\n';
-            restartFile << oneMol.prevnorm.size();
-            for (const auto& oneElem : oneMol.prevnorm)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.norm;
             restartFile << '\n';
-            restartFile << oneMol.ps_prev.size();
-            for (const auto& oneElem : oneMol.ps_prev)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.survProb;
             restartFile << '\n';
-            restartFile << oneMol.prevsep.size();
-            for (const auto& oneElem : oneMol.prevsep)
-                restartFile << ' ' << oneElem;
+            restartFile << oneMol.prevReweight.size();
+            for (const auto& oneEntry : oneMol.prevReweight)
+                restartFile << ' ' << oneEntry.sep;
             restartFile << '\n';
         }
 

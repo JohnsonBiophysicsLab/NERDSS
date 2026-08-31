@@ -37,7 +37,7 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
             double R1 { 0 };
             double bindSep { oneRxn.bindRadSameCom * oneRxn.bindRadius };
             withinRmax = get_distance(pro1Index, pro2Index, iface1Index, iface2Index, rxnIndex, rateIndex,
-                isBiMolStateChange, sep, R1, bindSep, complexList, oneRxn, moleculeList, membraneObject.isSphere);
+                isBiMolStateChange, sep, R1, bindSep, complexList, oneRxn, moleculeList, membraneObject.isSphere());
             /*Proteins are in the same complex!*/
             /*If these proteins are at contact (sep=0) or close to at contact (<bindrad) then
             they will associate.
@@ -119,16 +119,15 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
                     ifaceB = iface1Index;
                 }
 
-                moleculeList[proA].probvec.push_back(probvec1 * 1.0);
-                moleculeList[proB].probvec.push_back(probvec1 * 1.0);
+                // get_distance() pushed one crossings entry onto each of them
+                // under the same `withinRmax` this block sits inside; these two
+                // pushes were that entry's probability.
+                moleculeList[proA].crossings.back().prob = probvec1 * 1.0;
+                moleculeList[proB].crossings.back().prob = probvec1 * 1.0;
 
                 /*Store all the reweighting numbers for next step.*/
-                moleculeList[proA].currprevsep.push_back(R1);
-                moleculeList[proA].currlist.push_back(proB);
-                moleculeList[proA].currmyface.push_back(ifaceA);
-                moleculeList[proA].currpface.push_back(ifaceB);
-                moleculeList[proA].currprevnorm.push_back(1.0);
-                moleculeList[proA].currps_prev.push_back(1.0 - probvec1 * 1.0);
+                moleculeList[proA].currReweight.emplace_back(
+                    1.0, 1.0 - probvec1 * 1.0, R1, proB, ifaceA, ifaceB);
             }
         } // rate is >0
     } // did not just dissociate

@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 //#include "classes/class_coord.hpp"
 #include "classes/class_Molecule_Complex.hpp"
@@ -37,6 +38,17 @@ struct SimulVolume {
 
         std::vector<int> memberMolList; //!< list of Molecule indices in moleculeList which currently reside in the SubBox
         std::vector<int> neighborList; //!< list of SubBox absolute indices which are neighbors of this SubBox.
+        /*! \brief Bit t is set while a Molecule of type t is a member.
+         *
+         * Lets the pairwise search drop a whole neighbouring SubBox when none
+         * of the types in it can pair with the molecule being tested.  Derived
+         * from memberMolList, so it is not serialized; the MPI ranks push into
+         * memberMolList directly and their search does not read this.
+         *
+         * Molecule types past 63 all set every bit, which only costs the skip,
+         * never correctness.
+         */
+        uint64_t typeMask{ 0 };
 
         void display();
 
@@ -102,20 +114,81 @@ struct SimulVolume {
     Dimensions numSubCells{}; //!< number of SubBoxes in each dimension
     Vec3D subCellSize{}; //!< dimensions of each SubBox in nanometers
     std::vector<SubVolume> subCellList; //!< list of all the SubBoxes in the SimulBox. Size == numSubBoxes.tot
-    /*! \brief Indices of the SubBoxes whose memberMolList is currently non-empty.
+    /*! \brief Bit c is set while subCellList[c] holds members.
      *
-     * Only ever a few hundred entries even when subCellList holds thousands of
-     * SubBoxes, which lets update_memberMolLists() empty the member lists in
-     * time proportional to the number of occupied SubBoxes rather than to the
-     * total.  Derived from subCellList, so it is not part of the MPI wire
-     * format.
+     * The registry proper.  Setting a bit is idempotent, so add_member() does
+     * not have to ask whether the SubBox was already registered, and the
+     * registry cannot pick up a duplicate however the member lists are
+     * manipulated between steps.
      *
-     * Maintained by the serial update_memberMolLists() only.  The MpiContext
-     * overload keeps its original sweep over all of subCellList and never reads
-     * this list, because the MPI ranks also mutate memberMolList directly from
-     * prepare.cpp and deserialize.cpp, and that path is untested here.
+     * INVARIANT: every SubBox with a non-empty memberMolList has its bit set.
+     * clear_member_lists() relies on it -- a non-empty SubBox whose bit is
+     * clear is never emptied, so its members survive into the next step and
+     * are then added a second time by the re-binning pass.  Grow a
+     * memberMolList through add_member(), never through subCellList directly.
+     *
+     * Derived from subCellList, so it is not part of the MPI wire format.  The
+     * MPI-only sites in prepare.cpp and deserialize.cpp still push directly.
+     * They are safe because no MPI path calls clear_member_lists() -- the
+     * MpiContext overload of update_memberMolLists() sweeps all of subCellList
+     * and clears the whole registry outright -- and they are left alone
+     * because that path is untested here.
+     */
+    std::vector<uint64_t> occupancyMask {};
+
+    /*! \brief The set bits of occupancyMask, ascending, as SubBox indices.
+     *
+     * Derived; refresh_occupied_cells() rebuilds it.  The pairwise search
+     * walks this instead of all of subCellList, and ascending order makes it
+     * exactly the non-empty subsequence of that walk, so the candidate pairs
+     * come out in the same order as before.
      */
     std::vector<int> occupiedSubCells {};
+
+    //! Index of the lowest set bit.  Only called on a non-zero word.
+    static int lowest_set_bit(uint64_t word) {
+#if defined(__GNUC__) || defined(__clang__)
+        return __builtin_ctzll(word);
+#else
+        int bitItr { 0 };
+        while (!(word & 1)) { word >>= 1; ++bitItr; }
+        return bitItr;
+#endif
+    }
+
+    /*!
+     * \brief Puts one Molecule into a SubBox, registering the SubBox.
+     */
+    void add_member(int cellIndex, int molIndex, int molTypeIndex) {
+        SubVolume& cell = subCellList[cellIndex];
+        cell.memberMolList.push_back(molIndex);
+        cell.typeMask |= (molTypeIndex >= 0 && molTypeIndex < 64)
+            ? (uint64_t(1) << molTypeIndex)
+            : ~uint64_t(0);
+        occupancyMask[cellIndex >> 6] |= uint64_t(1) << (cellIndex & 63);
+    }
+
+    /*!
+     * \brief Rebuilds occupiedSubCells from occupancyMask, in ascending order.
+     *
+     * Costs one pass over occupancyMask -- one word per 64 SubBoxes -- plus one
+     * push_back per occupied SubBox.  This replaced sorting a list that
+     * add_member() had filled in molecule order: on rev_3D, sorting the roughly
+     * 1800 occupied SubBoxes cost more per step than the walk over all 27 000
+     * that skipping them was supposed to save, and the case came out 2.3%
+     * slower rather than faster.
+     */
+    void refresh_occupied_cells() {
+        occupiedSubCells.clear();
+        for (size_t wordItr{ 0 }; wordItr < occupancyMask.size(); ++wordItr) {
+            uint64_t bits { occupancyMask[wordItr] };
+            while (bits) {
+                occupiedSubCells.push_back(
+                    int(wordItr * 64) + lowest_set_bit(bits));
+                bits &= bits - 1;
+            }
+        }
+    }
 
     /*!
      * \brief Main function for the creation of the SubBoxes in the SimulBox.

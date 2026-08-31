@@ -100,7 +100,7 @@ void check_overlap(std::vector<int>& region, unsigned simItr,
 
         // if(mpiContext.simItr >= 1177)
         //                 DEBUG_FIND_MOL("6.123");
-        if (membraneObject.isSphere == true)
+        if (membraneObject.isSphere() == true)
           reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
                                   moleculeList, RS3Dinput, false);
       }
@@ -116,7 +116,7 @@ void check_overlap(std::vector<int>& region, unsigned simItr,
         // For proteins with ncross=0, they either moved independently, or
         // their displacements were selected based on the complex they were
         // part of, and they may not yet been moved.
-        if (membraneObject.isSphere == true) {
+        if (membraneObject.isSphere() == true) {
           if (mol.trajStatus == TrajStatus::none) {
             create_complex_propagation_vectors(
                 params, complexList[mol.myComIndex], moleculeList, complexList,

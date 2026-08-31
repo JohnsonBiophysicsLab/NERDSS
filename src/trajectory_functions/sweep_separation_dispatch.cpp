@@ -21,7 +21,7 @@ void sweep_separation_complex_rot(int simItr, int pro1Index, Parameters& params,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    if (membraneObject.isSphere)
+    if (membraneObject.isSphere())
         sweep_separation_complex_rot_sphere(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);
     else
         sweep_separation_complex_rot_box(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);
@@ -32,7 +32,7 @@ void sweep_separation_complex_rot_memtest(int simItr, int pro1Index, Parameters&
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    if (membraneObject.isSphere)
+    if (membraneObject.isSphere())
         sweep_separation_complex_rot_memtest_sphere(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);
     else
         sweep_separation_complex_rot_memtest_box(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);
@@ -43,7 +43,7 @@ void sweep_separation_complex_rot_memtest_cluster(int simItr, int pro1Index, Par
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    if (membraneObject.isSphere)
+    if (membraneObject.isSphere())
         sweep_separation_complex_rot_memtest_cluster_sphere(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);
     else
         sweep_separation_complex_rot_memtest_cluster_box(simItr, pro1Index, params, moleculeList, complexList, forwardRxns, molTemplateList, membraneObject);

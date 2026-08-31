@@ -5,8 +5,12 @@
 
 void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, const Vec3D& normal, const double& targPhi, const ForwardRxn& currRxn,
-    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList)
+    std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList,
+    const NumericalSettings::AssociationAngles& settings)
 {
+    const auto sameAngle = [&settings](double lhs, double rhs) {
+        return areSameAngle(lhs, rhs, settings.sameAngle);
+    };
     // TRACE();
     /*! \ingroup Associate
      * \brief Function to rotate a Molecule to some a target dihedral phi, relative to sigma (the
@@ -49,10 +53,10 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
     // std::cout << "Desired phi: " << targPhi << " Current phi: " << currPhi << " areSameAngle: " << areSameAngle(currPhi, targPhi) << std::endl;
 
     // quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
-    if (areSameAngle(currPhi, targPhi)) {
+    if (sameAngle(currPhi, targPhi)) {
         // std::cout << "No phi rotation needed" << std::endl;
       return;
-    } else if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
+    } else if ((sameAngle(targPhi, M_PI) || sameAngle(targPhi, 0)) && sameAngle(targPhi, -currPhi)) {
         // std::cout << "No phi rotation needed" << std::endl;
       return;
     } else {
@@ -97,14 +101,14 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
 
         //write_xyz_assoc("phi_forward2.xyz", reactCom1, reactCom2, moleculeList);
 	// quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
-        if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
+        if ((sameAngle(targPhi, M_PI) || sameAngle(targPhi, 0)) && sameAngle(targPhi, -currPhi)) {
 	  //if(areSameAngle(targPhi, currPhi)){
             // std::cout << "Phi After: " << currPhi << std::endl;
             return;
         }
 
         // if it rotated the wrong way, reverse the rotation and swap quaternions
-        if (!areSameAngle(currPhi, targPhi)) {
+        if (!sameAngle(currPhi, targPhi)) {
             // reverse the rotation
             // std::cout << "Reversing rotation, current phi: " << currPhi << ", target phi: " << targPhi << '\n';
             
@@ -158,7 +162,7 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
                 molTemplateList);
             // std::cout << "Phi After: " << currPhi << std::endl;
 	        // quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
-            if ((areSameAngle(targPhi, M_PI) || areSameAngle(targPhi, 0)) && areSameAngle(targPhi, -currPhi)) {
+            if ((sameAngle(targPhi, M_PI) || sameAngle(targPhi, 0)) && sameAngle(targPhi, -currPhi)) {
                 // std::cout << "Phi After: " << currPhi << std::endl;
                 return;
             }
@@ -166,7 +170,7 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
 
             // If the rotation still didn't give the desired angle
             
-            if (!areSameAngle(currPhi, targPhi)) {
+            if (!sameAngle(currPhi, targPhi)) {
                 // std::cout << ">>>>>>> Complex 1 >>>>>>>" << std::endl;
                 // for (int mol : reactCom1.memberList) {
                 //   moleculeList[mol].display_all();

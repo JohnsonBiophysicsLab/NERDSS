@@ -56,7 +56,7 @@ void perform_bimolecular_reactions(
       continue;
 
     // Skip any proteins that just dissociated during this time step
-    if (moleculeList[molItr].crossbase.size() > 0) {
+    if (moleculeList[molItr].crossings.size() > 0) {
       // Evaluate whether to perform a reaction with protein, and with whom.
       // Flag=1 means reaction is performed. Returns correct ci1 and ci2 for
       // this rxn. Loop over all reactions individually, instead of summing
@@ -75,16 +75,16 @@ void perform_bimolecular_reactions(
         // either physically associate two molecules into a complex (A+B->AB)
         // or change state of one (or both) reactants (A+B->A+B')
         //
-        int molItr2{moleculeList[molItr].crossbase[crossIndex1]};
-        int ifaceIndex1{moleculeList[molItr].mycrossint[crossIndex1]};
+        int molItr2{moleculeList[molItr].crossings[crossIndex1].partner};
+        int ifaceIndex1{moleculeList[molItr].crossings[crossIndex1].myIface};
         int ifaceIndex2;
         if (moleculeList[molItr2].isImplicitLipid == false) {
-          ifaceIndex2 = moleculeList[molItr2].mycrossint[crossIndex2];
+          ifaceIndex2 = moleculeList[molItr2].crossings[crossIndex2].myIface;
         } else {
           ifaceIndex2 = 0;
         }
         std::array<int, 3> rxnIndex =
-            moleculeList[molItr].crossrxn[crossIndex1];
+            moleculeList[molItr].crossings[crossIndex1].rxn;
 
         // First if statement is to determine if reactants are physically
         // associating
@@ -193,7 +193,7 @@ void perform_bimolecular_reactions(
         zero_partner_probvec(moleculeList[molItr], moleculeList);
       }
 
-    } else {  // else, moleculeList[molItr].crossbase.size() == 0
+    } else {  // else, moleculeList[molItr].crossings.size() == 0
       // This molecule shoud diffuse
       // this protein has ncross=0,
       // meaning it neither dissociated nor tried to associate.

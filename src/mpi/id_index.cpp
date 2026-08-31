@@ -124,12 +124,14 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
       }
     }
 
-    // map the prevlist of the molecule back to index.  find_molecule returns
-    // -1 for a molecule that is not on this rank; keep that as the sentinel and
-    // leave it alone on the way back out, rather than feeding it to
-    // moleculeList[-1] in indices_to_IDs.
-    for (auto &prevId : mol.prevlist) {
-      prevId = (prevId < 0) ? -1 : find_molecule(moleculeList, prevId);
+    // Map the reweighting history's partner IDs back to indices.
+    // find_molecule returns -1 for a molecule that is not on this rank; keep
+    // that as the sentinel and leave it alone on the way back out, rather than
+    // feeding it to moleculeList[-1] in indices_to_IDs.
+    for (auto &prevEntry : mol.prevReweight) {
+      prevEntry.partner = (prevEntry.partner < 0)
+                              ? -1
+                              : find_molecule(moleculeList, prevEntry.partner);
     }
   }
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
@@ -153,13 +155,16 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
   }
   // Set myComIndex to the ID of the complex:
   mol.myComIndex = complexList[mol.myComIndex].id;
-  // Map the prevlist of the molecule to IDs.  An entry can be -1 when the
-  // neighbour it refers to has moved to another rank; moleculeList[-1] is a read
-  // off the front of the vector, so pass the sentinel through untouched.
-  for (auto &prevIndex : mol.prevlist) {
-    prevIndex = (prevIndex >= 0 && prevIndex < static_cast<int>(moleculeList.size()))
-                    ? moleculeList[prevIndex].id
-                    : -1;
+  // Map the reweighting history's partner indices to IDs.  An entry can be -1
+  // when the neighbour it refers to has moved to another rank; moleculeList[-1]
+  // is a read off the front of the vector, so pass the sentinel through
+  // untouched.
+  for (auto &prevEntry : mol.prevReweight) {
+    prevEntry.partner =
+        (prevEntry.partner >= 0 &&
+         prevEntry.partner < static_cast<int>(moleculeList.size()))
+            ? moleculeList[prevEntry.partner].id
+            : -1;
   }
   if (VERBOSE) cout << "indices_to_IDs ends" << endl;
 }

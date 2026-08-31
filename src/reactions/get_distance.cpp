@@ -100,7 +100,7 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
     if (R1 < Rmax) {
         /*in this case we evaluate the probability of this reaction*/
         record_crossing_pair(pro1, pro2, iface1, iface2,
-            std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn }, false, moleculeList, complexList);
+            std::array<int, 3> { rxnIndex, rateIndex, isStateChangeBackRxn }, moleculeList, complexList);
         return true;
     }
     return false;

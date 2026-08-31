@@ -1,0 +1,5 @@
+# Focused cases for paired runtime and stochastic-output comparison.
+# Columns: id <TAB> input directory (under sample_inputs/) <TAB> parm file <TAB> nItr
+rev_3D	VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	60000
+implicit_lipid	VALIDATE_SUITE/implicit_lipid	parms.inp	100000
+michaelis_menten	VALIDATE_SUITE/michaelis_menten	michaelis.inp	150000

@@ -9,7 +9,8 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
 {
     // TRACE();
     /*3D reaction*/
-    add_3D_rotational_diffusion(biMolData, complexList, params, 1E-10);
+    add_3D_rotational_diffusion(
+        biMolData, complexList, params, params.numerics.classification.explicitLipidFlatDiffusion);
 
     double Rmax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
 
@@ -28,11 +29,10 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
     //     if(biMolData.pro2Index == 65)
     // 	std::cout <<"IN DETERMINE 3D, TRACKING 64 and 65! "<<biMolData.pro1Index<<" Rmax "<<Rmax<<" is within Rmax? "<<withinRmax<<" partner: "<<biMolData.pro2Index<<" sep "<<R1<<std::endl;
 
-    if (withinRmax) {
-        // in case the molecule dissociated
-        moleculeList[biMolData.pro1Index].probvec.push_back(0);
-        moleculeList[biMolData.pro2Index].probvec.push_back(0);
-    }
+    // get_distance() already pushed one crossings entry onto each molecule
+    // under this same condition, with its probability at zero; the two
+    // probvec.push_back(0) calls that used to sit here are that entry's prob
+    // field and are now redundant.
 
     if (moleculeList[biMolData.pro1Index].isDissociated != true
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
@@ -135,16 +135,17 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             //     // if (sep < forwardRxns[rxnIndex].bindRadius)
             //     //     rxnProb = 1.0;
             // }
-            for (int s{0}; s < moleculeList[proA].prevlist.size(); ++s) {
-              if (moleculeList[proA].prevlist[s] == proB &&
-                  moleculeList[proA].prevmyface[s] == ifaceA &&
-                  moleculeList[proA].prevpface[s] == ifaceB) {
+            for (int s{0}; s < moleculeList[proA].prevReweight.size(); ++s) {
+              const Molecule::ReweightEntry& prevEntry{
+                  moleculeList[proA].prevReweight[s]};
+              if (prevEntry.partner == proB && prevEntry.myFace == ifaceA &&
+                  prevEntry.partnerFace == ifaceB) {
                 p0_ratio = pirr_pfree_ratio_psF(
-                    R1, moleculeList[proA].prevsep[s], params.timeStep,
+                    R1, prevEntry.sep, params.timeStep,
                     biMolData.Dtot, forwardRxns[rxnIndex].bindRadius, alpha,
-                    moleculeList[proA].ps_prev[s], 1E-10);
-                currnorm = moleculeList[proA].prevnorm[s] * p0_ratio;
-                s = moleculeList[proA].prevlist.size();
+                    prevEntry.survProb, 1E-10);
+                currnorm = prevEntry.norm * p0_ratio;
+                s = moleculeList[proA].prevReweight.size();
               }
             }
             rxnProb = passocF(R1, params.timeStep, biMolData.Dtot, forwardRxns[rxnIndex].bindRadius, alpha, kact / (kact + kdiff));
@@ -156,15 +157,12 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
                 // std::cout << "WARNING: prob of reaction > 0.5. If this is a reaction for a bimolecular binding with multiple binding sites, please use a smaller time step." << std::endl;
             }
 
-            moleculeList[biMolData.pro1Index].probvec.back() = rxnProb * currnorm;
-            moleculeList[biMolData.pro2Index].probvec.back() = moleculeList[biMolData.pro1Index].probvec.back();
+            moleculeList[biMolData.pro1Index].crossings.back().prob = rxnProb * currnorm;
+            moleculeList[biMolData.pro2Index].crossings.back().prob
+                = moleculeList[biMolData.pro1Index].crossings.back().prob;
 
-            moleculeList[proA].currprevsep.push_back(R1);
-            moleculeList[proA].currlist.push_back(proB);
-            moleculeList[proA].currmyface.push_back(ifaceA);
-            moleculeList[proA].currpface.push_back(ifaceB);
-            moleculeList[proA].currprevnorm.push_back(currnorm);
-            moleculeList[proA].currps_prev.push_back(1.0 - rxnProb * currnorm);
+            moleculeList[proA].currReweight.emplace_back(
+                currnorm, 1.0 - rxnProb * currnorm, R1, proB, ifaceA, ifaceB);
         } // Within reaction zone
     } // did not just dissociate
 }

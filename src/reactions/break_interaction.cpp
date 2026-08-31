@@ -1,5 +1,6 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 #include "tracing.hpp"
 
 bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
@@ -19,11 +20,24 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
     /*Before checking which complex, break the existing bond stored in the bndpartner list, which is used in determine_parent_complex_IL*/
     // std::cout << " reactMol1 index: " << reactMol1.index << " size of bndpartner: " << reactMol1.bndpartner.size() << " reactMol2 index: " << reactMol2.index << " size of bndpartner: " << reactMol2.bndpartner.size() << " first partner: " << reactMol2.bndpartner[0] << " first partner of 1: " << reactMol1.bndpartner[0] << std::endl;
 
-    reactMol1.bndpartner.erase(remove(reactMol1.bndpartner.begin(), reactMol1.bndpartner.end(), reactMol2.index), reactMol1.bndpartner.end());
-    // reactMol1.bndpartner.erase(std::find_if(reactMol1.bndpartner.begin(), reactMol1.bndpartner.end(), [&](const size_t& mol) { return mol == reactMol2.index; }));
-    if (reactMol2.isImplicitLipid == false)
-        reactMol2.bndpartner.erase(remove(reactMol2.bndpartner.begin(), reactMol2.bndpartner.end(), reactMol1.index), reactMol2.bndpartner.end());
-    // reactMol2.bndpartner.erase(std::find_if(reactMol2.bndpartner.begin(), reactMol2.bndpartner.end(), [&](const size_t& mol) { return mol == reactMol1.index; }));
+    // The bond is located through bndlist, which is the only key that names it
+    // uniquely: an interface has at most one partner, while bndpartner can hold
+    // the same molecule twice when two interfaces bind the same neighbour.  The
+    // previous code erased by partner index with std::remove, which drops every
+    // matching entry rather than the one being broken.
+    //
+    // bndlist itself is not erased here -- that happens further down, only on
+    // the branch that goes through with the dissociation -- so the slot stays
+    // valid for both the erase below and the restore in the cancel path.
+    const size_t bondSlot1 { find_bond_slot(reactMol1, static_cast<int>(relIface1)) };
+    const size_t bondSlot2 { reactMol2.isImplicitLipid
+            ? reactMol2.bndlist.size()
+            : find_bond_slot(reactMol2, static_cast<int>(relIface2)) };
+
+    if (bondSlot1 < reactMol1.bndpartner.size())
+        reactMol1.bndpartner.erase(reactMol1.bndpartner.begin() + bondSlot1);
+    if (reactMol2.isImplicitLipid == false && bondSlot2 < reactMol2.bndpartner.size())
+        reactMol2.bndpartner.erase(reactMol2.bndpartner.begin() + bondSlot2);
 
     // std::cout << "within break interaction " << std::endl;
     // std::cout << "After erasing the bonds: reactMol1 index: " << reactMol1.index << " size of bndpartner: " << reactMol1.bndpartner.size() << " reactMol2 index: " << reactMol2.index << " size of bndpartner: " << reactMol2.bndpartner.size() << " first partner: " << reactMol2.bndpartner[0] << " first partner of 1: " << reactMol1.bndpartner[0] << std::endl;
@@ -97,37 +111,12 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
 
     // reactMol1.interfaceList[relIface1].index = absIface1;
     // reactMol1.interfaceList[relIface1].interaction.clear();
-    // reactMol1.interfaceList[relIface1].isBound = false;
-    // if (reactMol2.isImplicitLipid == false) {
-    //     reactMol2.interfaceList[relIface2].index = absIface2;
-    //     reactMol2.interfaceList[relIface2].interaction.clear();
-    //     reactMol2.interfaceList[relIface2].isBound = false;
-    // }
-
-    // //Add these protein into the bimolecular association list
-    // reactMol1.freelist.push_back(relIface1);
-    // //2023-01-04
-    // //Also erase the corresponding element in bndRxnList
-    // //For the sake of safty, all indeces are found according to bndlist
-    // (unique elements) auto it = std::find_if(reactMol1.bndlist.begin(),
-    // reactMol1.bndlist.end(), [&](const size_t& iface) { return iface ==
-    // relIface1; }); int eraseIndex1 = std::distance(reactMol1.bndlist.begin(),
-    // it); reactMol1.bndlist.erase(it);
-    // // reactMol1.bndpartner.erase(std::find_if(reactMol1.bndpartner.begin(),
-    // reactMol1.bndpartner.end(), [&](const size_t& mol) { return mol ==
-    // reactMol2.index; }));
-    // reactMol1.bndpartner.erase(reactMol1.bndpartner.begin() + eraseIndex1);
-    // reactMol1.bndRxnList.erase(reactMol1.bndRxnList.begin() + eraseIndex1);
-    // if (reactMol2.isImplicitLipid == false) {
-    //     reactMol2.freelist.push_back(relIface2);
-    //     auto it = std::find_if(reactMol2.bndlist.begin(),
-    //     reactMol2.bndlist.end(), [&](const size_t& iface) { return iface ==
-    //     relIface2; }); reactMol2.bndlist.erase(it); int eraseIndex2 =
-    //     std::distance(reactMol2.bndlist.begin(), it);
-    //     reactMol2.bndpartner.erase(reactMol2.bndpartner.begin() +
-    //     eraseIndex2); reactMol2.bndRxnList.erase(reactMol2.bndRxnList.begin()
-    //     + eraseIndex2);
-    // }
+    // The commented-out block that stood here held a 2023-01-04 attempt at the
+    // same fix -- locate through bndlist, erase all lists at that position --
+    // which was disabled during a merge and never restored.  It is implemented
+    // above, in erase_bond() and the bondSlot handling, so the dead copy is
+    // gone.  Its own reactMol2 half called std::distance on an iterator erase
+    // had already invalidated, so it could not have been restored as written.
     // // check if they'll still be in the same complex after dissociation,
     // // if not, move them slightly apart
     // // if so, change complex identities back and don't move
@@ -174,8 +163,14 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
 
     if (cancelDissociation) {
         /*cancel the dissociation, move both interfaces back into the bndpartner list, which is the only change we've made so far.*/
-        reactMol1.bndpartner.push_back(reactMol2.index);
-        reactMol2.bndpartner.push_back(reactMol1.index);
+        // Reinserted at the slot each came from, not appended.  push_back left
+        // bndpartner permuted against bndlist whenever the cancelled bond was
+        // not the molecule's last, which is measurably what happened on
+        // homoTrimer; see docs/bond_bookkeeping_defects.md.
+        reactMol1.bndpartner.insert(
+            reactMol1.bndpartner.begin() + std::min(bondSlot1, reactMol1.bndpartner.size()), reactMol2.index);
+        reactMol2.bndpartner.insert(
+            reactMol2.bndpartner.begin() + std::min(bondSlot2, reactMol2.bndpartner.size()), reactMol1.index);
 
         // reset empty complexList
         if (newComIndex + 1 == complexList.size())
@@ -199,27 +194,11 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
          if the complex forms a loop, they will be put back together in c1, and the
          individual interfaces that dissociated freed.
          */
-        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        // This is commented out when merging
-        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        // // complexList[reactMol1.myComIndex].translate(chg1, moleculeList);
-        // // correct structure if the complex is one protein + one promoter
-        // if (complexList[reactMol1.myComIndex].onFiber &&
-        // complexList[reactMol1.myComIndex].memberList.size()==2){
-        //   correct_structure(moleculeList, complexList[reactMol1.myComIndex],
-        //   forwardRxns);
-        // }
-        // complexList[reactMol1.myComIndex].update_properties(moleculeList,
-        // molTemplateList); if (reactMol2.isImplicitLipid == false) {
-        //     if (complexList[reactMol2.myComIndex].onFiber &&
-        //     complexList[reactMol2.myComIndex].memberList.size() == 2) {
-        //         correct_structure(moleculeList,
-        //         complexList[reactMol2.myComIndex], forwardRxns);
-        //     }
-        //     complexList[reactMol2.myComIndex].update_properties(moleculeList,
-        //     molTemplateList);
-        // find the new absolute interfaces
-        // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        // A block disabled "when merging" stood here, calling correct_structure()
+        // on fiber complexes of two members.  That function is deleted: nothing
+        // called it, it read bndRxnList[0] which was never maintained, and it
+        // displaced a local copy of the molecule that it then discarded.  See
+        // docs/bond_bookkeeping_defects.md.
         // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         int absIface1 { -1 };
         int absIface2 { -1 };
@@ -277,14 +256,14 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
         }
         // Add these protein into the bimolecular association list
         reactMol1.freelist.push_back(relIface1);
-        reactMol1.bndlist.erase(remove(reactMol1.bndlist.begin(), reactMol1.bndlist.end(), relIface1), reactMol1.bndlist.end());
-        // reactMol1.bndlist.erase(std::find_if(reactMol1.bndlist.begin(), reactMol1.bndlist.end(), [&](const size_t& iface) { return iface == relIface1; }));
-        // reactMol1.bndpartner.erase(std::find_if(reactMol1.bndpartner.begin(), reactMol1.bndpartner.end(), [&](const size_t& mol) { return mol == reactMol2.index; }));
+        // bndpartner lost its entry at bondSlot1 at the top of this function;
+        // this removes the matching bndlist entry, keeping the two in step.
+        if (bondSlot1 < reactMol1.bndlist.size())
+            reactMol1.bndlist.erase(reactMol1.bndlist.begin() + bondSlot1);
         if (reactMol2.isImplicitLipid == false) {
             reactMol2.freelist.push_back(relIface2);
-            reactMol2.bndlist.erase(remove(reactMol2.bndlist.begin(), reactMol2.bndlist.end(), relIface2), reactMol2.bndlist.end());
-            // reactMol2.bndlist.erase(std::find_if(reactMol2.bndlist.begin(), reactMol2.bndlist.end(), [&](const size_t& iface) { return iface == relIface2; }));
-            //	  reactMol2.bndpartner.erase(std::find_if(reactMol2.bndpartner.begin(), reactMol2.bndpartner.end(), [&](const size_t& mol) { return mol == reactMol1.index; }));
+            if (bondSlot2 < reactMol2.bndlist.size())
+                reactMol2.bndlist.erase(reactMol2.bndlist.begin() + bondSlot2);
         }
 
         if (!keepSameComplex) {

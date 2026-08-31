@@ -152,7 +152,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
 
         apply_state_change_rotations(reactIface1, reactIface2, stateChangeIface, facilitatorIface,
             stateChangeMol, facilitatorMol, stateChangeCom, facilitatorCom, assocAngles, currRxn,
-            moleculeList, molTemplateList);
+            moleculeList, molTemplateList, params.numerics.associationAngles);
     } //only rotate if they are not both points.
 
     /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
@@ -439,6 +439,6 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     stateChangeCom.ncross = -1;
     facilitatorCom.ncross = -1;
-    stateChangeMol.crossbase.clear();
-    facilitatorMol.crossbase.clear();
+    stateChangeMol.crossings.clear();
+    facilitatorMol.crossings.clear();
 }

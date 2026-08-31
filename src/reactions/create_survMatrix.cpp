@@ -30,11 +30,13 @@ void create_survMatrix(gsl_matrix*& survMatrix, double bindRadius, double Dtot, 
 
         if (kr < 1.0 / 0.0) {
             double result { integrator(
-                F, intParams, w, RIndex, bindRadius, Dtot, kr, params.timeStep, funcID, survival_function) };
+                F, intParams, w, RIndex, bindRadius, Dtot, kr, params.timeStep, funcID, survival_function,
+                params.numerics.integration) };
             gsl_matrix_set(survMatrix, 1, ctr, result);
         } else {
             double result { integrator(
-                F, intParams, w, RIndex, bindRadius, Dtot, kr, params.timeStep, funcID, survival_function) };
+                F, intParams, w, RIndex, bindRadius, Dtot, kr, params.timeStep, funcID, survival_function,
+                params.numerics.integration) };
             gsl_matrix_set(survMatrix, 1, ctr, 1.0 - result);
         }
         ctr = ctr + 1;

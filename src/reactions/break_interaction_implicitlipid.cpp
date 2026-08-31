@@ -1,5 +1,6 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "tracing.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 
 void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
     const BackRxn& currRxn, std::vector<Molecule>& moleculeList,
@@ -43,8 +44,12 @@ void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_
     }
     //Add these protein into the bimolecular association list
     reactMol1.freelist.push_back(relIface1);
-    reactMol1.bndlist.erase(std::find_if(reactMol1.bndlist.begin(), reactMol1.bndlist.end(), [&](const size_t& iface) { return iface == relIface1; }));
-    reactMol1.bndpartner.erase(std::find_if(reactMol1.bndpartner.begin(), reactMol1.bndpartner.end(), [&](const size_t& mol) { return mol == reactMol2.index; }));
+    // Was two independent find_if + erase calls, neither guarded: if the
+    // interface was not bound, find_if returns end() and erase(end()) is
+    // undefined.  They also selected by different keys, so they could remove
+    // entries describing different bonds.  erase_bond() locates once through
+    // bndlist and removes the matching pair, or does nothing.
+    erase_bond(reactMol1, static_cast<int>(relIface1));
 
     //------------------------START UPDATE MONOMERLIST-------------------------
     // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer, add to monomerList if new monomer produced

@@ -26,7 +26,7 @@ start reactions
     offRatekb =0.0 #s-1
     kcat = 20. #s-1
     sigma = 1
-    coupledRxnLabel = autoP #FORCE RXN NUM LISTED (rate=INF)
+    coupledRxnLabel = autoP #PERFORM RXN NUM LISTED On DISSOCIATION (prob=kcat/(kcat+offRatekb))
     norm1=[0,0,1]
     norm2=[0,0,1]
     assocAngles=[nan, nan, nan, nan, nan]
@@ -37,7 +37,7 @@ start reactions
     offRatekb = 0.0  #s-1
     kcat = 53.9 #s-1
     sigma = 1
-    coupledRxnLabel = autoDP #FORCE RXN NUM LISTED (rate=INF)    
+    coupledRxnLabel = autoDP #PERFORM RXN NUM LISTED On DISSOCIATION (prob=kcat/(kcat+offRatekb))
     norm1=[0,0,1]
     norm2=[0,0,1]
     assocAngles=[nan, nan, nan, nan, nan]
