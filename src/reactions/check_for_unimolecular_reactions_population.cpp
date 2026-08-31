@@ -184,7 +184,18 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
             int NA { 0 };
             std::vector<int> poolAList {}; // this is all the A molecule index with TrajStatus::None and is the reaction's reactant
             for (auto& oneMol : moleculeList) {
-                if (oneMol.trajStatus == TrajStatus::none && isReactant(oneMol, complexList[oneMol.myComIndex], oneRxn, moleculeList)) {
+                // Molecule::destroy() sets isEmpty, leaves myComIndex at -1, and
+                // resets trajStatus to none, so a molecule destroyed earlier in
+                // this same routine passes the trajStatus test and then indexes
+                // complexList with -1.  isReactant() reads memberList off that
+                // out-of-bounds Complex -- a vector header made of whatever the
+                // neighbouring allocation holds -- and calls size() on it.  A
+                // destroyed molecule is not a reactant in any case, so it is
+                // skipped before the complex is looked up; && evaluates left to
+                // right, so the argument is never formed.
+                if (oneMol.isEmpty == false && oneMol.myComIndex >= 0
+                    && oneMol.trajStatus == TrajStatus::none
+                    && isReactant(oneMol, complexList[oneMol.myComIndex], oneRxn, moleculeList)) {
                     poolAList.push_back(oneMol.index);
                 }
             }
