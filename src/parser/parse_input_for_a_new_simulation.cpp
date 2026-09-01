@@ -172,6 +172,7 @@ void parse_input_for_a_new_simulation(
   trajFile.close();
 
   // Initialize transition matrix for each molType
+  check_transition_matrix_size(molTemplateList, createDestructRxns);
   for (auto& molTemp : molTemplateList) {
     if (molTemp.countTransition == true) {
       molTemp.transitionMatrix.resize(molTemp.transitionMatrixSize);
