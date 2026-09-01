@@ -65,6 +65,8 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
     try {
         auto key = static_cast<std::underlying_type<ParamKeyword>::type>(keywords);
         switch (key) {
+
+        // these should be read in as doubles then converted to long, otherwise scientific notation breaks
         case 0:
             this->numMolTypes = std::stoi(value);
             std::cout << "Read in numMolTypes: " << this->numMolTypes << std::endl;
@@ -74,7 +76,8 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in numTotalSpecies: " << this->numTotalSpecies << std::endl;
             break;
         case 2:
-            this->nItr = std::stoll(value);
+            temp = std::stod(value);
+            this->nItr = static_cast<long long int>(temp);
             std::cout << "Read in nItr: " << this->nItr << " timeSteps" << std::endl;
             break;
         case 3:
@@ -82,11 +85,13 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in fromRestart: " << std::boolalpha << this->fromRestart << std::endl;
             break;
         case 4:
-            this->timeWrite = std::stoll(value);
+            temp = std::stod(value);
+            this->timeWrite = static_cast<long long int>(temp);
             std::cout << "Read in timeWrite: " << this->timeWrite << " timeSteps" << std::endl;
             break;
         case 5:
-            this->trajWrite = std::stoll(value);
+            temp = std::stod(value);
+            this->trajWrite = static_cast<long long int>(temp);
             std::cout << "Read in trajWrite: " << this->trajWrite << " timeSteps" << std::endl;
             break;
         case 6:
@@ -102,11 +107,13 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in mass: " << this->mass << std::endl;
             break;
         case 10:
-            this->restartWrite = std::stoll(value);
+            temp = std::stod(value);
+            this->restartWrite = static_cast<long long int>(temp);
             std::cout << "Read in restartWrite: " << this->restartWrite << " timeSteps" << std::endl;
             break;
         case 11:
-            this->pdbWrite = std::stoll(value);
+            temp = std::stod(value);
+            this->pdbWrite = static_cast<long long int>(temp);
             std::cout << "Read in pdbWrite: " << this->pdbWrite << " timeSteps" << std::endl;
             break;
         case 12:
@@ -118,7 +125,8 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in name: " << value << std::endl;
             break;
         case 14:
-            this->checkPoint = std::stoll(value);
+            temp = std::stod(value);
+            this->checkPoint = static_cast<long long int>(temp);
             std::cout << "Read in checkPoint: " << this->checkPoint << " timeSteps" << std::endl;
             break;
         case 15:
@@ -126,7 +134,8 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in scaleMaxDisplace: " << this->scaleMaxDisplace << std::endl;
             break;
         case 16:
-            this->transitionWrite = std::stoll(value);
+            temp = std::stod(value);
+            this->transitionWrite = static_cast<long long int>(temp);
             std::cout << "Read in transitionWrite: " << this->transitionWrite << " timeSteps" << std::endl;
             break;
         case 17:
