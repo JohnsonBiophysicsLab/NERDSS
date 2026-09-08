@@ -3,6 +3,12 @@
 All numbers below were measured on 2026-08-10. See
 [`docs/nerdss_optimized.md`](../../docs/nerdss_optimized.md) for what changed and why.
 
+Each section here compares one commit, or one batch, against what came
+immediately before it. For the whole branch measured as a single change against
+`master` -- speed, bitwise identity with the stream-changing commits
+quarantined, and statistics for the rest -- see
+[`BRANCH_REPORT.md`](BRANCH_REPORT.md).
+
 ## Setup
 
 | | |
