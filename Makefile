@@ -49,24 +49,33 @@ INCLUDE_FOLDERS = boundary_conditions classes error math parser reactions system
 
 ifneq (,$(filter serial,$(MAKECMDGOALS)))
 	_EXEC = nerdss
+	ODIR := $(ODIR)/serial
 endif
 
 ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 	_EXEC = nerdss_mpi
 	DEFS = -Dmpi_
 	INCLUDE_FOLDERS += debug io_mpi mpi
+	ODIR := $(ODIR)/mpi
 endif
 
 ifneq (,$(filter clean,$(MAKECMDGOALS)))
 	MAKECMDGOALS = dummy
 endif
 
+# debug and profile get their own object trees for the same reason serial and
+# mpi do: they change the flags without changing the sources, so make would
+# otherwise reuse whatever the last build left behind.  debug is the sharper
+# case -- it adds -fsanitize=address, and mixing instrumented objects with
+# uninstrumented ones is its own class of run-time nonsense.
 ifneq (,$(filter debug,$(MAKECMDGOALS)))
 	ENABLE_DEBUG = true
+	ODIR := $(ODIR)-debug
 endif
 
 ifneq (,$(filter profile,$(MAKECMDGOALS)))
 	ENABLE_PROFILING = true
+	ODIR := $(ODIR)-profile
 endif
 
 SRCS = $(foreach dir,$(INCLUDE_FOLDERS),$(wildcard $(SDIR)/$(dir)/*.cpp))
@@ -87,9 +96,15 @@ DEPFLAGS = -MMD -MP
 # ---------------- COMPILER SETUP
 PROF   =
 
+# $(filter ...), not ifeq: MAKECMDGOALS is the whole goal list, so an exact
+# comparison against "mpi" matched `make mpi` and nothing else.  `make mpi debug`
+# and `make mpi profile` left CC at g++ while still defining mpi_ and pulling in
+# src/mpi, so the build died on a missing mpi.h -- there was no way to build an
+# instrumented MPI binary, which is what you want precisely when the parallel
+# run is the thing misbehaving.
 ifeq ($(GCC),0)
 	CC      = g++
-	ifeq (mpi,$(MAKECMDGOALS))
+	ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 		CC = mpicxx
 	endif
 	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
@@ -97,7 +112,7 @@ endif
 
 ifeq ($(INTEL),0)
 	CC      = icpc
-	ifeq (mpi,$(MAKECMDGOALS))
+	ifneq (,$(filter mpi,$(MAKECMDGOALS)))
 		CC = mpicxx
 	endif
 	CFLAGS  = -O3 # use -O2 if profiling is confused by optimization
@@ -118,6 +133,20 @@ ifdef ENABLE_PROFILING
 endif
 
 # ---------------- OBJECT FILES
+# Each mode gets its own object tree (obj/serial, obj/mpi).  Both modes compile
+# the same sources, but -Dmpi_ changes what those sources mean: it selects a
+# different subvolume grid in class_SimulVolume.cpp, a different free-protein
+# count in check_dissociation_implicitlipid.cpp, and -- the dangerous one --
+# adds MPI_Request/MPI_Status members to MpiContext in include/split.cpp.
+#
+# With a single shared obj/, the second build reused the first mode's objects,
+# because their .cpp files had not changed since those .o files were written.
+# `make serial && make mpi` therefore linked an MPI binary in which only the 15
+# MPI-only sources knew about -Dmpi_ and the other 208 did not.  The two halves
+# disagreed about the layout of MpiContext -- xOffset sits at byte 56 without
+# mpi_ and at byte 136 with it -- so the parallel cell assignment in
+# class_SimulVolume.cpp read domain bounds from the wrong offsets.  It compiled,
+# it linked, it ran, and it reported zero of every species.
 OBJS = $(patsubst $(SDIR)/%.cpp,$(ODIR)/%.o,$(SRCS))
 
 # ---------------- RULES
@@ -140,7 +169,7 @@ $(MAKECMDGOALS): $(EXEC)
 # the link step compiles a translation unit, and that unit includes headers.
 $(EXEC): $(OBJS) $(EDIR)/$(_EXEC).cpp
 	@echo "Compiling $(EDIR)/$(@F).cpp"
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -MF $(ODIR)/$(@F).d -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG)
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -MF $(ODIR)/$(@F).d -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG) $(DEFS)
 	@echo "------------"
 
 $(ODIR)/%.o: $(SDIR)/%.cpp

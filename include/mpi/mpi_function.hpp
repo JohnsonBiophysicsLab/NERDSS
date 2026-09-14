@@ -31,6 +31,17 @@ void move_complexes_based_on_propagation(MpiContext &mpiContext, vector<Molecule
 int find_molecule(vector<Molecule> &moleculeList, int id);
 
 /*! \ingroup mpi_function
+ * \brief Verify that every molecule is owned by exactly one rank.
+ *
+ * Reports ids owned by two ranks and ids held only as ghosts, and returns false
+ * if either set is non-empty.  Collective: every rank must call it.
+ */
+bool check_ownership_invariant(MpiContext &mpiContext,
+                               vector<Molecule> &moleculeList,
+                               vector<Complex> &complexList, long long simItr,
+                               const char *label);
+
+/*! \ingroup mpi_function
  * \brief Search for the complex with the same ID within complexList
  */
 int find_complex(vector<Complex> &complexList, int id);

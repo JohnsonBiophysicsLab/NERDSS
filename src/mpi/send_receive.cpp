@@ -6,6 +6,21 @@
 
 using namespace std;
 
+// Ghost status is derived, never decided independently: a molecule is a ghost
+// exactly when its complex is owned by somebody else.  This runs after the
+// complexes have been deserialized, because molecules arrive first and the
+// ownership stamp travels with the complex.
+static void derive_ghost_from_ownership(MpiContext &mpiContext,
+                                        vector<Molecule> &moleculeList,
+                                        vector<Complex> &complexList) {
+  for (auto &mol : moleculeList) {
+    if (mol.isImplicitLipid || mol.isEmpty) continue;
+    int ci = mol.myComIndex;
+    if (ci < 0 || ci >= (int)complexList.size()) continue;
+    mol.isGhosted = (complexList[ci].ownerRank != mpiContext.rank);
+  }
+}
+
 void send_data_to_left_neighboring_ranks(
     MpiContext &mpiContext, long long int simItr, Parameters &params,
     SimulVolume &simulVolume, vector<int> &left, vector<Molecule> &moleculeList,
@@ -30,6 +45,10 @@ void send_data_to_left_neighboring_ranks(
         for (auto& molIdx : simulVolume.subCellList[currBin].memberMolList) {
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
+          // Hand the complex over: name the new owner rather than only marking
+          // this copy a ghost.  The receiver reads the stamp instead of deciding
+          // for itself, so exactly one rank ends up owning it.
+          complexList[mol.myComIndex].ownerRank = mpiContext.rank - 1;
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
@@ -110,6 +129,8 @@ void send_data_to_right_neighboring_ranks(
         for (auto& molIdx : simulVolume.subCellList[currBin].memberMolList) {
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
+          // Mirror of the left send: hand the complex to the right neighbour.
+          complexList[mol.myComIndex].ownerRank = mpiContext.rank + 1;
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
@@ -233,6 +254,7 @@ void receive_right_neighborhood_zones(
     deserialize_complexes_right(mpiContext, moleculeList, complexList,
                                 mpiContext.MPIArrayFromRight,
                                 mpiContext.nMPIArrayFromRight);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
     if (DEBUG) {
       DEBUG_FIND_MOL("1.5_ (after deserialize_complexes)");
       DEBUG_FIND_COMPLEX("1.5_ (after deserialize_complexes)");
@@ -347,6 +369,7 @@ void receive_left_neighborhood_zones(
     deserialize_complexes(mpiContext, moleculeList, complexList,
                           mpiContext.MPIArrayFromLeft,
                           mpiContext.nMPIArrayFromLeft);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
     if (DEBUG) {
       DEBUG_FIND_MOL("1.5 (after deserialize_complexes)");
       DEBUG_FIND_COMPLEX("1.5 (after deserialize_complexes)");
