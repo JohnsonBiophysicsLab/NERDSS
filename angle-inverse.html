@@ -1,0 +1,1424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NERDSS Angle Solver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #e7ebee;
+    --panel: #fdfefe;
+    --panel-2: #eef2f5;
+    --sunken: #e2e8ec;
+    --ink: #111820;
+    --muted: #596a75;
+    --line: #c7d1d8;
+    --line-soft: #dde4e9;
+    --accent: #0a6b74;
+    --accent-soft: #d3ebea;
+    --ok: #2c7049;
+    --warn: #8f5310;
+    --warn-soft: #f6e7d2;
+    --danger: #a2373a;
+    --danger-soft: #f6dcdd;
+    --mol1: #c44a42;
+    --mol2: #2f6ea8;
+    --sigma: #957014;
+    --normal1: #3f8049;
+    --normal2: #77539d;
+    --shadow: 0 10px 28px rgba(22, 36, 45, .09);
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161a;
+      --panel: #1a2226;
+      --panel-2: #212b30;
+      --sunken: #161e22;
+      --ink: #e6eef1;
+      --muted: #97a7b0;
+      --line: #33414a;
+      --line-soft: #27333a;
+      --accent: #4ec2ba;
+      --accent-soft: #143d3c;
+      --ok: #6cbd8a;
+      --warn: #e2a463;
+      --warn-soft: #3a2c16;
+      --danger: #e78b8d;
+      --danger-soft: #3c2022;
+      --mol1: #ec7c73;
+      --mol2: #6ba6da;
+      --sigma: #cfa94f;
+      --normal1: #7dba85;
+      --normal2: #ab86cd;
+      --shadow: 0 10px 30px rgba(0, 0, 0, .36);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 15px/1.5 var(--sans);
+  }
+  a { color: var(--accent); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .bench { max-width: 1520px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 40px; }
+
+  .masthead {
+    display: flex; flex-wrap: wrap; gap: 20px 32px;
+    align-items: flex-end; justify-content: space-between;
+    padding-bottom: 18px; margin-bottom: 20px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .masthead h1 { margin: 4px 0 6px; font-size: clamp(26px, 3.4vw, 38px); font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+  .kicker { font: 600 11.5px/1 var(--cond); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+  .standfirst { margin: 0; max-width: 62ch; color: var(--muted); }
+  .standfirst code { font: 500 .92em var(--mono); color: var(--ink); }
+  .srcref {
+    font: 500 12px/1.35 var(--mono); color: var(--muted);
+    text-align: right; text-decoration: none; white-space: nowrap;
+  }
+  .srcref b { display: block; color: var(--ink); font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: 340px minmax(0, 1fr) 372px; gap: 20px; align-items: start; }
+  @media (max-width: 1240px) { .grid { grid-template-columns: 320px minmax(0, 1fr); } .col-out { grid-column: 1 / -1; } }
+  @media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); } .col-out { grid-column: auto; } }
+  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+  .block { min-width: 0; }
+  .block > h2 {
+    margin: 0 0 10px;
+    font: 600 11.5px/1 var(--cond); letter-spacing: .15em; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .block > h2 .hint { font: 400 11px/1 var(--sans); letter-spacing: 0; text-transform: none; }
+  .surface {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 3px; box-shadow: var(--shadow);
+  }
+
+  /* ---- coordinate table ---- */
+  .coords { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .coords th, .coords td { padding: 0; }
+  .coords thead th {
+    font: 600 10.5px/1 var(--cond); letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: center; padding: 8px 0 7px; border-bottom: 1px solid var(--line);
+  }
+  .coords thead th:first-child { text-align: left; padding-left: 12px; }
+  .coords tbody tr + tr td { border-top: 1px solid var(--line-soft); }
+  .coords .rowlab {
+    padding: 0 6px 0 12px; white-space: nowrap;
+    font: 600 14px/1 var(--mono); width: 1%;
+  }
+  .coords .rowlab i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: baseline; }
+  .coords .r1 { color: var(--mol1); }
+  .coords .r2 { color: var(--mol2); }
+  .num {
+    width: 100%; min-width: 0; padding: 9px 6px; text-align: right;
+    background: transparent; border: 0; border-left: 1px solid var(--line-soft);
+    font: 400 13.5px/1.2 var(--mono); font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .num::-webkit-outer-spin-button, .num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .num:hover { background: var(--panel-2); }
+  .num:focus { background: var(--accent-soft); outline-offset: -2px; }
+  .num.bad { color: var(--danger); background: var(--danger-soft); }
+
+  /* ---- normals ---- */
+  .fileflag {
+    display: flex; gap: 9px; align-items: flex-start;
+    padding: 9px 11px; margin-bottom: 10px;
+    background: var(--warn-soft); border-left: 3px solid var(--warn);
+    border-radius: 0 3px 3px 0;
+    font-size: 12.5px; line-height: 1.42; color: var(--ink);
+  }
+  .fileflag b { color: var(--warn); }
+  .fileflag code { font: 500 .93em var(--mono); }
+  .normgrp + .normgrp { border-top: 1px solid var(--line); }
+  .normhead {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px 7px;
+    font: 600 11px/1 var(--cond); letter-spacing: .13em; text-transform: uppercase;
+  }
+  .normhead .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .normhead .len { margin-left: auto; letter-spacing: 0; text-transform: none; font: 400 11.5px/1 var(--mono); color: var(--muted); }
+  .frame-row { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: stretch; border-top: 1px solid var(--line-soft); }
+  .frame-row > .tag {
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    padding: 6px 4px 6px 12px;
+    font: 600 10.5px/1.15 var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .frame-row > .tag em { font: 400 10px/1 var(--sans); letter-spacing: 0; text-transform: none; font-style: normal; color: var(--muted); opacity: .8; }
+  .frame-row.is-file > .tag { color: var(--warn); }
+  .triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  details.tmpl { border-top: 1px solid var(--line); }
+  details.tmpl > summary {
+    list-style: none; cursor: pointer; padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  details.tmpl > summary::-webkit-details-marker { display: none; }
+  details.tmpl > summary::before { content: "▸"; font-size: 10px; color: var(--accent); transition: transform .15s; }
+  details.tmpl[open] > summary::before { transform: rotate(90deg); }
+  details.tmpl > summary b { color: var(--ink); font-weight: 600; }
+  .tmpl-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: var(--muted); }
+  .tmpl-body p { margin: 0; line-height: 1.45; }
+  .switchline { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
+  .tmpl-mol { border: 1px solid var(--line-soft); border-radius: 3px; }
+  .tmpl-mol > .normhead { padding: 7px 10px 5px; }
+  .tmpl-mol .frame-row { grid-template-columns: 78px minmax(0, 1fr); }
+  .rollrow { display: grid; grid-template-columns: 78px minmax(0, 1fr) 62px; gap: 0; align-items: center; border-top: 1px solid var(--line-soft); }
+  .rollrow input[type="range"] { width: 100%; margin: 0 8px; accent-color: var(--accent); }
+
+  /* ---- presets ---- */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    cursor: pointer; padding: 7px 11px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    font-size: 12.5px; line-height: 1; transition: background .12s, border-color .12s;
+  }
+  .chip:hover { background: var(--panel-2); border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #08191b; } }
+  .chip .mono { font-family: var(--mono); font-size: 12px; }
+
+  /* ---- stage ---- */
+  .stage { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .stagebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tab {
+    cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+    border-radius: 3px; padding: 6px 13px; font: 500 14px/1 var(--mono);
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab[aria-pressed="true"] { color: #08191b; } }
+  .ghost { cursor: pointer; background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 6px 11px; font-size: 12.5px; color: var(--muted); }
+  .ghost:hover { color: var(--ink); border-color: var(--accent); }
+  .canvas-wrap { position: relative; aspect-ratio: 4 / 3; min-height: 300px; background: var(--sunken); border: 1px solid var(--line-soft); border-radius: 2px; overflow: hidden; }
+  @media (max-width: 880px) { .canvas-wrap { aspect-ratio: 1 / 1; } }
+  #scene { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #scene:active { cursor: grabbing; }
+  .labels { position: absolute; inset: 0; pointer-events: none; }
+  .tag3d {
+    position: absolute; white-space: nowrap;
+    font: 600 12px/1 var(--mono);
+    text-shadow: 0 0 4px var(--sunken), 0 0 9px var(--sunken), 0 0 3px var(--sunken);
+  }
+  .tag3d.axis { font-weight: 400; font-size: 10.5px; opacity: .8; }
+  .badge {
+    position: absolute; left: 10px; top: 10px;
+    padding: 5px 10px; border-radius: 3px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    font: 600 11px/1.3 var(--cond); letter-spacing: .09em; text-transform: uppercase;
+  }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 42%, transparent); }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 42%, transparent); }
+  .hintline { position: absolute; right: 10px; bottom: 9px; font: 400 11px/1 var(--sans); color: var(--muted); }
+  .key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .key i { width: 11px; height: 3px; border-radius: 2px; background: currentColor; }
+
+  /* ---- results ---- */
+  .angles { font-variant-numeric: tabular-nums; }
+  .angrow {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 10px; align-items: baseline;
+    padding: 10px 12px; border-left: 3px solid transparent; cursor: pointer;
+    background: transparent; border-top: 0; border-right: 0; border-bottom: 0;
+    width: 100%; text-align: left; font: inherit;
+  }
+  .angrow + .angrow { box-shadow: inset 0 1px 0 var(--line-soft); }
+  .angrow:hover { background: var(--panel-2); }
+  .angrow[aria-pressed="true"] { border-left-color: var(--accent); background: var(--panel-2); }
+  .angrow .sym { font: 500 17px/1 var(--mono); }
+  .angrow .rad { font: 500 17px/1 var(--mono); }
+  .angrow .deg { font: 400 12px/1.5 var(--mono); color: var(--muted); }
+  .angrow .state { justify-self: end; text-align: right; }
+  .pill {
+    display: inline-block; padding: 2px 7px; border-radius: 2px;
+    font: 600 9.5px/1.5 var(--cond); letter-spacing: .1em; text-transform: uppercase;
+  }
+  .pill.ok { background: var(--accent-soft); color: var(--accent); }
+  .pill.alt { background: var(--warn-soft); color: var(--warn); }
+  .pill.dead { background: var(--danger-soft); color: var(--danger); }
+  .angrow .why { grid-column: 2 / -1; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+
+  .outblock { padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+  .outhead { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .outhead label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  pre.param {
+    margin: 0; padding: 11px 12px; overflow-x: auto;
+    background: var(--sunken); border: 1px solid var(--line-soft); border-radius: 2px;
+    font: 400 11.5px/1.7 var(--mono); tab-size: 2; white-space: pre;
+  }
+  pre.param .cmt { color: var(--muted); }
+  pre.param .key2 { color: var(--accent); }
+  .copy {
+    cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 3px; padding: 7px 14px; font: 600 12.5px/1 var(--sans);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .copy { color: #08191b; } }
+  .copy:hover { filter: brightness(1.08); }
+
+  .notes { display: flex; flex-direction: column; }
+  .note { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; }
+  .note + .note { border-top: 1px solid var(--line-soft); }
+  .note .mk { font: 700 12px/1.35 var(--mono); }
+  .note.info .mk { color: var(--accent); }
+  .note.warn .mk { color: var(--warn); }
+  .note.danger .mk { color: var(--danger); }
+  .note b { font-weight: 600; }
+  .note code, .rule code { font: 500 .92em var(--mono); }
+
+  .rules { padding: 4px 0; }
+  .rule { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; padding: 9px 12px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+  .rule + .rule { border-top: 1px solid var(--line-soft); }
+  .rule .when { font: 500 12.5px/1.45 var(--mono); color: var(--ink); }
+  .rule b { color: var(--ink); font-weight: 600; }
+
+  .foot { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .foot code { font: 500 .93em var(--mono); }
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--panel); padding: 9px 16px; border-radius: 3px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50;
+  }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main class="bench">
+  <header class="masthead">
+    <div>
+      <div class="kicker">Geometry in · angles out</div>
+      <h1>NERDSS angle solver</h1>
+      <p class="standfirst">Give the bound-state coordinates of two reactants and their normal vectors; this returns the five association angles exactly as <code>calculate_phi()</code> and <code>calculate_omega()</code> measure them, plus the <code>assocAngles</code> line to paste into your parameter file.</p>
+    </div>
+    <a class="srcref" href="https://github.com/JohnsonBiophysicsLab/NERDSS">
+      <b>Inverse of the angle explorer</b>
+      src/reactions/calculate_{phi,omega}.cpp
+    </a>
+  </header>
+
+  <div class="grid">
+    <!-- ------------------------------------------------ input rail -->
+    <section class="col col-in">
+      <div class="block">
+        <h2>Special cases <span class="hint">load an example</span></h2>
+        <div class="presets" id="presets" role="group" aria-label="Load an example geometry"></div>
+      </div>
+
+      <div class="block">
+        <h2>Bound-state coordinates <span class="hint">lab frame, nm</span></h2>
+        <div class="surface">
+          <table class="coords">
+            <thead>
+              <tr><th scope="col">Site</th><th scope="col">x</th><th scope="col">y</th><th scope="col">z</th></tr>
+            </thead>
+            <tbody id="coordBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>Normal vectors</h2>
+        <p class="fileflag">
+          <b>⚑</b>
+          <span><b>The parameter file takes the local vector.</b> <code>norm1</code> and <code>norm2</code> are read in each molecule&rsquo;s template frame &mdash; the frame of its <code>.mol</code> coordinates. <code>determine_normal()</code> rotates them into the lab frame before any angle is measured, and the lab-frame vector is what the geometry below shows.</span>
+        </p>
+        <div class="surface" id="normalHost"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ stage -->
+    <section class="col col-stage">
+      <div class="block">
+        <h2>Geometry <span class="hint">drag to orbit &middot; wheel to zoom</span></h2>
+        <div class="surface stage">
+          <div class="stagebar">
+            <div class="tabs" role="group" aria-label="Highlight an angle">
+              <button class="tab" type="button" data-angle="theta1" aria-pressed="true">θ₁</button>
+              <button class="tab" type="button" data-angle="theta2" aria-pressed="false">θ₂</button>
+              <button class="tab" type="button" data-angle="phi1" aria-pressed="false">φ₁</button>
+              <button class="tab" type="button" data-angle="phi2" aria-pressed="false">φ₂</button>
+              <button class="tab" type="button" data-angle="omega" aria-pressed="false">ω</button>
+            </div>
+            <button class="ghost" type="button" id="resetView">Reset view</button>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="scene" aria-label="Three-dimensional view of the two reactants, the sigma vector, both normals, and the highlighted angle"></canvas>
+            <div class="labels" id="labels" aria-hidden="true"></div>
+            <div class="badge" id="badge">ordinary branch</div>
+            <div class="hintline">WebGL · depth tested</div>
+          </div>
+          <div class="key">
+            <span style="color:var(--mol1)"><i></i>reactant 1 · b₁ = I₁ − C₁</span>
+            <span style="color:var(--mol2)"><i></i>reactant 2 · b₂ = I₂ − C₂</span>
+            <span style="color:var(--sigma)"><i></i>σ = I₁ − I₂</span>
+            <span style="color:var(--normal1)"><i></i>n₁ (lab)</span>
+            <span style="color:var(--normal2)"><i></i>n₂ (lab)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>What NERDSS does at the edges</h2>
+        <div class="surface rules" id="rules"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ output rail -->
+    <section class="col col-out">
+      <div class="block">
+        <h2>Solved angles <span class="hint">radians · degrees</span></h2>
+        <div class="surface angles" id="angles"></div>
+      </div>
+
+      <div class="block">
+        <h2>Parameter file</h2>
+        <div class="surface outblock">
+          <div class="outhead">
+            <label for="useNan"><input type="checkbox" id="useNan" checked> write <code style="font-family:var(--mono)">nan</code> for undefined angles</label>
+            <button class="copy" type="button" id="copyBtn">Copy</button>
+          </div>
+          <pre class="param" id="paramOut"></pre>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>Diagnostics</h2>
+        <div class="surface notes" id="notes"></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">
+    Every angle on this page is computed by the same arithmetic as the simulator: <code>transform()</code> rotates the axis onto +z, both operands are projected onto the xy-plane, <code>Vec3D::angle_between()</code> returns the unsigned angle, and the sign is flipped when the projected cross product has a positive z component. θ comes straight from <code>acos</code> and is always in [0, π]; φ and ω are dihedrals in (−π, +π] — the endpoint is reported as <code>+π</code>, never <code>−π</code>.
+  </p>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================================================================
+     1. Constants lifted from the source
+     ================================================================ */
+  const PI = Math.PI, RAD = PI / 180, DEG = 180 / PI;
+  const TOL = {
+    phiEndpoint: 1e-12,   // hard-coded in calculate_phi.cpp
+    omegaEndpoint: 1e-11, // calculate_omega.cpp / numericsAssociationEndpointSignTolerance
+    sameAngle: 1e-4,      // areSameAngle() / numericsAssociationSameAngleAbsTolerance
+    zeroMag: 1e-8         // Vec3D::angle_between() warns and returns 0 below this
+  };
+  const DECIMALS = 6;
+
+  /* ================================================================
+     2. Vector helpers
+     ================================================================ */
+  const V = {
+    add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+    sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+    mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+    neg: a => [-a[0], -a[1], -a[2]],
+    dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+    mag: a => Math.hypot(a[0], a[1], a[2]),
+    unit: a => { const m = Math.hypot(a[0], a[1], a[2]); return m === 0 ? [0, 0, 0] : [a[0] / m, a[1] / m, a[2] / m]; },
+    perp: (a, k) => { const u = V.unit(k); return V.sub(a, V.mul(u, V.dot(a, u))); },
+    lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+  };
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const rodrigues = (v, axis, a) => {
+    const k = V.unit(axis), c = Math.cos(a), s = Math.sin(a);
+    return V.add(V.add(V.mul(v, c), V.mul(V.cross(k, v), s)), V.mul(k, V.dot(k, v) * (1 - c)));
+  };
+
+  /* ================================================================
+     3. The measurement code, mirrored one-for-one
+     ================================================================ */
+
+  // Vec3D::angle_between(vec, selfNorm, vecNorm)
+  function angleBetween(a, b) {
+    const na = V.mag(a), nb = V.mag(b);
+    let c = V.dot(a, b) / (na * nb);
+    if (Math.abs(c - 1) < 1e-12) c = 1;
+    if (Math.abs(-1 - c) < 1e-12) c = -1;
+    if (na < TOL.zeroMag || nb < TOL.zeroMag) return { value: 0, dead: true };
+    return { value: Math.acos(clamp(c, -1, 1)), dead: false };
+  }
+
+  // transform(): rotate so that `axis` lands on +z. A zero-length or already
+  // (anti)parallel axis is left alone, exactly as the source does.
+  function alignToZ(v, axis) {
+    const z = [0, 0, 1];
+    const ang = angleBetween(z, axis);
+    if (ang.dead || ang.value === 0 || ang.value === PI) return v.slice();
+    return rodrigues(v, V.unit(V.cross(z, axis)), -ang.value);
+  }
+
+  // The shared body of calculate_phi() and calculate_omega().
+  function dihedral(a, b, axis, endpointTol) {
+    const pa0 = alignToZ(a, axis), pb0 = alignToZ(b, axis);
+    const pa = [pa0[0], pa0[1], 0], pb = [pb0[0], pb0[1], 0];
+    const magA = V.mag(pa), magB = V.mag(pb);
+    const raw = angleBetween(pa, pb);
+    const crossZ = V.cross(pa, pb)[2];
+    let value = raw.value;
+    let flipped = false;
+    if (crossZ > 0 && Math.abs(value) > endpointTol && (PI - Math.abs(value)) > endpointTol) {
+      value = -value; flipped = true;
+    }
+    return { value, unsigned: raw.value, dead: raw.dead, magA, magB, crossZ, flipped };
+  }
+
+  // areSameAngle()
+  const sameAngle = (a, b) => Math.abs(a - b) < TOL.sameAngle;
+
+  /* The full measurement. `writtenTheta*` are the values that will actually sit
+     in the input file, because calculate_omega() tests currRxn.assocAngles,
+     not the geometry. */
+  function solve(pts, n1, n2) {
+    const { C1, I1, I2, C2 } = pts;
+    const s1 = V.sub(I1, I2), s2 = V.sub(I2, I1);
+    const b1 = V.sub(I1, C1), b2 = V.sub(I2, C2);
+
+    const t1 = angleBetween(s1, b1);
+    const t2 = angleBetween(s2, b2);
+    const p1 = dihedral(s1, n1, b1, TOL.phiEndpoint);
+    const p2 = dihedral(s2, n2, b2, TOL.phiEndpoint);
+
+    const written1 = Number(t1.value.toFixed(DECIMALS));
+    const written2 = Number(t2.value.toFixed(DECIMALS));
+    const special = sameAngle(written1, PI) || sameAngle(written2, PI);
+
+    const omCom = dihedral(b1, b2, s1, TOL.omegaEndpoint);
+    const omNrm = dihedral(n1, n2, s1, TOL.omegaEndpoint);
+    const om = special ? omNrm : omCom;
+
+    return {
+      s1, s2, b1, b2, n1, n2,
+      sigmaLength: V.mag(s1),
+      theta1: t1, theta2: t2, phi1: p1, phi2: p2, omega: om,
+      omegaCom: omCom, omegaNormal: omNrm,
+      special, written1, written2
+    };
+  }
+
+  /* ================================================================
+     4. Template frame -> lab frame (determine_normal's job)
+     ================================================================ */
+  function minimalRotation(from, to) {
+    const a = V.unit(from), b = V.unit(to);
+    if (V.mag(a) === 0 || V.mag(b) === 0) return v => v.slice();
+    const d = clamp(V.dot(a, b), -1, 1);
+    if (d > 1 - 1e-15) return v => v.slice();
+    if (d < -1 + 1e-15) {
+      const seed = Math.abs(a[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      const ax = V.unit(V.cross(a, seed));
+      return v => rodrigues(v, ax, PI);
+    }
+    const ax = V.unit(V.cross(a, b)), ang = Math.acos(d);
+    return v => rodrigues(v, ax, ang);
+  }
+  // Rotation taking a template-frame vector to the lab frame.
+  function templateToLab(tmplAxis, labAxis, rollDeg) {
+    const base = minimalRotation(tmplAxis, labAxis);
+    const k = V.unit(labAxis), r = rollDeg * RAD;
+    if (V.mag(k) === 0 || r === 0) return base;
+    return v => rodrigues(base(v), k, r);
+  }
+  function labToTemplate(tmplAxis, labAxis, rollDeg) {
+    const k = V.unit(labAxis), r = rollDeg * RAD;
+    const back = minimalRotation(labAxis, tmplAxis);
+    if (V.mag(k) === 0 || r === 0) return back;
+    return v => back(rodrigues(v, k, -r));
+  }
+
+  /* ================================================================
+     5. State
+     ================================================================ */
+  const EXAMPLES = {
+    general: {
+      label: 'General 3D', mono: '',
+      C1: [-1.441682, 0, 0.349137], I1: [0, 0, 1.25], I2: [0, 0, -1.25], C2: [-0.552977, 1.519291, -0.724671],
+      n1: [-0.374710, 0.707107, 0.599661], n2: [0.452409, 0.434041, -0.779060]
+    },
+    thetaPi: {
+      label: 'θ = π', mono: 'ω from n₁, n₂',
+      C1: [0, 0, 2.9], I1: [0, 0, 0.9], I2: [0, 0, -0.9], C2: [0, 0, -2.9],
+      n1: [1, 0, 0], n2: [0.766044, 0.642788, 0]
+    },
+    thetaZero: {
+      label: 'θ₁ = 0', mono: 'ω collapses',
+      C1: [0, 0, -1.1], I1: [0, 0, 0.9], I2: [0, 0, -0.9], C2: [-0.552977, 1.519291, -0.374671],
+      n1: [1, 0, 0], n2: [0.452409, 0.434041, -0.779060]
+    },
+    normalParallel: {
+      label: 'n₁ ∥ b₁', mono: 'φ₁ undefined',
+      C1: [-1.5, 0, 1.25], I1: [0, 0, 1.25], I2: [0, 0, -1.25], C2: [-0.552977, 1.519291, -0.724671],
+      n1: [1, 0, 0], n2: [0.452409, 0.434041, -0.779060]
+    },
+    endpoint: {
+      label: 'ω = π', mono: 'endpoint sign',
+      C1: [-1.441682, 0, 0.349137], I1: [0, 0, 1.25], I2: [0, 0, -1.25], C2: [1.616796, 0, -0.724671],
+      n1: [-0.374710, 0.707107, 0.599661], n2: [0.253132, -0.573576, -0.779060]
+    },
+    point: {
+      label: 'Point reactant', mono: 'C₁ = I₁',
+      C1: [0, 0, 1.25], I1: [0, 0, 1.25], I2: [0, 0, -1.25], C2: [-0.552977, 1.519291, -0.724671],
+      n1: [-0.374710, 0.707107, 0.599661], n2: [0.452409, 0.434041, -0.779060]
+    }
+  };
+
+  const state = {
+    preset: 'general',
+    pts: { C1: [0, 0, 0], I1: [0, 0, 0], I2: [0, 0, 0], C2: [0, 0, 0] },
+    nLab: { 1: [0, 0, 1], 2: [0, 0, 1] },
+    tmplLinked: true,                          // template frame == lab frame
+    tmpl: { 1: { axis: [0, 0, 1], roll: 0 }, 2: { axis: [0, 0, 1], roll: 0 } },
+    selected: 'theta1',
+    useNan: true,
+    view: { yaw: -0.62, pitch: 0.34, zoom: 1, dragging: false, lastX: 0, lastY: 0 }
+  };
+
+  function labAxisFor(k) {
+    return k === 1 ? V.sub(state.pts.I1, state.pts.C1) : V.sub(state.pts.I2, state.pts.C2);
+  }
+  function toLab(k, vLocal) {
+    if (state.tmplLinked) return vLocal.slice();
+    const lab = labAxisFor(k);
+    if (V.mag(lab) < TOL.zeroMag) return vLocal.slice();
+    return templateToLab(state.tmpl[k].axis, lab, state.tmpl[k].roll)(vLocal);
+  }
+  function toLocal(k, vLab) {
+    if (state.tmplLinked) return vLab.slice();
+    const lab = labAxisFor(k);
+    if (V.mag(lab) < TOL.zeroMag) return vLab.slice();
+    return labToTemplate(state.tmpl[k].axis, lab, state.tmpl[k].roll)(vLab);
+  }
+
+  function applyPreset(key) {
+    const p = EXAMPLES[key];
+    state.preset = key;
+    state.pts = { C1: p.C1.slice(), I1: p.I1.slice(), I2: p.I2.slice(), C2: p.C2.slice() };
+    state.nLab = { 1: V.unit(p.n1), 2: V.unit(p.n2) };
+    state.tmplLinked = true;
+    state.tmpl = { 1: { axis: V.unit(labAxisFor(1)), roll: 0 }, 2: { axis: V.unit(labAxisFor(2)), roll: 0 } };
+    if (V.mag(state.tmpl[1].axis) === 0) state.tmpl[1].axis = [0, 0, 1];
+    if (V.mag(state.tmpl[2].axis) === 0) state.tmpl[2].axis = [0, 0, 1];
+  }
+
+  /* ================================================================
+     6. Number formatting
+     ================================================================ */
+  const fixed = (x, d = DECIMALS) => (Object.is(x, -0) ? 0 : x).toFixed(d);
+  const degOf = x => (x * DEG).toFixed(3) + '°';
+  const vecText = v => '[' + v.map(x => fixed(x)).join(', ') + ']';
+
+  /* ================================================================
+     7. Input rail
+     ================================================================ */
+  const COORD_ROWS = [
+    { key: 'C1', label: 'C₁', cls: 'r1', title: 'reactant 1 centre of mass' },
+    { key: 'I1', label: 'I₁', cls: 'r1', title: 'reactant 1 reacting interface' },
+    { key: 'I2', label: 'I₂', cls: 'r2', title: 'reactant 2 reacting interface' },
+    { key: 'C2', label: 'C₂', cls: 'r2', title: 'reactant 2 centre of mass' }
+  ];
+
+  function numberInput(id, value, onChange, step) {
+    const el = document.createElement('input');
+    el.type = 'number'; el.className = 'num'; el.id = id;
+    el.step = step || 'any';
+    el.value = fixed(value);
+    el.addEventListener('input', () => {
+      const v = parseFloat(el.value);
+      el.classList.toggle('bad', !Number.isFinite(v));
+      if (Number.isFinite(v)) onChange(v);
+    });
+    return el;
+  }
+
+  function buildCoords() {
+    const body = document.getElementById('coordBody');
+    body.textContent = '';
+    for (const row of COORD_ROWS) {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.scope = 'row'; th.className = 'rowlab ' + row.cls; th.title = row.title;
+      th.innerHTML = '<i></i>' + row.label;
+      tr.appendChild(th);
+      for (let axis = 0; axis < 3; axis++) {
+        const td = document.createElement('td');
+        const input = numberInput('c-' + row.key + '-' + axis, state.pts[row.key][axis], v => {
+          state.pts[row.key][axis] = v;
+          state.preset = null;
+          if (state.tmplLinked) syncTemplateAxes();
+          render({ skipInputs: true });
+        }, '0.05');
+        input.setAttribute('aria-label', row.label + ' ' + 'xyz'[axis]);
+        td.appendChild(input); tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+  }
+
+  function syncTemplateAxes() {
+    for (const k of [1, 2]) {
+      const a = V.unit(labAxisFor(k));
+      state.tmpl[k].axis = V.mag(a) === 0 ? [0, 0, 1] : a;
+      state.tmpl[k].roll = 0;
+    }
+  }
+
+  const NORMAL_META = {
+    1: { name: 'Reactant 1 · n₁', color: 'var(--normal1)', file: 'norm1' },
+    2: { name: 'Reactant 2 · n₂', color: 'var(--normal2)', file: 'norm2' }
+  };
+
+  function buildNormals() {
+    const host = document.getElementById('normalHost');
+    host.textContent = '';
+    for (const k of [1, 2]) {
+      const meta = NORMAL_META[k];
+      const grp = document.createElement('div'); grp.className = 'normgrp';
+
+      const head = document.createElement('div'); head.className = 'normhead';
+      head.style.color = meta.color;
+      head.innerHTML = '<span class="dot" style="background:' + meta.color + '"></span>' + meta.name +
+        '<span class="len" id="nlen' + k + '"></span>';
+      grp.appendChild(head);
+
+      grp.appendChild(frameRow(k, 'lab'));
+      grp.appendChild(frameRow(k, 'local'));
+      host.appendChild(grp);
+    }
+
+    const det = document.createElement('details'); det.className = 'tmpl'; det.id = 'tmplDetails';
+    const sum = document.createElement('summary');
+    sum.innerHTML = 'Template orientation — <b id="tmplState">template frame = lab frame</b>';
+    det.appendChild(sum);
+
+    const body = document.createElement('div'); body.className = 'tmpl-body';
+    const p = document.createElement('p');
+    p.innerHTML = 'NERDSS recovers each molecule&rsquo;s orientation from its interface coordinates and applies it to the template normal. Reproduce that here by giving the template-frame COM→interface vector <b>a</b> from the <code>.mol</code> file and the roll about that axis; leave it linked and the two frames coincide, so the local and lab vectors are the same numbers.';
+    body.appendChild(p);
+
+    const sw = document.createElement('label'); sw.className = 'switchline';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'tmplLinked'; cb.checked = state.tmplLinked;
+    cb.addEventListener('change', () => {
+      state.tmplLinked = cb.checked;
+      if (cb.checked) syncTemplateAxes();
+      render();
+    });
+    sw.appendChild(cb);
+    sw.appendChild(document.createTextNode(' template frame = lab frame'));
+    body.appendChild(sw);
+
+    for (const k of [1, 2]) {
+      const box = document.createElement('div'); box.className = 'tmpl-mol'; box.id = 'tmplBox' + k;
+      const head = document.createElement('div'); head.className = 'normhead';
+      head.style.color = NORMAL_META[k].color;
+      head.textContent = 'Reactant ' + k;
+      box.appendChild(head);
+
+      const row = document.createElement('div'); row.className = 'frame-row';
+      const tag = document.createElement('div'); tag.className = 'tag';
+      tag.innerHTML = 'a<sub>' + k + '</sub><em>template COM→I</em>';
+      row.appendChild(tag);
+      const trip = document.createElement('div'); trip.className = 'triple';
+      for (let axis = 0; axis < 3; axis++) {
+        trip.appendChild(numberInput('ta-' + k + '-' + axis, state.tmpl[k].axis[axis], v => {
+          state.tmpl[k].axis[axis] = v; state.preset = null; render({ skipInputs: true });
+        }, '0.05'));
+      }
+      row.appendChild(trip); box.appendChild(row);
+
+      const rr = document.createElement('div'); rr.className = 'rollrow';
+      const rtag = document.createElement('div'); rtag.className = 'tag';
+      rtag.innerHTML = 'roll<em>about b<sub>' + k + '</sub></em>';
+      rr.appendChild(rtag);
+      const slider = document.createElement('input');
+      slider.type = 'range'; slider.id = 'roll' + k; slider.min = '-180'; slider.max = '180'; slider.step = '1';
+      slider.value = String(state.tmpl[k].roll);
+      slider.setAttribute('aria-label', 'Reactant ' + k + ' roll about its COM to interface axis, degrees');
+      slider.addEventListener('input', () => {
+        state.tmpl[k].roll = Number(slider.value); state.preset = null; render({ skipInputs: true });
+      });
+      rr.appendChild(slider);
+      const out = document.createElement('div');
+      out.className = 'num'; out.id = 'rollOut' + k; out.style.borderLeft = '1px solid var(--line-soft)';
+      out.style.padding = '9px 8px 9px 0';
+      rr.appendChild(out);
+      box.appendChild(rr);
+      body.appendChild(box);
+    }
+
+    const reset = document.createElement('button');
+    reset.type = 'button'; reset.className = 'ghost'; reset.style.alignSelf = 'flex-start';
+    reset.textContent = 'Reset to identity';
+    reset.addEventListener('click', () => { syncTemplateAxes(); render(); });
+    body.appendChild(reset);
+
+    det.appendChild(body);
+    host.appendChild(det);
+  }
+
+  function frameRow(k, which) {
+    const row = document.createElement('div');
+    row.className = 'frame-row' + (which === 'local' ? ' is-file' : '');
+    const tag = document.createElement('div'); tag.className = 'tag';
+    tag.innerHTML = which === 'lab'
+      ? 'Lab<em>what the angles use</em>'
+      : NORMAL_META[k].file + '<em>goes in the file</em>';
+    row.appendChild(tag);
+    const trip = document.createElement('div'); trip.className = 'triple';
+    for (let axis = 0; axis < 3; axis++) {
+      const id = 'n-' + which + '-' + k + '-' + axis;
+      const start = which === 'lab' ? state.nLab[k][axis] : toLocal(k, state.nLab[k])[axis];
+      trip.appendChild(numberInput(id, start, v => {
+        state.preset = null;
+        if (which === 'lab') {
+          const next = state.nLab[k].slice(); next[axis] = v;
+          state.nLab[k] = next;
+        } else {
+          const loc = toLocal(k, state.nLab[k]); loc[axis] = v;
+          state.nLab[k] = toLab(k, loc);
+        }
+        render({ skipInputs: true, focusId: id });
+      }, '0.05'));
+    }
+    row.appendChild(trip);
+    return row;
+  }
+
+  function buildPresets() {
+    const host = document.getElementById('presets');
+    host.textContent = '';
+    for (const [key, p] of Object.entries(EXAMPLES)) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.dataset.preset = key;
+      b.setAttribute('aria-pressed', String(state.preset === key));
+      b.innerHTML = p.mono
+        ? p.label + ' <span class="mono">· ' + p.mono + '</span>'
+        : p.label;
+      b.addEventListener('click', () => { applyPreset(key); render(); });
+      host.appendChild(b);
+    }
+  }
+
+  function refreshInputs(opts) {
+    const focusId = opts && opts.focusId;
+    const setVal = (id, value, d) => {
+      const el = document.getElementById(id);
+      if (!el || el.id === focusId || el === document.activeElement) return;
+      el.value = fixed(value, d === undefined ? DECIMALS : d);
+      el.classList.remove('bad');
+    };
+    for (const row of COORD_ROWS)
+      for (let a = 0; a < 3; a++) setVal('c-' + row.key + '-' + a, state.pts[row.key][a]);
+    for (const k of [1, 2]) {
+      const loc = toLocal(k, state.nLab[k]);
+      for (let a = 0; a < 3; a++) {
+        setVal('n-lab-' + k + '-' + a, state.nLab[k][a]);
+        setVal('n-local-' + k + '-' + a, loc[a]);
+      }
+      for (let a = 0; a < 3; a++) setVal('ta-' + k + '-' + a, state.tmpl[k].axis[a]);
+      const slider = document.getElementById('roll' + k);
+      if (slider && slider !== document.activeElement) slider.value = String(state.tmpl[k].roll);
+    }
+    document.querySelectorAll('#presets .chip').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.preset === state.preset)));
+    const cb = document.getElementById('tmplLinked');
+    if (cb) cb.checked = state.tmplLinked;
+  }
+
+  /* ================================================================
+     8. WebGL scene
+     ================================================================ */
+  const canvas = document.getElementById('scene');
+  const labelLayer = document.getElementById('labels');
+  const gl = canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: false });
+  const colors = {};
+  const rootStyle = getComputedStyle(document.documentElement);
+  for (const k of ['ink', 'muted', 'line', 'accent', 'mol1', 'mol2', 'sigma', 'normal1', 'normal2', 'panel', 'sunken'])
+    colors[k] = rootStyle.getPropertyValue('--' + k).trim() || '#888888';
+
+  let program = null, loc = null, buffers = null;
+  if (gl) {
+    const compile = (type, src) => {
+      const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      return sh;
+    };
+    program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER,
+      'attribute vec3 aPosition;attribute vec3 aNormal;attribute vec4 aColor;uniform mat4 uView;uniform mat4 uProjection;varying vec3 vNormal;varying vec3 vViewPos;varying vec4 vColor;void main(){vec4 vp=uView*vec4(aPosition,1.0);vViewPos=vp.xyz;vNormal=mat3(uView)*aNormal;vColor=aColor;gl_Position=uProjection*vp;}'));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER,
+      'precision mediump float;varying vec3 vNormal;varying vec3 vViewPos;varying vec4 vColor;void main(){vec3 n=normalize(vNormal);vec3 l=normalize(vec3(-0.32,0.72,0.68));vec3 vd=normalize(-vViewPos);float df=max(dot(n,l),0.0);float sp=pow(max(dot(n,normalize(l+vd)),0.0),26.0)*0.26;float rim=pow(1.0-max(dot(n,vd),0.0),2.0)*0.16;float light=0.42+0.58*df+sp+rim;gl_FragColor=vec4(vColor.rgb*light,vColor.a);}'));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    loc = {
+      position: gl.getAttribLocation(program, 'aPosition'),
+      normal: gl.getAttribLocation(program, 'aNormal'),
+      color: gl.getAttribLocation(program, 'aColor'),
+      view: gl.getUniformLocation(program, 'uView'),
+      projection: gl.getUniformLocation(program, 'uProjection')
+    };
+    buffers = { position: gl.createBuffer(), normal: gl.createBuffer(), color: gl.createBuffer(), index: gl.createBuffer() };
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  } else {
+    labelLayer.innerHTML = '<div class="tag3d" style="left:50%;top:50%;transform:translate(-50%,-50%);color:var(--muted)">WebGL is unavailable — the solved angles below are still exact.</div>';
+  }
+
+  function color4(value, alpha = 1) {
+    const s = (value || '#888888').trim();
+    if (s[0] === '#') {
+      const h = s.length === 4 ? s.slice(1).split('').map(x => x + x).join('') : s.slice(1);
+      return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255, alpha];
+    }
+    const m = s.match(/[\d.]+/g);
+    return m ? [+m[0] / 255, +m[1] / 255, +m[2] / 255, alpha] : [.55, .55, .55, alpha];
+  }
+  const newMesh = () => ({ positions: [], normals: [], colors: [], indices: [] });
+  function vertex(mesh, p, n, c) {
+    const i = mesh.positions.length / 3;
+    mesh.positions.push(p[0], p[1], p[2]); mesh.normals.push(n[0], n[1], n[2]); mesh.colors.push(c[0], c[1], c[2], c[3]);
+    return i;
+  }
+  function frameFor(axis) {
+    const u = V.unit(axis), ref = Math.abs(u[2]) < .88 ? [0, 0, 1] : [0, 1, 0];
+    const e1 = V.unit(V.cross(u, ref));
+    return { u, e1, e2: V.cross(u, e1) };
+  }
+  function addSphere(mesh, center, radius, color, lat = 12, lon = 18) {
+    const c = color4(color), start = mesh.positions.length / 3;
+    for (let i = 0; i <= lat; i++) {
+      const t = i * PI / lat, st = Math.sin(t), ct = Math.cos(t);
+      for (let j = 0; j <= lon; j++) {
+        const p = j * 2 * PI / lon, n = [st * Math.cos(p), st * Math.sin(p), ct];
+        vertex(mesh, V.add(center, V.mul(n, radius)), n, c);
+      }
+    }
+    for (let i = 0; i < lat; i++) for (let j = 0; j < lon; j++) {
+      const a = start + i * (lon + 1) + j, b = a + lon + 1;
+      mesh.indices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  function addCylinder(mesh, a, b, radius, color, segments = 14, alpha = 1) {
+    const d = V.sub(b, a); if (V.mag(d) < 1e-9) return;
+    const { e1, e2 } = frameFor(d), c = color4(color, alpha), start = mesh.positions.length / 3;
+    for (let ring = 0; ring < 2; ring++) for (let i = 0; i <= segments; i++) {
+      const q = i * 2 * PI / segments, n = V.add(V.mul(e1, Math.cos(q)), V.mul(e2, Math.sin(q)));
+      vertex(mesh, V.add(ring ? b : a, V.mul(n, radius)), n, c);
+    }
+    for (let i = 0; i < segments; i++) {
+      const p = start + i, q = p + segments + 1;
+      mesh.indices.push(p, q, p + 1, q, q + 1, p + 1);
+    }
+  }
+  function addCone(mesh, base, tip, radius, color, segments = 16) {
+    const d = V.sub(tip, base), h = V.mag(d); if (h < 1e-9) return;
+    const { u, e1, e2 } = frameFor(d), c = color4(color), start = mesh.positions.length / 3;
+    for (let i = 0; i < segments; i++) {
+      const q = i * 2 * PI / segments, radial = V.add(V.mul(e1, Math.cos(q)), V.mul(e2, Math.sin(q)));
+      const n = V.unit(V.add(V.mul(radial, h), V.mul(u, radius)));
+      vertex(mesh, V.add(base, V.mul(radial, radius)), n, c); vertex(mesh, tip, n, c);
+    }
+    for (let i = 0; i < segments; i++) {
+      const ni = (i + 1) % segments;
+      mesh.indices.push(start + i * 2, start + ni * 2, start + i * 2 + 1);
+    }
+  }
+  function addArrow(mesh, a, b, color, radius) {
+    const d = V.sub(b, a), len = V.mag(d); if (len < 1e-9) return;
+    const u = V.unit(d), head = Math.min(len * .3, radius * 9), base = V.sub(b, V.mul(u, head));
+    addCylinder(mesh, a, base, radius, color); addCone(mesh, base, b, radius * 2.6, color);
+  }
+  function addDashed(mesh, a, b, radius, color, dashes = 9) {
+    for (let i = 0; i < dashes; i++) {
+      const t0 = i / dashes, t1 = t0 + .55 / dashes;
+      addCylinder(mesh, V.lerp(a, b, t0), V.lerp(a, b, t1), radius, color, 8, .95);
+    }
+  }
+  function addDisc(mesh, center, axis, radius, color, alpha = .12, segments = 40) {
+    const { e1, e2 } = frameFor(axis), n = V.unit(axis), c = color4(color, alpha);
+    const mid = vertex(mesh, center, n, c), start = mesh.positions.length / 3;
+    for (let i = 0; i <= segments; i++) {
+      const q = i * 2 * PI / segments;
+      vertex(mesh, V.add(center, V.add(V.mul(e1, Math.cos(q) * radius), V.mul(e2, Math.sin(q) * radius))), n, c);
+    }
+    for (let i = 0; i < segments; i++) mesh.indices.push(mid, start + i, start + i + 1);
+  }
+  function addArc(mesh, center, from, axis, sweep, radius, color, tube) {
+    if (!Number.isFinite(sweep) || Math.abs(sweep) < 1e-6 || V.mag(from) < 1e-9) return;
+    let k = axis;
+    if (V.mag(k) < 1e-9) {
+      const uu = V.unit(from), ref = Math.abs(uu[0]) < .9 ? [1, 0, 0] : [0, 1, 0];
+      k = V.cross(uu, ref);
+    }
+    const u = V.unit(from);
+    let prev = V.add(center, V.mul(u, radius));
+    const steps = Math.max(10, Math.ceil(Math.abs(sweep) * 26));
+    for (let i = 1; i <= steps; i++) {
+      const next = V.add(center, V.mul(rodrigues(u, k, sweep * i / steps), radius));
+      addCylinder(mesh, prev, next, tube, color, 10); prev = next;
+    }
+    const before = V.add(center, V.mul(rodrigues(u, k, sweep * (steps - 1) / steps), radius));
+    const dir = V.unit(V.sub(prev, before));
+    if (V.mag(dir) > 0) addCone(mesh, V.sub(prev, V.mul(dir, tube * 3.4)), prev, tube * 2.4, color, 12);
+  }
+
+  function perspective(fovy, aspect, near, far) {
+    const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    return new Float32Array([f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0]);
+  }
+  function lookAt(eye, target, up) {
+    const z = V.unit(V.sub(eye, target)), x = V.unit(V.cross(up, z)), y = V.cross(z, x);
+    return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0,
+      -V.dot(x, eye), -V.dot(y, eye), -V.dot(z, eye), 1]);
+  }
+  function multiply4(a, b) {
+    const out = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+      out[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    return out;
+  }
+  function uploadAttribute(buffer, location, size, data) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+  }
+  function renderMesh(mesh, m) {
+    if (!mesh.indices.length) return;
+    gl.useProgram(program);
+    uploadAttribute(buffers.position, loc.position, 3, mesh.positions);
+    uploadAttribute(buffers.normal, loc.normal, 3, mesh.normals);
+    uploadAttribute(buffers.color, loc.color, 4, mesh.colors);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), gl.DYNAMIC_DRAW);
+    gl.uniformMatrix4fv(loc.view, false, m.view);
+    gl.uniformMatrix4fv(loc.projection, false, m.projection);
+    gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+  }
+
+  const labelNodes = new Map();
+  function placeLabels(list, mvp) {
+    const rect = canvas.getBoundingClientRect(), active = new Set();
+    for (const [key, text, p, color, kind, dx, dy] of list) {
+      active.add(key);
+      let node = labelNodes.get(key);
+      if (!node) { node = document.createElement('span'); labelNodes.set(key, node); labelLayer.appendChild(node); }
+      node.className = 'tag3d' + (kind ? ' ' + kind : '');
+      node.textContent = text; node.style.color = color;
+      const x = p[0], y = p[1], z = p[2];
+      const cx = mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12];
+      const cy = mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13];
+      const cz = mvp[2] * x + mvp[6] * y + mvp[10] * z + mvp[14];
+      const cw = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15];
+      const visible = cw > 0 && cz / cw > -1 && cz / cw < 1;
+      node.style.display = visible ? 'block' : 'none';
+      if (visible) {
+        node.style.left = ((cx / cw * .5 + .5) * rect.width + dx) + 'px';
+        node.style.top = ((1 - (cy / cw * .5 + .5)) * rect.height + dy) + 'px';
+        node.style.transform = 'translate(-50%, -50%)';
+        node.style.zIndex = String(Math.round(1000 - cz / cw * 400));
+      }
+    }
+    for (const [key, node] of labelNodes) if (!active.has(key)) { node.remove(); labelNodes.delete(key); }
+  }
+
+  function drawScene(g) {
+    if (!gl) return;
+    const { C1, I1, I2, C2 } = state.pts;
+    const pts = [C1, I1, I2, C2];
+    const centre = V.mul(pts.reduce((a, p) => V.add(a, p), [0, 0, 0]), 0.25);
+    let R = 0;
+    for (const p of pts) R = Math.max(R, V.mag(V.sub(p, centre)));
+    R = Math.max(R, 0.35);
+
+    const sel = state.selected;
+    const dist = R * 3.45 / state.view.zoom, cp = Math.cos(state.view.pitch);
+    const eye = V.add(centre, [dist * cp * Math.sin(state.view.yaw), dist * Math.sin(state.view.pitch), dist * cp * Math.cos(state.view.yaw)]);
+    const view = lookAt(eye, centre, [0, 1, 0]);
+    const projection = perspective(40 * RAD, Math.max(1e-4, canvas.width / canvas.height), R * 0.05, R * 60);
+    const mvp = multiply4(projection, view);
+
+    const rod = R * .026, thin = R * .010, arcTube = R * .016;
+    const emph = a => sel === a ? 1.5 : 1;
+    const mesh = newMesh(), overlay = newMesh();
+
+    // reference triad at the scene centre
+    const ax = R * .5;
+    for (const [dir, key] of [[[1, 0, 0], 'x'], [[0, 1, 0], 'y'], [[0, 0, 1], 'z']])
+      addArrow(overlay, centre, V.add(centre, V.mul(dir, ax)), colors.muted, R * .006);
+
+    // projection plane for the selected dihedral
+    if (sel === 'phi1' && V.mag(g.b1) > TOL.zeroMag) addDisc(overlay, I1, g.b1, R * .52, colors.mol1, .10);
+    if (sel === 'phi2' && V.mag(g.b2) > TOL.zeroMag) addDisc(overlay, I2, g.b2, R * .52, colors.mol2, .10);
+    if (sel === 'omega' && V.mag(g.s1) > TOL.zeroMag) addDisc(overlay, V.lerp(I2, I1, .5), g.s1, R * .58, colors.sigma, .10);
+
+    // bodies
+    addCylinder(mesh, C1, I1, rod * emph('theta1'), colors.mol1);
+    addCylinder(mesh, C2, I2, rod * emph('theta2'), colors.mol2);
+    addArrow(mesh, I2, I1, colors.sigma, rod * .95 * (sel === 'omega' ? 1.4 : 1));
+    const nLen = R * .62;
+    addArrow(mesh, I1, V.add(I1, V.mul(V.unit(g.n1), nLen)), colors.normal1, rod * .8 * emph('phi1'));
+    addArrow(mesh, I2, V.add(I2, V.mul(V.unit(g.n2), nLen)), colors.normal2, rod * .8 * emph('phi2'));
+    addSphere(mesh, C1, R * .062, colors.mol1); addSphere(mesh, C2, R * .062, colors.mol2);
+    addSphere(mesh, I1, R * .046, colors.mol1); addSphere(mesh, I2, R * .046, colors.mol2);
+
+    // the measured angle
+    const arcR = R * .40;
+    for (const [name, origin, ref, target, res] of [
+      ['theta1', I1, g.s1, g.b1, g.theta1],
+      ['theta2', I2, g.s2, g.b2, g.theta2]
+    ]) {
+      if (sel !== name || res.dead) continue;
+      addDashed(overlay, origin, V.add(origin, V.mul(V.unit(ref), arcR * 1.6)), thin, colors.muted);
+      addDashed(overlay, origin, V.add(origin, V.mul(V.unit(target), arcR * 1.6)), thin, colors.muted);
+      addArc(mesh, origin, V.unit(ref), V.cross(ref, target), res.value, arcR, colors.accent, arcTube);
+    }
+    for (const [name, origin, ref, target, axis, res] of [
+      ['phi1', I1, g.s1, g.n1, g.b1, g.phi1],
+      ['phi2', I2, g.s2, g.n2, g.b2, g.phi2],
+      ['omega', V.lerp(I2, I1, .5), g.special ? g.n1 : g.b1, g.special ? g.n2 : g.b2, g.s1, g.omega]
+    ]) {
+      if (sel !== name) continue;
+      const pRef = V.perp(ref, axis), pTar = V.perp(target, axis);
+      if (V.mag(pRef) < TOL.zeroMag || V.mag(pTar) < TOL.zeroMag) continue;
+      addDashed(overlay, origin, V.add(origin, V.mul(V.unit(pRef), arcR * 1.5)), thin, colors.muted);
+      addDashed(overlay, origin, V.add(origin, V.mul(V.unit(pTar), arcR * 1.5)), thin, colors.muted);
+      addArc(mesh, origin, V.unit(pRef), axis, -res.value, arcR, colors.accent, arcTube);
+    }
+
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    renderMesh(mesh, { view, projection });
+    gl.depthMask(false); renderMesh(overlay, { view, projection }); gl.depthMask(true);
+
+    placeLabels([
+      ['C1', 'C₁', C1, colors.mol1, '', 16, -14],
+      ['C2', 'C₂', C2, colors.mol2, '', 16, -14],
+      ['I1', 'I₁', I1, colors.mol1, '', 15, -13],
+      ['I2', 'I₂', I2, colors.mol2, '', 15, -13],
+      ['sigma', 'σ', V.lerp(I2, I1, .42), colors.sigma, '', -16, -12],
+      ['n1', 'n₁', V.add(I1, V.mul(V.unit(g.n1), nLen * 1.12)), colors.normal1, '', 0, -12],
+      ['n2', 'n₂', V.add(I2, V.mul(V.unit(g.n2), nLen * 1.12)), colors.normal2, '', 0, -12],
+      ['ax', 'x', V.add(centre, [ax * 1.15, 0, 0]), colors.muted, 'axis', 0, 0],
+      ['ay', 'y', V.add(centre, [0, ax * 1.15, 0]), colors.muted, 'axis', 0, 0],
+      ['az', 'z', V.add(centre, [0, 0, ax * 1.15]), colors.muted, 'axis', 0, 0]
+    ], mvp);
+  }
+
+  function resize() {
+    if (!gl) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    render({ skipInputs: true });
+  }
+
+  /* ================================================================
+     9. Readouts
+     ================================================================ */
+  const ANGLE_META = {
+    theta1: { sym: 'θ₁', desc: 'σ vs b₁' },
+    theta2: { sym: 'θ₂', desc: '−σ vs b₂' },
+    phi1: { sym: 'φ₁', desc: 'σ → n₁ about b₁' },
+    phi2: { sym: 'φ₂', desc: '−σ → n₂ about b₂' },
+    omega: { sym: 'ω', desc: 'b₁ → b₂ about σ' }
+  };
+
+  function statusOf(name, g) {
+    const r = g[name];
+    if (name.startsWith('theta')) {
+      if (r.dead) return { pill: 'dead', text: 'undefined', why: 'One of the two vectors has length 0 — Vec3D::angle_between() warns and returns 0.0.' };
+      if (Math.abs(r.value - PI) < TOL.sameAngle) return { pill: 'alt', text: 'θ = π', why: 'Within 1e−4 of π, so calculate_omega() measures ω from the normals instead of the COM→interface arms.' };
+      if (r.value < TOL.sameAngle) return { pill: 'alt', text: 'θ = 0', why: 'b is parallel to σ: φ for this reactant, and ω itself, lose their reference direction.' };
+      return { pill: 'ok', text: 'defined', why: '' };
+    }
+    const endpointTol = name === 'omega' ? TOL.omegaEndpoint : TOL.phiEndpoint;
+    if (r.dead || r.magA < TOL.zeroMag || r.magB < TOL.zeroMag)
+      return { pill: 'dead', text: 'undefined', why: 'A projected operand is shorter than 1e−8, so the dihedral has no reference direction and the source returns 0.0.' };
+    if (PI - Math.abs(r.value) <= endpointTol)
+      return { pill: 'alt', text: 'at +π', why: 'The sign flip is suppressed within ' + (name === 'omega' ? '1e−11' : '1e−12') + ' of π, so this reports +π. NERDSS never emits −π.' };
+    if (name === 'omega' && g.special)
+      return { pill: 'alt', text: 'from n₁, n₂', why: 'A target θ is within 1e−4 of π, so calculate_omega() substitutes determine_normal() for both COM→interface arms.' };
+    return { pill: 'ok', text: 'defined', why: '' };
+  }
+
+  function renderAngles(g) {
+    const host = document.getElementById('angles');
+    host.textContent = '';
+    for (const name of ['theta1', 'theta2', 'phi1', 'phi2', 'omega']) {
+      const meta = ANGLE_META[name], r = g[name], st = statusOf(name, g);
+      const row = document.createElement('button');
+      row.type = 'button'; row.className = 'angrow';
+      row.setAttribute('aria-pressed', String(state.selected === name));
+      row.innerHTML =
+        '<span class="sym">' + meta.sym + '</span>' +
+        '<span><span class="rad">' + fixed(r.value) + '</span><br><span class="deg">' + degOf(r.value) + ' · ' + meta.desc + '</span></span>' +
+        '<span class="state"><span class="pill ' + st.pill + '">' + st.text + '</span></span>' +
+        (st.why ? '<span class="why">' + st.why + '</span>' : '');
+      row.addEventListener('click', () => { state.selected = name; render({ skipInputs: true }); });
+      host.appendChild(row);
+    }
+    document.querySelectorAll('.tab').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.angle === state.selected)));
+  }
+
+  function renderBadge(g) {
+    const badge = document.getElementById('badge');
+    const anyDead = [g.theta1, g.theta2, g.phi1, g.phi2, g.omega].some(r => r.dead || (r.magA !== undefined && (r.magA < TOL.zeroMag || r.magB < TOL.zeroMag)));
+    if (g.sigmaLength < TOL.zeroMag) {
+      badge.textContent = 'σ has zero length'; badge.className = 'badge danger';
+    } else if (g.special) {
+      badge.textContent = 'ω branch: n₁ · n₂ (θ ≈ π)'; badge.className = 'badge warn';
+    } else if (anyDead) {
+      badge.textContent = 'degenerate projection → 0.0'; badge.className = 'badge warn';
+    } else {
+      badge.textContent = 'ordinary branch: b₁ · b₂'; badge.className = 'badge';
+    }
+  }
+
+  function angleToken(name, g) {
+    const r = g[name], st = statusOf(name, g);
+    if (state.useNan && st.pill === 'dead') return 'nan';
+    if (name.startsWith('theta') && Math.abs(r.value - PI) < TOL.sameAngle) return 'M_PI';
+    return fixed(r.value);
+  }
+
+  // Places theta1/theta2/phi1/phi2/omega under the value each one names.
+  function rulerFor(tokens) {
+    const names = ['theta1', 'theta2', 'phi1', 'phi2', 'omega'];
+    let out = '#', cursor = 1, col = 'assocAngles = ['.length;
+    for (let i = 0; i < tokens.length; i++) {
+      const gap = Math.max(1, col - cursor);
+      out += ' '.repeat(gap); cursor += gap;
+      out += names[i]; cursor += names[i].length;
+      col += tokens[i].length + 2;
+    }
+    return out;
+  }
+
+  function renderParams(g) {
+    const loc1 = toLocal(1, g.n1), loc2 = toLocal(2, g.n2);
+    const order = ['theta1', 'theta2', 'phi1', 'phi2', 'omega'];
+    const tokens = order.map(n => angleToken(n, g));
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const line = (k, v, note) =>
+      '<span class="key2">' + k + '</span> = ' + esc(v) + (note ? '  <span class="cmt"># ' + esc(note) + '</span>' : '');
+    const ruler = rulerFor(tokens);
+    document.getElementById('paramOut').innerHTML =
+      '<span class="cmt"># bound-state geometry solved from C₁, I₁, I₂, C₂</span>\n' +
+      line('sigma', fixed(g.sigmaLength), 'nm, |I₁ − I₂|') + '\n' +
+      line('norm1', vecText(loc1), state.tmplLinked ? 'template frame = lab frame' : 'template frame') + '\n' +
+      line('norm2', vecText(loc2), state.tmplLinked ? 'template frame = lab frame' : 'template frame') + '\n' +
+      line('assocAngles', '[' + tokens.join(', ') + ']') + '\n' +
+      '<span class="cmt">' + esc(ruler) + '</span>';
+  }
+
+  function plainParams(g) {
+    const loc1 = toLocal(1, g.n1), loc2 = toLocal(2, g.n2);
+    const tokens = ['theta1', 'theta2', 'phi1', 'phi2', 'omega'].map(n => angleToken(n, g));
+    return [
+      '# bound-state geometry solved from C1, I1, I2, C2',
+      'sigma = ' + fixed(g.sigmaLength) + '  # nm, |I1 - I2|',
+      'norm1 = ' + vecText(loc1) + (state.tmplLinked ? '  # template frame = lab frame' : '  # template frame'),
+      'norm2 = ' + vecText(loc2) + (state.tmplLinked ? '  # template frame = lab frame' : '  # template frame'),
+      'assocAngles = [' + tokens.join(', ') + ']',
+      rulerFor(tokens)
+    ].join('\n');
+  }
+
+  function renderNotes(g) {
+    const notes = [];
+    const push = (kind, mark, html) => notes.push({ kind, mark, html });
+
+    if (g.sigmaLength < TOL.zeroMag)
+      push('danger', '×', '<b>The two interfaces coincide.</b> σ has no direction, so every angle on this page is meaningless. Separate I₁ and I₂ by the binding radius.');
+
+    for (const k of [1, 2]) {
+      const b = k === 1 ? g.b1 : g.b2;
+      if (V.mag(b) < TOL.zeroMag)
+        push('danger', '×', '<b>Reactant ' + k + ' is a point</b> (C' + k + ' = I' + k + '). θ' + k + ' and φ' + k + ' return 0 with a warning, and <code>determine_normal()</code> returns the zero vector for a molecule with no interfaces. If both reactants are points, <code>associate_box()</code> skips all five rotations.');
+      const n = k === 1 ? g.n1 : g.n2;
+      if (V.mag(n) < TOL.zeroMag)
+        push('danger', '×', '<b>n' + k + ' has zero length.</b> <code>ParsedRxn::isComplete()</code> rejects the reaction unless that reactant is a rod or a point.');
+    }
+
+    if (g.special) {
+      push('warn', '!', '<b>ω is measured from the normals.</b> θ₁ = <code>' + fixed(g.written1) + '</code> or θ₂ = <code>' + fixed(g.written2) + '</code> is within 1e−4 of π, so <code>calculate_omega()</code> replaces b₁ and b₂ with <code>determine_normal()</code>. From the COM→interface arms the same geometry would read ω = <code>' + fixed(g.omegaCom.value) + '</code>.');
+      push('info', 'i', 'The branch is decided by the number <em>in your file</em>, not by the geometry. Keep at least four decimals (<code>3.1416</code>) or write the <code>M_PI</code> keyword — <code>3.142</code> is 4.1e−4 from π and would silently take the ordinary branch.');
+    } else {
+      for (const [k, t] of [[1, g.theta1], [2, g.theta2]]) {
+        const d = Math.abs(t.value - PI);
+        if (d >= TOL.sameAngle && d < 5e-3)
+          push('warn', '!', '<b>θ' + k + ' sits just outside the π branch.</b> |θ' + k + ' − π| = <code>' + d.toExponential(2) + '</code>, against a 1e−4 threshold. Nudge it onto π and ω jumps from <code>' + fixed(g.omegaCom.value) + '</code> to <code>' + fixed(g.omegaNormal.value) + '</code>.');
+      }
+    }
+
+    for (const [k, t] of [[1, g.theta1], [2, g.theta2]]) {
+      if (!t.dead && t.value < TOL.sameAngle)
+        push('warn', '!', '<b>θ' + k + ' = 0 leaves ω with no reference.</b> b' + k + ' is parallel to σ, so its projection onto the plane perpendicular to σ vanishes and ω collapses to 0. The θ ≈ π fallback does not cover θ = 0 — there is no normal-vector rescue on this side.');
+    }
+
+    for (const [name, k] of [['phi1', 1], ['phi2', 2]]) {
+      const r = g[name];
+      if (r.magB < TOL.zeroMag && V.mag(k === 1 ? g.n1 : g.n2) > TOL.zeroMag)
+        push('warn', '!', '<b>n' + k + ' is parallel to b' + k + '.</b> Its projection onto the plane perpendicular to b' + k + ' vanishes, so φ' + k + ' has no defined value and the source returns 0.0. Pick a template normal with a component across the COM→interface axis.');
+      if (r.magA < TOL.zeroMag && V.mag(k === 1 ? g.b1 : g.b2) > TOL.zeroMag)
+        push('warn', '!', '<b>σ is parallel to b' + k + ',</b> so φ' + k + ' has no reference direction and returns 0.0. Real inputs write <code>nan</code> here, which makes <code>associate_box()</code> skip the φ rotation entirely.');
+    }
+
+    for (const name of ['phi1', 'phi2', 'omega']) {
+      const r = g[name], tol = name === 'omega' ? TOL.omegaEndpoint : TOL.phiEndpoint;
+      if (!r.dead && r.magA >= TOL.zeroMag && r.magB >= TOL.zeroMag && PI - Math.abs(r.value) <= tol)
+        push('info', 'i', '<b>' + ANGLE_META[name].sym + ' lands on the endpoint.</b> The sign flip is suppressed within ' + (name === 'omega' ? '1e−11' : '1e−12') + ' of π, so it is reported as <code>+' + fixed(PI) + '</code>. A parameter file should never carry −π.');
+    }
+
+    if (!state.tmplLinked)
+      push('info', 'i', '<b>The template frame is rotated relative to the lab.</b> <code>norm1</code> and <code>norm2</code> above are expressed in each molecule&rsquo;s own frame; the lab-frame arrows in the viewport are what <code>determine_normal()</code> hands to <code>calculate_phi()</code>.');
+
+    if (state.useNan && ['phi1', 'phi2', 'omega'].some(n => statusOf(n, g).pill === 'dead'))
+      push('info', 'i', 'Undefined angles are written as <code>nan</code>, which is what the sample inputs do. <code>parse_input_array()</code> maps it to a quiet NaN and <code>associate_box()</code> skips that rotation rather than targeting zero.');
+
+    if (!notes.length)
+      push('info', '✓', 'No degeneracies. Every angle is measured on the ordinary branch, and the five values below reproduce this geometry exactly.');
+
+    const host = document.getElementById('notes');
+    host.textContent = '';
+    for (const n of notes) {
+      const d = document.createElement('div');
+      d.className = 'note ' + n.kind;
+      d.innerHTML = '<span class="mk">' + n.mark + '</span><span>' + n.html + '</span>';
+      host.appendChild(d);
+    }
+  }
+
+  function buildRules() {
+    const rules = [
+      ['θ', 'Always <code>acos</code> of a normalized dot product, so it is unsigned and lives in [0, π]. A vector shorter than 1e−8 makes it return <b>0.0</b> with a warning.'],
+      ['φ', 'Dihedral σ → n about b, measured after <code>transform()</code> puts b on +z. Positive when the projected cross product points along <b>−b</b>; the sign flip is skipped within <b>1e−12</b> of 0 and π.'],
+      ['ω', 'Dihedral b₁ → b₂ about σ, same sign rule with a <b>1e−11</b> guard. When the <em>target</em> θ₁ or θ₂ is within <b>1e−4</b> of π, both arms are replaced by <code>determine_normal()</code>.'],
+      ['0 vs π', 'Only θ ≈ π switches ω to the normals. At θ = 0 the arm is parallel to σ as well, but nothing rescues it — <b>ω silently reads 0</b>.'],
+      ['nan', 'An angle written as <code>nan</code> is not a target: <code>associate_box()</code> skips that rotation. This is how rods and membrane-bound reactants leave φ unconstrained.'],
+      ['±π', 'A dihedral is reported as <b>+π</b>, never −π. <code>omega_rotation()</code> treats the two as converged, but the file should carry the positive value.']
+    ];
+    const host = document.getElementById('rules');
+    host.textContent = '';
+    for (const [when, text] of rules) {
+      const d = document.createElement('div');
+      d.className = 'rule';
+      d.innerHTML = '<span class="when">' + when + '</span><span>' + text + '</span>';
+      host.appendChild(d);
+    }
+  }
+
+  /* ================================================================
+     10. Render
+     ================================================================ */
+  let lastSolved = null;
+  function render(opts) {
+    opts = opts || {};
+    const g = solve(state.pts, state.nLab[1], state.nLab[2]);
+    lastSolved = g;
+    if (!opts.skipInputs || opts.focusId) refreshInputs(opts);
+    for (const k of [1, 2]) {
+      const el = document.getElementById('nlen' + k);
+      if (el) el.textContent = '|n| = ' + V.mag(state.nLab[k]).toFixed(4);
+      const ro = document.getElementById('rollOut' + k);
+      if (ro) ro.textContent = state.tmpl[k].roll.toFixed(0) + '°';
+      const box = document.getElementById('tmplBox' + k);
+      if (box) box.style.display = state.tmplLinked ? 'none' : '';
+    }
+    const ts = document.getElementById('tmplState');
+    if (ts) ts.textContent = state.tmplLinked ? 'template frame = lab frame' : 'rotated from the lab frame';
+    renderAngles(g); renderBadge(g); renderParams(g); renderNotes(g);
+    drawScene(g);
+  }
+
+  /* ================================================================
+     11. Wiring
+     ================================================================ */
+  applyPreset('general');
+  buildPresets(); buildCoords(); buildNormals(); buildRules();
+
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    state.selected = btn.dataset.angle; render({ skipInputs: true });
+  }));
+  document.getElementById('useNan').addEventListener('change', e => {
+    state.useNan = e.target.checked; render({ skipInputs: true });
+  });
+  document.getElementById('resetView').addEventListener('click', () => {
+    state.view.yaw = -0.62; state.view.pitch = 0.34; state.view.zoom = 1; render({ skipInputs: true });
+  });
+
+  const toast = document.getElementById('toast');
+  let toastTimer = null;
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('on'), 2000);
+  }
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const text = plainParams(lastSolved);
+    try {
+      await navigator.clipboard.writeText(text);
+      say('Parameter block copied');
+    } catch (err) {
+      const pre = document.getElementById('paramOut');
+      const range = document.createRange(); range.selectNodeContents(pre);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      say('Selected — press ⌘C / Ctrl+C to copy');
+    }
+  });
+
+  canvas.addEventListener('pointerdown', e => {
+    state.view.dragging = true; state.view.lastX = e.clientX; state.view.lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!state.view.dragging) return;
+    state.view.yaw += (e.clientX - state.view.lastX) * .008;
+    state.view.pitch = clamp(state.view.pitch + (e.clientY - state.view.lastY) * .008, -1.25, 1.25);
+    state.view.lastX = e.clientX; state.view.lastY = e.clientY;
+    render({ skipInputs: true });
+  });
+  canvas.addEventListener('pointerup', () => { state.view.dragging = false; });
+  canvas.addEventListener('pointercancel', () => { state.view.dragging = false; });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    state.view.zoom = clamp(state.view.zoom * Math.exp(-e.deltaY * .001), .45, 2.4);
+    render({ skipInputs: true });
+  }, { passive: false });
+
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+  else window.addEventListener('resize', resize);
+  resize();
+  render();
+})();
+</script>
+</body>
+</html>
