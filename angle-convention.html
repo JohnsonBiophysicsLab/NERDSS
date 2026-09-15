@@ -60,7 +60,8 @@
     .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
     h1 { font-size: clamp(25px, 3vw, 40px); line-height: 1.08; letter-spacing: -.03em; margin: 5px 0 8px; }
     .subtitle { max-width: 810px; color: var(--muted); margin: 0; }
-    .revision { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); background: var(--panel); font-size: 12px; }
+    .header-links { flex: 0 0 auto; display: flex; flex-direction: column; gap: 7px; align-items: flex-end; }
+    .revision { flex: 0 0 auto; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); background: var(--panel); font-size: 12px; }
     .workspace { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(330px, .72fr); gap: 18px; align-items: start; }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
     .stage-card { overflow: hidden; }
@@ -90,16 +91,21 @@
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
     .swatch { width: 18px; height: 3px; border-radius: 9px; background: currentColor; }
     .side { display: grid; gap: 18px; }
+    /* Grid items default to min-width:auto, so the pre-formatted parameter line
+       would widen the whole column instead of scrolling inside its own box. */
+    .side > .card { min-width: 0; }
     .section { padding: 17px; }
     .section h2 { font-size: 16px; margin: 0 0 12px; }
     .preset-row { display: flex; flex-wrap: wrap; gap: 7px; }
     .preset { font-size: 12px; padding: 7px 9px; }
     .control { padding: 10px 0; border-top: 1px solid var(--line); }
     .control:first-of-type { border-top: 0; padding-top: 0; }
-    .control-head { display: grid; grid-template-columns: 54px 1fr auto; gap: 9px; align-items: baseline; margin-bottom: 6px; }
+    .control-head { display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; gap: 9px 8px; align-items: baseline; margin-bottom: 6px; }
+    .control-head .number { grid-column: 3; }
+    .control-head .constrain-label { grid-column: 2 / -1; justify-self: start; }
     .symbol { font-weight: 750; }
-    .meaning { color: var(--muted); font-size: 12px; }
-    .number { font-variant-numeric: tabular-nums; font-size: 12px; }
+    .meaning { color: var(--muted); font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+    .number { font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
     input[type="range"] { width: 100%; accent-color: var(--accent); }
     .readout-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
     .readout { padding: 9px 7px; background: var(--panel-2); border-radius: 10px; text-align: center; border: 1px solid transparent; }
@@ -117,6 +123,20 @@
     .notice { margin-top: 11px; padding: 10px 11px; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--ink); font-size: 12px; }
     .notice.danger { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
     .footer-note { color: var(--muted); font-size: 12px; margin: 12px 2px 0; }
+    .control.off .symbol, .control.off .meaning, .control.off input[type="range"] { opacity: .5; }
+    .constrain { margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .constrain-label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; cursor: pointer; }
+    .param-line { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; background: var(--panel-2); border-radius: 12px; padding: 12px 13px; overflow-x: auto; white-space: pre; min-width: 0; }
+    .param-line .k { color: var(--accent); }
+    .param-line .c { color: var(--muted); }
+    .explain { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    .explain li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 11px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+    .explain b { color: var(--ink); font-weight: 650; }
+    .explain .term { color: var(--ink); font-weight: 650; font-size: 12.5px; }
+    .explain code, .notice code, .footer-note code, .param-note code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .93em; }
+    .notice.info { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    .notice + .notice { margin-top: 8px; }
+    .param-note { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 980px) {
       .workspace { grid-template-columns: 1fr; }
@@ -144,7 +164,10 @@
         <h1>NERDSS association angle explorer</h1>
         <p class="subtitle">Inspect θ₁, θ₂, φ₁, φ₂, and ω using the ordered vectors and cross-product sign test in the live C++ source. Drag the scene to orbit; select an angle to expose its exact operands.</p>
       </div>
-      <a class="revision" href="https://github.com/JohnsonBiophysicsLab/NERDSS/tree/260f6e2a861bd666cbeb6e54cd760d96947820ae">master · 260f6e2</a>
+      <div class="header-links">
+        <a class="revision" href="angle-inverse.html">Inverse: coordinates → angles</a>
+        <a class="revision" href="https://github.com/JohnsonBiophysicsLab/NERDSS/tree/260f6e2a861bd666cbeb6e54cd760d96947820ae">master · 260f6e2</a>
+      </div>
     </header>
 
     <div class="workspace">
@@ -180,39 +203,47 @@
           <div class="preset-row">
             <button class="preset" data-preset="general">General 3D</button>
             <button class="preset" data-preset="signed">Negative signs</button>
-            <button class="preset" data-preset="pi">θ ≈ π fallback</button>
-            <button class="preset" data-preset="zero">θ = 0 singularity</button>
+            <button class="preset" data-preset="pi">θ = π · ω from normals</button>
+            <button class="preset" data-preset="zero">θ₁ = 0 · ω trap</button>
+            <button class="preset" data-preset="rod">Rod · nan dihedrals</button>
           </div>
         </section>
 
         <section class="card section" id="controls">
           <h2>Target angles</h2>
           <div class="control">
-            <div class="control-head"><label class="symbol" for="theta1">θ₁</label><span class="meaning">s₁ versus b₁</span><span class="number" id="theta1Value"></span></div>
+            <div class="control-head"><label class="symbol" for="theta1">θ₁</label><span class="meaning">s₁ versus b₁</span><span class="number" id="theta1Value"></span><label class="constrain-label" for="theta1On"><input class="constrain" type="checkbox" id="theta1On" checked>constrained</label></div>
             <input id="theta1" type="range" min="0" max="180" step="0.1" value="58">
           </div>
           <div class="control">
-            <div class="control-head"><label class="symbol" for="theta2">θ₂</label><span class="meaning">s₂ versus b₂</span><span class="number" id="theta2Value"></span></div>
+            <div class="control-head"><label class="symbol" for="theta2">θ₂</label><span class="meaning">s₂ versus b₂</span><span class="number" id="theta2Value"></span><label class="constrain-label" for="theta2On"><input class="constrain" type="checkbox" id="theta2On" checked>constrained</label></div>
             <input id="theta2" type="range" min="0" max="180" step="0.1" value="72">
           </div>
           <div class="control">
-            <div class="control-head"><label class="symbol" for="phi1">φ₁</label><span class="meaning">s₁ → n₁ about b₁</span><span class="number" id="phi1Value"></span></div>
+            <div class="control-head"><label class="symbol" for="phi1">φ₁</label><span class="meaning">s₁ → n₁ about b₁</span><span class="number" id="phi1Value"></span><label class="constrain-label" for="phi1On"><input class="constrain" type="checkbox" id="phi1On" checked>constrained</label></div>
             <input id="phi1" type="range" min="-180" max="180" step="1" value="45">
           </div>
           <div class="control">
-            <div class="control-head"><label class="symbol" for="phi2">φ₂</label><span class="meaning">s₂ → n₂ about b₂</span><span class="number" id="phi2Value"></span></div>
+            <div class="control-head"><label class="symbol" for="phi2">φ₂</label><span class="meaning">s₂ → n₂ about b₂</span><span class="number" id="phi2Value"></span><label class="constrain-label" for="phi2On"><input class="constrain" type="checkbox" id="phi2On" checked>constrained</label></div>
             <input id="phi2" type="range" min="-180" max="180" step="1" value="-35">
           </div>
           <div class="control">
-            <div class="control-head"><label class="symbol" for="omega">ω</label><span class="meaning">b₁ → b₂ about s₁</span><span class="number" id="omegaValue"></span></div>
+            <div class="control-head"><label class="symbol" for="omega">ω</label><span class="meaning">b₁ → b₂ about s₁</span><span class="number" id="omegaValue"></span><label class="constrain-label" for="omegaOn"><input class="constrain" type="checkbox" id="omegaOn" checked>constrained</label></div>
             <input id="omega" type="range" min="-180" max="180" step="1" value="70">
           </div>
+          <p class="footer-note">Clear a checkbox to write <code>nan</code> for that angle. <code>associate_box()</code> then skips its rotation entirely, so the value is not a target of zero — it is left wherever diffusion put it.</p>
         </section>
 
         <section class="card section">
           <h2>Code-reported values</h2>
           <div id="readouts" class="readout-grid"></div>
-          <p class="footer-note">A highlighted mismatch is expected when the selected preset enters a source singularity or omega's normal-vector fallback.</p>
+          <p class="footer-note">A highlighted value differs from its target. That happens where the source itself has nothing to measure &mdash; a projection of zero length, or an angle the parameter file left as <code>nan</code>.</p>
+        </section>
+
+        <section class="card section wide">
+          <h2>Parameter file</h2>
+          <div class="param-line" id="paramLine"></div>
+          <p class="param-note" id="paramNote"></p>
         </section>
 
         <section class="card section wide">
@@ -223,6 +254,27 @@
             <div class="trace-numbers" id="traceNumbers"></div>
           </div>
           <div id="notice" class="notice" hidden></div>
+          <div id="notice2" class="notice" hidden></div>
+        </section>
+
+        <section class="card section wide">
+          <h2>The normals are drawn in the lab frame</h2>
+          <ul class="explain">
+            <li><span class="term">In the file</span><span><code>norm1</code> and <code>norm2</code> are read in each molecule&rsquo;s <b>template frame</b> &mdash; the frame of its <code>.mol</code> coordinates &mdash; not in the lab frame drawn above.</span></li>
+            <li><span class="term">In the code</span><span><code>determine_normal()</code> recovers the molecule&rsquo;s orientation from its own interface coordinates and rotates the template normal into the lab frame. Only then does <code>calculate_phi()</code> see it, so one <code>norm1</code> gives a different arrow for every orientation the molecule takes.</span></li>
+            <li><span class="term">What reaches φ</span><span>Only the component of n across b. The component <em>along</em> b is invisible to φ &mdash; but it does reach ω on the θ = π branch, which is a degree of freedom these five sliders cannot set. This page pins n perpendicular to b; NERDSS does not require that.</span></li>
+          </ul>
+        </section>
+
+        <section class="card section wide">
+          <h2>When an angle does not apply</h2>
+          <ul class="explain">
+            <li><span class="term">nan</span><span><code>parse_input_array()</code> maps <code>nan</code> to a quiet NaN and <code>associate_box()</code> <b>skips that rotation entirely</b>. It is not a target of zero &mdash; the angle is left wherever diffusion put it. Most sample inputs read <code>[1.5707963, 1.5707963, nan, nan, M_PI]</code>.</span></li>
+            <li><span class="term">M_PI</span><span>The parser accepts <code>M_PI</code> and <code>pi</code>, <b>unsigned only</b>. <code>-M_PI</code> is not a token it knows and aborts the run; write <code>-3.141593</code>. A dihedral is never reported as &minus;π anyway, so prefer <code>M_PI</code>.</span></li>
+            <li><span class="term">Points</span><span>A molecule with no interfaces has no normal: <code>determine_normal()</code> returns (0, 0, 0). When both reactants are points, <code>associate_box()</code> skips all five rotations.</span></li>
+            <li><span class="term">Rods</span><span><code>ParsedRxn::isComplete()</code> demands a non-zero norm only when the reactant is neither a rod nor a point. A rod&rsquo;s φ is conventionally <code>nan</code>.</span></li>
+            <li><span class="term">Collinear</span><span>With one interface, or all interfaces collinear, <code>orient_crds_to_template()</code> stops after the rotation that aligns interface 0, so the orientation it recovers ignores spin about that axis. φ is then pinned by the template rather than free.</span></li>
+          </ul>
         </section>
       </aside>
     </div>
@@ -292,24 +344,48 @@
       }
       return V.unit(p);
     }
+    /* areSameAngle(). NaN never matches, which is what makes an unconstrained
+       theta fall through to the ordinary omega branch. */
+    const sameAngle=(a,b)=>Math.abs(a-b)<1e-4;
     function inputs() {
-      return Object.fromEntries(ids.map(id=>[id,Number(document.getElementById(id).value)*RAD]));
+      const q={}, d={}, on={};
+      ids.forEach(id=>{
+        d[id]=Number(document.getElementById(id).value)*RAD;
+        on[id]=document.getElementById(id+'On').checked;
+        q[id]=on[id]?d[id]:NaN;
+      });
+      return {q,d,on};
     }
+    const b2For=(theta2,az)=>V.unit([Math.sin(theta2)*Math.cos(az),Math.sin(theta2)*Math.sin(az),-Math.cos(theta2)]);
+    const normalFor=(s,b,phi)=>V.unit(rodrigues(safePlaneDirection(s,b),b,-phi));
     function geometry() {
-      const q=inputs(), I1=[0,0,1.25], I2=[0,0,-1.25], s1=V.sub(I1,I2), s2=V.mul(s1,-1);
-      const b1=V.unit([Math.sin(q.theta1),0,Math.cos(q.theta1)]);
-      const az=-q.omega;
-      const b2=V.unit([Math.sin(q.theta2)*Math.cos(az),Math.sin(q.theta2)*Math.sin(az),-Math.cos(q.theta2)]);
+      const {q,d,on}=inputs(), I1=[0,0,1.25], I2=[0,0,-1.25], s1=V.sub(I1,I2), s2=V.mul(s1,-1);
+      const b1=V.unit([Math.sin(d.theta1),0,Math.cos(d.theta1)]);
+      const n1=normalFor(s1,b1,d.phi1);
+      /* calculate_omega() tests the TARGET thetas, so the branch is decided
+         before any geometry exists. */
+      const special=sameAngle(q.theta1,PI)||sameAngle(q.theta2,PI);
+      /* On the ordinary branch omega is the azimuth of b2 about sigma, so
+         az = -omega places it directly. On the pi branch omega is read off the
+         normals instead; rotating b2 about sigma carries n2 with it and shifts
+         the measured omega by exactly that angle, so one probe at az = 0 gives
+         the azimuth outright. Without this the page could not draw a geometry
+         that actually has the requested omega. */
+      let az=-d.omega, solved=false;
+      if (special) {
+        const probe=signedProjectedCpp(n1,normalFor(s2,b2For(d.theta2,0),d.phi2),s1,1e-11);
+        if (!probe.zero) { az=probe.value-d.omega; solved=true; }
+      }
+      const b2=b2For(d.theta2,az);
       const C1=V.sub(I1,V.mul(b1,1.7)), C2=V.sub(I2,V.mul(b2,1.7));
       const p1=safePlaneDirection(s1,b1), p2=safePlaneDirection(s2,b2);
-      const n1=V.unit(rodrigues(p1,b1,-q.phi1));
-      const n2=V.unit(rodrigues(p2,b2,-q.phi2));
+      const n2=normalFor(s2,b2,d.phi2);
       const theta1=angle(s1,b1), theta2=angle(s2,b2);
       const phi1=signedProjectedCpp(s1,n1,b1,1e-12);
       const phi2=signedProjectedCpp(s2,n2,b2,1e-12);
-      const special=Math.abs(q.theta1-PI)<1e-4 || Math.abs(q.theta2-PI)<1e-4;
       const omega=special?signedProjectedCpp(n1,n2,s1,1e-11):signedProjectedCpp(b1,b2,s1,1e-11);
-      return {q,I1,I2,s1,s2,b1,b2,C1,C2,n1,n2,p1,p2,special,calc:{theta1:{value:theta1.value,zero:theta1.zero},theta2:{value:theta2.value,zero:theta2.zero},phi1,phi2,omega}};
+      const zeroTheta=sameAngle(q.theta1,0)||sameAngle(q.theta2,0);
+      return {q,d,on,I1,I2,s1,s2,b1,b2,C1,C2,n1,n2,p1,p2,special,solved,zeroTheta,calc:{theta1:{value:theta1.value,zero:theta1.zero},theta2:{value:theta2.value,zero:theta2.zero},phi1,phi2,omega}};
     }
     function compileShader(type, source) {
       const shader=gl.createShader(type); gl.shaderSource(shader,source); gl.compileShader(shader);
@@ -468,24 +544,64 @@
     function fmtDeg(x) { return (x/RAD).toFixed(Math.abs(x/RAD)<10?1:0)+'°'; }
     function fmtRad(x) { return x.toFixed(4); }
     function fmtNum(x) { return Math.abs(x)<5e-13?'0.0000':x.toFixed(4); }
+    function fmtFile(x) { return (Object.is(x,-0)?0:x).toFixed(6); }
+    function paramToken(id,g) {
+      if (!g.on[id]) return 'nan';
+      const v=g.q[id];
+      if (sameAngle(v,PI)) return 'M_PI';
+      return fmtFile(v);
+    }
     function updateUI(g) {
-      ids.forEach(id=>document.getElementById(id+'Value').textContent=fmtDeg(g.q[id])+' · '+fmtRad(g.q[id])+' rad');
+      ids.forEach(id=>{
+        document.getElementById(id+'Value').textContent =
+          g.on[id] ? fmtDeg(g.d[id])+' · '+fmtRad(g.d[id])+' rad' : 'nan · skipped';
+        document.getElementById(id).closest('.control').classList.toggle('off',!g.on[id]);
+      });
       const readouts=document.getElementById('readouts'); readouts.innerHTML='';
       ids.forEach(id=>{
-        const calc=g.calc[id].value, mismatch=Math.abs(Math.atan2(Math.sin(calc-g.q[id]),Math.cos(calc-g.q[id])))>.002;
-        const d=document.createElement('div'); d.className='readout'+(id===state.selected?' active':'')+(mismatch?' mismatch':'');
-        d.innerHTML='<span class="r-label">'+labels[id]+'</span><span class="r-value">'+fmtDeg(calc)+'</span>'; readouts.appendChild(d);
+        const calc=g.calc[id].value;
+        const mismatch=g.on[id] && Math.abs(Math.atan2(Math.sin(calc-g.q[id]),Math.cos(calc-g.q[id])))>.002;
+        const d=document.createElement('div');
+        d.className='readout'+(id===state.selected?' active':'')+(mismatch||!g.on[id]?' mismatch':'');
+        d.innerHTML='<span class="r-label">'+labels[id]+'</span><span class="r-value">'+
+          (g.on[id]?fmtDeg(calc):'nan')+'</span>';
+        readouts.appendChild(d);
       });
+      const tokens=ids.map(id=>paramToken(id,g));
+      document.getElementById('paramLine').innerHTML =
+        '<span class="k">assocAngles</span> = ['+tokens.join(', ')+']\n'+
+        '<span class="c">'+rulerFor(tokens)+'</span>';
+      const negPi=ids.filter(id=>g.on[id]&&sameAngle(g.d[id],-PI));
+      document.getElementById('paramNote').innerHTML = negPi.length
+        ? 'Write '+negPi.map(id=>labels[id]).join(' and ')+' as <code>M_PI</code>: a dihedral is never reported as &minus;π, and <code>-M_PI</code> is not a token the parser accepts.'
+        : 'This is the line the geometry above corresponds to. Clearing a checkbox writes <code>nan</code>, which makes <code>associate_box()</code> skip that rotation rather than target zero.';
       const badge=document.getElementById('branchBadge');
       const anyZero=Object.values(g.calc).some(x=>x.zero);
-      badge.textContent=g.special?'ω uses n₁ / n₂ (θ ≈ π)':(anyZero?'zero projection → C++ returns 0':'ordinary COM–interface branch');
-      badge.className='branch-badge'+(anyZero?' warn':'');
+      badge.textContent = g.special ? 'ω uses n₁ / n₂ (θ = π)'
+        : g.zeroTheta ? 'θ = 0 → ω has no fallback'
+        : anyZero ? 'zero projection → C++ returns 0'
+        : 'ordinary COM–interface branch';
+      badge.className='branch-badge'+((anyZero||g.zeroTheta)?' warn':'');
       updateTrace(g);
+    }
+    /* Puts each angle name under the value it names. */
+    function rulerFor(tokens) {
+      let out='#', cursor=1, col='assocAngles = ['.length;
+      const names=['theta1','theta2','phi1','phi2','omega'];
+      for (let i=0;i<tokens.length;i++) {
+        const gap=Math.max(1,col-cursor); out+=' '.repeat(gap); cursor+=gap;
+        out+=names[i]; cursor+=names[i].length; col+=tokens[i].length+2;
+      }
+      return out;
     }
     function updateTrace(g) {
       const id=state.selected, c=g.calc[id], title=document.getElementById('traceName'), range=document.getElementById('traceRange');
       const eq=document.getElementById('traceEquation'), nums=document.getElementById('traceNumbers'), notice=document.getElementById('notice');
-      title.textContent=labels[id]+' source trace'; notice.hidden=true; notice.className='notice';
+      const notice2=document.getElementById('notice2');
+      title.textContent=labels[id]+' source trace';
+      /* Clear as well as hide: a hidden element that keeps its old text is
+         still read out by assistive tech and still shows up in the DOM. */
+      [notice,notice2].forEach(el=>{ el.hidden=true; el.className='notice'; el.innerHTML=''; });
       if(id.startsWith('theta')) {
         const i=id.endsWith('1')?'1':'2', s=i==='1'?g.s1:g.s2, b=i==='1'?g.b1:g.b2;
         const cos=V.dot(s,b)/(V.mag(s)*V.mag(b)); range.textContent='unsigned · [0, π]';
@@ -502,26 +618,47 @@
         range.textContent='signed · [−π, π], endpoint +π';
         eq.innerHTML='axis '+kn+' → +z; project '+an+', '+bn+' to xy<br>α = acos('+an+'⊥ · '+bn+'⊥ / magnitudes)<br>if (('+an+'⊥ × '+bn+'⊥)<sub>z</sub> &gt; 0) return −α; else +α';
         nums.innerHTML='<span>branch</span><b>'+branch+'</b><span>projected |a| / |b|</span><b>'+fmtNum(c.magA)+' / '+fmtNum(c.magB)+'</b><span>cross z</span><b>'+fmtNum(c.crossZ)+'</b><span>unsigned α</span><b>'+fmtDeg(c.unsigned)+'</b><span>reported</span><b>'+fmtDeg(c.value)+' / '+fmtRad(c.value)+' rad</b>';
-        if(c.zero) {
-          notice.hidden=false; notice.className='notice danger';
-          notice.textContent='Singularity: at least one projected vector is shorter than 1E−8. The mathematical dihedral is undefined, but Vector::dot_theta warns and the live C++ returns 0.0.';
-        } else if(id==='omega'&&g.special) {
-          notice.hidden=false; notice.textContent='Special branch: areSameAngle compares each target θ to π with tolerance 1E−4 rad. If either matches, calculate_omega substitutes both oriented normals for b₁ and b₂.';
-        }
       }
+      const notes=[];
+      if(!g.on[id])
+        notes.push(['info','This angle is <code>nan</code> in the parameter file, so <code>associate_box()</code> never calls its rotation. The geometry above is one arbitrary realisation; NERDSS would leave '+labels[id]+' wherever diffusion put it.']);
+      if(c.zero)
+        notes.push(['danger','Singularity: a projected vector is shorter than 1E−8. The dihedral is undefined, but <code>Vec3D::angle_between()</code> warns and returns 0.0 — so the file should carry <code>nan</code> here, not 0.']);
+      if(id==='omega'&&g.special)
+        notes.push(['info','Normal-vector branch: <code>areSameAngle()</code> compares each <em>target</em> θ to π with a 1E−4 tolerance. Either match and <code>calculate_omega()</code> substitutes both oriented normals for b₁ and b₂ — so ω is now carried by n₁ and n₂, and φ and ω stop being independent. This page still pins n perpendicular to b, which NERDSS does not require.']);
+      if(id==='omega'&&!g.special&&g.zeroTheta)
+        notes.push(['danger','θ = 0 has no rescue. The fallback above tests only π, yet at θ = 0 the arm is parallel to σ just the same, its projection vanishes, and ω silently reads 0. Nothing in the source catches this.']);
+      if(id.startsWith('theta')&&g.zeroTheta&&sameAngle(g.q[id],0))
+        notes.push(['danger','With θ = 0 this arm lies along σ. φ for this reactant loses its reference direction, and so does ω — and unlike θ = π, there is no normal-vector fallback for it.']);
+      if(id.startsWith('theta')&&sameAngle(g.q[id],PI))
+        notes.push(['info','θ = π puts this arm along σ as well, so φ for this reactant is undefined. This is the case <code>calculate_omega()</code> catches: it swaps in <code>determine_normal()</code> for both arms.']);
+      const slots=[notice,notice2];
+      notes.slice(0,2).forEach((n,i)=>{
+        slots[i].hidden=false; slots[i].className='notice '+n[0]; slots[i].innerHTML=n[1];
+      });
     }
     document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
       state.selected=btn.dataset.angle; document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-pressed',String(b===btn))); draw();
     }));
-    ids.forEach(id=>document.getElementById(id).addEventListener('input',draw));
+    ids.forEach(id=>{
+      document.getElementById(id).addEventListener('input',draw);
+      document.getElementById(id+'On').addEventListener('change',draw);
+    });
     const presets={
       general:{theta1:58,theta2:72,phi1:45,phi2:-35,omega:70},
       signed:{theta1:65,theta2:48,phi1:-70,phi2:-110,omega:-95},
-      pi:{theta1:179.999,theta2:76,phi1:0,phi2:35,omega:80},
-      zero:{theta1:0,theta2:62,phi1:80,phi2:-30,omega:50}
+      pi:{theta1:180,theta2:76,phi1:0,phi2:35,omega:80},
+      zero:{theta1:0,theta2:62,phi1:80,phi2:-30,omega:50},
+      /* The shape almost every sample input actually has. */
+      rod:{theta1:90,theta2:90,phi1:45,phi2:-35,omega:180,off:['phi1','phi2']}
     };
     document.querySelectorAll('.preset').forEach(btn=>btn.addEventListener('click',()=>{
-      const p=presets[btn.dataset.preset]; ids.forEach(id=>document.getElementById(id).value=p[id]); draw();
+      const p=presets[btn.dataset.preset], off=p.off||[];
+      ids.forEach(id=>{
+        document.getElementById(id).value=p[id];
+        document.getElementById(id+'On').checked=!off.includes(id);
+      });
+      draw();
     }));
     document.getElementById('resetView').addEventListener('click',()=>{ state.yaw=-.66; state.pitch=.36; state.zoom=1; draw(); });
     canvas.addEventListener('pointerdown',e=>{state.dragging=true;state.lastX=e.clientX;state.lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
