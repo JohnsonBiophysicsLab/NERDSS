@@ -70,6 +70,24 @@
 								<li><a href="files/ioNERDSSUserGuide.docx" class="button primary small">Click to download the ioNERDSS user guide</a></li>
 							</ul>
 						</div>
+						<div class="inner">
+							<h2>Interactive angle tools</h2>
+							<p>The five association angles &mdash; &theta;<sub>1</sub>, &theta;<sub>2</sub>, &phi;<sub>1</sub>, &phi;<sub>2</sub> and &omega;
+								&mdash; are the fiddliest part of writing a parameter file. Both pages below are built from the
+								measurement code itself, so they agree with what the simulator does, including at the special
+								cases where an angle is undefined, where an angle should be written as <b>nan</b>, and where
+								&omega; is read from the normal vectors instead of the centre-of-mass arms.</p>
+							<p>Set the five angles and watch the bound geometry they produce, with each sign convention and
+								singularity exposed as you move them:</p>
+							<ul class="actions">
+								<li><a href="angle-convention.html" class="button primary small">Angle explorer: angles &rarr; geometry</a></li>
+							</ul>
+							<p>Or work backwards: give the bound-state coordinates and the two normal vectors, and read off the
+								five angles together with the <b>assocAngles</b> line to paste into your parameter file:</p>
+							<ul class="actions">
+								<li><a href="angle-inverse.html" class="button primary small">Angle solver: geometry &rarr; angles</a></li>
+							</ul>
+						</div>
 					</div>
 
 				<!-- Footer -->
