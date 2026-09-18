@@ -190,6 +190,18 @@ inline void add_3D_rotational_diffusion(
 /*! @} */
 
 /*!
+ * \brief Distance between two Molecules' Interfaces, with no side effects.
+ *
+ * Used both by get_distance(), when deciding whether a pair is close enough to
+ * have its reaction probability evaluated, and by associate(), when re-checking
+ * a pair that has ended up inside one Complex.  The two must agree, so the
+ * geometry (geodesic on a sphere, along x on a fiber, in-plane on a flat
+ * membrane, otherwise Euclidean) lives here rather than at either call site.
+ */
+double calc_interface_distance(int pro1, int pro2, int iface1, int iface2,
+    const std::vector<Complex>& complexList, const std::vector<Molecule>& moleculeList, bool isSphere);
+
+/*!
  * \brief Gets the distance between two Molecule's Interfaces and determines if they are within Rmax, and can therefore
  * react.
  */

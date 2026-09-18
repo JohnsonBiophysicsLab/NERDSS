@@ -151,10 +151,12 @@ $(ODIR)/%.o: $(SDIR)/%.cpp
 
 # ---------------- STANDALONE CHECKS
 # run_code_tests/*_check.cpp are self-contained programs with their own main().
-# They cover the two things the model-level A/B cannot: weighted_D_sum's 1D arm,
-# which no input file in the tree reaches because nothing sets isPromoter, and
-# Membrane's serialization, which the MPI path cannot validate because
-# nerdss_mpi does not reproduce itself run to run even with a fixed seed.
+# They cover what the model-level A/B cannot: the 1D arms of weighted_D_sum and
+# get_distance, which no input file in the tree reaches because nothing sets
+# isPromoter; Membrane's serialization, which the MPI path cannot validate
+# because nerdss_mpi does not reproduce itself run to run even with a fixed
+# seed; and associate()'s refusal of an out-of-range loop closure, which a model
+# only reaches on the seeds whose trajectories happen to line up.
 #
 # They were added with no way to build them, which makes a test that decays
 # silently.  `make serial && make checks` builds and runs each; a non-zero exit
