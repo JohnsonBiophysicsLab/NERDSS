@@ -26,6 +26,36 @@ void associate(long long int iter,
     Membrane& membraneObject, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, std::ofstream& assocDissocFile)
 {
+    /* Two molecules that are already in one complex may only bond if their
+     * interfaces are essentially at contact: associate_box()/associate_sphere()
+     * close a loop in place, moving nothing, so whatever separation they are at
+     * now is the separation the bond is written at.  That is why
+     * check_bimolecular_reactions() sends a same-complex pair to
+     * evaluate_binding_within_complex(), which records a crossing only when the
+     * separation is below bindRadSameCom * bindRadius.
+     *
+     * A pair in *different* complexes is admitted on a far looser, diffusion-based
+     * Rmax, because the association would first bring the two complexes together.
+     * Such a crossing is recorded once per timestep and then consumed later in the
+     * same timestep, and in between an earlier association can merge the two
+     * complexes that the pair belongs to.  The crossing then arrives here as a loop
+     * closure it was never qualified for, and bonds two interfaces that can be many
+     * sigma apart, silently fusing complexes that are nowhere near each other.
+     *
+     * So re-apply the same-complex criterion at the moment of association, against
+     * the complexes as they are now rather than as they were when the crossing was
+     * recorded.  A genuine loop closure passes it unchanged: it was admitted under
+     * this very criterion, and an earlier association in the same timestep moves
+     * complexes rigidly, which leaves the separation within a complex untouched. */
+    if (reactCom1.index == reactCom2.index) {
+        double sameComSep { currRxn.bindRadSameCom * currRxn.bindRadius };
+        double R1 { calc_interface_distance(reactMol1.index, reactMol2.index, ifaceIndex1, ifaceIndex2,
+            complexList, moleculeList, membraneObject.isSphere()) };
+        // Negated so that a NaN separation is refused rather than bonded.
+        if (!(R1 < sameComSep))
+            return;
+    }
+
     if (membraneObject.isSphere() == true) {
         associate_sphere(iter, ifaceIndex1, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, params,
             currRxn, moleculeList, molTemplateList, observablesList,

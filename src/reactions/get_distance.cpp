@@ -36,9 +36,8 @@
 //   return coordx;
 // }
 
-bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
-    double& sep, double& R1, double Rmax, std::vector<Complex>& complexList, const ForwardRxn& currRxn,
-    std::vector<Molecule>& moleculeList, bool isSphere)
+double calc_interface_distance(int pro1, int pro2, int iface1, int iface2,
+    const std::vector<Complex>& complexList, const std::vector<Molecule>& moleculeList, bool isSphere)
 {
     bool is2D = false;
     bool is1D = false;
@@ -59,19 +58,11 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
       double r2 = iface22.length();
       double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
       double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
-      R1 = r * theta;
-      sep = R1 - currRxn.bindRadius;
+      return r * theta;
     } else if (is1D) {
       double coordx1{moleculeList[pro1].interfaceList[iface1].coord.x};
       double coordx2{moleculeList[pro2].interfaceList[iface2].coord.x};
-      R1 = abs(coordx1 - coordx2);
-      sep = R1 - currRxn.bindRadius;
-      // For co-localized proteins, they do not affect other 1D objects
-      if (moleculeList[pro1].isPromoter && !moleculeList[pro2].isPromoter) {
-        sep = R1; 
-      } else if (!moleculeList[pro1].isPromoter && moleculeList[pro2].isPromoter) {
-        sep = R1; 
-      }
+      return abs(coordx1 - coordx2);
     } else {
       double dx = moleculeList[pro1].interfaceList[iface1].coord.x -
                   moleculeList[pro2].interfaceList[iface2].coord.x;
@@ -92,9 +83,24 @@ bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int 
       } else {
           dz = moleculeList[pro1].interfaceList[iface1].coord.z - moleculeList[pro2].interfaceList[iface2].coord.z;
       }
-      R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
-      sep = R1 - currRxn.bindRadius;
+      return sqrt((dx * dx) + (dy * dy) + (dz * dz));
     }
+}
+
+bool get_distance(int pro1, int pro2, int iface1, int iface2, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
+    double& sep, double& R1, double Rmax, std::vector<Complex>& complexList, const ForwardRxn& currRxn,
+    std::vector<Molecule>& moleculeList, bool isSphere)
+{
+    R1 = calc_interface_distance(pro1, pro2, iface1, iface2, complexList, moleculeList, isSphere);
+    sep = R1 - currRxn.bindRadius;
+
+    // For co-localized proteins on a fiber, they do not affect other 1D objects.
+    // (The fiber pair is exactly the 1D case inside calc_interface_distance().)
+    if (complexList[moleculeList[pro1].myComIndex].onFiber && complexList[moleculeList[pro2].myComIndex].onFiber
+        && (moleculeList[pro1].isPromoter != moleculeList[pro2].isPromoter)) {
+      sep = R1;
+    }
+
     /*Rmax should be the binding radius plus ~max diffusion distance, using
    * 3*sqrt(6*Dtot*deltat)*/
     if (R1 < Rmax) {
