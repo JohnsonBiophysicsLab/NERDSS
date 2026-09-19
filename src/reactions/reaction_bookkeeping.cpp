@@ -46,6 +46,22 @@ void zero_partner_probvec(
     }
 }
 
+void remove_partner_crossings(
+    const Molecule& mol, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList)
+{
+    // A partner that `mol` lists more than once, through several interface
+    // pairs, loses all of its entries for `mol` on the first visit and finds
+    // none on the others.  The implicit lipid never lists anyone, so it loses
+    // nothing.
+    for (unsigned crossItr { 0 }; crossItr < mol.crossings.size(); ++crossItr) {
+        Molecule& partner { moleculeList[mol.crossings[crossItr].partner] };
+        auto removed = std::remove_if(partner.crossings.begin(), partner.crossings.end(),
+            [&mol](const Molecule::CrossEntry& partnerCross) { return partnerCross.partner == mol.index; });
+        complexList[partner.myComIndex].ncross -= static_cast<int>(partner.crossings.end() - removed);
+        partner.crossings.erase(removed, partner.crossings.end());
+    }
+}
+
 void count_unimolecular_observable(bool isStateChangeBackRxn, int rxnIndex,
     const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
     std::map<std::string, int>& observablesList)

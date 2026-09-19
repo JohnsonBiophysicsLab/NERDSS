@@ -96,6 +96,25 @@ void zero_partner_probvec(
     const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners = false);
 
 /*!
+ * \brief Takes `mol` off every partner's crossing list, and out of the partner
+ * complex's `ncross`.
+ *
+ * For a molecule destroyed after this timestep's crossing lists were built,
+ * which is what a transmission reaction does.  `zero_partner_probvec()` would
+ * stop the partners reacting with it but not sweeping against it, and every
+ * overlap sweep looks up each listed partner's complex through `myComIndex`,
+ * which `Molecule::destroy()` sets to -1.
+ *
+ * Each entry removed here was added by `record_crossing_pair()`, which also
+ * counted it in the partner complex's `ncross`, so it is uncounted too.  A
+ * complex left with no partners then moves like one that never had any,
+ * instead of entering a sweep with nothing to sweep against, which the cluster
+ * sweep answers by not moving it at all.
+ */
+void remove_partner_crossings(
+    const Molecule& mol, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
+
+/*!
  * \brief Moves the observable counter for a bimolecular state change.
  *
  * Up for a forward reaction, down for the back reaction; nothing at all if the
