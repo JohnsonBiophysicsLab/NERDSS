@@ -1,19 +1,32 @@
-# Sample inputs that already fail on master, verified with the master build at
-# commit 260f6e2 (Apple M5, Apple clang 21, -O3, seed 20260810, nItr 1000).
+# Sample inputs that still do not produce a usable run, verified with the master
+# build at commit 260f6e2 (Apple M5, Apple clang 21, -O3, seed 20260810, nItr
+# 1000) and re-checked on nerdss-optimized at 6b01636.
 # They are kept out of cases.tsv because a crashed or hung run produces truncated
 # output whose hash depends on where it stopped, which would make the bitwise
 # comparison meaningless rather than informative.
 #
-# None of these are caused or fixed by the nerdss-optimized changes.  The
-# result-preserving subset of the branch reproduces each failure identically; the
-# full branch reproduces the same failure mode at a different point, because the
-# random stream differs.  Reproduce any of them by moving the row into cases.tsv
-# and running:
+# Neither row below is caused by the nerdss-optimized changes, though 459bd83
+# changed how the first one fails.  Reproduce either by moving the row into
+# cases.tsv and running:
 #   CASE_TIMEOUT=60 SUITE_NITR=1000 ./run_suite.sh <binary> probe 1
 #
+# Three rows have left this table because nerdss-optimized fixed them, and all
+# three were one defect: a molecule destroyed mid-timestep keeps its slot in
+# moleculeList with myComIndex -1, and a loop that did not skip it indexed
+# complexList[-1], one Complex before the vector's storage.
+#   create_destroy  394fdd1, the overlap loop
+#   clock_model     52b9ab3, the creation reactant pool
+#   compartment     394fdd1, and 6b01636 for a transmitted molecule's partners
+# The probe above runs all three to completion on 6b01636 with no
+# AddressSanitizer report, and each was checked further: create_destroy over its
+# full 60000 iterations, settling at 6036 A against an analytic steady state of
+# 6022; clock_model over 200000 iterations on seeds 20260810 and 1-5; compartment
+# over its full 100000 on the same seeds.  Under AddressSanitizer the pre-fix
+# binary (207e22d) stops compartment at nerdss.cpp:1303 reading 100 bytes before
+# complexList's storage, around step 8000, which is where the 8000-to-12000
+# window this table used to record came from.  compartment is in
+# coverage_cases.tsv; create_destroy and clock_model are in no table yet.
+#
 # id <TAB> input directory <TAB> parm file <TAB> failure
-create_destroy	VALIDATE_SUITE/create_destroy	create.inp	SIGSEGV after ~11 output blocks of zeroth-order creation (NULL -> A(ser)) from A:0. Master and the result-preserving build fail at the same point; the full branch fails later on the same fault.
-unimolecular_reverse	VALIDATE_SUITE/unimolecular_reverse	uni_reverse.inp	No bimolecular association reaction, so set_rMaxLimit() leaves rMaxLimit at 0 and SimulVolume::Dimensions divides the box length by it. Cell count goes negative and the run prints "CELL PAIR MAX EXCEEDED / Current number of cells: -4" indefinitely (~110M messages in 30 s) without advancing. Identical on all three builds.
-clock_model	VALIDATE_SUITE/clock_model	clock_model.inp	SIGSEGV immediately after "BEGIN SIMULATION", seed-dependent: it crashes on master and on the result-preserving build with seed 20260810 but completes on both with seeds 1-5. A latent memory error, not a systematic failure. The full branch happens to survive seed 20260810 because its initial orientations differ; that is luck, not a fix.
+unimolecular_reverse	VALIDATE_SUITE/unimolecular_reverse	uni_reverse.inp	No bimolecular association reaction, so set_rMaxLimit() leaves rMaxLimit at 0 and the simulation volume cannot be divided into sub-volumes. On master, SimulVolume::Dimensions divides the box length by it, the cell count goes negative and the run prints "CELL PAIR MAX EXCEEDED / Current number of cells: -4" indefinitely (~110M messages in 30 s) without advancing. Since 459bd83 nerdss-optimized detects it during setup and exits 1 naming the reason. The model still cannot run either way.
 gag	Gag	parm.inp	Runs correctly, but the model holds a single molecule (A:1) so no reaction path is exercised. Excluded as a benchmark, not as a failure.
-compartment	compartment	clath_compartment.inp	SIGSEGV between 8000 and 12000 iterations: completes at 4000 and 8000, faults at 12000, 16000 and 20000. Reproduces identically on the pre-refactor binary (nerdss-optimized at 207e22d), so it is the model or a latent memory error, not the consolidation work. The case is still useful below the threshold and is in coverage_cases.tsv at nItr 4000, because it is the only sample that reaches check_compartment_reaction and the compartment transmission probabilities.

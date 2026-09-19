@@ -7,8 +7,9 @@
 # bitwise or timing claim only means something together with the number of
 # iterations it was measured over.
 #
-# Three VALIDATE_SUITE cases and the Gag example are deliberately absent; see
-# known_broken.tsv for why.
+# One VALIDATE_SUITE case and the Gag example are deliberately absent; see
+# known_broken.tsv for why.  create_destroy and clock_model were absent for the
+# same reason until 394fdd1 and 52b9ab3 fixed them, and are not added here yet.
 rev_3D	VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	20000
 rev_2D	VALIDATE_SUITE/bimolecular_reversible/rev_2D	parms2D.inp	200
 rev_3Dto2D	VALIDATE_SUITE/bimolecular_reversible/rev_3Dto2D	parms3dto2d.inp	8000
