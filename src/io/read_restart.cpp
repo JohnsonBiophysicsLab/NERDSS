@@ -355,6 +355,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
 
                 restartFile >> oneTemp.Dr.x >> oneTemp.Dr.y >> oneTemp.Dr.z;
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                // Without this invCbrtDr stays zero, Complex::update_properties()
+                // sums it to zero and divides by that, and every complex with a
+                // rotating member comes out with Dr = inf and NaN coordinates
+                // after its first step.
+                oneTemp.cache_diffusion_derivatives();
 
                 // reaction partners
                 {
