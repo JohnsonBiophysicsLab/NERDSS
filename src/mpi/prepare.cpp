@@ -219,6 +219,20 @@ void prepare_data_structures_for_parallel_execution(
       mol.isGhosted = true;
   }
 
+  // Seed complex ownership from that same initial decomposition.  From here on
+  // ownerRank is the authority and isGhosted is derived from it; this is the one
+  // place the two are allowed to be computed independently.
+  for (auto &com : complexList) {
+    com.ownerRank = -1;
+    for (int m : com.memberList) {
+      if (m < 0 || m >= (int)moleculeList.size()) continue;
+      if (!moleculeList[m].isGhosted && !moleculeList[m].isEmpty) {
+        com.ownerRank = mpiContext.rank;
+        break;
+      }
+    }
+  }
+
   // For the left-right division model, in the first step, all ranks (except the
   // first rank) will send their left share zones to the left neighbor rank. So,
   // all the right share zones of each rank (except the last rank) should set
