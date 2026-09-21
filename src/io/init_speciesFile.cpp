@@ -72,5 +72,18 @@ int init_speciesFile(ofstream& speciesFile, copyCounters& counterArrays,
   cout << " Total species calculated from init_speciesFile.cpp: " << nSpecies
        << endl;
 
+  // A restart takes bindPairList from the file instead of building it above,
+  // and the dissociation and association code index it by species with no
+  // bounds check. A file whose lists do not match its own species - such as one
+  // written after an add file before reindex_bindPairList_for_add() existed -
+  // would otherwise corrupt the heap silently.
+  if (params.fromRestart &&
+      static_cast<int>(counterArrays.bindPairList.size()) != nSpecies) {
+    cerr << "ERROR: the restart file holds bound-pair lists for "
+         << counterArrays.bindPairList.size() << " species, but its molecule "
+         << "types and reactions define " << nSpecies << ". Exiting...\n";
+    exit(1);
+  }
+
   return nSpecies;
 }

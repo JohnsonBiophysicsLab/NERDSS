@@ -103,7 +103,8 @@ void parse_input_for_a_restart_simulation(
     parse_input_for_add_file(
         addFileNameInput, params, observablesList, forwardRxns, backRxns,
         createDestructRxns, molTemplateList, membraneObject, moleculeList,
-        complexList, numMolTemplateBeforeAdd, numDoubleBeforeAdd);
+        complexList, counterArrays, numMolTemplateBeforeAdd,
+        numDoubleBeforeAdd);
   }
 
   // The MPI main reaches its boundary set-up only through here, so the check

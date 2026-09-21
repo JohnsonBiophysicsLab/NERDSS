@@ -455,6 +455,12 @@ int main(int argc, char *argv[]) {
         }
       }
 
+      // move the restart file's bound-pair lists to the same new species
+      // indices
+      reindex_bindPairList_for_add(counterArrays, forwardRxns,
+                                   tempLastStateIndexBeforeAdd, numStateAdd,
+                                   numDoubleBeforeAdd);
+
       // A boundaries block naming neither a waterBox nor a sphere leaves
       // shape Unspecified, which every dispatch treats as a box - against a
       // waterBox of all zeros.  Fail here instead.

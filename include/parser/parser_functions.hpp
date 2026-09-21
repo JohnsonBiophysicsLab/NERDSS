@@ -386,6 +386,7 @@ void parse_input_for_a_restart_simulation(
  * @param membraneObject Membrane object.
  * @param moleculeList List of individual molecules.
  * @param complexList List of complexes.
+ * @param counterArrays Object storing the species information.
  * @param numMolTemplateBeforeAdd Number of template before adding.
  * @param numDoubleBeforeAdd Number of bimolecular species before adding.
  */
@@ -396,4 +397,15 @@ void parse_input_for_add_file(
     std::vector<CreateDestructRxn>& createDestructRxns,
     std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
-    int& numMolTemplateBeforeAdd, int& numDoubleBeforeAdd);
+    copyCounters& counterArrays, int& numMolTemplateBeforeAdd,
+    int& numDoubleBeforeAdd);
+
+/*! \ingroup Parser
+ * \brief Moves the restart file's bindPairList into the species order an add file creates
+ *
+ * The lists arrive from read_restart() indexed by the species of the system before the
+ * add. Call once the add file's states and products are numbered, alongside renumbering
+ * the molecules' interfaces and the reactions' products.
+ */
+void reindex_bindPairList_for_add(copyCounters& counterArrays, const std::vector<ForwardRxn>& forwardRxns,
+    int lastStateIndexBeforeAdd, int numStateAdd, int numDoubleBeforeAdd);
