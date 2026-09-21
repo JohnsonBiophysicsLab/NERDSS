@@ -1,0 +1,13 @@
+# Two lipid-binding sites: once one binds from solution, the other binds in 2D.
+Name    = C
+
+D       = [10.0,10.0,10.0]
+Dr      = [0.1,0.1,0.1]
+
+COM     0.0000    0.0000    0.0000
+m1     -1.0000    0.0000   -1.0000
+m2      1.0000    0.0000   -1.0000
+
+bonds = 2
+com m1
+com m2
