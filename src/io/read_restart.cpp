@@ -1259,6 +1259,18 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+                // trajStatus is not in the file, and every other molecule can do
+                // without it: the end of each timestep resets theirs to `none`,
+                // which is what they all hold at a checkpoint.  That reset skips
+                // the implicit lipid's one representative molecule.  The overlap
+                // loop propagates it in the first timestep, and from then on it
+                // holds `propagated`, so the loop never propagates it again.
+                // Left at `none`, a restart propagated it once more at its first
+                // step, drawing random numbers the uninterrupted run never drew,
+                // and every step after that diverged.  A file written at step 0
+                // is from before that first propagation, where `none` is right.
+                if (tmpMol.isImplicitLipid && simItr > 0)
+                    tmpMol.trajStatus = TrajStatus::propagated;
                 moleculeList.emplace_back(tmpMol);
                 //std::cout <<"read in : "<<tmpMol.index<<" first interface z crd: "<<tmpMol.comCoord.z<<std::endl;
             }
