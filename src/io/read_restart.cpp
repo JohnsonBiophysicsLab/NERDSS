@@ -130,9 +130,17 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
             expect_restart_key(restartFile, "simulDimensions");
-            restartFile >> membraneObject.waterBox.x >> membraneObject.waterBox.y >> membraneObject.waterBox.z;
+            std::vector<double> boxDimensions(3);
+            restartFile >> boxDimensions[0] >> boxDimensions[1] >> boxDimensions[2];
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            membraneObject.waterBox.volume = membraneObject.waterBox.x * membraneObject.waterBox.y * membraneObject.waterBox.z;
+            // Built by the constructor, as parse_input() builds it, so that
+            // xLeft and xRight are set along with the volume.  Reading x, y and
+            // z alone left both at zero, and create_random_coords() places a
+            // molecule created in a box at x = xLeft + (xRight - xLeft) * rand:
+            // after a restart, every molecule a creation reaction made landed on
+            // the plane x = 0.  nerdss_mpi overwrites both with its rank's
+            // bounds in prepare.cpp.
+            membraneObject.waterBox = Membrane::WaterBox(boxDimensions);
 
             expect_restart_key(restartFile, "membrane");
             restartFile >> membraneObject.implicitlipidIndex >> membraneObject.nSites >> membraneObject.nStates >> membraneObject.No_free_lipids >> membraneObject.No_protein >> membraneObject.totalSA;
