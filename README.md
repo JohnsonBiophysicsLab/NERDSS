@@ -44,7 +44,7 @@ To build serial NERDSS, you need:
     - Run *make serial*
     - The executable will be placed in the *./bin* directory
 
-To build parallel NERDSS, you need to checkout to the `mpi` branch:
+Parallel NERDSS builds from this same tree -- no branch switch is needed. To build it:
 
 1. MPI:
     - For macOS, install OpenMPI with Homebrew: *brew install open-mpi*
@@ -53,6 +53,14 @@ To build parallel NERDSS, you need to checkout to the `mpi` branch:
     - Navigate to the main directory
     - Run *make mpi* (with profiling support: *make mpi ENABLE_PROFILING=1*)
     - The executable will be placed in the ./bin directory
+
+The two modes keep their objects in separate trees (*obj/serial* and *obj/mpi*),
+so you can build either one in any order without cleaning in between. They are
+not interchangeable: *-Dmpi_* changes the subvolume grid and adds members to the
+internal MpiContext struct, so an object built for one mode is wrong for the
+other. Linking them together is a hard error rather than a silent one -- if you
+ever see an undefined symbol mentioning *nerdss_build_mpi* or
+*nerdss_build_serial*, an object tree has been mixed; *make clean* resolves it.
 
 ### Run Simulations
 

@@ -27,12 +27,22 @@
 # `llvm-cov report -show-functions`.  Everything still at 0.00% after this table
 # runs is listed in known_uncovered.tsv.
 
-# Compartment transmission: check_compartment_reaction (52%),
-# determine_exiting_compartment_probability (100%),
-# determine_compartment_probability (67%), prob_exiting_compartment.
-# nItr is 4000 on purpose: this sample segfaults somewhere between 8000 and
-# 12000 iterations, on the pre-refactor binary too.  See known_broken.tsv.
-compartment	compartment	clath_compartment.inp	4000
+# Compartment transmission.  nItr was 4000 because the sample used to segfault
+# between 8000 and 12000 iterations; 394fdd1 and 6b01636 fixed that, and 4000
+# turns out to transmit nothing at all - with this seed the first transmission
+# is at step 9000, so every routine that performs one was dark.  At 30000 it
+# transmits three times and still costs 0.7 s.  Region coverage at 6b01636,
+# 4000 -> 30000: check_compartment_reaction 72% -> 89%,
+# determine_compartment_probability 67% -> 75%,
+# determine_entering_compartment_probability 0% -> 100%,
+# determine_exiting_compartment_probability 100%, prob_exiting_compartment 64%,
+# perform_transmission_reaction 0% -> 82%,
+# create_molecule_and_complex_from_transmission_rxn 0% -> 50%,
+# initialize_molecule_after_transmission_reaction 0% -> 46%.
+# remove_partner_crossings() is reached, three times, but never with anything to
+# remove: no molecule in this model has a crossing partner in range when it
+# transmits.  Its removal loop needs a denser model than any sample holds.
+compartment	compartment	clath_compartment.inp	30000
 
 # Unimolecular state change: count_unimolecular_observable, and the
 # check_for_unimolstatechange_reactions path around it.

@@ -818,6 +818,9 @@ int main(int argc, char *argv[]) {
   std::cout << "\nReactions\n";
   display_all_reactions(forwardRxns, backRxns, createDestructRxns);
 
+  // both the new-simulation and restart branches have final copy numbers here
+  check_transition_matrix_size(molTemplateList, createDestructRxns);
+
   write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
             membraneObject);
   std::cout << "*************** BEGIN SIMULATION **************** "

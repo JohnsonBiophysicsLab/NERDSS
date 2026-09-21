@@ -1,0 +1,11 @@
+implicit_lipid|/Users/yue/Workspace/NERDSS/sample_inputs/implicit_lipid/parms.inp|200000
+clathrin_flat|/Users/yue/Workspace/NERDSS/sample_inputs/clathrin_coat/flat_clat.dir/clath_kon1uM.inp|400000
+clathrin_pucker|/Users/yue/Workspace/NERDSS/sample_inputs/clathrin_coat/puckered_clat.dir/parms_pucker.inp|200000
+auto_phos|/Users/yue/Workspace/NERDSS/sample_inputs/auto_phos/autophos_D10.inp|1000000
+rev_3D|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/bimolecular_reversible/rev_3D/parms3d.inp|70000
+rev_2D|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/bimolecular_reversible/rev_2D/parms2D.inp|500
+rev_3Dto2D|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/bimolecular_reversible/rev_3Dto2D/parms3dto2d.inp|15000
+uni_state_rev|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible/uni_state_rev.inp|70000
+michaelis|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/michaelis_menten/michaelis.inp|300000
+mem_loc_IL|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/mem_localization/SmallBox/FastDsol/IL/parms.inp|200000
+mem_loc_EL|/Users/yue/Workspace/NERDSS/sample_inputs/VALIDATE_SUITE/mem_localization/SmallBox/FastDsol/EL/parms.inp|8000

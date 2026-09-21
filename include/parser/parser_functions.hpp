@@ -292,6 +292,16 @@ std::string write_mol_iface(std::string mol, std::string iface);
 void display_all_reactions(const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
     const std::vector<CreateDestructRxn>& createDestructRxns);
 void display_all_MolTemplates(const std::vector<MolTemplate>& molTemplates);
+
+/*! \ingroup Parser
+ * \brief Warns when transitionMatrixSize is too small for the copy numbers in the system
+ *
+ * transitionMatrix and lifeTime are indexed by cluster size with no bounds check, so a
+ * complex larger than transitionMatrixSize writes outside them. Call once the copy
+ * numbers are final, before the simulation starts.
+ */
+void check_transition_matrix_size(const std::vector<MolTemplate>& molTemplateList,
+    const std::vector<CreateDestructRxn>& createDestructRxns);
 /*******************/
 
 /**

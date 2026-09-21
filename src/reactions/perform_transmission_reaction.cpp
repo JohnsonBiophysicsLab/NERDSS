@@ -44,8 +44,10 @@ void perform_transmission_reaction(int moleculeIndex, std::vector<Molecule>& mol
 	for (const auto& iface : moleculeList[newMolIndex].interfaceList)
 	  ++counterArrays.copyNumSpecies[iface.index];
 
-    // forbid this molecule to react with other molecules
-    zero_partner_probvec(moleculeList[moleculeIndex], moleculeList);
+    // take this molecule off its partners' crossing lists, not only out of their
+    // reactions: it is destroyed below, and a partner's overlap sweep would
+    // still look up its complex (see remove_partner_crossings())
+    remove_partner_crossings(moleculeList[moleculeIndex], moleculeList, complexList);
     complexList[moleculeList[moleculeIndex].myComIndex].ncross = -1;
     moleculeList[moleculeIndex].crossings.clear();
 

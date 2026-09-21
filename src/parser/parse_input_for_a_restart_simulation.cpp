@@ -112,6 +112,10 @@ void parse_input_for_a_restart_simulation(
   // an all-zero WaterBox.
   membraneObject.require_boundary();
 
+  // transitionMatrix and lifeTime were sized from the restart file; check them
+  // against the copy numbers this run actually has
+  check_transition_matrix_size(molTemplateList, createDestructRxns);
+
   // Create water box for sphere boundary
   if (membraneObject.isSphere()) {
     membraneObject.create_water_box();

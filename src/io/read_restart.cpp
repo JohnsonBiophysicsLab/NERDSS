@@ -61,8 +61,10 @@ void expect_restart_key(std::ifstream& restartFile, const std::string& expected)
     if (found == expected)
         return;
 
+    // Inside a record, where there is no key, the text up to the next '=' is
+    // many lines of data; its first line is enough to show what was there.
     std::cerr << "Cannot read this restart file: expected the field '" << expected
-              << "' next, but found '" << found << "'.\n"
+              << "' next, but found '" << found.substr(0, found.find('\n')) << "'.\n"
               << "The restart format has gained fields over time and is matched by "
                  "position, so a file written by an older build cannot be read by "
                  "this one. Re-run from the input file instead." << std::endl;
@@ -158,6 +160,19 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             membraneObject.shape = isSphereFlag ? BoundaryShape::Sphere
                 : isBoxFlag                     ? BoundaryShape::Box
                                                 : BoundaryShape::Unspecified;
+
+            // Present only for a compartment; see write_restart().  A
+            // compartment file from before they were written stops here, rather
+            // than restarting with the sites' D and density at zero.
+            if (membraneObject.hasCompartment) {
+                expect_restart_key(restartFile, "compartmentSiteD");
+                restartFile >> membraneObject.droplet.D;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                expect_restart_key(restartFile, "compartmentSiteRho");
+                restartFile >> membraneObject.droplet.rho;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            }
 
             expect_restart_key(restartFile, "ifaceOverlapSepLimit");
             restartFile >> params.overlapSepLimit;
@@ -355,6 +370,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
 
                 restartFile >> oneTemp.Dr.x >> oneTemp.Dr.y >> oneTemp.Dr.z;
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                // Without this invCbrtDr stays zero, Complex::update_properties()
+                // sums it to zero and divides by that, and every complex with a
+                // rotating member comes out with Dr = inf and NaN coordinates
+                // after its first step.
+                oneTemp.cache_diffusion_derivatives();
 
                 // reaction partners
                 {
@@ -1052,6 +1072,42 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                     //copied new version up to here.
                     tmpRxn.rateList.emplace_back(tmpRate);
                 }
+
+                // Appended to the record; see write_restart().  The tag is what
+                // refuses a file written before these fields existed.
+                expect_restart_key(restartFile, "bindRadius");
+                restartFile >> tmpRxn.bindRadius;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                // reactant list
+                unsigned reactantListNewSize { 0 };
+                restartFile >> reactantListNewSize;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                for (unsigned itr { 0 }; itr < reactantListNewSize; ++itr) {
+                    RxnIface oneReact {};
+                    restartFile >> oneReact.molTypeIndex;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    restartFile >> oneReact.ifaceName >> oneReact.absIfaceIndex >> oneReact.relIfaceIndex;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    restartFile >> oneReact.requiresState >> oneReact.requiresInteraction;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    tmpRxn.reactantListNew.emplace_back(oneReact);
+                }
+
+                // product list
+                unsigned productListNewSize { 0 };
+                restartFile >> productListNewSize;
+                restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                for (unsigned itr { 0 }; itr < productListNewSize; ++itr) {
+                    RxnIface oneProd {};
+                    restartFile >> oneProd.molTypeIndex;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    restartFile >> oneProd.ifaceName >> oneProd.absIfaceIndex >> oneProd.relIfaceIndex;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    restartFile >> oneProd.requiresState >> oneProd.requiresInteraction;
+                    restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    tmpRxn.productListNew.emplace_back(oneProd);
+                }
                 transmissionRxns.emplace_back(tmpRxn);
             }
         }
@@ -1071,6 +1127,8 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                 restartFile >> tmpMol.mass >> tmpMol.isLipid >> tmpMol.isImplicitLipid 
                             >> tmpMol.linksToSurface >> tmpMol.isPromoter >> tmpMol.isEmpty;
+                if (membraneObject.hasCompartment) // see write_restart()
+                    restartFile >> tmpMol.enforceCompartmentBC;
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                 // center of mass
                 restartFile >> std::fixed >> tmpMol.comCoord.x >> tmpMol.comCoord.y >> tmpMol.comCoord.z;

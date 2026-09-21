@@ -56,3 +56,7 @@ benchmarks/nerdss_optimized/interleaved_timing.sh
 !/sample_inputs/**/RESTART/.gitkeep
 /sample_inputs/**/RESTARTS/**
 !/sample_inputs/**/RESTARTS/.gitkeep
+
+# local branching documentation
+benchmarks/nerdss_optimized/BRANCH_REPORT.md
+docs/debranching_plan.md

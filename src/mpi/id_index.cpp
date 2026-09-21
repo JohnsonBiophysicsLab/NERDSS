@@ -124,9 +124,14 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
       }
     }
 
-    // map the reweighting history's partner IDs back to indices
+    // Map the reweighting history's partner IDs back to indices.
+    // find_molecule returns -1 for a molecule that is not on this rank; keep
+    // that as the sentinel and leave it alone on the way back out, rather than
+    // feeding it to moleculeList[-1] in indices_to_IDs.
     for (auto &prevEntry : mol.prevReweight) {
-      prevEntry.partner = find_molecule(moleculeList, prevEntry.partner);
+      prevEntry.partner = (prevEntry.partner < 0)
+                              ? -1
+                              : find_molecule(moleculeList, prevEntry.partner);
     }
   }
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
@@ -150,9 +155,16 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
   }
   // Set myComIndex to the ID of the complex:
   mol.myComIndex = complexList[mol.myComIndex].id;
-  // Map the reweighting history's partner indices to IDs:
+  // Map the reweighting history's partner indices to IDs.  An entry can be -1
+  // when the neighbour it refers to has moved to another rank; moleculeList[-1]
+  // is a read off the front of the vector, so pass the sentinel through
+  // untouched.
   for (auto &prevEntry : mol.prevReweight) {
-    prevEntry.partner = moleculeList[prevEntry.partner].id;
+    prevEntry.partner =
+        (prevEntry.partner >= 0 &&
+         prevEntry.partner < static_cast<int>(moleculeList.size()))
+            ? moleculeList[prevEntry.partner].id
+            : -1;
   }
   if (VERBOSE) cout << "indices_to_IDs ends" << endl;
 }

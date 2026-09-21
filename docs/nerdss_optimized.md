@@ -971,6 +971,33 @@ Full layout tables, timings with standard deviations, pair counts, the size
 sweep and the bound on flattening the ragged lists are in section 22 of
 [`RESULTS.md`](../benchmarks/nerdss_optimized/RESULTS.md).
 
+### Stale loop closures bonded interfaces that were not touching
+
+Not an optimization: a correctness fix, recorded here because it is the one
+change on this branch that moves trajectories on purpose.
+
+A crossing between molecules in two different complexes is admitted on a
+diffusion-based `Rmax` and recorded once per timestep. If an earlier association
+in the same timestep merges those two complexes, the crossing reaches
+`associate()` as a loop closure, which bonds in place and moves nothing, so the
+bond was written at whatever separation the pair happened to have. On the 6BNO
+actin model that fused filaments that never touched into one reported complex in
+23 of 100 runs of 1 000 000 iterations, at separations up to 34 sigma.
+
+`associate()` now refuses a same-complex association unless
+`R1 < bindRadSameCom * bindRadius`, the criterion
+`evaluate_binding_within_complex()` already applies before it will record a
+same-complex crossing. The fixed build formed no far-apart bond in the same 100
+runs. `cases.tsv` and `coverage_cases.tsv` are byte-identical before and after,
+and a run changes only from the iteration where the guard refuses an
+association; everything else about it is identical.
+
+Mechanism, measurements, the case against skipping `propagated` molecules
+instead, and what this means for models that close rings at 1.11 sigma are in
+[`bond_site_separation_defect.md`](bond_site_separation_defect.md). The
+regression tests are `run_code_tests/loop_closure_separation_check.cpp` (in
+`make checks`) and `run_code_tests/BondSiteSeparation`.
+
 ## Reproducing the measurements
 
 ```bash
