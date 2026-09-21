@@ -344,11 +344,13 @@ int main(int argc, char *argv[]) {
                  membraneObject, counterArrays);
     restartFileInput.close();
 
-    // initialize numberOfProteinEachState
-    for (int tmpStateIndex = 0; tmpStateIndex < membraneObject.nStates;
-         tmpStateIndex++) {
-      membraneObject.numberOfProteinEachState.emplace_back(0);
-    }
+    // numberOfProteinEachState, the count at step 0, came from the restart
+    // file unless the file predates it; when it is missing,
+    // initialize_paramters_for_implicitlipid_and_compartment_model() counts it
+    // from the molecules below.  An add file brings new molecules, so it is
+    // counted again from all of them, as it always was.
+    if (addFileNameInput != "")
+      membraneObject.numberOfProteinEachState.clear();
 
     // add moldecules and reactions, modify parms according to add.inp
     if (addFileNameInput != "") {

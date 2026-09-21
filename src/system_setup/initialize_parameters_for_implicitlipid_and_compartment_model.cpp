@@ -85,21 +85,29 @@ void initialize_paramters_for_implicitlipid_and_compartment_model(int& implicitl
 
         ///////////////////////////////////////////////////////////
         // initial number of proteins' interface that can bind to implicit-lipids
-        const auto& implicitLipidStateList = molTemplateList[moleculeList[membraneObject.implicitlipidIndex].molTypeIndex].interfaceList[0].stateList;
-        for (int mol { 0 }; mol < moleculeList.size(); ++mol) {
-            if (moleculeList[mol].isImplicitLipid)
-                continue;
-            int molType = moleculeList[mol].molTypeIndex;
-            for (int relfaceItr { 0 }; relfaceItr < moleculeList[mol].interfaceList.size(); ++relfaceItr) {
-                int stateIndex = moleculeList[mol].interfaceList[relfaceItr].stateIndex;
-                const Interface::State& state = molTemplateList[molType].interfaceList[relfaceItr].stateList[stateIndex];
-                for (auto rxnItr : state.myForwardRxns) {
-                    const ForwardRxn& oneRxn = forwardRxns[rxnItr];
-                    for (int reactItr { 0 }; reactItr < oneRxn.reactantListNew.size(); ++reactItr) {
-                        for (auto& implicitLipidState : implicitLipidStateList) {
-                            if (implicitLipidState.index
-                                == oneRxn.reactantListNew[reactItr].absIfaceIndex)
-                                membraneObject.numberOfProteinEachState[static_cast<int>(&implicitLipidState - &implicitLipidStateList[0])]++;
+        // This is the count at step 0.  Once molecules have been created,
+        // destroyed or changed state, a restart cannot rebuild it from its own
+        // molecules, so the restart file carries it (see write_restart()).
+        // Count it for a new run, and for a restart whose file does not.
+        if (params.fromRestart == false
+            || membraneObject.numberOfProteinEachState.size() != static_cast<std::size_t>(membraneObject.nStates)) {
+            membraneObject.numberOfProteinEachState.assign(membraneObject.nStates, 0);
+            const auto& implicitLipidStateList = molTemplateList[moleculeList[membraneObject.implicitlipidIndex].molTypeIndex].interfaceList[0].stateList;
+            for (int mol { 0 }; mol < moleculeList.size(); ++mol) {
+                if (moleculeList[mol].isImplicitLipid)
+                    continue;
+                int molType = moleculeList[mol].molTypeIndex;
+                for (int relfaceItr { 0 }; relfaceItr < moleculeList[mol].interfaceList.size(); ++relfaceItr) {
+                    int stateIndex = moleculeList[mol].interfaceList[relfaceItr].stateIndex;
+                    const Interface::State& state = molTemplateList[molType].interfaceList[relfaceItr].stateList[stateIndex];
+                    for (auto rxnItr : state.myForwardRxns) {
+                        const ForwardRxn& oneRxn = forwardRxns[rxnItr];
+                        for (int reactItr { 0 }; reactItr < oneRxn.reactantListNew.size(); ++reactItr) {
+                            for (auto& implicitLipidState : implicitLipidStateList) {
+                                if (implicitLipidState.index
+                                    == oneRxn.reactantListNew[reactItr].absIfaceIndex)
+                                    membraneObject.numberOfProteinEachState[static_cast<int>(&implicitLipidState - &implicitLipidStateList[0])]++;
+                            }
                         }
                     }
                 }
@@ -254,29 +262,36 @@ void initialize_paramters_for_implicitlipid_model(
 
     ///////////////////////////////////////////////////////////
     // initial number of proteins' interface that can bind to implicit-lipids
-    const auto& implicitLipidStateList =
-        molTemplateList[moleculeList[membraneObject.implicitlipidIndex]
-                            .molTypeIndex]
-            .interfaceList[0]
-            .stateList;
-    for (int mol{0}; mol < moleculeList.size(); ++mol) {
-      if (moleculeList[mol].isImplicitLipid) continue;
-      int molType = moleculeList[mol].molTypeIndex;
-      for (int relfaceItr{0};
-           relfaceItr < moleculeList[mol].interfaceList.size(); ++relfaceItr) {
-        int stateIndex = moleculeList[mol].interfaceList[relfaceItr].stateIndex;
-        const Interface::State& state = molTemplateList[molType]
-                                            .interfaceList[relfaceItr]
-                                            .stateList[stateIndex];
-        for (auto rxnItr : state.myForwardRxns) {
-          const ForwardRxn& oneRxn = forwardRxns[rxnItr];
-          for (int reactItr{0}; reactItr < oneRxn.reactantListNew.size();
-               ++reactItr) {
-            for (auto& implicitLipidState : implicitLipidStateList) {
-              if (implicitLipidState.index ==
-                  oneRxn.reactantListNew[reactItr].absIfaceIndex)
-                membraneObject.numberOfProteinEachState[static_cast<int>(
-                    &implicitLipidState - &implicitLipidStateList[0])]++;
+    // The count at step 0, carried by the restart file; see the function above.
+    if (params.fromRestart == false ||
+        membraneObject.numberOfProteinEachState.size() !=
+            static_cast<std::size_t>(membraneObject.nStates)) {
+      membraneObject.numberOfProteinEachState.assign(membraneObject.nStates, 0);
+      const auto& implicitLipidStateList =
+          molTemplateList[moleculeList[membraneObject.implicitlipidIndex]
+                              .molTypeIndex]
+              .interfaceList[0]
+              .stateList;
+      for (int mol{0}; mol < moleculeList.size(); ++mol) {
+        if (moleculeList[mol].isImplicitLipid) continue;
+        int molType = moleculeList[mol].molTypeIndex;
+        for (int relfaceItr{0};
+             relfaceItr < moleculeList[mol].interfaceList.size(); ++relfaceItr) {
+          int stateIndex =
+              moleculeList[mol].interfaceList[relfaceItr].stateIndex;
+          const Interface::State& state = molTemplateList[molType]
+                                              .interfaceList[relfaceItr]
+                                              .stateList[stateIndex];
+          for (auto rxnItr : state.myForwardRxns) {
+            const ForwardRxn& oneRxn = forwardRxns[rxnItr];
+            for (int reactItr{0}; reactItr < oneRxn.reactantListNew.size();
+                 ++reactItr) {
+              for (auto& implicitLipidState : implicitLipidStateList) {
+                if (implicitLipidState.index ==
+                    oneRxn.reactantListNew[reactItr].absIfaceIndex)
+                  membraneObject.numberOfProteinEachState[static_cast<int>(
+                      &implicitLipidState - &implicitLipidStateList[0])]++;
+              }
             }
           }
         }

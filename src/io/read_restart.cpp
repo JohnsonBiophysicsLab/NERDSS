@@ -1423,12 +1423,18 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             // }
         }
 
-        // The implicit lipid's 2D binding table; see write_restart().  A file
-        // from before it was written ends above.  That file still restarts, as
-        // it always did, but the table is then rebuilt from the lipid count at
-        // the restart, so the run cannot continue exactly.
+        // The implicit lipid's 2D binding table and the protein counts it is
+        // built from; see write_restart().  A file from before they were
+        // written ends above.  That file still restarts, as it always did, but
+        // both are then rebuilt from the state at the restart, so the run
+        // cannot continue exactly.
         std::string implicitLipidSection;
         if (std::getline(restartFile, implicitLipidSection) && implicitLipidSection.find("#ImplicitLipid") == 0) {
+            expect_restart_key(restartFile, "numberOfProteinEachState");
+            membraneObject.numberOfProteinEachState.assign(membraneObject.nStates, 0);
+            for (int& count : membraneObject.numberOfProteinEachState)
+                restartFile >> count;
+
             expect_restart_key(restartFile, "binding2DTable");
             std::size_t tableSize { 0 };
             restartFile >> tableSize;
@@ -1444,11 +1450,11 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 membraneObject.IL2DbindingVec.push_back(value);
             }
             if (!restartFile)
-                throw std::string("Cannot read this restart file: the implicit-lipid binding2DTable is truncated or malformed.");
+                throw std::string("Cannot read this restart file: its #ImplicitLipid section is truncated or malformed.");
         } else if (membraneObject.implicitLipid && restartFile.eof()) {
             std::cout << "This restart file has no #ImplicitLipid section, so it predates saving the implicit lipid's 2D "
-                         "binding table. The table is rebuilt as the run needs it, and the run will not continue "
-                         "exactly as the one that wrote this file would have."
+                         "binding table and protein counts. They are rebuilt from the state at the restart, and the run "
+                         "will not continue exactly as the one that wrote this file would have."
                       << std::endl;
         }
     } catch (const std::string& msg) {

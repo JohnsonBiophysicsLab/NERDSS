@@ -692,10 +692,13 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         // }
     }
 
-    // The implicit lipid's 2D binding table.  Each entry is computed the first
-    // time it is needed, from the free-lipid count at that step, and kept for
-    // the rest of the run; a restart that rebuilt it would use the count at the
-    // restart instead and bind with different probabilities from then on.
+    // The implicit lipid's 2D binding table, and the protein counts its entries
+    // are built from.  Each entry is computed the first time it is needed,
+    // from the free-lipid count at that step, and kept for the rest of the
+    // run; a restart that rebuilt it would use the count at the restart
+    // instead and bind with different probabilities from then on.  The protein
+    // counts are those at step 0, which a restart cannot recount from its own
+    // molecules once any have been created, destroyed or changed state.
     // Written only for an implicit-lipid model, so no other model's file
     // changes, and last, so a build that predates it reads everything above
     // and never looks here.  Scientific, so every double reads back exactly.
@@ -703,6 +706,10 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         const std::ios_base::fmtflags savedFlags { restartFile.flags() };
         restartFile << std::scientific;
         restartFile << "#ImplicitLipid\n";
+        restartFile << "numberOfProteinEachState =";
+        for (int count : membraneObject.numberOfProteinEachState)
+            restartFile << ' ' << count;
+        restartFile << '\n';
         restartFile << "binding2DTable = " << membraneObject.IL2DbindingVec.size() << '\n';
         for (std::size_t entry { 0 }; entry < membraneObject.IL2DbindingVec.size(); ++entry)
             restartFile << membraneObject.ILTableIDs[3 * entry] << ' ' << membraneObject.ILTableIDs[3 * entry + 1] << ' '
