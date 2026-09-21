@@ -142,8 +142,7 @@ void parse_input_for_a_restart_simulation(
 
   // Create simulation box cells
   std::cout << "Partitioning simulation box into sub-boxes..." << std::endl;
-  set_rMaxLimit(params, molTemplateList, forwardRxns, numDoubleBeforeAdd,
-                numMolTemplateBeforeAdd);
+  set_rMaxLimit(params, molTemplateList, forwardRxns);
 
   simulVolume.create_simulation_volume(params, membraneObject);
   simulVolume.update_memberMolLists(params, moleculeList, complexList,

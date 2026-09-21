@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
 
     /* CREATE SIMULATION BOX CELLS */
     std::cout << "\nPartitioning simulation box into sub-boxes..." << std::endl;
-    set_rMaxLimit(params, molTemplateList, forwardRxns, 0, 0);
+    set_rMaxLimit(params, molTemplateList, forwardRxns);
     simulVolume.create_simulation_volume(params, membraneObject);
     simulVolume.update_memberMolLists(params, moleculeList, complexList,
                                       molTemplateList, membraneObject, simItr);
@@ -558,8 +558,7 @@ int main(int argc, char *argv[]) {
 
     /* CREATE SIMULATION BOX CELLS */
     std::cout << "Partitioning simulation box into sub-boxes..." << std::endl;
-    set_rMaxLimit(params, molTemplateList, forwardRxns, numDoubleBeforeAdd,
-                  numMolTemplateBeforeAdd);
+    set_rMaxLimit(params, molTemplateList, forwardRxns);
     simulVolume.create_simulation_volume(params, membraneObject);
     simulVolume.update_memberMolLists(params, moleculeList, complexList,
                                       molTemplateList, membraneObject, simItr);
