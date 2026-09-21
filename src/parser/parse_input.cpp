@@ -574,6 +574,18 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
                 } else {
                 }
                 MolTemplate::numEachMolType.emplace_back(0);
+
+                // A new simulation sizes these at startup, and a restart reads them
+                // for the templates in its file; nothing sized them for a template
+                // that arrives here.  write_restart() and every change in a
+                // cluster's size index them by cluster size, with no bounds check.
+                MolTemplate& addedTemp { molTemplateList.back() };
+                if (addedTemp.countTransition == true) {
+                    addedTemp.transitionMatrix.resize(addedTemp.transitionMatrixSize);
+                    addedTemp.lifeTime.resize(addedTemp.transitionMatrixSize);
+                    for (int indexOne = 0; indexOne < addedTemp.transitionMatrixSize; ++indexOne)
+                        addedTemp.transitionMatrix[indexOne].resize(addedTemp.transitionMatrixSize);
+                }
             }
 
             params.numMolTypes = MolTemplate::numMolTypes;
