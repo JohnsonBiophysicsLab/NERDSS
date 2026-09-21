@@ -1422,6 +1422,35 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             //     restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             // }
         }
+
+        // The implicit lipid's 2D binding table; see write_restart().  A file
+        // from before it was written ends above.  That file still restarts, as
+        // it always did, but the table is then rebuilt from the lipid count at
+        // the restart, so the run cannot continue exactly.
+        std::string implicitLipidSection;
+        if (std::getline(restartFile, implicitLipidSection) && implicitLipidSection.find("#ImplicitLipid") == 0) {
+            expect_restart_key(restartFile, "binding2DTable");
+            std::size_t tableSize { 0 };
+            restartFile >> tableSize;
+            for (std::size_t entry { 0 }; entry < tableSize; ++entry) {
+                double ka { 0 };
+                double Dtot { 0 };
+                double kb { 0 };
+                double value { 0 };
+                restartFile >> ka >> Dtot >> kb >> value;
+                membraneObject.ILTableIDs.push_back(ka);
+                membraneObject.ILTableIDs.push_back(Dtot);
+                membraneObject.ILTableIDs.push_back(kb);
+                membraneObject.IL2DbindingVec.push_back(value);
+            }
+            if (!restartFile)
+                throw std::string("Cannot read this restart file: the implicit-lipid binding2DTable is truncated or malformed.");
+        } else if (membraneObject.implicitLipid && restartFile.eof()) {
+            std::cout << "This restart file has no #ImplicitLipid section, so it predates saving the implicit lipid's 2D "
+                         "binding table. The table is rebuilt as the run needs it, and the run will not continue "
+                         "exactly as the one that wrote this file would have."
+                      << std::endl;
+        }
     } catch (const std::string& msg) {
         std::cerr << msg << '\n';
         exit(1);

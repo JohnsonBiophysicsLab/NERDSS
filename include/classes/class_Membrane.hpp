@@ -141,6 +141,15 @@ struct Membrane {
     std::vector<int> numberOfProteinEachState {}; // record the number of proteins that can bound to each state for IL
     int implicitlipidIndex { -1 };
     std::vector<double> RS3Dvect; //this is the look-up table for RS3D, which is the reflecting-surface for 3D-->2D reaction of implicit-lipid case
+    // The look-up table for 2D->2D binding to the implicit lipid, filled on
+    // first use by determine_2D_implicitlipid_reaction_probability():
+    // ILTableIDs holds each entry's (ka, Dtot, kb) and IL2DbindingVec its
+    // value.  An entry depends on the free-lipid count at the step it was first
+    // needed, which a restart cannot recover from its own state, so these are
+    // kept here, where write_restart() can save them.  Not serialized: each MPI
+    // rank fills its own, as it did when these were locals of main().
+    std::vector<double> IL2DbindingVec {};
+    std::vector<double> ILTableIDs {};
 
     //    double RD2D = 0; // block-distance for 2D->2D reaction of implicit-lipid case
     double totalSA { 0 };

@@ -833,10 +833,12 @@ int main(int argc, char *argv[]) {
             std::chrono::duration<double>(simulTimeStart - totalTimeStart));
 
   unsigned DDTableIndex{0};
-  /*Vectors to store binding probabilities for implicit lipids in 2D.*/
-  std::vector<double> IL2DbindingVec{};
+  /*Vectors to store binding probabilities for implicit lipids in 2D.  The
+   * binding table lives on membraneObject so that restart files carry it; see
+   * write_restart().*/
+  std::vector<double> &IL2DbindingVec = membraneObject.IL2DbindingVec;
   std::vector<double> IL2DUnbindingVec{};
-  std::vector<double> ILTableIDs{};
+  std::vector<double> &ILTableIDs = membraneObject.ILTableIDs;
 
   if (params.fromRestart == true) {
     read_rng_state();
