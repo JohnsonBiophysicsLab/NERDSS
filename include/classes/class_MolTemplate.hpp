@@ -267,8 +267,8 @@ struct MolTemplate {
 
     /*! \brief Refreshes invCbrtDr from the current Dr.
      *
-     * Call this after any assignment to Dr.  set_value() and deserialize() are
-     * the only two places that set Dr today and both already call it.
+     * Call this after any assignment to Dr.  set_value(), deserialize() and
+     * read_restart() are the places that set Dr today, and all three call it.
      */
     void cache_diffusion_derivatives();
 

@@ -38,6 +38,19 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
         }
         restartFile << '\n';
         restartFile << "implicitLipidsParams = " << membraneObject.implicitLipid << ' ' << membraneObject.TwoD << ' ' << membraneObject.hasWaterBox() << ' ' << membraneObject.isSphere() << ' ' << membraneObject.sphereR <<' ' << membraneObject.hasCompartment << ' ' << membraneObject.compartmentR << '\n';
+        // The diffusion constant and density of the compartment's surface sites
+        // enter every transmission probability, and nothing else in the file
+        // records them, so a restart used to run with both at zero.  Written only
+        // when there is a compartment, so no other model's file changes.
+        // Scientific, unlike the fixed-point lines around it: a site density in
+        // nm^-2 can be small enough that twenty decimal places drop digits.
+        if (membraneObject.hasCompartment) {
+            const std::ios_base::fmtflags savedFlags { restartFile.flags() };
+            restartFile << std::scientific;
+            restartFile << "compartmentSiteD = " << membraneObject.droplet.D << '\n';
+            restartFile << "compartmentSiteRho = " << membraneObject.droplet.rho << '\n';
+            restartFile.flags(savedFlags);
+        }
         restartFile << "ifaceOverlapSepLimit = " << params.overlapSepLimit << '\n';
         restartFile << "rMaxLimit = " << params.rMaxLimit << '\n';
         restartFile << "timeWrite = " << params.timeWrite << '\n';
@@ -482,6 +495,34 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
                     }
                 }
             }
+
+            // The compartment code takes the crossing interface from
+            // reactantListNew and the capture radius from bindRadius, and neither
+            // can be rebuilt from the lists above; without them a restart read
+            // reactantListNew[0] out of an empty vector in
+            // initialize_paramters_for_implicitlipid_and_compartment_model().
+            // productListNew goes with it, as in every other reaction record.
+            // They follow the rest of the record behind a tag, so that a file
+            // written before they existed is refused on read, not misparsed.
+            restartFile << "bindRadius = " << oneRxn.bindRadius << '\n';
+
+            // reactant list
+            restartFile << oneRxn.reactantListNew.size() << '\n';
+            for (const auto& oneReact : oneRxn.reactantListNew) {
+                restartFile << oneReact.molTypeIndex << '\n';
+                restartFile << oneReact.ifaceName << ' ' << oneReact.absIfaceIndex << ' ' << oneReact.relIfaceIndex
+                            << '\n';
+                restartFile << oneReact.requiresState << ' ' << oneReact.requiresInteraction << '\n';
+            }
+
+            // product list
+            restartFile << oneRxn.productListNew.size() << '\n';
+            for (const auto& oneProd : oneRxn.productListNew) {
+                restartFile << oneProd.molTypeIndex << '\n';
+                restartFile << oneProd.ifaceName << ' ' << oneProd.absIfaceIndex << ' ' << oneProd.relIfaceIndex
+                            << '\n';
+                restartFile << oneProd.requiresState << ' ' << oneProd.requiresInteraction << '\n';
+            }
         }
 
     }
@@ -494,7 +535,14 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
             restartFile << oneMol.index << ' ' << oneMol.isEmpty << ' ' << oneMol.myComIndex << ' '
                         << oneMol.molTypeIndex << ' ' << oneMol.mySubVolIndex << '\n';
             restartFile << oneMol.mass << ' ' << oneMol.isLipid << ' ' << oneMol.isImplicitLipid 
-                        << ' ' << oneMol.linksToSurface << ' ' << oneMol.isPromoter << ' ' << oneMol.isEmpty << '\n';
+                        << ' ' << oneMol.linksToSurface << ' ' << oneMol.isPromoter << ' ' << oneMol.isEmpty;
+            // Set the first time a molecule is kept from crossing and never
+            // cleared, so it is state, not a per-step flag: a molecule outside
+            // the compartment reflects off it only while this is set.  Only a
+            // compartment sets it, and only a compartment's file carries it.
+            if (membraneObject.hasCompartment)
+                restartFile << ' ' << oneMol.enforceCompartmentBC;
+            restartFile << '\n';
             // center of mass
             restartFile << std::fixed << oneMol.comCoord.x << ' ' << oneMol.comCoord.y << ' ' << oneMol.comCoord.z
                         << '\n';
