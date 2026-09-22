@@ -115,6 +115,10 @@ Molecule initialize_molecule_for_restart(
     ++Molecule::numberOfMolecules;
     params.numTotalUnits = params.numTotalUnits + molTemplate.interfaceList.size() + 1;
 
+    // Molecule() leaves id uninitialized; take the next one, as
+    // initialize_molecule() does for a new simulation
+    tmp.id = Molecule::maxID++;
+
     // keep track of molecule types
     ++MolTemplate::numEachMolType[molTemplate.molTypeIndex];
 

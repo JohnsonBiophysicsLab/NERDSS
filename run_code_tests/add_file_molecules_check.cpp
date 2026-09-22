@@ -12,6 +12,9 @@
 // it used to stop at the first molecule out of range, report pairs *beyond*
 // bindRadius as overlapping, read a second reactant from unimolecular
 // reactions and a complex from emptied molecule slots.
+//
+// Each added molecule takes the next id from Molecule::maxID, as a new
+// simulation's do; Molecule() leaves id uninitialized, and nothing set it here.
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
 #include "classes/class_Molecule_Complex.hpp"
@@ -167,6 +170,7 @@ int main()
 
     {
         AddFixture f(1, 3, 100.0);
+        Molecule::maxID = 7;
         f.add();
         expect(f.molecules.size() == 4, "the add file's 3 molecules are created");
         expect(f.templates[1].monomerList == std::vector<int> { 1, 2, 3 },
@@ -179,6 +183,8 @@ int main()
                 && f.complexes[mol.myComIndex].memberList == std::vector<int> { molIndex };
         }
         expect(ownComplexes, "each is a monomer of template C in its own complex");
+        expect(f.molecules[1].id == 7 && f.molecules[2].id == 8 && f.molecules[3].id == 9 && Molecule::maxID == 10,
+            "each takes the next id from Molecule::maxID");
     }
 
     // A's interface at (1, 0, 0) throughout, unless it points away.
@@ -255,6 +261,7 @@ int main()
         AddFixture f(400, 100, 20.0);
         f.forwardRxns.push_back(two_reactant_rxn(ReactionType::bimolecular, 0, 0, 1, 1, 2.0));
         const int unitsBefore = f.params.numTotalUnits;
+        Molecule::maxID = 400;
         f.add();
         int tooClose = 0;
         for (int added = 400; added < 500; ++added)
@@ -267,6 +274,10 @@ int main()
         expect(Molecule::numberOfMolecules == 500 && MolTemplate::numEachMolType[1] == 100
                 && f.params.numTotalUnits == unitsBefore + 100 * 2,
             "each placed C is counted once, however often it was moved");
+        bool idsInOrder = Molecule::maxID == 500;
+        for (int added = 400; added < 500; ++added)
+            idsInOrder = idsInOrder && f.molecules[added].id == added;
+        expect(idsInOrder, "and takes one id, 400 to 499 in order");
     }
 
     gsl_rng_free(r);
