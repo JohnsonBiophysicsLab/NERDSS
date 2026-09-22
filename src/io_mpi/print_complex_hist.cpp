@@ -47,6 +47,13 @@ double print_complex_hist(std::vector<Complex>& complexList,
       }
     }
 
+    // Only the implicit lipid's own complex has no member besides the lipid,
+    // and it indexed moleculeList[-1] here.  The lipid has no position a rank
+    // owns (see write_all_species()), and the complex has nothing to report
+    // anyway: its linksToSurface is 0, so the composition built below is empty
+    // and skipped, as it is in the serial histogram.
+    if (largest_id_index == -1) continue;
+
     if (!is_owned_by_processor(moleculeList[largest_id_index], mpiContext,
                                simulVolume)) {
       continue;
