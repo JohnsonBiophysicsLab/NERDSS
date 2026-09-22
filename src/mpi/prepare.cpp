@@ -2,11 +2,144 @@
 #include <iostream>
 
 #include "debug/debug.hpp"
+#include "error/error.hpp"
 #include "io/io.hpp"
 #include "macro.hpp"
 #include "mpi/mpi_function.hpp"
 
 using namespace std;
+
+/**
+ * @brief Finishes a rank's set-up once it holds its own share of the system.
+ *
+ * Shared by the two ways a rank gets that share: deserialized from rank 0 on a
+ * new run, or read whole from a restart file.  Rescales the membrane to the
+ * rank's slice, points mpiContext at the rank's data (get_x_bin() dereferences
+ * mpiContext.membraneObject and mpiContext.simulVolume, and every output and
+ * ownership test goes through it), and derives the ghost, ownership and
+ * receive flags from the rank's x-bin domain, which must already be set.
+ *
+ * @param totalxBins Number of x bins across the whole system.  A rank's own
+ * SimulVolume only counts the bins it can see, so the caller records this
+ * before the rank's SimulVolume replaces the whole-system one.
+ */
+static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
+                              SimulVolume &simulVolume,
+                              Membrane &membraneObject,
+                              vector<MolTemplate> &molTemplateList,
+                              Parameters &params, MpiContext &mpiContext,
+                              vector<Complex> &complexList) {
+  // Recalculate the membraneObject.totalSA and membraneObject.nSites and
+  // membraneObject.numberOfFreeLipidsEachState divide
+  // membraneObject.numberOfFreeLipidsEachState onto ranks proportional to
+  // number of bins per rank
+  double ratio =
+      1.0 * (mpiContext.endCell - mpiContext.startCell + 1) / totalxBins;
+
+  if (!membraneObject.isSphere()) {
+    membraneObject.totalSA =
+        membraneObject.waterBox.x * membraneObject.waterBox.y * ratio;
+    membraneObject.waterBox.volume = membraneObject.waterBox.volume * ratio;
+    membraneObject.waterBox.xLeft =
+        mpiContext.xLeft * (membraneObject.waterBox.x) -
+        (membraneObject.waterBox.x / 2.0);
+    membraneObject.waterBox.xRight =
+        mpiContext.xRight * (membraneObject.waterBox.x) -
+        (membraneObject.waterBox.x / 2.0);
+  }
+
+  if (membraneObject.implicitLipid == true) {
+    membraneObject.nSites = round(membraneObject.nSites * ratio);
+    if (params.fromRestart == false) {
+      for (auto &iface :
+           molTemplateList[moleculeList[membraneObject.implicitlipidIndex]
+                               .molTypeIndex]
+               .interfaceList) {
+        for (auto &state : iface.stateList) {
+          if (&state - &iface.stateList[0] ==
+              0) {  // if is the first state, free lipids is initial copies of
+                    // IL
+            membraneObject.numberOfFreeLipidsEachState[0] =
+                membraneObject.nSites;
+          } else {  // others are zero
+          }
+        }
+      }
+    }
+  }
+
+  // Store addresses of vectors and objects to be potentially used for debugging
+  // purposes:
+  mpiContext.membraneObject = &membraneObject;
+  mpiContext.simulVolume = &simulVolume;
+  mpiContext.moleculeList = &moleculeList;
+  mpiContext.complexList = &complexList;
+
+  // Update isGhosted for each molecule:
+  for (auto &mol : moleculeList) {
+    if (mol.isImplicitLipid == true) {
+      mol.isGhosted = false;
+      continue;
+    }
+    int xBin = get_x_bin(mpiContext, mol);
+    mol.isGhosted = false;
+    if ((mpiContext.rank) &&  // if not first rank
+        (xBin == 0))
+      mol.isGhosted = true;
+    if ((mpiContext.rank < mpiContext.nprocs - 1) &&  // if not first rank
+        (xBin == simulVolume.numSubCells.x - 1))
+      mol.isGhosted = true;
+  }
+
+  // Seed complex ownership from that same initial decomposition.  From here on
+  // ownerRank is the authority and isGhosted is derived from it; this is the one
+  // place the two are allowed to be computed independently.
+  for (auto &com : complexList) {
+    com.ownerRank = -1;
+    for (int m : com.memberList) {
+      if (m < 0 || m >= (int)moleculeList.size()) continue;
+      if (!moleculeList[m].isGhosted && !moleculeList[m].isEmpty) {
+        com.ownerRank = mpiContext.rank;
+        break;
+      }
+    }
+  }
+
+  // For the left-right division model, in the first step, all ranks (except the
+  // first rank) will send their left share zones to the left neighbor rank. So,
+  // all the right share zones of each rank (except the last rank) should set
+  // the receivedFromNighborRank to be False:
+  for (auto &mol : moleculeList) {
+    bool receivedFromNeighborRank = true;
+    int xBin = get_x_bin(mpiContext, mol);
+
+    if (mpiContext.rank < mpiContext.nprocs - 1) {
+      if ((xBin == simulVolume.numSubCells.x - 1) ||
+          (xBin == simulVolume.numSubCells.x - 2)) {
+        receivedFromNeighborRank = false;
+      }
+    }
+
+    if (mol.isImplicitLipid) {
+      receivedFromNeighborRank = true;
+    }
+
+    if (!receivedFromNeighborRank) {
+      mol.receivedFromNeighborRank = false;
+      complexList[mol.myComIndex].receivedFromNeighborRank = false;
+      complexList[mol.myComIndex].deleteIfNotReceivedBack = true;
+    }
+  }  // end loop moleculeList to update receivedFromNeighborRank
+
+  debug_molecule_complex_missmatch(
+      mpiContext, moleculeList, complexList,
+      "//prepare_data_structures_for_parallel_execution()");
+
+  Molecule::maxID = Molecule::maxID + (INT_MAX - Molecule::maxID) /
+                                          mpiContext.nprocs * mpiContext.rank;
+  Complex::maxID = Complex::maxID + (INT_MAX - Complex::maxID) /
+                                        mpiContext.nprocs * mpiContext.rank;
+}
 
 /**
  * @brief Prepares data structures for parallel execution
@@ -155,124 +288,68 @@ void prepare_data_structures_for_parallel_execution(
   counterArrays = counterArraysClean;
   counterArrays.deserialize(arrayRank, nArrayRank);
 
-  // Recalculate the membraneObject.totalSA and membraneObject.nSites and
-  // membraneObject.numberOfFreeLipidsEachState divide
-  // membraneObject.numberOfFreeLipidsEachState onto ranks proportional to
-  // number of bins per rank
-  double ratio =
-      1.0 * (mpiContext.endCell - mpiContext.startCell + 1) / totalxBins;
-
-  if (!membraneObject.isSphere()) {
-    membraneObject.totalSA =
-        membraneObject.waterBox.x * membraneObject.waterBox.y * ratio;
-    membraneObject.waterBox.volume = membraneObject.waterBox.volume * ratio;
-    membraneObject.waterBox.xLeft =
-        mpiContext.xLeft * (membraneObject.waterBox.x) -
-        (membraneObject.waterBox.x / 2.0);
-    membraneObject.waterBox.xRight =
-        mpiContext.xRight * (membraneObject.waterBox.x) -
-        (membraneObject.waterBox.x / 2.0);
-  }
-
-  if (membraneObject.implicitLipid == true) {
-    membraneObject.nSites = round(membraneObject.nSites * ratio);
-    if (params.fromRestart == false) {
-      for (auto &iface :
-           molTemplateList[moleculeList[membraneObject.implicitlipidIndex]
-                               .molTypeIndex]
-               .interfaceList) {
-        for (auto &state : iface.stateList) {
-          if (&state - &iface.stateList[0] ==
-              0) {  // if is the first state, free lipids is initial copies of
-                    // IL
-            membraneObject.numberOfFreeLipidsEachState[0] =
-                membraneObject.nSites;
-          } else {  // others are zero
-          }
-        }
-      }
-    }
-  }
-
   free(arrayRank);
 
-  // Store addresses of vectors and objects to be potentially used for debugging
-  // purposes:
-  mpiContext.membraneObject = &membraneObject;
-  mpiContext.simulVolume = &simulVolume;
-  mpiContext.moleculeList = &moleculeList;
-  mpiContext.complexList = &complexList;
-
-  // Update isGhosted for each molecule:
-  for (auto &mol : moleculeList) {
-    if (mol.isImplicitLipid == true) {
-      mol.isGhosted = false;
-      continue;
-    }
-    int xBin = get_x_bin(mpiContext, mol);
-    mol.isGhosted = false;
-    if ((mpiContext.rank) &&  // if not first rank
-        (xBin == 0))
-      mol.isGhosted = true;
-    if ((mpiContext.rank < mpiContext.nprocs - 1) &&  // if not first rank
-        (xBin == simulVolume.numSubCells.x - 1))
-      mol.isGhosted = true;
-  }
-
-  // Seed complex ownership from that same initial decomposition.  From here on
-  // ownerRank is the authority and isGhosted is derived from it; this is the one
-  // place the two are allowed to be computed independently.
-  for (auto &com : complexList) {
-    com.ownerRank = -1;
-    for (int m : com.memberList) {
-      if (m < 0 || m >= (int)moleculeList.size()) continue;
-      if (!moleculeList[m].isGhosted && !moleculeList[m].isEmpty) {
-        com.ownerRank = mpiContext.rank;
-        break;
-      }
-    }
-  }
-
-  // For the left-right division model, in the first step, all ranks (except the
-  // first rank) will send their left share zones to the left neighbor rank. So,
-  // all the right share zones of each rank (except the last rank) should set
-  // the receivedFromNighborRank to be False:
-  for (auto &mol : moleculeList) {
-    bool receivedFromNeighborRank = true;
-    int xBin = get_x_bin(mpiContext, mol);
-
-    if (mpiContext.rank < mpiContext.nprocs - 1) {
-      if ((xBin == simulVolume.numSubCells.x - 1) ||
-          (xBin == simulVolume.numSubCells.x - 2)) {
-        receivedFromNeighborRank = false;
-      }
-    }
-
-    if (mol.isImplicitLipid) {
-      receivedFromNeighborRank = true;
-    }
-
-    if (!receivedFromNeighborRank) {
-      mol.receivedFromNeighborRank = false;
-      complexList[mol.myComIndex].receivedFromNeighborRank = false;
-      complexList[mol.myComIndex].deleteIfNotReceivedBack = true;
-    }
-  }  // end loop moleculeList to update receivedFromNeighborRank
-
-  debug_molecule_complex_missmatch(
-      mpiContext, moleculeList, complexList,
-      "//prepare_data_structures_for_parallel_execution()");
+  finish_rank_setup(totalxBins, moleculeList, simulVolume, membraneObject,
+                    molTemplateList, params, mpiContext, complexList);
 
   //  Count how many interface connections are on each rank by calling
   //  init_NboundPairs on each rank.
   init_NboundPairs(
       counterArrays, pairOutfile, params, molTemplateList,
       moleculeList);  // initializes to zero, re-calculated for a restart!!
+}
 
-  Molecule::maxID = Molecule::maxID + (INT_MAX - Molecule::maxID) /
-                                          mpiContext.nprocs * mpiContext.rank;
-  Complex::maxID = Complex::maxID + (INT_MAX - Complex::maxID) /
-                                        mpiContext.nprocs * mpiContext.rank;
+/**
+ * @brief Sets a rank up to continue from a restart file.
+ *
+ * The restart path used to set up nothing.  The call above is skipped on a
+ * restart, and it was the only place mpiContext.membraneObject and
+ * mpiContext.simulVolume were assigned, so from the first write_all_species()
+ * on, get_x_bin() read the water box and the sub-volume size through
+ * uninitialized pointers.  Under AddressSanitizer every restart stopped before
+ * step 1, with a stack-buffer-overflow or a SEGV that moved with the launch
+ * environment; without it, which molecules counted as ghosts depended on
+ * whatever those pointers happened to hit.
+ *
+ * A restart file holds the whole system.  One rank can take it as it stands,
+ * and that is all this supports.  Splitting it between ranks is not a matter of
+ * calling the function above: prepare_rank_data() reorders molecules by
+ * sub-volume without remapping bound partners' indices, which a new run can
+ * afford because nothing is bound yet.  Every rank would instead keep the
+ * whole system and simulate it again, so more than one rank is refused.
+ */
+void prepare_data_structures_for_parallel_restart(
+    vector<Molecule> &moleculeList, SimulVolume &simulVolume,
+    Membrane &membraneObject, vector<MolTemplate> &molTemplateList,
+    Parameters &params, MpiContext &mpiContext,
+    vector<Complex> &complexList) {
+  if (mpiContext.nprocs != 1) {
+    error(mpiContext,
+          "restarting nerdss_mpi is supported on one rank only (mpirun -np "
+          "1): the restart file holds the whole system, and nothing divides "
+          "it between " +
+              to_string(mpiContext.nprocs) + " ranks");
+  }
+
+  // One rank's domain is the whole grid: no ghost bins, xOffset 0, and x
+  // bounds at the walls of the box.
+  mpiContext.init_x_domain_and_offset(simulVolume.numSubCells.x,
+                                      mpiContext.rank);
+
+  // A new run numbers molecules and complexes in prepare_rank_data(); a
+  // restart file does not store the IDs.
+  for (size_t i = 0; i < moleculeList.size(); i++) moleculeList[i].id = i;
+  for (size_t i = 0; i < complexList.size(); i++) complexList[i].id = i;
+  Molecule::maxID = moleculeList.size();
+  Complex::maxID = complexList.size();
+
+  // Unlike prepare(), no init_NboundPairs() here.  main() calls it for both
+  // paths, and each call writes another header to the bound-pair file and
+  // counts every bond again on top of the last count.
+  finish_rank_setup(simulVolume.numSubCells.x, moleculeList, simulVolume,
+                    membraneObject, molTemplateList, params, mpiContext,
+                    complexList);
 }
 
 int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
@@ -557,6 +634,19 @@ int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
   for (bool it : counterArrays.implicitDouble) {
     counterArraysRank.implicitDouble.push_back(it);
   }
+
+  // The association-event histograms have to arrive at full size:
+  // track_association_events() and print_association_events() index them up
+  // to eventArraySize - 1 unchecked.  They used to arrive empty, and every
+  // event was counted into memory past the end of an empty vector, which only
+  // worked because `counterArrays = counterArraysClean` in the caller keeps the
+  // capacity init_association_events() had allocated.  Each rank tallies its
+  // own events, as it does nLoops and the nCancel counters, so they start at
+  // zero.
+  counterArraysRank.eventArraySize = counterArrays.eventArraySize;
+  counterArraysRank.events3D.assign(counterArrays.eventArraySize, 0);
+  counterArraysRank.events2D.assign(counterArrays.eventArraySize, 0);
+  counterArraysRank.events3Dto2D.assign(counterArrays.eventArraySize, 0);
 
   // Serializing vectors and objects for tempRank
 

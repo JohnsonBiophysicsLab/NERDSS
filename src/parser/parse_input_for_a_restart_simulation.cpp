@@ -48,7 +48,8 @@
  * @param simulVolume Simulation volume object.
  * @param observablesFileName Name of the file to write observables data.
  * @param implicitlipidIndex Index of the implicit lipid.
- * @param simItr Current simulation iteration.
+ * @param simItr Set to the step the restart file was written at.  By reference:
+ * the caller's loop resumes from it.
  * @param mpiContext MPI context.
  * @param trajFileName Name of the file to write trajectory data.
  * @param transitionFileName Name of the file to write transition matrix data.
@@ -63,7 +64,7 @@ void parse_input_for_a_restart_simulation(
     std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     SimulVolume& simulVolume, std::string observablesFileName,
-    int implicitlipidIndex, long long int simItr, MpiContext& mpiContext,
+    int implicitlipidIndex, long long int& simItr, MpiContext& mpiContext,
     std::string trajFileName, std::string transitionFileName, unsigned seed,
     copyCounters& counterArrays) {
   std::cout << "This is a restart simulation with restart file: "

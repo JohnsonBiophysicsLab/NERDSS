@@ -233,6 +233,12 @@ void prepare_data_structures_for_parallel_execution(vector<Molecule> &moleculeLi
     vector<Complex> &complexList, ofstream &pairOutfile);
 
 /*! \ingroup mpi_function
+ * \brief Set a rank up to continue from a restart file (one rank only)
+ */
+void prepare_data_structures_for_parallel_restart(vector<Molecule> &moleculeList, SimulVolume &simulVolume, Membrane &membraneObject,
+    vector<MolTemplate> &molTemplateList, Parameters &params, MpiContext &mpiContext, vector<Complex> &complexList);
+
+/*! \ingroup mpi_function
  * \brief Used for the writing of output files
  */
 bool is_ghosted(Molecule &mol, MpiContext &mpiContext, SimulVolume &simulVolume);

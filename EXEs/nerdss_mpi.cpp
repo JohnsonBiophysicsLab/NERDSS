@@ -383,6 +383,13 @@ int main(int argc, char* argv[]) {
           moleculeList, simulVolume, membraneObject, molTemplateList, params,
           forwardRxns, backRxns, createDestructRxns, counterArrays, mpiContext,
           complexList, pairOutfile);
+    } else {
+      // Everything from here on reaches the rank's data through mpiContext
+      // (get_x_bin() in the first write_all_species() below), so a restart
+      // needs the same set-up, from what it read instead of from rank 0.
+      prepare_data_structures_for_parallel_restart(
+          moleculeList, simulVolume, membraneObject, molTemplateList, params,
+          mpiContext, complexList);
     }
   }
 

@@ -127,7 +127,8 @@ struct SimulVolume {
      * are then added a second time by the re-binning pass.  Grow a
      * memberMolList through add_member(), never through subCellList directly.
      *
-     * Derived from subCellList, so it is not part of the MPI wire format.  The
+     * Derived from subCellList, so it is not part of the MPI wire format;
+     * deserialize() rebuilds it from the SubBoxes it receives.  The
      * MPI-only sites in prepare.cpp and deserialize.cpp still push directly.
      * They are safe because no MPI path calls clear_member_lists() -- the
      * MpiContext overload of update_memberMolLists() sweeps all of subCellList
@@ -252,5 +253,18 @@ struct SimulVolume {
         numSubCells.deserialize(arrayRank, nArrayRank);
         subCellSize.deserialize(arrayRank, nArrayRank);
         deserialize_abstract_vector<SubVolume>(subCellList, arrayRank, nArrayRank);
+
+        // The registry is derived, so it is rebuilt here for the SubBoxes that
+        // just arrived.  It used to stay empty: add_member(), which
+        // update_memberMolLists() calls for every molecule, then set bits in a
+        // zero-length occupancyMask, and only did not crash because prepare()
+        // assigns a clean SimulVolume over the old one, which keeps the old
+        // mask's buffer.
+        occupancyMask.assign((subCellList.size() + 63) / 64, 0);
+        for (size_t cellItr { 0 }; cellItr < subCellList.size(); ++cellItr) {
+            if (!subCellList[cellItr].memberMolList.empty())
+                occupancyMask[cellItr >> 6] |= uint64_t(1) << (cellItr & 63);
+        }
+        refresh_occupied_cells();
     }
 };
