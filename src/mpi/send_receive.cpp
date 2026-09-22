@@ -297,6 +297,11 @@ void receive_right_neighborhood_zones(
   delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
                                        false);
 
+  // Everything that names a molecule index now means what it says: the
+  // received molecules have been remapped by IDs_to_indices() and the
+  // departures are final.  Drop what still points at a molecule that left.
+  drop_references_to_absent_molecules(moleculeList, complexList);
+
   if (DEBUG) {
       DEBUG_FIND_MOL("2_ (after delete_disappeared_complexes_partial)");
       DEBUG_FIND_COMPLEX("2_ (after delete_disappeared_complexes_partial)");
@@ -411,6 +416,11 @@ void receive_left_neighborhood_zones(
   // of the rank
   delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
                                        true);
+
+  // Everything that names a molecule index now means what it says: the
+  // received molecules have been remapped by IDs_to_indices() and the
+  // departures are final.  Drop what still points at a molecule that left.
+  drop_references_to_absent_molecules(moleculeList, complexList);
   if (DEBUG) {
     DEBUG_FIND_COMPLEX("1.6 (after delete_disappeared_complexes_partial)");
   }

@@ -107,6 +107,16 @@ void delete_disappeared_molecules(
 
     if (mol.isGhosted || mol.isShared) {
       if (mol.receivedFromNeighborRank == false) {
+        // Every crossing this molecule holds was counted in its complex's
+        // ncross by record_crossing_pair(), so uncount them while myComIndex
+        // still says which complex that was.  The entries pointing the other
+        // way are dropped by drop_references_to_absent_molecules(), which has
+        // to wait until IDs_to_indices() has run.
+        if (mol.myComIndex >= 0 &&
+            mol.myComIndex < static_cast<int>(complexList.size()))
+          complexList[mol.myComIndex].ncross -=
+              static_cast<int>(mol.crossings.size());
+        mol.crossings.clear();
         // Remove the molecule from this rank
         // and remove it from complex as well
         mol.MPI_remove_from_one_rank(moleculeList, complexList);
@@ -119,6 +129,54 @@ void delete_disappeared_molecules(
          << count << " molecules are deleted" << endl;
   // cout << "delete_disappeared_molecules ends" << endl << count << " molecules
   // are deleted" << endl;
+}
+
+// Nothing may still name a molecule that has left this rank.  Molecules go in
+// delete_disappeared_molecules(), which runs before IDs_to_indices(), so it is
+// in no position to do this itself: at that point the molecules just taken off
+// the wire still carry the *sender's* partnerIndex values, and bndpartner is
+// whatever the previous exchange left.  Only once IDs_to_indices() has mapped
+// the received IDs back to local indices does every list mean what it says, and
+// the ones that survived the exchange untouched are exactly the ones nothing
+// has revisited -- which is how a molecule ends up still bound to a slot that
+// MPI_remove_from_one_rank() emptied.
+//
+// A departed molecule's slot keeps its id and its size, so these references are
+// not caught by a bounds check: they read a molecule with a cleared
+// interfaceList and myComIndex == -1, which is complexList[-1] in
+// sweep_separation_box() and in check_dissociation().
+void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
+                                         vector<Complex> &complexList) {
+  auto absent = [&moleculeList](int idx) {
+    return idx < 0 || idx >= static_cast<int>(moleculeList.size()) ||
+           moleculeList[idx].isEmpty;
+  };
+  for (auto &mol : moleculeList) {
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    // -1 is what the rest of the code reads as "this interface's partner is not
+    // visible on this rank".  partnerId is deliberately left alone, so the bond
+    // itself survives and IDs_to_indices() can restore the index if the partner
+    // comes back.
+    for (auto &iface : mol.interfaceList) {
+      if (iface.interaction.partnerIndex != -1 &&
+          absent(iface.interaction.partnerIndex))
+        iface.interaction.partnerIndex = -1;
+    }
+    // bndpartner and bndlist are parallel, so an entry leaves both.
+    for (int i = static_cast<int>(mol.bndpartner.size()) - 1; i >= 0; --i) {
+      if (mol.bndpartner[i] != -1 && !absent(mol.bndpartner[i])) continue;
+      mol.bndpartner.erase(mol.bndpartner.begin() + i);
+      if (i < static_cast<int>(mol.bndlist.size()))
+        mol.bndlist.erase(mol.bndlist.begin() + i);
+    }
+    for (int i = static_cast<int>(mol.crossings.size()) - 1; i >= 0; --i) {
+      if (!absent(mol.crossings[i].partner)) continue;
+      mol.crossings.erase(mol.crossings.begin() + i);
+      if (mol.myComIndex >= 0 &&
+          mol.myComIndex < static_cast<int>(complexList.size()))
+        --complexList[mol.myComIndex].ncross;
+    }
+  }
 }
 
 void disconnect_molecule_partners(unsigned &targMolIndex, Molecule &mol,

@@ -153,6 +153,12 @@ void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &molec
 void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<int> &indices);
 
 /*! \ingroup mpi_function
+ * \brief drop every stored reference to a molecule that has left this rank
+ */
+void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
+                                         vector<Complex> &complexList);
+
+/*! \ingroup mpi_function
  * \brief disconnect molecule partners
  */
 void disconnect_molecule_partners(unsigned &targMolIndex, Molecule &mol, vector<Molecule> &moleculeList);
