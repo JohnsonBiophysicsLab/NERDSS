@@ -35,8 +35,19 @@ void deserialize_complexes(MpiContext &mpiContext,
     for (auto &it : c.memberList) {  // looping over IDs
       if (VERBOSE) cout << it;
       int molIndex = find_molecule(moleculeList, it);
-      if (DEBUG && (molIndex == -1))
-        error(mpiContext, "5: complex member mol not found");
+      // A member this rank cannot resolve must not enter memberList: -1 is
+      // indexed unguarded by Complex::propagate(), Complex::update_properties()
+      // and the serializer, so it corrupts the heap rather than failing.  Drop
+      // the member and say so; the sender is supposed to ship a complex whole,
+      // so this means that invariant broke.
+      if (molIndex == -1) {
+        fprintf(stderr,
+                "rank %d: complex id=%d arrived from the left listing member "
+                "id=%d, which is not on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it);
+        if (DEBUG) error(mpiContext, "5: complex member mol not found");
+        continue;
+      }
       memberList.push_back(molIndex);
       if (complexIndex == -1) {
         if (moleculeList[molIndex].justBoundThisStep) {
@@ -46,6 +57,10 @@ void deserialize_complexes(MpiContext &mpiContext,
       if (VERBOSE) cout << "(" << molIndex << "); ";
     }
     if (VERBOSE) cout << endl;
+    // An empty memberList is worse than a stale one: delete_disappeared_
+    // complexes_partial() reads memberList[0] of every complex that is not
+    // flagged empty.  Leave this rank's own copy untouched instead.
+    if (memberList.empty()) continue;
     c.memberList = memberList;
 
     // Extract unique complex identifier in the system,
@@ -56,9 +71,7 @@ void deserialize_complexes(MpiContext &mpiContext,
            << endl;
 
     if (complexIndex == -1) {  // new complex on this rank
-      if (VERBOSE)
-        printf("This is a new complex (id=%d) here\n",
-               complexList[complexIndex].id);
+      if (VERBOSE) printf("This is a new complex (id=%d) here\n", c.id);
 
       c.index = complexList.size();
       complexIndex = c.index;
@@ -147,10 +160,20 @@ void deserialize_complexes_right(MpiContext &mpiContext,
     for (auto &it : c.memberList) {  // looping over IDs
       if (VERBOSE) cout << it;
       int molIndex = find_molecule(moleculeList, it);
+      // Same as the left-hand side: never let -1 into memberList.
+      if (molIndex == -1) {
+        fprintf(stderr,
+                "rank %d: complex id=%d arrived from the right listing member "
+                "id=%d, which is not on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it);
+        if (DEBUG) error(mpiContext, "5: complex member mol not found");
+        continue;
+      }
       memberList.push_back(molIndex);
       if (VERBOSE) cout << "(" << molIndex << "); ";
     }
     if (VERBOSE) cout << endl;
+    if (memberList.empty()) continue;
     c.memberList = memberList;
 
     if (VERBOSE)
@@ -158,9 +181,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
            << endl;
 
     if (complexIndex == -1) {  // new complex on this rank
-      if (VERBOSE)
-        printf("This is a new complex (id=%d) here\n",
-               complexList[complexIndex].id);
+      if (VERBOSE) printf("This is a new complex (id=%d) here\n", c.id);
 
       c.index = complexList.size();
       complexIndex = c.index;
