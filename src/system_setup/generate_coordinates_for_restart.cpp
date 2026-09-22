@@ -79,7 +79,7 @@ void create_molecule_and_complex_for_restart(MolTemplate& createdMolTemp, Parame
 }
 
 Molecule initialize_molecule_for_restart(
-    int index, Parameters& params, MolTemplate& molTemplate, const Membrane& membraneObject)
+    int index, const Parameters& params, MolTemplate& molTemplate, const Membrane& membraneObject)
 {
     /*!
      * \brief Creates a molecule according to add.inp, assigns
@@ -109,7 +109,12 @@ Molecule initialize_molecule_for_restart(
     // iterate number of molecules in the system and set index
     tmp.index = index;
     ++Molecule::numberOfMolecules;
-    params.numTotalUnits = params.numTotalUnits + molTemplate.interfaceList.size() + 1;
+
+    // params.numTotalUnits is not touched here.  parse_input_for_add() already
+    // added copies * (interfaceList.size() + 1) for this template, exactly as
+    // parse_input() does for a new simulation, so counting again per molecule
+    // reported twice the units the add file contributes.  initialize_molecule(),
+    // the new-simulation counterpart, likewise leaves the count alone.
 
     // keep track of molecule types
     ++MolTemplate::numEachMolType[molTemplate.molTypeIndex];
