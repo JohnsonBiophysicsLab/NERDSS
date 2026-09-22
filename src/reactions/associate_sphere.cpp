@@ -451,8 +451,10 @@ void associate_sphere(long long int iter,
                     molTemplateList[index].transitionMatrix[complexList[reactMol1.myComIndex].numEachMol[index] - 1][numEachMolPrevious2[index] - 1] += 1;
 
                 // update diagonal elements for unchanged complexes
+                // Destroyed complexes are skipped, reactCom2 among them; see
+                // the same loop in associate_box().
                 for (unsigned indexCom = 0; indexCom < complexList.size(); indexCom++) {
-                    if (indexCom != reactMol1.myComIndex) {
+                    if (indexCom != reactMol1.myComIndex && !complexList[indexCom].isEmpty) {
                         if (complexList[indexCom].numEachMol[index] - 1 >= 0) {
                             molTemplateList[index].transitionMatrix[complexList[indexCom].numEachMol[index] - 1][complexList[indexCom].numEachMol[index] - 1] += iter - Parameters::lastUpdateTransition[index];
                         }

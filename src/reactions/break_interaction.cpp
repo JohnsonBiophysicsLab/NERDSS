@@ -320,8 +320,11 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
                         molTemplateList[index].transitionMatrix[complexList[reactMol2.myComIndex].numEachMol[index] - 1][numEachMolPrevious[index] - 1] += 1;
 
                     // update diagonal elements for unchanged complexes
+                    // Complexes destroyed earlier in this timestep are skipped;
+                    // see the same loop in associate_box().
                     for (unsigned indexCom = 0; indexCom < complexList.size(); indexCom++) {
-                        if ((indexCom != reactMol1.myComIndex) && (indexCom != reactMol2.myComIndex)) {
+                        if ((indexCom != reactMol1.myComIndex) && (indexCom != reactMol2.myComIndex)
+                            && !complexList[indexCom].isEmpty) {
                             if (complexList[indexCom].numEachMol[index] - 1 >= 0) {
                                 molTemplateList[index].transitionMatrix[complexList[indexCom].numEachMol[index] - 1][complexList[indexCom].numEachMol[index] - 1] += iter - Parameters::lastUpdateTransition[index];
                             }
