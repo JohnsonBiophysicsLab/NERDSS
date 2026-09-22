@@ -11,8 +11,11 @@ void generate_coordinates_for_restart(Parameters& params, std::vector<Molecule>&
     const std::vector<ForwardRxn>& forwardRxns, const Membrane& membraneObject, int numMolTemplateBeforeAdd, int numForwardRxnBdeforeAdd)
 {
     for (int molTemplateListIndex = numMolTemplateBeforeAdd; molTemplateListIndex < molTemplateList.size(); molTemplateListIndex++) {
-        MolTemplate oneTemp {};
-        oneTemp = molTemplateList[molTemplateListIndex];
+        // The template itself, not a copy: each new molecule goes onto its
+        // monomerList, which is where destruction picks its victims.  With a
+        // copy, the list was thrown away with it and no added molecule could be
+        // destroyed.
+        MolTemplate& oneTemp { molTemplateList[molTemplateListIndex] };
         for (unsigned itr { 0 }; itr < oneTemp.copies; ++itr) {
             create_molecule_and_complex_for_restart(oneTemp, params, moleculeList, complexList, molTemplateList, forwardRxns, membraneObject);
         }
