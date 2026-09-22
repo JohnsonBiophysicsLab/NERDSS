@@ -182,6 +182,15 @@ struct Membrane {
     //! \brief True when the system is enclosed by a sphere of radius `sphereR`.
     bool isSphere() const { return shape == BoundaryShape::Sphere; }
 
+    //! \brief True when the RS3D look-up table has been built.
+    //!
+    //! initialize_paramters_for_implicitlipid_and_compartment_model() fills
+    //! `RS3Dvect` with its 500 entries only when the system holds an implicit
+    //! lipid or a compartment.  Every other system leaves it empty, and then
+    //! there is no 3D->2D surface reaction and so no reflecting surface to look
+    //! up: the offset every reader wants is the 0.0 it already starts from.
+    bool hasRS3Dtable() const { return !RS3Dvect.empty(); }
+
     //! \brief Abort unless the input named a boundary.  See parse_input.cpp.
     void require_boundary() const;
 

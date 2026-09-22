@@ -58,11 +58,13 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
     //determine RS3Dinput
     double RS3Dinput { 0.0 };
     Complex targCom { complexList[com1Index] };
-    for (auto& molIndex : targCom.memberList) {
-        for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
-                RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-                break;
+    if (membraneObject.hasRS3Dtable()) {
+        for (auto& molIndex : targCom.memberList) {
+            for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
+                if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
+                    RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
+                    break;
+                }
             }
         }
     }
