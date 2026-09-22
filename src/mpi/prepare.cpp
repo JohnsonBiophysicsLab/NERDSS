@@ -635,6 +635,19 @@ int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
     counterArraysRank.implicitDouble.push_back(it);
   }
 
+  // The association-event histograms have to arrive at full size:
+  // track_association_events() and print_association_events() index them up
+  // to eventArraySize - 1 unchecked.  They used to arrive empty, and every
+  // event was counted into memory past the end of an empty vector, which only
+  // worked because `counterArrays = counterArraysClean` in the caller keeps the
+  // capacity init_association_events() had allocated.  Each rank tallies its
+  // own events, as it does nLoops and the nCancel counters, so they start at
+  // zero.
+  counterArraysRank.eventArraySize = counterArrays.eventArraySize;
+  counterArraysRank.events3D.assign(counterArrays.eventArraySize, 0);
+  counterArraysRank.events2D.assign(counterArrays.eventArraySize, 0);
+  counterArraysRank.events3Dto2D.assign(counterArrays.eventArraySize, 0);
+
   // Serializing vectors and objects for tempRank
 
   serialize_abstract_vector<Molecule>(moleculeListRank, arrayRank, nArrayRank);
