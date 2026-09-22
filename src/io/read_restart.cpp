@@ -130,9 +130,17 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
             expect_restart_key(restartFile, "simulDimensions");
-            restartFile >> membraneObject.waterBox.x >> membraneObject.waterBox.y >> membraneObject.waterBox.z;
+            std::vector<double> boxDimensions(3);
+            restartFile >> boxDimensions[0] >> boxDimensions[1] >> boxDimensions[2];
             restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            membraneObject.waterBox.volume = membraneObject.waterBox.x * membraneObject.waterBox.y * membraneObject.waterBox.z;
+            // Built by the constructor, as parse_input() builds it, so that
+            // xLeft and xRight are set along with the volume.  Reading x, y and
+            // z alone left both at zero, and create_random_coords() places a
+            // molecule created in a box at x = xLeft + (xRight - xLeft) * rand:
+            // after a restart, every molecule a creation reaction made landed on
+            // the plane x = 0.  nerdss_mpi overwrites both with its rank's
+            // bounds in prepare.cpp.
+            membraneObject.waterBox = Membrane::WaterBox(boxDimensions);
 
             expect_restart_key(restartFile, "membrane");
             restartFile >> membraneObject.implicitlipidIndex >> membraneObject.nSites >> membraneObject.nStates >> membraneObject.No_free_lipids >> membraneObject.No_protein >> membraneObject.totalSA;
@@ -1259,6 +1267,18 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
                 }
                 restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+                // trajStatus is not in the file, and every other molecule can do
+                // without it: the end of each timestep resets theirs to `none`,
+                // which is what they all hold at a checkpoint.  That reset skips
+                // the implicit lipid's one representative molecule.  The overlap
+                // loop propagates it in the first timestep, and from then on it
+                // holds `propagated`, so the loop never propagates it again.
+                // Left at `none`, a restart propagated it once more at its first
+                // step, drawing random numbers the uninterrupted run never drew,
+                // and every step after that diverged.  A file written at step 0
+                // is from before that first propagation, where `none` is right.
+                if (tmpMol.isImplicitLipid && simItr > 0)
+                    tmpMol.trajStatus = TrajStatus::propagated;
                 moleculeList.emplace_back(tmpMol);
                 //std::cout <<"read in : "<<tmpMol.index<<" first interface z crd: "<<tmpMol.comCoord.z<<std::endl;
             }
@@ -1409,6 +1429,41 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
             //     }
             //     restartFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             // }
+        }
+
+        // The implicit lipid's 2D binding table and the protein counts it is
+        // built from; see write_restart().  A file from before they were
+        // written ends above.  That file still restarts, as it always did, but
+        // both are then rebuilt from the state at the restart, so the run
+        // cannot continue exactly.
+        std::string implicitLipidSection;
+        if (std::getline(restartFile, implicitLipidSection) && implicitLipidSection.find("#ImplicitLipid") == 0) {
+            expect_restart_key(restartFile, "numberOfProteinEachState");
+            membraneObject.numberOfProteinEachState.assign(membraneObject.nStates, 0);
+            for (int& count : membraneObject.numberOfProteinEachState)
+                restartFile >> count;
+
+            expect_restart_key(restartFile, "binding2DTable");
+            std::size_t tableSize { 0 };
+            restartFile >> tableSize;
+            for (std::size_t entry { 0 }; entry < tableSize; ++entry) {
+                double ka { 0 };
+                double Dtot { 0 };
+                double kb { 0 };
+                double value { 0 };
+                restartFile >> ka >> Dtot >> kb >> value;
+                membraneObject.ILTableIDs.push_back(ka);
+                membraneObject.ILTableIDs.push_back(Dtot);
+                membraneObject.ILTableIDs.push_back(kb);
+                membraneObject.IL2DbindingVec.push_back(value);
+            }
+            if (!restartFile)
+                throw std::string("Cannot read this restart file: its #ImplicitLipid section is truncated or malformed.");
+        } else if (membraneObject.implicitLipid && restartFile.eof()) {
+            std::cout << "This restart file has no #ImplicitLipid section, so it predates saving the implicit lipid's 2D "
+                         "binding table and protein counts. They are rebuilt from the state at the restart, and the run "
+                         "will not continue exactly as the one that wrote this file would have."
+                      << std::endl;
         }
     } catch (const std::string& msg) {
         std::cerr << msg << '\n';

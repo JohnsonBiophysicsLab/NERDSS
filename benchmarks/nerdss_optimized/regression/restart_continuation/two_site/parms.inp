@@ -1,0 +1,42 @@
+# C carries two sites that bind the implicit lipid M.  Once one of them has
+# bound from solution, C sits on the membrane and its other site binds in 2D,
+# which is what builds the implicit lipid's 2D binding table.  The fast
+# unbinding keeps C cycling between one and two bound sites, so the table is
+# used every step and a wrong entry shows up in the trajectory quickly.
+start parameters
+    nItr = 10000
+    timeStep = 0.1
+    timeWrite = 100
+    trajWrite = 100000
+    restartWrite = 100000
+end parameters
+
+start boundaries
+    WaterBox = [150,150,100]
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+    M : 1000
+    C : 200
+end molecules
+
+start reactions
+    C(m1) + M(m) <-> C(m1!1).M(m!1)
+    onRate3Dka = 200
+    offRatekb = 30000
+    sigma = 1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [M_PI, M_PI, nan, nan, nan]
+
+    C(m2) + M(m) <-> C(m2!1).M(m!1)
+    onRate3Dka = 200
+    offRatekb = 30000
+    sigma = 1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [M_PI, M_PI, nan, nan, nan]
+end reactions

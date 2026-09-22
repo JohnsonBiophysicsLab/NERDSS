@@ -1,0 +1,46 @@
+# The two_site model with fewer lipids than lipid-binding sites, and with C
+# destroyed over time.  A 2D binding-table entry is then built from the number
+# of lipid-binding interfaces at step 0 (400 here), which a restart cannot
+# recount from its own molecules once C has been destroyed.  With the seed
+# check.sh uses, the table is still empty at the checkpoint at step 10, so it is
+# first built after the restart.
+start parameters
+    nItr = 10000
+    timeStep = 0.1
+    timeWrite = 10
+    trajWrite = 100000
+    restartWrite = 100000
+end parameters
+
+start boundaries
+    WaterBox = [150,150,100]
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+    M : 150
+    C : 200
+end molecules
+
+start reactions
+    C(m1) + M(m) <-> C(m1!1).M(m!1)
+    onRate3Dka = 50
+    offRatekb = 30000
+    sigma = 1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [M_PI, M_PI, nan, nan, nan]
+
+    C(m2) + M(m) <-> C(m2!1).M(m!1)
+    onRate3Dka = 50
+    offRatekb = 30000
+    sigma = 1
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [M_PI, M_PI, nan, nan, nan]
+
+    C(m1,m2) -> 0
+    onRate3Dka = 100000
+end reactions

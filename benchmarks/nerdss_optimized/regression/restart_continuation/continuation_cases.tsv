@@ -1,0 +1,29 @@
+# Cases for check.sh.
+#
+# Columns: id <TAB> model directory (from the repository root) <TAB> parm file
+#          <TAB> checkpoint step N <TAB> seed <TAB> optional total steps (2N if absent)
+#
+# Grouped by the restart defect each case is the first to expose; every case
+# was measured to diverge on the build before the fix named for it.  See
+# README.md.
+
+# Controls: no implicit lipid, no creation reaction.  These continued exactly
+# before any of the fixes.
+rev_3D	sample_inputs/VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	1000	12345
+compartment	sample_inputs/compartment	clath_compartment.inp	1000	12345
+
+# The implicit lipid's trajStatus.
+sphere	sample_inputs/VALIDATE_SUITE/sphere	parms_sphere.inp	1000	12345
+implicit_lipid	sample_inputs/implicit_lipid	parms.inp	1000	12345
+mem_localization_IL	sample_inputs/VALIDATE_SUITE/mem_localization/SmallBox/FastDsol/IL	parms.inp	1000	12345
+
+# The implicit lipid's 2D binding table.
+two_site	benchmarks/nerdss_optimized/regression/restart_continuation/two_site	parms.inp	1000	12345
+
+# The implicit lipid's protein counts.
+two_site_depleting	benchmarks/nerdss_optimized/regression/restart_continuation/two_site_depleting	parms.inp	10	777	300
+
+# The water box's x bounds, which place every molecule a creation reaction
+# makes in a box.
+create_destroy	sample_inputs/VALIDATE_SUITE/create_destroy	create.inp	500	12345
+pucadyil	sample_inputs/pucadyil	parms_pucadyil_ka3d.inp	500	12345

@@ -344,11 +344,13 @@ int main(int argc, char *argv[]) {
                  membraneObject, counterArrays);
     restartFileInput.close();
 
-    // initialize numberOfProteinEachState
-    for (int tmpStateIndex = 0; tmpStateIndex < membraneObject.nStates;
-         tmpStateIndex++) {
-      membraneObject.numberOfProteinEachState.emplace_back(0);
-    }
+    // numberOfProteinEachState, the count at step 0, came from the restart
+    // file unless the file predates it; when it is missing,
+    // initialize_paramters_for_implicitlipid_and_compartment_model() counts it
+    // from the molecules below.  An add file brings new molecules, so it is
+    // counted again from all of them, as it always was.
+    if (addFileNameInput != "")
+      membraneObject.numberOfProteinEachState.clear();
 
     // add moldecules and reactions, modify parms according to add.inp
     if (addFileNameInput != "") {
@@ -838,10 +840,12 @@ int main(int argc, char *argv[]) {
             std::chrono::duration<double>(simulTimeStart - totalTimeStart));
 
   unsigned DDTableIndex{0};
-  /*Vectors to store binding probabilities for implicit lipids in 2D.*/
-  std::vector<double> IL2DbindingVec{};
+  /*Vectors to store binding probabilities for implicit lipids in 2D.  The
+   * binding table lives on membraneObject so that restart files carry it; see
+   * write_restart().*/
+  std::vector<double> &IL2DbindingVec = membraneObject.IL2DbindingVec;
   std::vector<double> IL2DUnbindingVec{};
-  std::vector<double> ILTableIDs{};
+  std::vector<double> &ILTableIDs = membraneObject.ILTableIDs;
 
   if (params.fromRestart == true) {
     read_rng_state();
