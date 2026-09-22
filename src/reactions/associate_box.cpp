@@ -909,8 +909,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
               [numEachMolPrevious2[index] - 1] += 1;
 
         // update diagonal elements for unchanged complexes
+        // A destroyed complex keeps its slot until the end of the timestep,
+        // with numEachMol cleared, and must be skipped: reading it runs past
+        // the end of numEachMol and credits stays to a complex that no longer
+        // exists.  reactCom2, destroyed above, is always one of them, and the
+        // lines above have already counted its stays.
         for (unsigned indexCom = 0; indexCom < complexList.size(); indexCom++) {
-          if (indexCom != reactMol1.myComIndex) {
+          if (indexCom != reactMol1.myComIndex && !complexList[indexCom].isEmpty) {
             if (complexList[indexCom].numEachMol[index] - 1 >= 0) {
               molTemplateList[index].transitionMatrix[complexList[indexCom].numEachMol[index] - 1]
                                    [complexList[indexCom].numEachMol[index] - 1] +=
