@@ -44,6 +44,7 @@
  * @param membraneObject Membrane object.
  * @param moleculeList List of individual molecules.
  * @param complexList List of complexes.
+ * @param counterArrays Object storing the species information.
  * @param numMolTemplateBeforeAdd Number of template before adding.
  * @param numDoubleBeforeAdd Number of bimolecular species before adding.
  */
@@ -54,7 +55,8 @@ void parse_input_for_add_file(
     std::vector<CreateDestructRxn>& createDestructRxns,
     std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
-    int& numMolTemplateBeforeAdd, int& numDoubleBeforeAdd) {
+    copyCounters& counterArrays, int& numMolTemplateBeforeAdd,
+    int& numDoubleBeforeAdd) {
   std::cout << "This is a restart simulation with add file: "
             << addFileNameInput << std::endl;
 
@@ -158,6 +160,11 @@ void parse_input_for_add_file(
       }
     }
   }
+
+  // Move the restart file's bound-pair lists to the same new species indices
+  reindex_bindPairList_for_add(counterArrays, forwardRxns,
+                               tempLastStateIndexBeforeAdd, numStateAdd,
+                               numDoubleBeforeAdd);
 
   // Generate the coordinates, write out coordinate and topology files for
   // added molecules

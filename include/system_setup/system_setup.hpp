@@ -51,7 +51,7 @@ void generate_coordinates(const Parameters &params,
  * Used to create the dimensions for the box cells.
  */
 void set_rMaxLimit(Parameters& params, const std::vector<MolTemplate>& molTemplateList,
-    const std::vector<ForwardRxn>& forwardRxns, int numDoubleBeforeAdd, int numMolTemplateBeforeAdd);
+    const std::vector<ForwardRxn>& forwardRxns);
 
 //void create(const MolTemplate& oneTemp, std::vector<int>& emptyMolList, std::vector<int>& emptyComList,
 //	    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);

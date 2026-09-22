@@ -3,8 +3,7 @@
 
 void set_rMaxLimit(Parameters &params,
                    const std::vector<MolTemplate> &molTemplateList,
-                   const std::vector<ForwardRxn> &forwardRxns,
-                   int numDoubleBeforeAdd, int numMolTemplateBeforeAdd) {
+                   const std::vector<ForwardRxn> &forwardRxns) {
   /*For each reaction, need distance from the interface to the COM for both
    * partners, plus the bindrad+sqrt(6*Dtot*deltat)
    */
@@ -19,26 +18,14 @@ void set_rMaxLimit(Parameters &params,
       const MolTemplate &pro1Temp = molTemplateList.at(rxnIface1.molTypeIndex);
       const MolTemplate &pro2Temp = molTemplateList.at(rxnIface2.molTypeIndex);
 
-      Interface iface1;
-      Interface iface2;
-      if (rxnIface1.molTypeIndex < numMolTemplateBeforeAdd) {
-        iface1 = molTemplateList.at(rxnIface1.molTypeIndex)
-                     .interfaceList.at(MolTemplate::absToRelIface.at(
-                         rxnIface1.absIfaceIndex));
-      } else {
-        iface1 = molTemplateList.at(rxnIface1.molTypeIndex)
-                     .interfaceList.at(MolTemplate::absToRelIface.at(
-                         rxnIface1.absIfaceIndex - numDoubleBeforeAdd));
-      }
-      if (rxnIface2.molTypeIndex < numMolTemplateBeforeAdd) {
-        iface2 = molTemplateList.at(rxnIface2.molTypeIndex)
-                     .interfaceList.at(MolTemplate::absToRelIface.at(
-                         rxnIface2.absIfaceIndex));
-      } else {
-        iface2 = molTemplateList.at(rxnIface2.molTypeIndex)
-                     .interfaceList.at(MolTemplate::absToRelIface.at(
-                         rxnIface2.absIfaceIndex - numDoubleBeforeAdd));
-      }
+      // A reactant's absIfaceIndex is the index of one of its interface's
+      // states.  An add file numbers its templates' states after the existing
+      // ones and renumbers only products, so absToRelIface maps a reactant
+      // straight to its interface, whichever file its template came from.
+      const Interface &iface1 = pro1Temp.interfaceList.at(
+          MolTemplate::absToRelIface.at(rxnIface1.absIfaceIndex));
+      const Interface &iface2 = pro2Temp.interfaceList.at(
+          MolTemplate::absToRelIface.at(rxnIface2.absIfaceIndex));
 
       double scal{1.0 / 3.0};
       double Dtot{(scal * (pro1Temp.D.x + pro2Temp.D.x)) +

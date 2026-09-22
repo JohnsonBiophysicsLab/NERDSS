@@ -103,7 +103,8 @@ void parse_input_for_a_restart_simulation(
     parse_input_for_add_file(
         addFileNameInput, params, observablesList, forwardRxns, backRxns,
         createDestructRxns, molTemplateList, membraneObject, moleculeList,
-        complexList, numMolTemplateBeforeAdd, numDoubleBeforeAdd);
+        complexList, counterArrays, numMolTemplateBeforeAdd,
+        numDoubleBeforeAdd);
   }
 
   // The MPI main reaches its boundary set-up only through here, so the check
@@ -141,8 +142,7 @@ void parse_input_for_a_restart_simulation(
 
   // Create simulation box cells
   std::cout << "Partitioning simulation box into sub-boxes..." << std::endl;
-  set_rMaxLimit(params, molTemplateList, forwardRxns, numDoubleBeforeAdd,
-                numMolTemplateBeforeAdd);
+  set_rMaxLimit(params, molTemplateList, forwardRxns);
 
   simulVolume.create_simulation_volume(params, membraneObject);
   simulVolume.update_memberMolLists(params, moleculeList, complexList,
