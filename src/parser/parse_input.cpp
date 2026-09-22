@@ -628,9 +628,7 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
                 }
                 linePos = inputFile.tellg();
             }
-
-            RxnBase::totRxnSpecies = totSpecies + 1; // had to increment this by 1, it was not correct!
-
+            // RxnBase::totRxnSpecies is set once the whole file is read, below
         } else if (tmpLine == "startobservables") {
             // TODO: make this use parse_molecule_bngl() and create a vector of ParsedMol
             // Need to change the function to allow for molecules with no explicit interfaces
@@ -727,6 +725,17 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
                     std::unique(oneState.rxnPartners.begin(), oneState.rxnPartners.end()), oneState.rxnPartners.end());
             }
         }
+    }
+
+    // Every interface state, then one product per bimolecular reaction, as
+    // init_speciesFile() lays the species out.  The reactions block used to set
+    // this from its own totSpecies, which counts only this file's products (the
+    // add block numbers them after the restart file's numDoubleBeforeAdd), and a
+    // file without a reactions block left out the states it added.
+    RxnBase::totRxnSpecies = Interface::State::totalNumOfStates;
+    for (const auto& oneRxn : forwardRxns) {
+        if (oneRxn.rxnType == ReactionType::bimolecular)
+            ++RxnBase::totRxnSpecies;
     }
 
     params.numTotalSpecies = RxnBase::totRxnSpecies; // total number of all species possible in the system (includes

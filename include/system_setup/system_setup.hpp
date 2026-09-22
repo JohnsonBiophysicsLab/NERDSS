@@ -80,8 +80,8 @@ void create_molecule_and_complex_for_restart(MolTemplate& createdMolTemp, Parame
 Molecule initialize_molecule_for_restart(
     int index, Parameters& params, MolTemplate& molTemplate, const Membrane& membraneObject);
 
-bool moleculeOverlapsForRestart(const Parameters& params, Molecule& createdMol,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
+bool moleculeOverlapsForRestart(const Parameters& params, const Molecule& createdMol,
+    const std::vector<Molecule>& moleculeList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
 
 // function to determine molecule's isPoint and isRod
