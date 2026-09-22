@@ -186,7 +186,9 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                     create_molecule_and_complex_from_rxn(0, newMolIndex, newComIndex, false, oneTemp, params, oneRxn, simulVolume, moleculeList, complexList, molTemplateList, forwardRxns, membraneObject);
 
                     moleculeList[newMolIndex].isGhosted = false;
-                    moleculeList[newMolIndex].id = Molecule::maxID++;
+                    // initialize_molecule_after_zeroth_reaction() has already
+                    // given the molecule the next id; taking a second one here
+                    // left a gap in the ids of every created molecule.
                     moleculeList[newMolIndex].need_to_send = true;
 
                     // update the copy number arrays

@@ -106,6 +106,37 @@ Molecule initialize_molecule_after_transmission_reaction(int index, const Molecu
 														 MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos,
                                                          const bool plusRand, const Membrane& membraneObject);
 
+/*! \ingroup Reactions
+ * \brief Draws the position of a molecule a creation reaction has made.
+ *
+ * The coordinates are the one part of initialization that may be drawn again:
+ * `initialize_molecule_after_zeroth_reaction()` and
+ * `initialize_molecule_after_uni_reaction()` also *count* the molecule, in
+ * `Molecule::numberOfMolecules`, `Parameters::numTotalUnits`,
+ * `Molecule::maxID` and `MolTemplate::numEachMolType`, so
+ * `create_molecule_and_complex_from_rxn()` calls one of these instead when
+ * `moleculeOverlaps()` sends it to try another place.
+ */
+void draw_coords_after_zeroth_reaction(
+    Molecule& mol, const MolTemplate& molTemplate, const CreateDestructRxn& currRxn, const Membrane& membraneObject);
+
+//! \copydoc draw_coords_after_zeroth_reaction
+void draw_coords_after_uni_reaction(
+    Molecule& mol, const Molecule& parentMol, const MolTemplate& molTemplate, const CreateDestructRxn& currRxn);
+
+/*! \ingroup Reactions
+ * \brief Draws the position of a molecule a transmission reaction has moved.
+ *
+ * The same split, for the same reason:
+ * `initialize_molecule_after_transmission_reaction()` counts the molecule in
+ * `Molecule::numberOfMolecules`, `Parameters::numTotalUnits` and
+ * `MolTemplate::numEachMolType`, and only the coordinates may be drawn again.
+ * `plusRand` moves the molecule to a random point its own radius away from
+ * `newPos`, which is what every attempt past the first does.
+ */
+void draw_coords_after_transmission_reaction(Molecule& mol, const MolTemplate& molTemplate,
+    const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject);
+
 bool moleculeOverlaps(const Parameters &params, SimulVolume &simulVolume, Molecule &createdMol,
                       std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList, const std::vector<ForwardRxn> &forwardRxns,
                       const std::vector<MolTemplate> &molTemplateList, const Membrane &membraneObject);

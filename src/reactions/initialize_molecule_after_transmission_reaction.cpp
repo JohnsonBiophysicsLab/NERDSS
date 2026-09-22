@@ -1,23 +1,12 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/shared_reaction_functions.hpp"
+#include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "tracing.hpp"
 #include <numeric>
 
-Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,
-    MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject)
+void draw_coords_after_transmission_reaction(Molecule& tmp, const MolTemplate& molTemplate,
+    const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject)
 {
-    // TRACE();
-    Molecule tmp {};
-    // TODO: Need to finish this, state should be set to reaction's product's state
-    tmp.molTypeIndex = molTemplate.molTypeIndex;
-    tmp.mass = molTemplate.mass;
-    tmp.isLipid = molTemplate.isLipid;
-
-    // Set up interface state vectors
-    tmp.freelist = std::vector<int>(molTemplate.interfaceList.size());
-    std::iota(tmp.freelist.begin(), tmp.freelist.end(), 0);
-    tmp.interfaceList = std::vector<Molecule::Iface>(molTemplate.interfaceList.size());
-
     Vec3D tempCoord { newPos };
     double molRadius = molTemplate.radius;
     if (plusRand) {
@@ -54,6 +43,7 @@ Molecule initialize_molecule_after_transmission_reaction(int index, const Molecu
     }
 
     // set the interface states to the states defined in the reaction
+    // TODO: Need to finish this, state should be set to reaction's product's state
     if (currRxn.productMolList.back().molTypeIndex == molTemplate.molTypeIndex) {
         for (auto& rxnIface : currRxn.productMolList.back().interfaceList) {
             tmp.interfaceList[rxnIface.relIfaceIndex].stateIden = rxnIface.requiresState;
@@ -68,6 +58,23 @@ Molecule initialize_molecule_after_transmission_reaction(int index, const Molecu
             }
         }
     }
+}
+
+Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,
+    MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject)
+{
+    // TRACE();
+    Molecule tmp {};
+    tmp.molTypeIndex = molTemplate.molTypeIndex;
+    tmp.mass = molTemplate.mass;
+    tmp.isLipid = molTemplate.isLipid;
+
+    // Set up interface state vectors
+    tmp.freelist = std::vector<int>(molTemplate.interfaceList.size());
+    std::iota(tmp.freelist.begin(), tmp.freelist.end(), 0);
+    tmp.interfaceList = std::vector<Molecule::Iface>(molTemplate.interfaceList.size());
+
+    draw_coords_after_transmission_reaction(tmp, molTemplate, currRxn, newPos, plusRand, membraneObject);
 
     // clean up
     tmp.isEmpty = false;
