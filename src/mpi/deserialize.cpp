@@ -40,11 +40,20 @@ void deserialize_complexes(MpiContext &mpiContext,
       // and the serializer, so it corrupts the heap rather than failing.  Drop
       // the member and say so; the sender is supposed to ship a complex whole,
       // so this means that invariant broke.
-      if (molIndex == -1) {
+      //
+      // An emptied slot is just as unusable and is reachable by find_molecule(),
+      // which matches on id alone while Molecule::MPI_remove_from_one_rank()
+      // and Complex::destroy() leave id set on the molecule they empty.  Such a
+      // molecule carries molTypeIndex == -1, which update_properties() feeds
+      // straight to numEachMol[].  All the incoming molecules are already
+      // installed by the time complexes are deserialized, so a slot still empty
+      // here is dead rather than about to be filled.
+      if (molIndex == -1 || moleculeList[molIndex].isEmpty) {
         fprintf(stderr,
                 "rank %d: complex id=%d arrived from the left listing member "
-                "id=%d, which is not on this rank; dropping the member\n",
-                mpiContext.rank, c.id, it);
+                "id=%d, which is %s on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it,
+                molIndex == -1 ? "not" : "deleted");
         if (DEBUG) error(mpiContext, "5: complex member mol not found");
         continue;
       }
@@ -160,12 +169,13 @@ void deserialize_complexes_right(MpiContext &mpiContext,
     for (auto &it : c.memberList) {  // looping over IDs
       if (VERBOSE) cout << it;
       int molIndex = find_molecule(moleculeList, it);
-      // Same as the left-hand side: never let -1 into memberList.
-      if (molIndex == -1) {
+      // Same as the left-hand side.
+      if (molIndex == -1 || moleculeList[molIndex].isEmpty) {
         fprintf(stderr,
                 "rank %d: complex id=%d arrived from the right listing member "
-                "id=%d, which is not on this rank; dropping the member\n",
-                mpiContext.rank, c.id, it);
+                "id=%d, which is %s on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it,
+                molIndex == -1 ? "not" : "deleted");
         if (DEBUG) error(mpiContext, "5: complex member mol not found");
         continue;
       }
