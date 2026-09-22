@@ -52,6 +52,15 @@ void send_data_to_left_neighboring_ranks(
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
+          // A complex travels whole: serialize_complexes() writes the full
+          // memberList as IDs, so every member has to be in the message or the
+          // receiver cannot resolve the ID.  Walk memberList rather than the
+          // sub-volume, because a member whose x bin has drifted outside this
+          // rank is in no sub-volume at all and the stripe loops never reach it.
+          for (auto& memIdx : complexList[mol.myComIndex].memberList) {
+            moleculeList[memIdx].isGhosted = true;
+            moleculesSet.insert(memIdx);
+          }
         }
       }
     }
@@ -129,11 +138,16 @@ void send_data_to_right_neighboring_ranks(
         for (auto& molIdx : simulVolume.subCellList[currBin].memberMolList) {
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
-          // Mirror of the left send: hand the complex to the right neighbour.
+          // Mirror of the left send: hand the complex to the right neighbour,
+          // and send the whole complex with it for the same reason.
           complexList[mol.myComIndex].ownerRank = mpiContext.rank + 1;
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
+          for (auto& memIdx : complexList[mol.myComIndex].memberList) {
+            moleculeList[memIdx].isGhosted = true;
+            moleculesSet.insert(memIdx);
+          }
         }
       }
     }
