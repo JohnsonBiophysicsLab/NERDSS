@@ -105,6 +105,20 @@ void remove_empty_slots(
   //------------------------------------------------------------------------------------
   // Remove empty molecules:
   sort(Molecule::emptyMolList.begin(), Molecule::emptyMolList.end());
+
+  // newMolIndex[old] is where the molecule that sat at `old` ends up, or -1 if
+  // it is gone.  Moving molecules invalidates every stored molecule index, and
+  // repairing only the bound partners reachable through the moved molecule's
+  // own bndpartner -- which is what this loop used to do -- leaves the rest
+  // pointing at a slot the pop_back() below takes away: a complex memberList,
+  // a crossing list, or an interface whose partnerIndex the bndpartner list
+  // does not mirror.  Record the move here and apply it everywhere afterwards.
+  const int oldMolCount{static_cast<int>(moleculeList.size())};
+  std::vector<int> newMolIndex(oldMolCount);
+  for (int i{0}; i < oldMolCount; ++i) newMolIndex[i] = i;
+  for (auto& emptied : Molecule::emptyMolList)
+    if (emptied >= 0 && emptied < oldMolCount) newMolIndex[emptied] = -1;
+
   // Always copy last occupied element from moleculeList to the first empty
   // index:
   lastNonEmptyIndex = moleculeList.size() - 1;
@@ -123,36 +137,7 @@ void remove_empty_slots(
     moleculeList[firstEmptyIndex] = moleculeList[lastNonEmptyIndex];
     // Update molecule index to match new position:
     moleculeList[firstEmptyIndex].index = firstEmptyIndex;
-    // Update complex member list elements to match new firstEmptyIndex:
-    int tmpComIndex{moleculeList[firstEmptyIndex].myComIndex};
-    for (auto& tmpMember : complexList[tmpComIndex].memberList) {
-      if (tmpMember == lastNonEmptyIndex) tmpMember = firstEmptyIndex;
-    }
-    // For all partners,
-    // update their interface.interaction.partnerIndex and mol.bndpartner
-    // to match new firstEmptyIndex:
-    for (auto& tmpPartner : moleculeList[firstEmptyIndex].bndpartner) {
-      if (DEBUG && (tmpPartner >= moleculeList.size()) && tmpPartner != -1)
-        error("13: tmpPartner(" + to_string(tmpPartner) +
-              ") >= moleculeList.size()(" + to_string(moleculeList.size()) +
-              ")");
-      for (auto& partner : moleculeList[tmpPartner].bndpartner) {
-        if (DEBUG && (partner >= moleculeList.size()))
-          error("14: partner >= moleculeList.size()");
-        if (partner == lastNonEmptyIndex) partner = firstEmptyIndex;
-      }
-      for (auto& tmpIface : moleculeList[tmpPartner].interfaceList) {
-        if (DEBUG &&
-            (tmpIface.interaction.partnerIndex >= moleculeList.size()) &&
-            (tmpIface.interaction.partnerIndex != -1))
-          error("15: tmpIface.interaction.partnerIndex >= moleculeList.size()");
-        if (tmpIface.interaction.partnerIndex == lastNonEmptyIndex)
-          tmpIface.interaction.partnerIndex = firstEmptyIndex;
-      }
-    }
-
-    // update Molecule::emptyMolList
-    // Molecule::emptyMolList.pop_back();
+    newMolIndex[lastNonEmptyIndex] = firstEmptyIndex;
     lastNonEmptyIndex--;
   }
 
@@ -160,4 +145,56 @@ void remove_empty_slots(
   for (int k = 0; k < Molecule::emptyMolList.size(); k++)
     moleculeList.pop_back();
   Molecule::emptyMolList.clear();
+
+  // Apply the map to every stored molecule index.  Destinations are slots that
+  // were empty, so an index nothing moved into maps to -1 and the reference is
+  // dropped rather than left naming whoever took the slot.
+  auto mapped = [&newMolIndex, oldMolCount](int idx) {
+    return (idx < 0 || idx >= oldMolCount) ? -1 : newMolIndex[idx];
+  };
+  for (auto& com : complexList) {
+    if (com.isEmpty) continue;
+    for (auto& memIdx : com.memberList) memIdx = mapped(memIdx);
+    com.memberList.erase(
+        std::remove(com.memberList.begin(), com.memberList.end(), -1),
+        com.memberList.end());
+  }
+  for (auto& subBox : simulVolume.subCellList) {
+    for (auto& memIdx : subBox.memberMolList) memIdx = mapped(memIdx);
+    subBox.memberMolList.erase(std::remove(subBox.memberMolList.begin(),
+                                           subBox.memberMolList.end(), -1),
+                               subBox.memberMolList.end());
+  }
+  for (auto& mol : moleculeList) {
+    if (mol.isEmpty) continue;
+    // -1 already means "this interface has no partner visible on this rank",
+    // so a partner that is gone lands on the sentinel the rest of the code
+    // already understands.
+    for (auto& iface : mol.interfaceList)
+      iface.interaction.partnerIndex = mapped(iface.interaction.partnerIndex);
+    // bndpartner and bndlist are parallel, so an entry leaves both.
+    for (int i{static_cast<int>(mol.bndpartner.size()) - 1}; i >= 0; --i) {
+      const int remapped{mapped(mol.bndpartner[i])};
+      if (remapped == -1) {
+        mol.bndpartner.erase(mol.bndpartner.begin() + i);
+        if (i < static_cast<int>(mol.bndlist.size()))
+          mol.bndlist.erase(mol.bndlist.begin() + i);
+      } else {
+        mol.bndpartner[i] = remapped;
+      }
+    }
+    // A dropped crossing is uncounted from its complex, the way
+    // remove_partner_crossings() uncounts the ones it removes.
+    for (int i{static_cast<int>(mol.crossings.size()) - 1}; i >= 0; --i) {
+      const int remapped{mapped(mol.crossings[i].partner)};
+      if (remapped == -1) {
+        mol.crossings.erase(mol.crossings.begin() + i);
+        if (mol.myComIndex >= 0 &&
+            mol.myComIndex < static_cast<int>(complexList.size()))
+          --complexList[mol.myComIndex].ncross;
+      } else {
+        mol.crossings[i].partner = remapped;
+      }
+    }
+  }
 }
