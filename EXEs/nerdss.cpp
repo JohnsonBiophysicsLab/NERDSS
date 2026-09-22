@@ -1486,11 +1486,13 @@ int main(int argc, char *argv[]) {
             // determine RS3Dinput
             // TODO: a function for RS3Dinput
             double RS3Dinput{0.0};
-            for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-              if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] -
-                           mol.molTypeIndex) < 1E-2) {
-                RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-                break;
+            if (membraneObject.hasRS3Dtable()) {
+              for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
+                if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] -
+                             mol.molTypeIndex) < 1E-2) {
+                  RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
+                  break;
+                }
               }
             }
             reflect_complex_rad_rot(membraneObject, complexList[mol.myComIndex],
