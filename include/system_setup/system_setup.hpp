@@ -78,7 +78,7 @@ void create_molecule_and_complex_for_restart(MolTemplate& createdMolTemp, Parame
     std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns, const Membrane& membraneObject);
 
 Molecule initialize_molecule_for_restart(
-    int index, Parameters& params, MolTemplate& molTemplate, const Membrane& membraneObject);
+    int index, const Parameters& params, MolTemplate& molTemplate, const Membrane& membraneObject);
 
 bool moleculeOverlapsForRestart(const Parameters& params, const Molecule& createdMol,
     const std::vector<Molecule>& moleculeList, const std::vector<ForwardRxn>& forwardRxns,
