@@ -57,7 +57,7 @@ void create_molecule_and_complex_from_transmission_rxn(int parentMolIndex, int& 
     // moleculeOverlaps() reported an overlap only for a place outside the box.
     moleculeList[newMolIndex] = initialize_molecule_after_transmission_reaction(
         newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn, newPos, false, membraneObject);
-    while (moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList, complexList, forwardRxns,
+    while (moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList, forwardRxns,
         molTemplateList, membraneObject)) {
         draw_coords_after_transmission_reaction(
             moleculeList[newMolIndex], createdMolTemp, currRxn, newPos, true, membraneObject);

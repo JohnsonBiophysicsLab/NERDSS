@@ -1,0 +1,40 @@
+# Crowded creation-placement model.
+#
+# 1000 A frozen (D = 0) in a 100 nm box, and `NULL -> B(b)` creating about
+# 36000 B.  A(a) + B(b) bind at sigma 5 nm and nothing diffuses, so
+# rMaxLimit = 5 nm exactly and the SubBoxes come out 5 nm on a side: a partner
+# within bindRadius of a place drawn for a B is usually in one of the 26
+# neighbouring SubBoxes.
+
+start parameters
+    nItr = 6000
+    timeStep = 0.1
+    timeWrite = 6000
+    trajWrite = 6000000
+    restartWrite = 6000000
+    pdbWrite = 6000000
+    checkPoint = 6000000
+end parameters
+
+start boundaries
+    waterBox = [100,100,100] #in nm
+end boundaries
+
+start molecules
+    A:1000
+    B:0
+end molecules
+
+start reactions
+    NULL -> B(b)
+    onRate3Dka = 100   # M/s
+    sigma = 1
+
+    A(a) + B(b) <-> A(a!1).B(b!1)
+    onRate3Dka = 1.0
+    offRatekb = 1.0
+    sigma = 5.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+end reactions
