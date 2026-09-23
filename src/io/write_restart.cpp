@@ -159,7 +159,7 @@ json serialize_numerics(const NumericalSettings& numerics)
 
 } // namespace
 
-void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+void write_json_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
@@ -574,10 +574,30 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
     restartFile << j.dump() << std::endl;
 }
 
-/* The .dat format.  Nothing writes it during a simulation any more; it is kept
- * so that a file in the old format can still be produced from a system in
- * memory (the regression harness converts between the two formats with it),
- * and as the reference for what LEGACY_read_restart() expects.
+void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
+    const std::vector<TransmissionRxn>& transmissionRxns,
+    const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
+{
+    // JSON unless the run asked for the .dat format of earlier builds.
+    if (params.legacyRestartFormat) {
+        LEGACY_write_restart(simItr, restartFile, params, simulVolume, moleculeList, complexList, molTemplateList,
+            forwardRxns, backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject,
+            counterArrays);
+    } else {
+        write_json_restart(simItr, restartFile, params, simulVolume, moleculeList, complexList, molTemplateList,
+            forwardRxns, backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject,
+            counterArrays);
+    }
+}
+
+/* The .dat format of builds before the JSON format.  A run writes it when
+ * legacyRestartFormat is set (a restart from a .dat file keeps it), the
+ * regression harness converts between the two formats with it, and it is
+ * the reference for what LEGACY_read_restart() expects.  Its layout must not
+ * change: files it writes are read by the builds it comes from.
  */
 
 void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,

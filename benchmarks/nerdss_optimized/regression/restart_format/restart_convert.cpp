@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
     in.close();
 
     std::ofstream outJson { argv[2] };
-    write_restart(simItr, outJson, params, simulVolume, moleculeList, complexList, molTemplateList, forwardRxns,
+    write_json_restart(simItr, outJson, params, simulVolume, moleculeList, complexList, molTemplateList, forwardRxns,
         backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject, counterArrays);
     const bool jsonOk { static_cast<bool>(outJson) };
     outJson.close();

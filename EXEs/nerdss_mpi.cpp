@@ -307,6 +307,11 @@ int main(int argc, char* argv[]) {
         "is : ./nerdss -f parameterfile.inp or ./nerdss -r restartfile.dat \n");
   }
 
+  // Restart files are JSON unless legacyRestartFormat asks for the .dat format
+  // of earlier builds; see EXEs/nerdss.cpp.
+  restartFileName = "DATA/restart_" + std::to_string(mpiContext.rank) +
+                    (params.legacyRestartFormat ? ".dat" : ".json");
+
   params.checkUnimoleculeReactionPopulation = false;
   mpiContext.checkUnimoleculeReactionPopulation =
       params.checkUnimoleculeReactionPopulation;

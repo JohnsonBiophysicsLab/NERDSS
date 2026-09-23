@@ -52,6 +52,7 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numericsassociationrotationtolerance", ParamKeyword::numericsAssociationRotationTolerance },
     { "numericsassociationendpointsigntolerance", ParamKeyword::numericsAssociationEndpointSignTolerance },
     { "numericsvec3dcoordinateprecision", ParamKeyword::numericsVec3DCoordinatePrecision },
+    { "legacyrestartformat", ParamKeyword::legacyRestartFormat },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -205,6 +206,10 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
         case 37:
             this->numerics.vec3D.coordinateEqualityPrecision = std::stoi(value);
             break;
+        case 38:
+            this->legacyRestartFormat = read_boolean(value);
+            std::cout << "Read in legacyRestartFormat: " << std::boolalpha << this->legacyRestartFormat << std::endl;
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -293,6 +298,7 @@ void Parameters::display()
     std::cout << "ClusterOverlapCheck: " << clusterOverlapCheck << "\n";
     std::cout << "RNGwrite: " << rngwrite << "\n";
     std::cout << "bondedComplexWrite: " << bondedComplexWrite << "\n";
+    std::cout << "Restart file format: " << (legacyRestartFormat ? "legacy .dat" : "JSON") << "\n";
 
     std::cout << "Numerical settings:\n";
     std::cout << "  2D table integration abs/rel error: " << numerics.integration.tableAbsoluteError << " / "

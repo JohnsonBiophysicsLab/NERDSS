@@ -74,7 +74,8 @@ enum class ParamKeyword : int {
     numericsAssociationSameAngleRelTolerance = 34,
     numericsAssociationRotationTolerance = 35,
     numericsAssociationEndpointSignTolerance = 36,
-    numericsVec3DCoordinatePrecision = 37
+    numericsVec3DCoordinatePrecision = 37,
+    legacyRestartFormat = 38 //!< write restart files in the .dat format of builds before the JSON format
 };
 
 /*! \enum MolKeyword
@@ -220,6 +221,10 @@ struct Parameters {
     long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON file
     bool clusterOverlapCheck { false }; //!< is overlap checked by cluster 
     bool rngwrite { false }; //!< whether to write rng state along with restart files (checkpoints)
+    //! Write restart files in the positional .dat format of builds before the JSON format instead of
+    //! JSON.  A restart keeps the format of the file it read (read_restart() sets this) unless an add
+    //! file sets it; the file names follow it (DATA/restart.dat, RESTARTS/restart<N>.dat).
+    bool legacyRestartFormat { false };
                             // Normally we do not need to restart with the same rng
                             // sequence, set this true to print the rng_state so
                             // that restarts can be identical
@@ -287,6 +292,7 @@ struct Parameters {
         PUSH(transitionWrite);
         PUSH(clusterOverlapCheck);
         PUSH(rngwrite)
+        PUSH(legacyRestartFormat);
         PUSH(checkUnimoleculeReactionPopulation);
         PUSH(hasRankCommunicationForLargeComplex);
     }
@@ -347,6 +353,7 @@ struct Parameters {
         POP(transitionWrite);
         POP(clusterOverlapCheck);
         POP(rngwrite);
+        POP(legacyRestartFormat);
         POP(checkUnimoleculeReactionPopulation);
         POP(hasRankCommunicationForLargeComplex);
         numerics.validate();
