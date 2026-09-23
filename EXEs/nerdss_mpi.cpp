@@ -750,6 +750,12 @@ int main(int argc, char* argv[]) {
       start_communication_time = MPI_Wtime();
     }
 
+    // Anything this half-step created has no owner yet, and an unowned complex
+    // is integrated by nobody and tallied by nobody.  Claim before handing state
+    // to a neighbour, so the exchange and the output both see a complete
+    // ownership map.  Outside the rank guards below, because np=1 needs it too.
+    claim_unowned_complexes(mpiContext, moleculeList, complexList, simulVolume);
+
     // send to left
     if (mpiContext.rank > 0) {
       if (VERBOSE) {
@@ -947,6 +953,12 @@ int main(int argc, char* argv[]) {
       total_computation_time += (end_computation_time - start_computation_time);
       start_communication_time = MPI_Wtime();
     }
+
+    // Anything this half-step created has no owner yet, and an unowned complex
+    // is integrated by nobody and tallied by nobody.  Claim before handing state
+    // to a neighbour, so the exchange and the output both see a complete
+    // ownership map.  Outside the rank guards below, because np=1 needs it too.
+    claim_unowned_complexes(mpiContext, moleculeList, complexList, simulVolume);
 
     // send to right
     if (mpiContext.rank < mpiContext.nprocs - 1) {

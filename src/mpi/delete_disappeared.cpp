@@ -7,6 +7,45 @@
 
 using namespace std;
 
+// A complex created after start-up -- by an association or a dissociation --
+// carries Complex::ownerRank's default of -1: prepare() seeds ownership from the
+// initial decomposition and nothing assigns it again, because the reaction code
+// is shared with the serial build and has no rank to record.  ownerRank is the
+// authority for who integrates and who tallies a complex, so an unclaimed
+// complex belongs to nobody.
+//
+// Claim the ones this rank made.  This is the same rule prepare() seeds with --
+// a complex is this rank's if it has a member this rank owns by position -- and
+// it is only ever applied to a complex no rank has stamped yet, so it cannot
+// contradict a handover.  The position test partitions the bins cleanly, so two
+// ranks cannot both claim.
+void claim_unowned_complexes(MpiContext &mpiContext,
+                             vector<Molecule> &moleculeList,
+                             vector<Complex> &complexList,
+                             SimulVolume &simulVolume) {
+  for (auto &com : complexList) {
+    if (com.isEmpty || com.ownerRank != -1) continue;
+    bool mine = false;
+    for (int m : com.memberList) {
+      if (m < 0 || m >= (int)moleculeList.size()) continue;
+      if (moleculeList[m].isEmpty || moleculeList[m].isImplicitLipid) continue;
+      if (is_owned_by_processor(moleculeList[m], mpiContext, simulVolume)) {
+        mine = true;
+        break;
+      }
+    }
+    if (!mine) continue;
+    com.ownerRank = mpiContext.rank;
+    // isGhosted is derived from ownerRank, so it has to follow: write_all_species()
+    // reads the flag, and check_ownership_invariant() classifies by it.
+    for (int m : com.memberList) {
+      if (m < 0 || m >= (int)moleculeList.size()) continue;
+      if (moleculeList[m].isEmpty) continue;
+      moleculeList[m].isGhosted = false;
+    }
+  }
+}
+
 void delete_disappeared_complexes(MpiContext &mpiContext,
                                   vector<Molecule> &moleculeList,
                                   vector<Complex> &complexList) {
