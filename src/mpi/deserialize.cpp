@@ -130,7 +130,20 @@ void deserialize_complexes(MpiContext &mpiContext,
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
+      // Only the rank that currently owns a complex may say where ownership
+      // goes.  ownerRank travels inside the complex, so a rank holding a ghost
+      // copy could reassign it just by sending that copy back -- and ranks do
+      // send ghost copies back, because that is how a complex is handed over.
+      // A middle rank would hand a complex to one neighbour and have the other
+      // neighbour's stale copy hand it straight back, so both ended up owning
+      // it, propagating it independently from then on.
+      const int senderRank = mpiContext.rank - 1;
+      const int currentOwner = complexList[complexIndex].ownerRank;
+      const bool senderMayReassign =
+          (currentOwner == senderRank) || (currentOwner == -1);
       complexList[complexIndex] = c;  // copy all deserialized properties
+      if (!senderMayReassign)
+        complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
@@ -242,7 +255,20 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
+      // Only the rank that currently owns a complex may say where ownership
+      // goes.  ownerRank travels inside the complex, so a rank holding a ghost
+      // copy could reassign it just by sending that copy back -- and ranks do
+      // send ghost copies back, because that is how a complex is handed over.
+      // A middle rank would hand a complex to one neighbour and have the other
+      // neighbour's stale copy hand it straight back, so both ended up owning
+      // it, propagating it independently from then on.
+      const int senderRank = mpiContext.rank + 1;
+      const int currentOwner = complexList[complexIndex].ownerRank;
+      const bool senderMayReassign =
+          (currentOwner == senderRank) || (currentOwner == -1);
       complexList[complexIndex] = c;  // copy all deserialized properties
+      if (!senderMayReassign)
+        complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
