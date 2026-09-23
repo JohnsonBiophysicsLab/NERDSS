@@ -5,12 +5,12 @@
 #
 # For each case in continuation_cases.tsv: run the model for 2N steps (or the
 # case's own total) with checkPoint = N and RNGwrite = true; then, in a clean
-# directory, restart from RESTARTS/restart<N>.dat with RESTARTS/rng_state<N>
+# directory, restart from RESTARTS/restart<N>.json with RESTARTS/rng_state<N>
 # copied in as rng_state, so read_rng_state() resumes the same stream.  The
 # case passes when
-#   * the two final DATA/restart.dat files are identical apart from line 2
-#     (numItr) and line 4 (currSimTime, which the restart reaches through a
-#     different but equivalent expression), and
+#   * the two final DATA/restart.json files agree on every value but
+#     currSimTime, which the restart reaches through a different but
+#     equivalent expression (compare_restart_json.py), and
 #   * every record the restart wrote to DATA/*_time.dat equals the
 #     uninterrupted run's record for the same time (compare_series.py).
 # Exit status 0 when every case passes.
@@ -57,20 +57,19 @@ while IFS=$'\t' read -r id dir parm n seed total; do
         failures=$((failures + 1))
         continue
     fi
-    cp "$full/RESTARTS/restart$n.dat" "$cont/restart.dat"
+    cp "$full/RESTARTS/restart$n.json" "$cont/restart.json"
     cp "$full/RESTARTS/rng_state$n" "$cont/rng_state"
     # The seed is irrelevant here: read_rng_state() replaces the stream.
-    if ! (cd "$cont" && "$BINARY" -r restart.dat -s 1 > stdout.log 2> stderr.log); then
+    if ! (cd "$cont" && "$BINARY" -r restart.json -s 1 > stdout.log 2> stderr.log); then
         printf '%-22s FAIL: the restart exited non-zero\n' "$id"
         failures=$((failures + 1))
         continue
     fi
 
-    # restart.dat holds NUL bytes (requiresState is written raw), so compare
-    # it with sed and cmp, which pass them through; awk does not.
-    if ! cmp -s <(sed '2d;4d' "$full/DATA/restart.dat") <(sed '2d;4d' "$cont/DATA/restart.dat"); then
-        lines=$(diff -a <(sed '2d;4d' "$full/DATA/restart.dat") <(sed '2d;4d' "$cont/DATA/restart.dat") | grep -c '^<')
-        printf '%-22s FAIL: final restart.dat differs in %s lines\n' "$id" "$lines"
+    if ! report=$(python3 "$SCRIPT_DIR/compare_restart_json.py" \
+            "$full/DATA/restart.json" "$cont/DATA/restart.json" --ignore currSimTime); then
+        printf '%-22s FAIL: final restart.json differs\n' "$id"
+        echo "$report" | sed 's/^/    /'
         failures=$((failures + 1))
     elif ! series=$(python3 "$SCRIPT_DIR/compare_series.py" "$full/DATA" "$cont/DATA"); then
         printf '%-22s FAIL: DATA time series differ\n' "$id"

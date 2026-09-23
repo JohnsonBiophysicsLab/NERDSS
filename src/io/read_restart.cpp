@@ -3,6 +3,12 @@
 #include <chrono>
 #include <ctime>
 #include <string>
+#include <cctype>
+#include <cmath>
+#include <limits>
+#include <stdexcept>
+
+#include "json.hpp"
 
 namespace {
 
@@ -73,7 +79,690 @@ void expect_restart_key(std::ifstream& restartFile, const std::string& expected)
 
 } // namespace
 
+/* JSON restart files; see write_restart.cpp for the layout.  Every field is
+ * looked up by name, so a missing or mistyped one is reported by name, and a
+ * field this branch added is simply absent from a file written without it.
+ */
+namespace {
+
+using json = nlohmann::json;
+
+// A null is a double that was NaN when written; see maybe_null() in
+// write_restart.cpp.
+double read_double(const json& j)
+{
+    return j.is_null() ? std::numeric_limits<double>::quiet_NaN() : j.get<double>();
+}
+
+void read_vec3(const json& j, Vec3D& v)
+{
+    v.x = read_double(j.at(0));
+    v.y = read_double(j.at(1));
+    v.z = read_double(j.at(2));
+}
+
+template <typename T>
+std::vector<T> get_vector(const json& j, const std::string& key)
+{
+    if (j.contains(key))
+        return j.at(key).get<std::vector<T>>();
+    return {};
+}
+
+std::vector<double> get_double_vector(const json& j, const std::string& key)
+{
+    std::vector<double> values;
+    if (j.contains(key)) {
+        for (const auto& elem : j.at(key))
+            values.push_back(read_double(elem));
+    }
+    return values;
+}
+
+void rxniface_from_json(const json& j, RxnIface& iface)
+{
+    iface.molTypeIndex = j.at("molTypeIndex");
+    iface.ifaceName = j.at("ifaceName").get<std::string>();
+    iface.absIfaceIndex = j.at("absIfaceIndex");
+    iface.relIfaceIndex = j.at("relIfaceIndex");
+    iface.requiresState = static_cast<char>(j.at("requiresState").get<int>());
+    iface.requiresInteraction = j.at("requiresInteraction");
+}
+
+void iface_list_from_json(const json& j, std::vector<RxnIface>& ifaceList)
+{
+    for (const auto& ji : j) {
+        RxnIface iface {};
+        rxniface_from_json(ji, iface);
+        ifaceList.push_back(iface);
+    }
+}
+
+void state_change_iface_from_json(const json& j, std::pair<RxnIface, RxnIface>& stateChangeIface)
+{
+    rxniface_from_json(j.at(0), stateChangeIface.first);
+    rxniface_from_json(j.at(1), stateChangeIface.second);
+}
+
+void rate_list_from_json(const json& j, std::vector<RxnBase::RateState>& rateList)
+{
+    for (const auto& jr : j) {
+        RxnBase::RateState rate {};
+        rate.rate = read_double(jr.at("rate"));
+        if (jr.contains("otherIfaceLists")) {
+            for (const auto& list : jr.at("otherIfaceLists")) {
+                std::vector<RxnIface> ifaceList;
+                iface_list_from_json(list, ifaceList);
+                rate.otherIfaceLists.push_back(ifaceList);
+            }
+        }
+        rateList.push_back(rate);
+    }
+}
+
+void coupled_rxn_from_json(const json& j, RxnBase::CoupledRxn& coupled)
+{
+    coupled.absRxnIndex = j.at("absRxnIndex");
+    coupled.relRxnIndex = j.at("relRxnIndex");
+    coupled.rxnType = static_cast<ReactionType>(j.at("rxnType").get<int>());
+    coupled.label = j.at("label").get<std::string>();
+    coupled.probCoupled = j.at("probCoupled");
+}
+
+// CreateDestructRxn::CreateDestructMol and TransmissionRxn::TransmissionMol.
+template <typename MolWithIfaces>
+void mol_with_ifaces_from_json(const json& j, MolWithIfaces& mol)
+{
+    mol.molTypeIndex = j.at("molTypeIndex");
+    mol.molName = j.at("molName").get<std::string>();
+    // nerdss_development's json-restarts branch writes this list as
+    // "interfaceList" and reads it as "interfaces", which fails an assertion
+    // on any file with a creation, destruction or transmission reaction.  The
+    // writer's name is the one in every file.
+    iface_list_from_json(j.at("interfaceList"), mol.interfaceList);
+}
+
+void iface_state_from_json(const json& j, Interface::State& state)
+{
+    state.index = j.at("index");
+    state.iden = static_cast<char>(j.at("iden").get<int>());
+    state.rxnPartners = get_vector<unsigned>(j, "rxnPartners");
+    state.myForwardRxns = get_vector<unsigned>(j, "myForwardRxns");
+    state.myCreateDestructRxns = get_vector<unsigned>(j, "myCreateDestructRxns");
+    if (j.contains("stateChangeRxns")) {
+        for (const auto& pair : j.at("stateChangeRxns"))
+            state.stateChangeRxns.emplace_back(pair.at(0).get<int>(), pair.at(1).get<int>());
+    }
+}
+
+void iface_from_json(const json& j, Interface& iface)
+{
+    iface.index = j.at("index");
+    iface.name = j.at("name").get<std::string>();
+    read_vec3(j.at("coord"), iface.iCoord);
+    for (const auto& js : j.at("states")) {
+        Interface::State state {};
+        iface_state_from_json(js, state);
+        iface.stateList.push_back(state);
+    }
+}
+
+void moltemplate_from_json(const json& j, MolTemplate& mt)
+{
+    mt.molTypeIndex = j.at("molTypeIndex");
+    mt.molName = j.at("molName").get<std::string>();
+    mt.copies = j.at("copies");
+    mt.mass = j.at("mass");
+    mt.radius = j.at("radius");
+    mt.isLipid = j.at("isLipid");
+    mt.isImplicitLipid = j.at("isImplicitLipid");
+    mt.isRod = j.at("isRod");
+    mt.isPoint = j.at("isPoint");
+    mt.checkOverlap = j.at("checkOverlap");
+    mt.countTransition = j.at("countTransition");
+    mt.transitionMatrixSize = j.at("transitionMatrixSize");
+    mt.outsideCompartment = j.at("outsideCompartment");
+    mt.insideCompartment = j.at("insideCompartment");
+    mt.crossesCompartment = j.at("crossesCompartment");
+    mt.transmissionRxnIndex = j.at("transmissionRxnIndex");
+    read_vec3(j.at("comCoord"), mt.comCoord);
+    read_vec3(j.at("D"), mt.D);
+    read_vec3(j.at("Dr"), mt.Dr);
+    // Without this invCbrtDr stays zero, Complex::update_properties() sums it
+    // to zero and divides by that, and every complex with a rotating member
+    // comes out with Dr = inf and NaN coordinates after its first step.
+    mt.cache_diffusion_derivatives();
+
+    mt.rxnPartners = get_vector<int>(j, "rxnPartners");
+    if (j.contains("bondList")) {
+        for (const auto& bond : j.at("bondList"))
+            mt.bondList.push_back(std::array<int, 2> { { bond.at(0).get<int>(), bond.at(1).get<int>() } });
+    }
+    for (const auto& ji : j.at("interfaces")) {
+        Interface iface {};
+        iface_from_json(ji, iface);
+        mt.interfaceList.push_back(iface);
+    }
+    mt.ifacesWithStates = get_vector<int>(j, "ifacesWithStates");
+    mt.monomerList = get_vector<int>(j, "monomerList");
+    if (mt.countTransition) {
+        mt.lifeTime = j.at("lifeTime").get<std::vector<std::vector<double>>>();
+        mt.transitionMatrix = j.at("transitionMatrix").get<std::vector<std::vector<long long int>>>();
+    }
+}
+
+void forward_rxn_from_json(const json& j, ForwardRxn& rxn)
+{
+    rxn.absRxnIndex = j.at("absRxnIndex");
+    rxn.relRxnIndex = j.at("relRxnIndex");
+    rxn.rxnLabel = j.at("rxnLabel").get<std::string>();
+    rxn.rxnType = static_cast<ReactionType>(j.at("rxnType").get<int>());
+    rxn.isSymmetric = j.at("isSymmetric");
+    rxn.isOnMem = j.at("isOnMem");
+    rxn.hasStateChange = j.at("hasStateChange");
+    rxn.isObserved = j.at("isObserved");
+    rxn.observeLabel = j.at("observeLabel").get<std::string>();
+    rxn.productName = j.at("productName").get<std::string>();
+    rxn.isReversible = j.at("isReversible");
+    rxn.conjBackRxnIndex = j.at("conjBackRxnIndex");
+    rxn.irrevRingClosure = j.at("irrevRingClosure");
+    rxn.bindRadSameCom = j.at("bindRadSameCom");
+    rxn.loopCoopFactor = j.at("loopCoopFactor");
+    rxn.length3Dto2D = j.at("length3Dto2D");
+    rxn.area3Dto1D = j.at("area3Dto1D");
+    rxn.bindRadius = j.at("bindRadius");
+    const json& jAngles = j.at("assocAngles");
+    rxn.assocAngles.theta1 = read_double(jAngles.at("theta1"));
+    rxn.assocAngles.theta2 = read_double(jAngles.at("theta2"));
+    rxn.assocAngles.phi1 = read_double(jAngles.at("phi1"));
+    rxn.assocAngles.phi2 = read_double(jAngles.at("phi2"));
+    rxn.assocAngles.omega = read_double(jAngles.at("omega"));
+    read_vec3(j.at("norm1"), rxn.norm1);
+    read_vec3(j.at("norm2"), rxn.norm2);
+    rxn.excludeVolumeBound = j.at("excludeVolumeBound");
+    rxn.isCoupled = j.at("isCoupled");
+    if (rxn.isCoupled)
+        coupled_rxn_from_json(j.at("coupledRxn"), rxn.coupledRxn);
+    rxn.intReactantList = get_vector<int>(j, "intReactantList");
+    rxn.intProductList = get_vector<int>(j, "intProductList");
+    iface_list_from_json(j.at("reactantList"), rxn.reactantListNew);
+    iface_list_from_json(j.at("productList"), rxn.productListNew);
+    rate_list_from_json(j.at("rateList"), rxn.rateList);
+    if (j.contains("stateChangeIface"))
+        state_change_iface_from_json(j.at("stateChangeIface"), rxn.stateChangeIface);
+}
+
+void back_rxn_from_json(const json& j, BackRxn& rxn)
+{
+    rxn.absRxnIndex = j.at("absRxnIndex");
+    rxn.relRxnIndex = j.at("relRxnIndex");
+    rxn.rxnType = static_cast<ReactionType>(j.at("rxnType").get<int>());
+    rxn.isSymmetric = j.at("isSymmetric");
+    rxn.isOnMem = j.at("isOnMem");
+    rxn.hasStateChange = j.at("hasStateChange");
+    rxn.isObserved = j.at("isObserved");
+    rxn.observeLabel = j.at("observeLabel").get<std::string>();
+    rxn.conjForwardRxnIndex = j.at("conjForwardRxnIndex");
+    rxn.isCoupled = j.at("isCoupled");
+    if (rxn.isCoupled)
+        coupled_rxn_from_json(j.at("coupledRxn"), rxn.coupledRxn);
+    rxn.intReactantList = get_vector<int>(j, "intReactantList");
+    rxn.intProductList = get_vector<int>(j, "intProductList");
+    iface_list_from_json(j.at("reactantList"), rxn.reactantListNew);
+    iface_list_from_json(j.at("productList"), rxn.productListNew);
+    rate_list_from_json(j.at("rateList"), rxn.rateList);
+    // Absent from a file written by nerdss_development; see write_restart().
+    if (j.contains("stateChangeIface"))
+        state_change_iface_from_json(j.at("stateChangeIface"), rxn.stateChangeIface);
+}
+
+void createdestruct_rxn_from_json(const json& j, CreateDestructRxn& rxn)
+{
+    rxn.absRxnIndex = j.at("absRxnIndex");
+    rxn.relRxnIndex = j.at("relRxnIndex");
+    rxn.rxnType = static_cast<ReactionType>(j.at("rxnType").get<int>());
+    rxn.isOnMem = j.at("isOnMem");
+    rxn.isObserved = j.at("isObserved");
+    rxn.observeLabel = j.at("observeLabel").get<std::string>();
+    rxn.creationRadius = j.at("creationRadius");
+    rxn.intReactantList = get_vector<int>(j, "intReactantList");
+    rxn.intProductList = get_vector<int>(j, "intProductList");
+    for (const auto& jm : j.at("reactantMolList")) {
+        CreateDestructRxn::CreateDestructMol mol {};
+        mol_with_ifaces_from_json(jm, mol);
+        rxn.reactantMolList.push_back(mol);
+    }
+    for (const auto& jm : j.at("productMolList")) {
+        CreateDestructRxn::CreateDestructMol mol {};
+        mol_with_ifaces_from_json(jm, mol);
+        rxn.productMolList.push_back(mol);
+    }
+    rate_list_from_json(j.at("rateList"), rxn.rateList);
+}
+
+void transmission_rxn_from_json(const json& j, TransmissionRxn& rxn)
+{
+    rxn.absRxnIndex = j.at("absRxnIndex");
+    rxn.relRxnIndex = j.at("relRxnIndex");
+    rxn.rxnType = static_cast<ReactionType>(j.at("rxnType").get<int>());
+    rxn.isOnMem = j.at("isOnMem");
+    rxn.isObserved = j.at("isObserved");
+    rxn.observeLabel = j.at("observeLabel").get<std::string>();
+    rxn.intReactantList = get_vector<int>(j, "intReactantList");
+    rxn.intProductList = get_vector<int>(j, "intProductList");
+    for (const auto& jm : j.at("reactantMolList")) {
+        TransmissionRxn::TransmissionMol mol {};
+        mol_with_ifaces_from_json(jm, mol);
+        rxn.reactantMolList.push_back(mol);
+    }
+    for (const auto& jm : j.at("productMolList")) {
+        TransmissionRxn::TransmissionMol mol {};
+        mol_with_ifaces_from_json(jm, mol);
+        rxn.productMolList.push_back(mol);
+    }
+    rate_list_from_json(j.at("rateList"), rxn.rateList);
+    // Required, as the .dat reader requires its bindRadius tag: without these
+    // a restart read reactantListNew[0] out of an empty vector in
+    // initialize_paramters_for_implicitlipid_and_compartment_model().  A file
+    // written by nerdss_development lacks them and is refused here by name.
+    rxn.bindRadius = j.at("bindRadius");
+    iface_list_from_json(j.at("reactantList"), rxn.reactantListNew);
+    iface_list_from_json(j.at("productList"), rxn.productListNew);
+}
+
+void numerics_from_json(const json& j, NumericalSettings& numerics)
+{
+    numerics.integration.tableAbsoluteError = j.at("integrationAbsError");
+    numerics.integration.tableRelativeError = j.at("integrationRelError");
+    numerics.integration.fallbackError = j.at("integrationFallbackError");
+    numerics.integration.tailCutoff = j.at("integrationTailCutoff");
+    numerics.integration.normalizationAbsoluteError = j.at("normalizationAbsError");
+    numerics.integration.normalizationRelativeError = j.at("normalizationRelError");
+    numerics.tableLookup.reactionRate.absolute = j.at("tableRateAbsTolerance");
+    numerics.tableLookup.reactionRate.relative = j.at("tableRateRelTolerance");
+    numerics.tableLookup.diffusionCoefficient.absolute = j.at("tableDiffusionAbsTolerance");
+    numerics.tableLookup.diffusionCoefficient.relative = j.at("tableDiffusionRelTolerance");
+    numerics.classification.explicitLipidFlatDiffusion = j.at("explicitLipidFlatDiffusion");
+    numerics.classification.implicitLipidFlatDiffusion = j.at("implicitLipidFlatDiffusion");
+    numerics.associationAngles.sameAngle.absolute = j.at("associationSameAngleAbsTolerance");
+    numerics.associationAngles.sameAngle.relative = j.at("associationSameAngleRelTolerance");
+    numerics.associationAngles.rotationConvergenceTolerance = j.at("associationRotationTolerance");
+    numerics.associationAngles.endpointSignTolerance = j.at("associationEndpointSignTolerance");
+    numerics.vec3D.coordinateEqualityPrecision = j.at("vec3DCoordinatePrecision");
+}
+
+void read_json_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns,
+    std::vector<BackRxn>& backRxns, std::vector<CreateDestructRxn>& createDestructRxns,
+    std::vector<TransmissionRxn>& transmissionRxns,
+    std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays)
+{
+    json j;
+    restartFile >> j;
+
+    // parameters
+    std::cout << "Reading parameters..." << std::endl;
+    const json& jp = j.at("parameters");
+    params.nItr = jp.at("nItr");
+    simItr = jp.at("simItr");
+    params.itrRestartFrom = simItr;
+    params.timeRestartFrom = jp.at("currSimTime");
+    std::cout << "Restarting simulation from iteration " << simItr << '\n';
+    std::cout << "Current simulation time (s): " << params.timeRestartFrom << '\n';
+    params.numMolTypes = jp.at("numMolTypes");
+    params.numTotalSpecies = jp.at("numTotalSpecies");
+    params.numTotalComplex = jp.at("numTotalComplex");
+    params.numTotalUnits = jp.at("numTotalUnits");
+    params.numLipids = jp.at("numLipids");
+    params.timeStep = jp.at("timeStep");
+    params.max2DRxns = jp.at("max2DRxns");
+    params.overlapSepLimit = jp.at("overlapSepLimit");
+    params.rMaxLimit = jp.at("rMaxLimit");
+    params.timeWrite = jp.at("timeWrite");
+    params.trajWrite = jp.at("trajWrite");
+    params.restartWrite = jp.at("restartWrite");
+    params.pdbWrite = jp.at("pdbWrite");
+    params.assocDissocWrite = jp.at("assocDissocWrite");
+    params.checkPoint = jp.at("checkPoint");
+    params.scaleMaxDisplace = jp.at("scaleMaxDisplace");
+    params.transitionWrite = jp.at("transitionWrite");
+    params.clusterOverlapCheck = jp.at("clusterOverlapCheck");
+    params.rngwrite = jp.at("rngwrite");
+    params.bondedComplexWrite = jp.at("bondedComplexWrite");
+    Parameters::lastUpdateTransition = jp.at("lastUpdateTransition").get<std::vector<long long int>>();
+
+    // Always written by this build.  A file from a build without them keeps
+    // the defaults, as a .dat file without the #NumericalSettings block does.
+    if (jp.contains("numerics")) {
+        numerics_from_json(jp.at("numerics"), params.numerics);
+        try {
+            params.numerics.validate();
+        } catch (const std::invalid_argument& error) {
+            throw std::runtime_error(std::string("invalid numerical settings: ") + error.what());
+        }
+    }
+
+    // membrane
+    std::cout << "Reading membrane..." << std::endl;
+    const json& jm = jp.at("membrane");
+    const std::vector<double> boxDimensions { jp.at("waterBox").get<std::vector<double>>() };
+    if (boxDimensions.size() != 3)
+        throw std::runtime_error("waterBox must hold three lengths");
+    // Built by the constructor, as parse_input() builds it, so that xLeft and
+    // xRight are set along with the volume: create_random_coords() places a
+    // molecule created in a box at x = xLeft + (xRight - xLeft) * rand.
+    // nerdss_mpi overwrites both with its rank's bounds in prepare.cpp.
+    membraneObject.waterBox = Membrane::WaterBox(boxDimensions);
+    membraneObject.implicitlipidIndex = jm.at("implicitlipidIndex");
+    membraneObject.nSites = jm.at("nSites");
+    membraneObject.nStates = jm.at("nStates");
+    membraneObject.No_free_lipids = jm.at("No_free_lipids");
+    membraneObject.No_protein = jm.at("No_protein");
+    membraneObject.totalSA = jm.at("totalSA");
+    membraneObject.numberOfFreeLipidsEachState = jp.at("numberOfFreeLipidsEachState").get<std::vector<int>>();
+
+    const json& jil = jp.at("implicitLipidParams");
+    membraneObject.implicitLipid = jil.at("implicitLipid");
+    membraneObject.TwoD = jil.at("TwoD");
+    membraneObject.sphereR = jil.at("sphereR");
+    membraneObject.hasCompartment = jil.at("hasCompartment");
+    membraneObject.compartmentR = jil.at("compartmentR");
+    // The two flags map back one-to-one: the sphere flag is the geometry, the
+    // box flag the waterBox provenance.
+    const bool isBoxFlag { jil.at("isBox").get<bool>() };
+    const bool isSphereFlag { jil.at("isSphere").get<bool>() };
+    membraneObject.waterBoxGiven = isBoxFlag;
+    membraneObject.shape = isSphereFlag ? BoundaryShape::Sphere
+        : isBoxFlag                     ? BoundaryShape::Box
+                                        : BoundaryShape::Unspecified;
+
+    // A compartment file from a build that did not write them stops here,
+    // rather than restarting with the sites' D and density at zero.
+    if (jm.contains("compartmentSiteD")) {
+        membraneObject.droplet.D = jm.at("compartmentSiteD");
+        membraneObject.droplet.rho = jm.at("compartmentSiteRho");
+    } else if (membraneObject.hasCompartment) {
+        throw std::runtime_error("this compartment restart file does not record the compartment sites' "
+                                 "diffusion constant and density (parameters.membrane.compartmentSiteD and "
+                                 "compartmentSiteRho); re-run from the input file instead");
+    }
+
+    // molecule templates
+    std::cout << "Reading molecule templates..." << std::endl;
+    const json& jtemplates = j.at("molTemplates");
+    MolTemplate::absToRelIface = jtemplates.at("absToRelIface").get<std::vector<int>>();
+    for (const auto& jt : jtemplates.at("templates")) {
+        MolTemplate oneTemp {};
+        moltemplate_from_json(jt, oneTemp);
+        molTemplateList.push_back(oneTemp);
+    }
+    MolTemplate::numMolTypes = molTemplateList.size();
+    // Kept by the reactions that create and destroy molecules; recounted from
+    // the molecules below only for a file that does not carry it.
+    const bool hasNumEachMolType { jtemplates.contains("numEachMolType") };
+    if (hasNumEachMolType)
+        MolTemplate::numEachMolType = jtemplates.at("numEachMolType").get<std::vector<int>>();
+    else
+        MolTemplate::numEachMolType = std::vector<int>(MolTemplate::numMolTypes, 0);
+    if (MolTemplate::numEachMolType.size() != MolTemplate::numMolTypes)
+        throw std::runtime_error("molTemplates.numEachMolType does not have one count per template");
+    // The states an add file's templates bring are numbered from here
+    // (parse_molFile.cpp).  Every state has an index, so a file without it
+    // gets the count of states.
+    if (jtemplates.contains("totalNumOfStates")) {
+        Interface::State::totalNumOfStates = jtemplates.at("totalNumOfStates");
+    } else {
+        int totalStates { 0 };
+        for (const auto& oneTemp : molTemplateList)
+            for (const auto& oneIface : oneTemp.interfaceList)
+                totalStates += static_cast<int>(oneIface.stateList.size());
+        Interface::State::totalNumOfStates = totalStates;
+    }
+
+    // reactions
+    std::cout << "Reading reactions..." << std::endl;
+    const json& jr = j.at("reactions");
+    RxnBase::numberOfRxns = jr.at("numberOfRxns");
+    RxnBase::totRxnSpecies = jr.at("totRxnSpecies");
+    for (const auto& jrxn : jr.at("forward")) {
+        ForwardRxn rxn;
+        forward_rxn_from_json(jrxn, rxn);
+        forwardRxns.push_back(rxn);
+    }
+    for (const auto& jrxn : jr.at("back")) {
+        BackRxn rxn;
+        back_rxn_from_json(jrxn, rxn);
+        backRxns.push_back(rxn);
+    }
+    for (const auto& jrxn : jr.at("createDestruct")) {
+        CreateDestructRxn rxn {};
+        createdestruct_rxn_from_json(jrxn, rxn);
+        createDestructRxns.push_back(rxn);
+    }
+    for (const auto& jrxn : jr.at("transmission")) {
+        TransmissionRxn rxn {};
+        transmission_rxn_from_json(jrxn, rxn);
+        transmissionRxns.push_back(rxn);
+    }
+
+    // molecules
+    std::cout << "Reading molecules..." << std::endl;
+    const json& jmols = j.at("molecules");
+    for (const auto& jmol : jmols.at("list")) {
+        Molecule oneMol {};
+        oneMol.index = jmol.at("index");
+        oneMol.isEmpty = jmol.at("isEmpty");
+        oneMol.myComIndex = jmol.at("myComIndex");
+        oneMol.molTypeIndex = jmol.at("molTypeIndex");
+        oneMol.mySubVolIndex = jmol.at("mySubVolIndex");
+        oneMol.mass = jmol.at("mass");
+        oneMol.isLipid = jmol.at("isLipid");
+        oneMol.isImplicitLipid = jmol.at("isImplicitLipid");
+        oneMol.linksToSurface = jmol.at("linksToSurface");
+        oneMol.isPromoter = jmol.at("isPromoter");
+        if (jmol.contains("enforceCompartmentBC")) {
+            oneMol.enforceCompartmentBC = jmol.at("enforceCompartmentBC");
+        } else if (membraneObject.hasCompartment) {
+            throw std::runtime_error("this compartment restart file does not record enforceCompartmentBC for "
+                                     "its molecules; re-run from the input file instead");
+        }
+        read_vec3(jmol.at("comCoord"), oneMol.comCoord);
+        oneMol.freelist = get_vector<int>(jmol, "freelist");
+        oneMol.bndlist = get_vector<int>(jmol, "bndlist");
+        oneMol.bndpartner = get_vector<int>(jmol, "bndpartner");
+
+        for (const auto& jiface : jmol.at("interfaceList")) {
+            Molecule::Iface iface {};
+            iface.index = jiface.at("index");
+            iface.relIndex = jiface.at("relIndex");
+            iface.molTypeIndex = jiface.at("molTypeIndex");
+            iface.stateIndex = jiface.at("stateIndex");
+            iface.stateIden = static_cast<char>(jiface.at("stateIden").get<int>());
+            iface.isBound = jiface.at("isBound");
+            read_vec3(jiface.at("coord"), iface.coord);
+            if (iface.isBound) {
+                const json& jinteraction = jiface.at("interaction");
+                iface.interaction.partnerIndex = jinteraction.at("partnerIndex");
+                iface.interaction.partnerIfaceIndex = jinteraction.at("partnerIfaceIndex");
+                iface.interaction.conjBackRxn = jinteraction.at("conjBackRxn");
+            }
+            oneMol.interfaceList.push_back(iface);
+        }
+
+        // Reweighting lists: the six parallel arrays of the file are assembled
+        // into the single prevReweight vector.
+        const std::vector<int> prevlist { get_vector<int>(jmol, "prevlist") };
+        const std::vector<int> prevmyface { get_vector<int>(jmol, "prevmyface") };
+        const std::vector<int> prevpface { get_vector<int>(jmol, "prevpface") };
+        const std::vector<double> prevnorm { get_double_vector(jmol, "prevnorm") };
+        const std::vector<double> ps_prev { get_double_vector(jmol, "ps_prev") };
+        const std::vector<double> prevsep { get_double_vector(jmol, "prevsep") };
+        const std::size_t numEntries { prevlist.size() };
+        if (prevmyface.size() != numEntries || prevpface.size() != numEntries || prevnorm.size() != numEntries
+            || ps_prev.size() != numEntries || prevsep.size() != numEntries) {
+            throw std::runtime_error("molecule " + std::to_string(oneMol.index)
+                + ": the six reweighting arrays differ in length");
+        }
+        oneMol.prevReweight.resize(numEntries);
+        for (std::size_t entry { 0 }; entry < numEntries; ++entry) {
+            oneMol.prevReweight[entry].partner = prevlist[entry];
+            oneMol.prevReweight[entry].myFace = prevmyface[entry];
+            oneMol.prevReweight[entry].partnerFace = prevpface[entry];
+            oneMol.prevReweight[entry].norm = prevnorm[entry];
+            oneMol.prevReweight[entry].survProb = ps_prev[entry];
+            oneMol.prevReweight[entry].sep = prevsep[entry];
+        }
+
+        // trajStatus is not in the file, and every other molecule can do
+        // without it: the end of each timestep resets theirs to `none`, which
+        // is what they all hold at a checkpoint.  That reset skips the implicit
+        // lipid's one representative molecule, which holds `propagated` from
+        // its first step on; left at `none`, a restart propagated it once more
+        // and diverged.  A file written at step 0 is from before that first
+        // propagation, where `none` is right.
+        if (oneMol.isImplicitLipid && simItr > 0)
+            oneMol.trajStatus = TrajStatus::propagated;
+
+        if (!hasNumEachMolType && !oneMol.isEmpty) {
+            if (oneMol.molTypeIndex < 0 || oneMol.molTypeIndex >= static_cast<int>(MolTemplate::numMolTypes))
+                throw std::runtime_error("molecule " + std::to_string(oneMol.index) + " has no template");
+            ++MolTemplate::numEachMolType[oneMol.molTypeIndex];
+        }
+        moleculeList.push_back(oneMol);
+    }
+    // The list keeps a slot for every molecule ever created; the count is of
+    // those not destroyed.
+    if (jmols.contains("numberOfMolecules"))
+        Molecule::numberOfMolecules = jmols.at("numberOfMolecules");
+    else
+        Molecule::numberOfMolecules = static_cast<int>(moleculeList.size());
+    Molecule::emptyMolList = get_vector<int>(jmols, "emptyMolList");
+
+    // complexes
+    std::cout << "Reading complexes..." << std::endl;
+    const json& jcoms = j.at("complexes");
+    Complex::numberOfComplexes = jcoms.at("numberOfComplexes");
+    for (const auto& jc : jcoms.at("list")) {
+        Complex oneCom {};
+        oneCom.index = jc.at("index");
+        oneCom.isEmpty = jc.at("isEmpty");
+        oneCom.radius = jc.at("radius");
+        oneCom.mass = jc.at("mass");
+        oneCom.linksToSurface = jc.at("linksToSurface");
+        oneCom.iLipidIndex = jc.at("iLipidIndex");
+        oneCom.OnSurface = jc.at("OnSurface");
+        oneCom.onFiber = jc.at("onFiber");
+        read_vec3(jc.at("comCoord"), oneCom.comCoord);
+        read_vec3(jc.at("D"), oneCom.D);
+        read_vec3(jc.at("Dr"), oneCom.Dr);
+        oneCom.memberList = get_vector<int>(jc, "memberList");
+        oneCom.numEachMol = get_vector<int>(jc, "numEachMol");
+        oneCom.lastNumberUpdateItrEachMol = get_vector<long long int>(jc, "lastNumberUpdateItrEachMol");
+        complexList.push_back(oneCom);
+    }
+    Complex::emptyComList = get_vector<int>(jcoms, "emptyComList");
+
+    // observables
+    std::cout << "Reading observables..." << std::endl;
+    observablesList.clear();
+    for (const auto& observable : j.at("observables"))
+        observablesList.emplace(observable.at("name").get<std::string>(), observable.at("value").get<int>());
+
+    // counter arrays
+    std::cout << "Reading counter arrays..." << std::endl;
+    const json& jcounters = j.at("counterArrays");
+    counterArrays.nLoops = jcounters.at("nLoops");
+    counterArrays.nCancelOverlapPartner = jcounters.at("nCancelOverlapPartner");
+    counterArrays.nCancelOverlapSystem = jcounters.at("nCancelOverlapSystem");
+    counterArrays.nCancelDisplace2D = jcounters.at("nCancelDisplace2D");
+    counterArrays.nCancelDisplace3D = jcounters.at("nCancelDisplace3D");
+    counterArrays.nCancelDisplace3Dto2D = jcounters.at("nCancelDisplace3Dto2D");
+    counterArrays.nCancelSpanBox = jcounters.at("nCancelSpanBox");
+    counterArrays.nAssocSuccess = jcounters.at("nAssocSuccess");
+    counterArrays.eventArraySize = jcounters.at("eventArraySize");
+    counterArrays.events3D = jcounters.at("events3D").get<std::vector<int>>();
+    counterArrays.events3Dto2D = jcounters.at("events3Dto2D").get<std::vector<int>>();
+    counterArrays.events2D = jcounters.at("events2D").get<std::vector<int>>();
+    counterArrays.bindPairList = jcounters.at("bindPairList").get<std::vector<std::vector<int>>>();
+
+    // The implicit lipid's 2D binding table and the protein counts it is built
+    // from; see write_restart().  A file from before they were written still
+    // restarts, but both are then rebuilt from the state at the restart, so the
+    // run cannot continue exactly.
+    if (j.contains("implicitLipid")) {
+        const json& jlipid = j.at("implicitLipid");
+        membraneObject.numberOfProteinEachState = jlipid.at("numberOfProteinEachState").get<std::vector<int>>();
+        membraneObject.ILTableIDs.clear();
+        membraneObject.IL2DbindingVec.clear();
+        for (const auto& row : jlipid.at("binding2DTable")) {
+            membraneObject.ILTableIDs.push_back(read_double(row.at("ka")));
+            membraneObject.ILTableIDs.push_back(read_double(row.at("Dtot")));
+            membraneObject.ILTableIDs.push_back(read_double(row.at("kb")));
+            membraneObject.IL2DbindingVec.push_back(read_double(row.at("probability")));
+        }
+    } else if (membraneObject.implicitLipid) {
+        std::cout << "This restart file has no implicitLipid section, so it predates saving the implicit lipid's 2D "
+                     "binding table and protein counts. They are rebuilt from the state at the restart, and the run "
+                     "will not continue exactly as the one that wrote this file would have."
+                  << std::endl;
+    }
+}
+
+/*! \brief Whether the restart file is JSON, by its first non-blank byte.
+ *
+ * A JSON restart file is one object and starts with '{'; a .dat file starts
+ * with its "#Parameters" line.  The name is not consulted: nerdss_mpi appends
+ * the rank after the extension (restart.dat0), so an extension test would
+ * send every parallel restart down the wrong path.
+ */
+bool restart_file_is_json(std::istream& restartFile)
+{
+    const std::streampos start { restartFile.tellg() };
+    char c { '\0' };
+    while (restartFile.get(c) && std::isspace(static_cast<unsigned char>(c))) { }
+    const bool isJson { restartFile.good() && c == '{' };
+    restartFile.clear();
+    restartFile.seekg(start);
+    return isJson;
+}
+
+} // namespace
+
 void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns,
+    std::vector<BackRxn>& backRxns, std::vector<CreateDestructRxn>& createDestructRxns,
+    std::vector<TransmissionRxn>& transmissionRxns,
+    std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays)
+{
+    if (!restart_file_is_json(restartFile)) {
+        std::cout << "The restart file is in the legacy .dat format." << std::endl;
+        LEGACY_read_restart(simItr, restartFile, params, simulVolume, moleculeList, complexList, molTemplateList,
+            forwardRxns, backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject,
+            counterArrays);
+        return;
+    }
+
+    std::cout << "The restart file is in the JSON format." << std::endl;
+    try {
+        read_json_restart(simItr, restartFile, params, moleculeList, complexList, molTemplateList, forwardRxns,
+            backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject, counterArrays);
+    } catch (const std::exception& e) {
+        // json::exception names the key or the type that was wrong.
+        std::cerr << "Cannot read this JSON restart file: " << e.what() << std::endl;
+        exit(1);
+    }
+    std::cout << "Finished reading restart file." << std::endl;
+}
+
+/* The .dat format: positional, one value after another, matched by the order
+ * the writer used.  Kept for the files earlier builds wrote; every new file is
+ * JSON (write_restart()), and read_restart() sends each file to the reader
+ * for its format.
+ */
+
+void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns,
     std::vector<BackRxn>& backRxns, std::vector<CreateDestructRxn>& createDestructRxns,

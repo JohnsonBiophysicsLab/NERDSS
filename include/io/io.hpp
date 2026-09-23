@@ -87,10 +87,25 @@ void write_complex_components(long long int simItr, std::ofstream& complexFile, 
     const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup IO
- * \brief Writes a plain text restart file at intervals specified in the Parameters file.
+ * \brief Writes a restart file in json format at intervals specified in the Parameters file.
  *
- * This is a formatted text file, which is essentially illegible to the user, but it's not like they'd need to look at
- * it anyway.
+ * This is a json (text) file, which is easily parsed and read by both scripts and humans, which
+ * makes debugging much simpler. The top-level structure of the file looks like:
+ * ```
+ * {
+ *  "parameters": { ... },
+ *  "molTemplates": { ... },
+ *  "reactions": { ... },
+ *  "molecules": { ... },
+ *  "complexes": { ... },
+ *  "observables": [ ... ],
+ *  "counterArrays": { ... },
+ *  "implicitLipid": { ... }     (implicit-lipid models only)
+ * }
+ * ```
+ * NOTE: NaN-valued doubles are written out as json `null`.  The layout follows the
+ * json-restarts branch of nerdss_development; the keys this branch adds on top of it are
+ * listed at the top of write_restart.cpp.
  */
 void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
@@ -108,6 +123,32 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
     std::vector<BackRxn>& backRxns, std::vector<CreateDestructRxn>& createDestructRxns,
     std::vector<TransmissionRxn>& transmissionRxns,
     std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays);
+
+/*! \ingroup IO
+ * \brief Reads a restart file in the positional .dat format that builds before the JSON format wrote.
+ *
+ * read_restart() calls this for a file that does not start with `{`, so a caller never has to tell
+ * the two formats apart.
+ */
+void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns,
+    std::vector<BackRxn>& backRxns, std::vector<CreateDestructRxn>& createDestructRxns,
+    std::vector<TransmissionRxn>& transmissionRxns,
+    std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays);
+
+/*! \ingroup IO
+ * \brief Writes a restart file in the positional .dat format.
+ *
+ * Nothing calls it during a simulation any more; the regression harness uses it to convert a
+ * system read from either format back to .dat.
+ */
+void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
+    const std::vector<TransmissionRxn>& transmissionRxns,
+    const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays);
 
 /*! \ingroup IO
  * \ingroup SpeciesTracker
@@ -196,7 +237,10 @@ void write_output(long long int simItr, Parameters& params,std::string trajFileN
 
 void merge_outputs(int totalrank, int molTemplateNum); // for mpi version
 
-// for outputting structural info for Brownian Dynamics of Flexible Assemblies with Fourier Space Membrane (BDFAFSpaM)
+/*! \ingroup IO
+ * \brief Outputs structural information on bonded complexes for ioNERDSS and
+ * Brownian Dynamics of Flexible Assemblies with Fourier Space Membrane
+ */
 void write_bonded_complex_json(const std::string filename, std::vector<Molecule>& moleculeList,
     const std::vector<Complex>& complexList, const std::vector<MolTemplate>& molTemplateList,
     const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,

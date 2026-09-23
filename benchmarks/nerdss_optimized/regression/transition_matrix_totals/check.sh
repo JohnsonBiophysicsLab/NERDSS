@@ -57,11 +57,16 @@ if [[ $status -ne 0 ]]; then
     exit 1
 fi
 
-# lastUpdateTransition is written on the line after bondedComplexWrite in the
-# restart file, as its size followed by one step number per molecule type.  Both
-# types count transitions here, so the j-th matrix in the transition file (they
-# are written in template order) pairs with the j-th step number.
-last_update=$(grep -a -A1 '^bondedComplexWrite' DATA/restart.dat | tail -1)
+# lastUpdateTransition is parameters.lastUpdateTransition in the restart file,
+# one step number per molecule type; read it out as its size followed by the
+# numbers.  Both types count transitions here, so the j-th matrix in the
+# transition file (they are written in template order) pairs with the j-th
+# step number.
+last_update=$(python3 -c '
+import json
+steps = json.load(open("DATA/restart.json"))["parameters"]["lastUpdateTransition"]
+print(len(steps), *steps)
+')
 
 # Records are keyed by their position, not their time: the final write can
 # print the same time as the periodic write before it.
@@ -74,7 +79,7 @@ awk -v copies="$COPIES" -v last="$last_update" '
     END {
         if (nRecords == 0 || nTypes == 0) { print "FAIL: no transition matrices in DATA/transition_matrix_time.dat" > "/dev/stderr"; exit 1 }
         if (split(last, lut, " ") != nTypes + 1 || lut[1] != nTypes) {
-            printf "FAIL: expected %d lastUpdateTransition entries in DATA/restart.dat, read \"%s\"\n",
+            printf "FAIL: expected %d lastUpdateTransition entries in DATA/restart.json, read \"%s\"\n",
                 nTypes, last > "/dev/stderr"
             exit 1
         }

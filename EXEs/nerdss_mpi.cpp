@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
   std::string transitionFileName{"DATA/transition_matrix_time_" +
                                  std::to_string(mpiContext.rank) + ".dat"};
   std::string restartFileName{"DATA/restart_" + std::to_string(mpiContext.rank) +
-                              ".dat"};
+                              ".json"};
   std::string addFileNameInput{};
   std::string paramFile{};
   std::string coordinateFileName{};
@@ -429,6 +429,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print out system information
+  std::cout << std::boolalpha;
   std::cout << "\nSimulation Parameters\n";
   params.display();
   membraneObject.display();

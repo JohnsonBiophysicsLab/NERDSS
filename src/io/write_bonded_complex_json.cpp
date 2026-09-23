@@ -9,8 +9,9 @@
 
 using json = nlohmann::json;
 
-// forward declaration
-Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMol);
+// forward declarations
+static Quat molecule_orientation(const MolTemplate&, const Molecule&);
+static json maybe_null(double);
 
 void write_bonded_complex_json(const std::string filename,
     std::vector<Molecule>& moleculeList,
@@ -126,10 +127,6 @@ void write_bonded_complex_json(const std::string filename,
 
                     auto& rxn = forwardRxns[rxnInd];
 
-                    auto maybe_null = [](double val) -> json {
-                        return std::isnan(val) ? json(nullptr) : json(val);
-                    };
-
                     bond_types[bName] = {
                         {"n1", {rxn.norm1.x, rxn.norm1.y, rxn.norm1.z}},
                         {"n2", {rxn.norm2.x, rxn.norm2.y, rxn.norm2.z}},
@@ -218,9 +215,15 @@ void write_bonded_complex_json(const std::string filename,
     out.close();
 }
 
+// turn nan doubles into json nulls
+static json maybe_null(double val)
+{
+    return std::isnan(val) ? json(nullptr) : json(val);
+}
+
 // this is a slightly modified version of orient_crds_to_template()
 // This one does not make weird state modifications to the molecule
-Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMol)
+static Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMol)
 {
     // TRACE();
     Quat firstRot {};
