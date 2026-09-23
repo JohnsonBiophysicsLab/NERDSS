@@ -52,6 +52,15 @@ void send_data_to_left_neighboring_ranks(
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
+          // A complex travels whole: serialize_complexes() writes the full
+          // memberList as IDs, so every member has to be in the message or the
+          // receiver cannot resolve the ID.  Walk memberList rather than the
+          // sub-volume, because a member whose x bin has drifted outside this
+          // rank is in no sub-volume at all and the stripe loops never reach it.
+          for (auto& memIdx : complexList[mol.myComIndex].memberList) {
+            moleculeList[memIdx].isGhosted = true;
+            moleculesSet.insert(memIdx);
+          }
         }
       }
     }
@@ -129,11 +138,16 @@ void send_data_to_right_neighboring_ranks(
         for (auto& molIdx : simulVolume.subCellList[currBin].memberMolList) {
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
-          // Mirror of the left send: hand the complex to the right neighbour.
+          // Mirror of the left send: hand the complex to the right neighbour,
+          // and send the whole complex with it for the same reason.
           complexList[mol.myComIndex].ownerRank = mpiContext.rank + 1;
           mol.isGhosted = true;
           moleculesSet.insert(molIdx);
           complexesSet.insert(mol.myComIndex);
+          for (auto& memIdx : complexList[mol.myComIndex].memberList) {
+            moleculeList[memIdx].isGhosted = true;
+            moleculesSet.insert(memIdx);
+          }
         }
       }
     }
@@ -283,6 +297,11 @@ void receive_right_neighborhood_zones(
   delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
                                        false);
 
+  // Everything that names a molecule index now means what it says: the
+  // received molecules have been remapped by IDs_to_indices() and the
+  // departures are final.  Drop what still points at a molecule that left.
+  drop_references_to_absent_molecules(moleculeList, complexList);
+
   if (DEBUG) {
       DEBUG_FIND_MOL("2_ (after delete_disappeared_complexes_partial)");
       DEBUG_FIND_COMPLEX("2_ (after delete_disappeared_complexes_partial)");
@@ -397,6 +416,11 @@ void receive_left_neighborhood_zones(
   // of the rank
   delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
                                        true);
+
+  // Everything that names a molecule index now means what it says: the
+  // received molecules have been remapped by IDs_to_indices() and the
+  // departures are final.  Drop what still points at a molecule that left.
+  drop_references_to_absent_molecules(moleculeList, complexList);
   if (DEBUG) {
     DEBUG_FIND_COMPLEX("1.6 (after delete_disappeared_complexes_partial)");
   }
