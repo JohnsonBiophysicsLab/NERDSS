@@ -48,23 +48,19 @@ void create_molecule_and_complex_from_transmission_rxn(int parentMolIndex, int& 
         complexList.emplace_back(); // create new empty Complex spot
     }
 
-    // Now create the new species
-    
-    bool needsResampling { true };
-    int overlapCounter { 0 };
-    while (needsResampling) {
-        if (overlapCounter == 0) {
-            moleculeList[newMolIndex] = initialize_molecule_after_transmission_reaction(
-                newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn, newPos, false, membraneObject);
-            needsResampling = moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList,
-            complexList, forwardRxns, molTemplateList, membraneObject);
-        } else {
-            moleculeList[newMolIndex] = initialize_molecule_after_transmission_reaction(
-                newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn, newPos, true, membraneObject);
-            needsResampling = moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList,
-                complexList, forwardRxns, molTemplateList, membraneObject);
-        }
-        ++overlapCounter;
+    // Now create the new species at newPos, and move it -- to a random point
+    // molRadius away from newPos, as before -- for as long as it overlaps a
+    // molecule already in place.  Only the coordinates are drawn again: the
+    // initializer also counts the molecule, in numberOfMolecules, numTotalUnits
+    // and numEachMolType, so re-running it per attempt counted every molecule
+    // once per place it was tried.  Nothing resampled here while
+    // moleculeOverlaps() reported an overlap only for a place outside the box.
+    moleculeList[newMolIndex] = initialize_molecule_after_transmission_reaction(
+        newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn, newPos, false, membraneObject);
+    while (moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList, complexList, forwardRxns,
+        molTemplateList, membraneObject)) {
+        draw_coords_after_transmission_reaction(
+            moleculeList[newMolIndex], createdMolTemp, currRxn, newPos, true, membraneObject);
     }
 
     moleculeList[newMolIndex].myComIndex = newComIndex;

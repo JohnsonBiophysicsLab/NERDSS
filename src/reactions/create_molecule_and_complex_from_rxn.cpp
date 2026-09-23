@@ -1,6 +1,7 @@
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "tracing.hpp"
+#include <algorithm>
 
 bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecule& createdMol,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
@@ -47,53 +48,73 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
         //          << "]. Attempting to fit back into box.\n";
         return true;
     } else {
-        // if it's inside the box, check if it overlaps with any molecule
-        std::vector<unsigned> checkedMols {};
+        // Inside the box: the new molecule overlaps when one of its interfaces
+        // and one of another molecule's could react with each other and sit
+        // closer than that reaction's bindRadius, the criterion
+        // generate_coordinates() uses for a new simulation.
+        //
+        // Only a reaction between two interfaces can overlap; a unimolecular
+        // state change has a single reactant, and reactantListNew[1] is one past
+        // the end of its list.
+        double maxBindRadius { 0.0 };
+        for (const auto& oneRxn : forwardRxns) {
+            if (oneRxn.reactantListNew.size() == 2)
+                maxBindRadius = std::max(maxBindRadius, oneRxn.bindRadius);
+        }
+        const double createdRadius { molTemplateList[createdMol.molTypeIndex].radius };
+
         for (auto memMol : simulVolume.subCellList[currBin].memberMolList) {
             if (memMol >= moleculeList.size()) continue;
             if (moleculeList[memMol].myComIndex == -1) continue;
             if (moleculeList[memMol].myComIndex >= complexList.size()) continue;
             const Complex& oneCom = complexList[moleculeList[memMol].myComIndex]; // legibility
 
-            // check bounding sphere
+            // Each of the new molecule's interfaces lies within its template's
+            // radius of its center, and each of the complex's within the
+            // complex's radius of its own, so from this far apart no pair can be
+            // within any bindRadius.  The margin used to leave out
+            // maxBindRadius, and the test used to report "no overlap" for the
+            // whole molecule here rather than move on -- so it rarely looked
+            // past the first molecule in the SubBox.
             Vec3D tmpVec { createdMol.comCoord - oneCom.comCoord };
-            if (tmpVec.length() > (molTemplateList[createdMol.molTypeIndex].radius + oneCom.radius))
-                return false;
+            if (tmpVec.length() >= createdRadius + oneCom.radius + maxBindRadius)
+                continue;
 
             // TODO: this is awful
             for (auto& comMemMol : oneCom.memberList) {
                 // check if the two Molecules can even react first
 
                 const Molecule& partMol = moleculeList[comMemMol];
+                // The molecule being placed is not yet in any member list, but
+                // it can hold a slot an emptied one left behind, and would then
+                // overlap itself at every place it was ever drawn.  An emptied
+                // slot has no interfaces and an implicit lipid no position to
+                // overlap; the time step's overlap checks skip both too.
+                if (partMol.index == createdMol.index || partMol.isEmpty || partMol.isImplicitLipid)
+                    continue;
+
                 for (const auto& oneRxn : forwardRxns) {
+                    if (oneRxn.reactantListNew.size() != 2)
+                        continue;
                     for (unsigned iface1Itr { 0 }; iface1Itr < createdMol.interfaceList.size(); ++iface1Itr) {
                         for (unsigned iface2Itr { 0 }; iface2Itr < partMol.interfaceList.size(); ++iface2Itr) {
-                            if (isReactant(createdMol.interfaceList[iface1Itr], createdMol, oneRxn.reactantListNew[0])
-                                && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[1])) {
-
-                                // if they're reactants, check if they're within the binding radius
-                                Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
-                                    - partMol.interfaceList[iface2Itr].coord };
-
-                                if (ifaceVec.length() < oneRxn.bindRadius) {
-                                    //    std::cerr << "line 76 in overlap" << std::endl;
-                                    return true;
-                                }
-                            } else if (isReactant(
-                                           createdMol.interfaceList[iface1Itr], createdMol, oneRxn.reactantListNew[1])
-                                && isReactant(partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[0])) {
-
-                                // if they're reactants, check if they're within the binding radius
-                                Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
-                                    - partMol.interfaceList[iface2Itr].coord };
-
-                                if (ifaceVec.length() < oneRxn.bindRadius) {
-                                    //    std::cerr << "line 89 in overlap" << std::endl;
-                                    return true;
-                                }
-                            } else {
+                            bool canReact { (isReactant(createdMol.interfaceList[iface1Itr], createdMol,
+                                                 oneRxn.reactantListNew[0])
+                                                && isReactant(partMol.interfaceList[iface2Itr], partMol,
+                                                    oneRxn.reactantListNew[1]))
+                                || (isReactant(createdMol.interfaceList[iface1Itr], createdMol,
+                                        oneRxn.reactantListNew[1])
+                                    && isReactant(
+                                        partMol.interfaceList[iface2Itr], partMol, oneRxn.reactantListNew[0])) };
+                            if (!canReact)
                                 continue;
-                            }
+
+                            // if they're reactants, check if they're within the binding radius
+                            Vec3D ifaceVec { createdMol.interfaceList[iface1Itr].coord
+                                - partMol.interfaceList[iface2Itr].coord };
+
+                            if (ifaceVec.length() < oneRxn.bindRadius)
+                                return true;
                         }
                     }
                 }
@@ -157,22 +178,25 @@ void create_molecule_and_complex_from_rxn(int parentMolIndex, int& newMolIndex, 
     newComIndex = complexList.size();
     complexList.emplace_back();  // create new empty Complex spot
 
-    // Now create the new species
+    // Now create the new species, and move it for as long as it overlaps a
+    // molecule already in place.  Only the coordinates are drawn again: the
+    // initialize functions also count the molecule, in numberOfMolecules,
+    // numTotalUnits, maxID and numEachMolType, so re-running one per attempt
+    // counted every molecule once per place it was tried.
     if (createInVicinity) {
-        bool needsResampling { true };
-        while (needsResampling) {
-            moleculeList[newMolIndex] = initialize_molecule_after_uni_reaction(
-                newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn);
-            needsResampling = moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList,
-                complexList, forwardRxns, molTemplateList, membraneObject);
+        moleculeList[newMolIndex] = initialize_molecule_after_uni_reaction(
+            newMolIndex, moleculeList[parentMolIndex], params, createdMolTemp, currRxn);
+        while (moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList, complexList, forwardRxns,
+            molTemplateList, membraneObject)) {
+            draw_coords_after_uni_reaction(
+                moleculeList[newMolIndex], moleculeList[parentMolIndex], createdMolTemp, currRxn);
         }
     } else {
-        bool needsResampling { true };
-        while (needsResampling) {
-            moleculeList[newMolIndex]
-                = initialize_molecule_after_zeroth_reaction(newMolIndex, params, createdMolTemp, currRxn, membraneObject);
-            needsResampling = moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList,
-                complexList, forwardRxns, molTemplateList, membraneObject);
+        moleculeList[newMolIndex]
+            = initialize_molecule_after_zeroth_reaction(newMolIndex, params, createdMolTemp, currRxn, membraneObject);
+        while (moleculeOverlaps(params, simulVolume, moleculeList[newMolIndex], moleculeList, complexList, forwardRxns,
+            molTemplateList, membraneObject)) {
+            draw_coords_after_zeroth_reaction(moleculeList[newMolIndex], createdMolTemp, currRxn, membraneObject);
         }
     }
 
