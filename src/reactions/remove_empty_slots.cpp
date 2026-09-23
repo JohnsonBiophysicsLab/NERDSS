@@ -59,6 +59,18 @@ void remove_empty_slots(
   sort(Complex::emptyComList.begin(), Complex::emptyComList.end());
   int lastNonEmptyIndex = complexList.size() - 1;
 
+  // newComIndex[old] is where the complex that sat at `old` ends up, or -1 if it
+  // is gone.  Announcing the move through the moved complex's own memberList,
+  // which is what this loop used to do, reaches only the molecules that complex
+  // claims; a molecule whose myComIndex names a complex that does not list it
+  // back keeps the old index, and the pop_back() below puts that index past the
+  // end of the list.
+  const int oldComCount{static_cast<int>(complexList.size())};
+  std::vector<int> newComIndex(oldComCount);
+  for (int i{0}; i < oldComCount; ++i) newComIndex[i] = i;
+  for (auto& emptied : Complex::emptyComList)
+    if (emptied >= 0 && emptied < oldComCount) newComIndex[emptied] = -1;
+
   for (auto& firstEmptyIndex : Complex::emptyComList) {
     // Find the last non-empty complex:
     while (complexList[lastNonEmptyIndex].isEmpty) lastNonEmptyIndex--;
@@ -75,10 +87,7 @@ void remove_empty_slots(
     // Update complex index to match new position:
     complexList[firstEmptyIndex].index = firstEmptyIndex;
 
-    // Update myComIndex for all complex members to match firstEmptyIndex:
-    for (auto& molIndex : complexList[firstEmptyIndex].memberList) {
-      moleculeList[molIndex].myComIndex = firstEmptyIndex;
-    }
+    newComIndex[lastNonEmptyIndex] = firstEmptyIndex;
     lastNonEmptyIndex--;
   }
 
@@ -87,6 +96,17 @@ void remove_empty_slots(
 
   // Empty Complex::emptyComList:
   Complex::emptyComList.clear();
+
+  // myComIndex is the only place a complex index is stored outside the complex
+  // itself.  A molecule whose complex is simply gone gets -1, the value the rest
+  // of the code already reads as "no complex": it is wrong, but it is the only
+  // answer that is in range, and it cannot be written through.
+  for (auto& mol : moleculeList) {
+    if (mol.isEmpty) continue;
+    mol.myComIndex = (mol.myComIndex < 0 || mol.myComIndex >= oldComCount)
+                         ? -1
+                         : newComIndex[mol.myComIndex];
+  }
 
   if (DEBUG) {
     debug_firstEmptyIndex(mpiContext, "Before 3.10");

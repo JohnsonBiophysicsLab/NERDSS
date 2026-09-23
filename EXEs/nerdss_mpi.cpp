@@ -531,6 +531,14 @@ int main(int argc, char* argv[]) {
       // drained monotonically to nothing.
       oneMol.isDissociated = false;
 
+      // Every other loop that walks moleculeList checks myComIndex before
+      // indexing complexList with it; this one did not, and -1 is what a
+      // molecule carries once its complex is gone -- which the exchange can
+      // leave behind, and which remove_empty_slots() now writes deliberately
+      // rather than leaving an index past the end of the list.
+      if (oneMol.myComIndex < 0 ||
+          oneMol.myComIndex >= static_cast<int>(complexList.size()))
+        continue;
       complexList[oneMol.myComIndex].ncross = 0;
       complexList[oneMol.myComIndex].trajStatus = TrajStatus::none;
     }
