@@ -69,7 +69,8 @@ void create_molecule_and_complex_for_restart(MolTemplate& createdMolTemp, Parame
     // Now create the new species, and move it for as long as it overlaps a
     // molecule already in place.  Only the coordinates are drawn again:
     // initialize_molecule_for_restart() also counts the molecule, in
-    // numberOfMolecules, numEachMolType and numTotalUnits.
+    // numberOfMolecules and numEachMolType.  Not in numTotalUnits: see the
+    // note there.
     moleculeList[newMolIndex] = initialize_molecule_for_restart(newMolIndex, params, createdMolTemp, membraneObject);
     while (moleculeOverlapsForRestart(
         params, moleculeList[newMolIndex], moleculeList, forwardRxns, molTemplateList, membraneObject))

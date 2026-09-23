@@ -15,14 +15,26 @@
 //
 // Each added molecule takes the next id from Molecule::maxID, as a new
 // simulation's do; Molecule() leaves id uninitialized, and nothing set it here.
+//
+// params.numTotalUnits is the other half, and is checked here against
+// parse_input_for_add(), which is what now counts it: placement used to count
+// it per molecule as well, so an add file's units came out doubled.  The number
+// heads every trajectory frame and sets how many EMTY rows write_xyz() pads
+// with, so it has to come out exactly once.
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
 #include "classes/class_Molecule_Complex.hpp"
 #include "classes/class_Parameters.hpp"
 #include "classes/class_Rxns.hpp"
+#include "parser/parser_functions.hpp"
 #include "system_setup/system_setup.hpp"
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 #include <gsl/gsl_rng.h>
 
@@ -147,6 +159,19 @@ struct AddFixture {
     void add() { generate_coordinates_for_restart(params, molecules, complexes, templates, forwardRxns, membrane, 1, 0); }
 };
 
+// A minimal .mol file for `name` with `interfaces` interfaces, written into the
+// current directory where parse_molFile() looks for it.
+void write_mol_file(const std::string& name, int interfaces)
+{
+    std::ofstream molFile { name + ".mol" };
+    molFile << "Name = " << name << '\n'
+            << "D = [1.0,1.0,1.0]\n"
+            << "Dr = [0.0,0.0,0.0]\n"
+            << "COM 0.0000 0.0000 0.0000\n";
+    for (int iface = 0; iface < interfaces; ++iface)
+        molFile << static_cast<char>('a' + iface) << " 0.0000 0.0000 " << 0.1 * (iface + 1) << '\n';
+}
+
 int failures = 0;
 
 void expect(bool ok, const char* what)
@@ -260,6 +285,7 @@ int main()
         // four in five places drawn at random are too close to some A.
         AddFixture f(400, 100, 20.0);
         f.forwardRxns.push_back(two_reactant_rxn(ReactionType::bimolecular, 0, 0, 1, 1, 2.0));
+        f.params.numTotalUnits = 1200; // a non-zero count, as the parser leaves it
         const int unitsBefore = f.params.numTotalUnits;
         Molecule::maxID = 400;
         f.add();
@@ -271,13 +297,70 @@ int main()
                     < 2.0)
                     ++tooClose;
         expect(f.molecules.size() == 500 && tooClose == 0, "100 C added among 400 A: none within bindRadius of an A");
-        expect(Molecule::numberOfMolecules == 500 && MolTemplate::numEachMolType[1] == 100
-                && f.params.numTotalUnits == unitsBefore + 100 * 2,
+        expect(Molecule::numberOfMolecules == 500 && MolTemplate::numEachMolType[1] == 100,
             "each placed C is counted once, however often it was moved");
+        expect(f.params.numTotalUnits == unitsBefore,
+            "and placement adds no units of its own");
         bool idsInOrder = Molecule::maxID == 500;
         for (int added = 400; added < 500; ++added)
             idsInOrder = idsInOrder && f.molecules[added].id == added;
         expect(idsInOrder, "and takes one id, 400 to 499 in order");
+    }
+
+    {
+        // The count the placement above leaves alone.  parse_input_for_add()
+        // adds copies * (interfaces + 1) per template in the add file's
+        // molecules block, the arithmetic parse_input() does for a new
+        // simulation, on top of the total read_restart() read from the restart
+        // file -- the restart's own species still have rows to fill.
+        std::vector<char> cwd(4096, '\0');
+        std::string pattern { std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "/tmp" };
+        if (pattern.back() != '/')
+            pattern += '/';
+        pattern += "nerdss_add_check_XXXXXX";
+        std::vector<char> dir(pattern.begin(), pattern.end());
+        dir.push_back('\0');
+
+        if (getcwd(cwd.data(), cwd.size()) == nullptr || mkdtemp(dir.data()) == nullptr
+            || chdir(dir.data()) != 0) {
+            expect(false, "a scratch directory to parse an add file in");
+        } else {
+            write_mol_file("Y", 2); // 3 units a copy
+            write_mol_file("Z", 4); // 5 units a copy
+            {
+                std::ofstream addFile { "add.inp" };
+                addFile << "start molecules\n    Y : 7\n    Z : 3\nend molecules\n";
+            }
+
+            Parameters params {};
+            params.numTotalUnits = 300; // what the restart file brought
+            Membrane membrane {};
+            std::vector<MolTemplate> templates { make_template("A", 0, 100, 0, 1.0) };
+            MolTemplate::numMolTypes = templates.size();
+            MolTemplate::numEachMolType.assign(templates.size(), 0);
+
+            std::map<std::string, int> observables;
+            std::vector<ForwardRxn> forwardRxns;
+            std::vector<BackRxn> backRxns;
+            std::vector<CreateDestructRxn> createDestructRxns;
+            std::vector<TransmissionRxn> transmissionRxns;
+            std::string addName { "add.inp" };
+
+            std::ostringstream sink; // the parser narrates to stdout
+            std::streambuf* saved = std::cout.rdbuf(sink.rdbuf());
+            parse_input_for_add(addName, params, observables, forwardRxns, backRxns, createDestructRxns,
+                transmissionRxns, templates, membrane, 0);
+            std::cout.rdbuf(saved);
+
+            expect(params.numTotalUnits == 300 + 7 * 3 + 3 * 5,
+                "an add file's units are counted once, per template, on top of the restart's");
+
+            std::remove("Y.mol");
+            std::remove("Z.mol");
+            std::remove("add.inp");
+            if (chdir(cwd.data()) == 0)
+                rmdir(dir.data());
+        }
     }
 
     gsl_rng_free(r);
