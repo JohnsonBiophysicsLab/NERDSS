@@ -11,6 +11,14 @@
 // were less than a bindRadius apart; and it read reactantListNew[1] of every
 // forward reaction, one past the end of a unimolecular state change's list.
 //
+// It then looked in one SubBox.  SubBoxes are an interaction range on a side,
+// so most of the sphere a place has to keep clear lies in the 26 around it, and
+// the cases on a grid below are the ones walking those catches: a partner one
+// SubBox over in +x, one in -x (a direction SubVolume::neighborList, which
+// lists the 13 forward neighbours, never names), one diagonally across a
+// corner, and one beside a place in the corner SubBox of the grid, where 19 of
+// the 27 are off the grid entirely.
+//
 // A working test resamples, which exposes the loop around it: each attempt used
 // to re-run initialize_molecule_after_zeroth_reaction() /
 // initialize_molecule_after_uni_reaction(), and those count the molecule in
@@ -23,6 +31,7 @@
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -80,18 +89,35 @@ ForwardRxn two_reactant_rxn(ReactionType rxnType, int molType1, int state1, int 
     return rxn;
 }
 
-// One SubBox over the whole volume, so every molecule already placed is a
-// member of the one a new molecule lands in.
-void make_one_cell_volume(SimulVolume& simulVolume, double boxSide)
+// A cellsPerSide^3 grid over the volume, laid out as create_simulation_volume()
+// lays one out.  With one SubBox every molecule already placed is a member of
+// the one a new molecule lands in; with more, a partner can be a member of a
+// neighbouring SubBox, which is the arrangement a run always has.
+void make_grid_volume(SimulVolume& simulVolume, double boxSide, int cellsPerSide)
 {
-    simulVolume.numSubCells.x = 1;
-    simulVolume.numSubCells.y = 1;
-    simulVolume.numSubCells.z = 1;
-    simulVolume.numSubCells.tot = 1;
-    simulVolume.subCellSize = Vec3D { boxSide, boxSide, boxSide };
-    simulVolume.subCellList.resize(1);
-    simulVolume.subCellList[0].absIndex = 0;
-    simulVolume.occupancyMask.assign(1, 0);
+    simulVolume.numSubCells.x = cellsPerSide;
+    simulVolume.numSubCells.y = cellsPerSide;
+    simulVolume.numSubCells.z = cellsPerSide;
+    simulVolume.numSubCells.tot = cellsPerSide * cellsPerSide * cellsPerSide;
+    simulVolume.subCellSize = Vec3D { boxSide / cellsPerSide, boxSide / cellsPerSide, boxSide / cellsPerSide };
+    simulVolume.subCellList.resize(simulVolume.numSubCells.tot);
+    for (int cellItr = 0; cellItr < simulVolume.numSubCells.tot; ++cellItr)
+        simulVolume.subCellList[cellItr].absIndex = cellItr;
+    simulVolume.occupancyMask.assign((simulVolume.numSubCells.tot + 63) / 64, 0);
+}
+
+// The SubBox a center falls in, the arithmetic update_memberMolLists() bins a
+// molecule with.
+int bin_of(const SimulVolume& simulVolume, const Membrane& membrane, const Vec3D& com)
+{
+    int xItr { int((com.x + membrane.waterBox.x / 2) / simulVolume.subCellSize.x) };
+    int yItr { int((com.y + membrane.waterBox.y / 2) / simulVolume.subCellSize.y) };
+    int zItr { int(-(com.z + 1E-6 - membrane.waterBox.z / 2.0) / simulVolume.subCellSize.z) };
+    xItr = std::min(std::max(xItr, 0), simulVolume.numSubCells.x - 1);
+    yItr = std::min(std::max(yItr, 0), simulVolume.numSubCells.y - 1);
+    zItr = std::min(std::max(zItr, 0), simulVolume.numSubCells.z - 1);
+    return xItr + (yItr * simulVolume.numSubCells.x)
+        + (zItr * simulVolume.numSubCells.x * simulVolume.numSubCells.y);
 }
 
 // A(a) + B(b) at bindRadius 2; each template's interface sits 1 nm from its
@@ -106,10 +132,10 @@ struct Placement {
     std::vector<Complex> complexes;
     std::vector<ForwardRxn> forwardRxns;
 
-    explicit Placement(double boxSide = 100.0)
+    explicit Placement(double boxSide = 100.0, int cellsPerSide = 1)
     {
         membrane.waterBox = Membrane::WaterBox { std::vector<double> { boxSide, boxSide, boxSide } };
-        make_one_cell_volume(simulVolume, boxSide);
+        make_grid_volume(simulVolume, boxSide, cellsPerSide);
 
         templates.push_back(make_template("A", 0, 0, 0, 1.0));
         templates.push_back(make_template("B", 1, 0, 1, 1.0));
@@ -118,15 +144,15 @@ struct Placement {
         forwardRxns.push_back(two_reactant_rxn(ReactionType::bimolecular, 0, 0, 1, 1, 2.0));
     }
 
-    // A molecule already in place: in its own complex, and a member of the one
-    // SubBox, which is where moleculeOverlaps() looks for it.
+    // A molecule already in place: in its own complex, and a member of the
+    // SubBox its center falls in, which is where moleculeOverlaps() looks.
     int add_mol(int molTypeIndex, int stateIndex, const Vec3D& com, const Vec3D& offset)
     {
         int index = molecules.size();
         molecules.push_back(make_molecule(index, molTypeIndex, stateIndex, com, offset));
         molecules.back().myComIndex = complexes.size();
         complexes.emplace_back(molecules.back().myComIndex, molecules.back(), templates[molTypeIndex]);
-        simulVolume.add_member(0, index, molTypeIndex);
+        simulVolume.add_member(bin_of(simulVolume, membrane, com), index, molTypeIndex);
         return index;
     }
 
@@ -135,12 +161,12 @@ struct Placement {
     bool overlaps(const Vec3D& com, const Vec3D& offset)
     {
         molecules.push_back(make_molecule(molecules.size(), 1, 1, com, offset));
-        bool result = moleculeOverlaps(params, simulVolume, molecules.back(), molecules, complexes, forwardRxns,
+        bool result = moleculeOverlaps(params, simulVolume, molecules.back(), molecules, forwardRxns,
             templates, membrane);
-        // moleculeOverlaps() makes the molecule a member of the SubBox when it
-        // reports no overlap; this one is not staying.
+        // moleculeOverlaps() makes the molecule a member of the SubBox it landed
+        // in when it reports no overlap; this one is not staying.
         if (!result)
-            simulVolume.subCellList[0].memberMolList.pop_back();
+            simulVolume.subCellList[molecules.back().mySubVolIndex].memberMolList.pop_back();
         molecules.pop_back();
         return result;
     }
@@ -174,7 +200,7 @@ struct CreationFixture {
     std::vector<ForwardRxn> forwardRxns;
     CreateDestructRxn createRxn {};
 
-    CreationFixture(int existing, double boxSide, double bindRadius)
+    CreationFixture(int existing, double boxSide, double bindRadius, int cellsPerSide = 1)
     {
         Molecule::numberOfMolecules = 0;
         Molecule::maxID = 0;
@@ -183,7 +209,7 @@ struct CreationFixture {
         Complex::emptyComList.clear();
 
         membrane.waterBox = Membrane::WaterBox { std::vector<double> { boxSide, boxSide, boxSide } };
-        make_one_cell_volume(simulVolume, boxSide);
+        make_grid_volume(simulVolume, boxSide, cellsPerSide);
 
         templates.push_back(make_template("A", 0, existing, 0, 1.0));
         templates.push_back(make_template("B", 1, 0, 1, 1.0));
@@ -196,7 +222,7 @@ struct CreationFixture {
             molecules.push_back(make_molecule(molIndex, 0, 0, Vec3D { 0.0, 0.0, 0.0 }, Vec3D { 1.0, 0.0, 0.0 }));
             molecules.back().create_random_coords(templates[0], membrane);
             complexes.emplace_back(molIndex, molecules.back(), templates[0]);
-            simulVolume.add_member(0, molIndex, 0);
+            simulVolume.add_member(bin_of(simulVolume, membrane, molecules.back().comCoord), molIndex, 0);
             ++Molecule::numberOfMolecules;
             ++Complex::numberOfComplexes;
             ++MolTemplate::numEachMolType[0];
@@ -278,7 +304,7 @@ int main()
         p.simulVolume.add_member(0, 0, 1);
         p.molecules.push_back(make_molecule(0, 1, 1, origin, plusX));
         p.complexes.emplace_back(0, p.molecules.back(), p.templates[1]);
-        bool self = moleculeOverlaps(p.params, p.simulVolume, p.molecules[0], p.molecules, p.complexes, p.forwardRxns,
+        bool self = moleculeOverlaps(p.params, p.simulVolume, p.molecules[0], p.molecules, p.forwardRxns,
             p.templates, p.membrane);
         expect(!self, "the molecule being placed is not compared with itself");
     }
@@ -324,6 +350,54 @@ int main()
         p.add_A(origin, plusX);
         expect(p.overlaps(Vec3D { 60.0, 0.0, 0.0 }, plusX), "a place outside the box is rejected");
     }
+    {
+        // A reaction the molecule being placed is not a reactant in cannot put
+        // it within a bindRadius of anything, whatever else is in the SubBox.
+        Placement p;
+        p.forwardRxns = { two_reactant_rxn(ReactionType::bimolecular, 0, 0, 0, 0, 2.0) };
+        p.add_A(origin, plusX);
+        expect(!p.overlaps(origin, plusX), "a molecule no bimolecular reaction names never overlaps");
+    }
+
+    // A 100 nm box over a 20 x 20 x 20 grid: SubBoxes 5 nm on a side, against a
+    // reach of bindRadius 2 plus each template's 1 nm interface, so a partner
+    // within reach of a place is in that place's SubBox or one of the 26 around
+    // it -- and, most of the time, not in its own.
+    const double gridBox { 100.0 };
+    const int gridCells { 20 };
+    {
+        Placement p(gridBox, gridCells);
+        p.add_A(Vec3D { 0.5, 0.0, 0.0 }, minusX); // SubBox (10, 10, 9)
+        expect(p.overlaps(Vec3D { -0.5, 0.0, 0.0 }, plusX), // SubBox (9, 10, 9)
+            "a partner one SubBox over in +x, interfaces 1 nm apart, overlaps");
+    }
+    {
+        // -x is one of the 13 SubVolume::neighborList leaves out.
+        Placement p(gridBox, gridCells);
+        p.add_A(Vec3D { -0.5, 0.0, 0.0 }, plusX); // SubBox (9, 10, 9)
+        expect(p.overlaps(Vec3D { 0.5, 0.0, 0.0 }, minusX), // SubBox (10, 10, 9)
+            "a partner one SubBox over in -x overlaps too");
+    }
+    {
+        Placement p(gridBox, gridCells);
+        p.add_A(Vec3D { 0.5, 0.5, -0.5 }, minusX); // SubBox (10, 10, 10)
+        expect(p.overlaps(Vec3D { -0.5, -0.5, 0.5 }, plusX), // SubBox (9, 9, 9)
+            "a partner across the corner of the SubBox, 1.73 nm apart, overlaps");
+    }
+    {
+        Placement p(gridBox, gridCells);
+        p.add_A(Vec3D { 0.5, 0.0, 0.0 }, plusX); // interface at 1.5
+        expect(!p.overlaps(Vec3D { -2.0, 0.0, 0.0 }, minusX), // interface at -3
+            "a partner in the next SubBox but 4.5 nm from it does not");
+    }
+    {
+        // SubBox (0, 0, 0), where 19 of the 27 are off the grid.
+        const Vec3D corner { -45.5, -49.5, 49.5 };
+        Placement p(gridBox, gridCells);
+        expect(!p.overlaps(corner, plusX), "a place in the corner SubBox of the grid is reached");
+        p.add_A(Vec3D { -44.5, -49.5, 49.5 }, minusX); // SubBox (1, 0, 0)
+        expect(p.overlaps(corner, plusX), "and its partner one SubBox over is still found");
+    }
 
     {
         // 400 A in a 20 nm box, then 100 B that bind A at bindRadius 2: about
@@ -351,6 +425,44 @@ int main()
             if (memMol >= 400)
                 ++members;
         expect(members == 100, "each created B is a member of its SubBox exactly once");
+    }
+
+    {
+        // The same model over a 5 x 5 x 5 grid, which is the finest one whose
+        // SubBoxes still cover the 4 nm reach -- bindRadius 2 plus each
+        // template's 1 nm interface -- and so the grid a run of this model would
+        // build.  A 4 nm sphere is 268 nm^3 against a SubBox's 64, so the SubBox
+        // a place falls in holds at most a quarter of what has to be clear of
+        // it; the rest, in the 26 around it, is what this case is about.
+        CreationFixture f(400, 20.0, 2.0, 5);
+        const int unitsBefore = f.params.numTotalUnits;
+        const int idBefore = Molecule::maxID;
+        f.create(100);
+
+        int tooClose = 0;
+        for (int created = 400; created < int(f.molecules.size()); ++created)
+            for (int existing = 0; existing < 400; ++existing)
+                if (Vec3D { f.molecules[created].interfaceList[0].coord
+                        - f.molecules[existing].interfaceList[0].coord }
+                        .length()
+                    < 2.0)
+                    ++tooClose;
+        expect(f.molecules.size() == 500 && tooClose == 0,
+            "100 B created among 400 A on a grid: none within bindRadius of an A");
+        expect(Molecule::numberOfMolecules == 500 && MolTemplate::numEachMolType[1] == 100
+                && f.params.numTotalUnits == unitsBefore + 100 * 2 && Molecule::maxID == idBefore + 100,
+            "each is counted once on a grid too");
+
+        int members = 0;
+        bool binned = true;
+        for (int cellItr = 0; cellItr < f.simulVolume.numSubCells.tot; ++cellItr)
+            for (int memMol : f.simulVolume.subCellList[cellItr].memberMolList)
+                if (memMol >= 400) {
+                    ++members;
+                    binned = binned && cellItr == f.molecules[memMol].mySubVolIndex
+                        && cellItr == bin_of(f.simulVolume, f.membrane, f.molecules[memMol].comCoord);
+                }
+        expect(members == 100 && binned, "and is a member of the one SubBox its center falls in");
     }
 
     {

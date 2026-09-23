@@ -137,8 +137,23 @@ void draw_coords_after_uni_reaction(
 void draw_coords_after_transmission_reaction(Molecule& mol, const MolTemplate& molTemplate,
     const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject);
 
+/*! \ingroup Reactions
+ * \brief Is this a place a created molecule may be left in?
+ *
+ * True for a place outside the simulation volume, and for one where an
+ * interface of `createdMol` is closer than their reaction's bindRadius to an
+ * interface it could react with -- the criterion `generate_coordinates()`
+ * applies to a new simulation and `moleculeOverlapsForRestart()` to an add
+ * file.  Those two walk every molecule; this one runs inside a time step, as
+ * often as a creation reaction fires, so it walks the SubBox the place falls in
+ * and the 26 around it, which is every SubBox that can hold a partner in reach.
+ *
+ * Reports no overlap by making `createdMol` a member of the SubBox it lands in,
+ * so the molecules one creation reaction makes in a single step are placed
+ * clear of each other and not only of what was already there.
+ */
 bool moleculeOverlaps(const Parameters &params, SimulVolume &simulVolume, Molecule &createdMol,
-                      std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList, const std::vector<ForwardRxn> &forwardRxns,
+                      std::vector<Molecule> &moleculeList, const std::vector<ForwardRxn> &forwardRxns,
                       const std::vector<MolTemplate> &molTemplateList, const Membrane &membraneObject);
 
 void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolume& simulVolume,

@@ -1,0 +1,18 @@
+##
+# A molecule information file
+##
+
+Name    = A
+
+# translational diffusion constants
+D       = [0.0,0.0,0.0]
+
+# rotational diffusion constants
+Dr      = [0.0,0.0,0.0]
+
+# Coordinates
+COM     0.0000    0.0000    0.0000
+a       0.0000    0.0000    0.0000
+
+bonds = 1
+COM a
