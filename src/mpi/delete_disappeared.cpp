@@ -44,6 +44,22 @@ void delete_disappeared_complexes_partial(MpiContext &mpiContext,
                                           bool left) {
   if (VERBOSE) cout << "delete_disappeared_complexes_partial begins" << endl;
   int count{0};
+  // How many molecules still on this rank claim each complex through
+  // myComIndex.  Normally a complex that was not received back has none left:
+  // its molecules were not received back either and
+  // delete_disappeared_molecules() has already gone through them.  When some
+  // did come back, destroying the complex would leave them claiming a complex
+  // that no longer exists -- and memberList.clear() below means destroy() does
+  // not take them with it.  Such a molecule reaches complexList through
+  // myComIndex in create_complex_propagation_vectors(),
+  // check_bimolecular_reactions() and the ncross reset at the top of the step.
+  vector<int> claims(complexList.size(), 0);
+  for (auto &mol : moleculeList) {
+    if (mol.isEmpty) continue;
+    if (mol.myComIndex >= 0 &&
+        mol.myComIndex < static_cast<int>(complexList.size()))
+      claims[mol.myComIndex]++;
+  }
   for (auto &com : complexList) {
     if (com.isEmpty) continue;
 
@@ -76,6 +92,12 @@ void delete_disappeared_complexes_partial(MpiContext &mpiContext,
 
       } else {
         if (!com.isEmpty) {
+          // Keep a complex its own molecules still claim.  It is stale rather
+          // than gone, and the next exchange replaces it; an orphaned molecule
+          // is not recoverable the same way.
+          if (com.index >= 0 && com.index < static_cast<int>(claims.size()) &&
+              claims[com.index] > 0)
+            continue;
           count++;
           if (VERBOSE)
             cout << "### Deleting complex id=" << com.id

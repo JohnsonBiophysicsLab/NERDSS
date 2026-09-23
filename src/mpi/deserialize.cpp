@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 
@@ -7,6 +8,34 @@
 #include "mpi/mpi_function.hpp"
 
 using namespace std;
+
+// A received complex replaces the local memberList wholesale, so a molecule that
+// was a member here and is not in the list that arrived keeps myComIndex
+// pointing at the complex while the complex no longer lists it back.  Usually
+// the molecule left that complex for another one that arrives in the same
+// message and re-parents it; when it does not, the molecule is left claiming a
+// complex that does not claim it, and delete_disappeared_complexes_partial() can
+// then destroy the complex from under it.  Nothing downstream survives that:
+// create_complex_propagation_vectors() walks the cleared memberList and
+// check_bimolecular_reactions() and the ncross reset index complexList with the
+// -1 it ends up holding.
+//
+// Put the molecule back in the list it still claims.  The complex is then stale
+// rather than inconsistent, and the next exchange replaces its memberList again.
+static void reconcile_complex_membership(vector<Molecule> &moleculeList,
+                                         vector<Complex> &complexList) {
+  for (auto &mol : moleculeList) {
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    if (mol.myComIndex < 0 ||
+        mol.myComIndex >= static_cast<int>(complexList.size()))
+      continue;
+    Complex &com = complexList[mol.myComIndex];
+    if (com.isEmpty) continue;
+    if (std::find(com.memberList.begin(), com.memberList.end(), mol.index) ==
+        com.memberList.end())
+      com.memberList.push_back(mol.index);
+  }
+}
 
 void deserialize_complexes(MpiContext &mpiContext,
                            vector<Molecule> &moleculeList,
@@ -139,6 +168,7 @@ void deserialize_complexes(MpiContext &mpiContext,
       mol.myComIndex = complexIndex;
     }
   }
+  reconcile_complex_membership(moleculeList, complexList);
   //    debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
   //    "//end deserialize_complexes()");
   if (VERBOSE) cout << "deserialize_complexes ends" << endl;
@@ -250,6 +280,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       mol.myComIndex = complexIndex;
     }
   }
+  reconcile_complex_membership(moleculeList, complexList);
   //    debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
   //    "//end deserialize_complexes()");
   if (VERBOSE) cout << "deserialize_complexes ends" << endl;
