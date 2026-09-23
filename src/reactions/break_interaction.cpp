@@ -150,9 +150,22 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
         // rateClose will be in units of /us (due to ka units), so no need for 1E-6 factor, since timeStep has
         // units of us
 
+	/*This ratio corrects for inaccuracy in the forward rate.
+	 If the backward rate is also very high >1e6s-1, there can also be error in dissociation events. 
+	*/	
         double poisson = timeStep * rateClose;
-        double correctionRatio{(1 - exp(-poisson)) / poisson};
-		
+        double correctionRatio=(1 - exp(-poisson)) / poisson;
+	//Correct for too fast dissociateion
+	double dissRate = currRxn.rateList.at(0).rate;
+	double poisDissoc = timeStep*dissRate/1e6; //dissRate is in units of /s, so divide by 1e6
+        // A zero rate makes this 0/0.  rateList[0] is not always the rate state
+        // the dissociation fired through - check_dissociation() picks one with
+        // find_reaction_rate_state() - so a model whose first back-reaction
+        // rate is zero got a NaN ratio, which the draw below never exceeds, and
+        // none of its loop dissociations were cancelled.  With no back
+        // correction the ratio is the forward one, as before the port.
+        double backCorrection { poisDissoc > 0 ? (1 - exp(-poisDissoc)) / poisDissoc : 1.0 };
+	correctionRatio=correctionRatio/backCorrection;
 	    //std::cout <<"Correction Ratio: "<<correctionRatio<<std::endl;
 
         if (1.0 * rand_gsl() > correctionRatio) {
