@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   std::string observablesFileName{"DATA/observables_time.dat"};
   std::string trajFileName{"DATA/trajectory.xyz"};
   std::string transitionFileName{"DATA/transition_matrix_time.dat"};
-  std::string restartFileName{"DATA/restart.dat"};
+  std::string restartFileName{"DATA/restart.json"};
   std::string addFileNameInput{}; // this is for restart with changed params or
                                   // adding molecules and reactions
   std::string coordinateFileName{};
@@ -817,6 +817,7 @@ int main(int argc, char *argv[]) {
   params.sphereR = membraneObject.sphereR;
 
   /*Print out system information*/
+  std::cout << std::boolalpha;
   std::cout << "\nSimulation Parameters\n";
   params.display();
   membraneObject.display();
@@ -1761,7 +1762,7 @@ int main(int argc, char *argv[]) {
 
     // write check point
     if (simItr % params.checkPoint == 0) {
-      snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld.dat", simItr);
+      snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld.json", simItr);
       std::ofstream restartFile(fnameProXYZ);
       if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
         write_rng_state_simItr(simItr); // write the current RNG state

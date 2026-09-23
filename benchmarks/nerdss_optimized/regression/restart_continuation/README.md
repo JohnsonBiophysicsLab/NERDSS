@@ -9,12 +9,13 @@ that wrote the checkpoint bit for bit. `check.sh` tests exactly that:
 
 For each case in `continuation_cases.tsv` it runs the model for 2N steps with
 `checkPoint = N` and `RNGwrite = true`, restarts in a clean directory from
-`RESTARTS/restart<N>.dat` with `RESTARTS/rng_state<N>` copied in as `rng_state`,
-and requires
+`RESTARTS/restart<N>.json` with `RESTARTS/rng_state<N>` copied in as
+`rng_state`, and requires
 
-- the two final `DATA/restart.dat` files to be identical apart from line 2
-  (`numItr`) and line 4 (`currSimTime`, which the restart reaches by a different
-  but equivalent expression), and
+- the two final `DATA/restart.json` files to agree on every value but
+  `currSimTime`, which the restart reaches by a different but equivalent
+  expression (`compare_restart_json.py` walks both files and names what
+  differs), and
 - every record the restart wrote to `DATA/*_time.dat` to equal the uninterrupted
   run's record for the same time. That covers what the restart file does not
   hold: the copy numbers `init_counterCopyNums()` recounts at a restart, for
@@ -44,7 +45,7 @@ each case in the table is the first to expose one of them.
 controls.
 
 Measured with the case table's seeds, "diverged" meaning a differing final
-`restart.dat`:
+restart file:
 
 | Build | Controls | trajStatus cases | `two_site` | `two_site_depleting` | creation cases |
 | --- | --- | --- | --- | --- | --- |
@@ -72,3 +73,11 @@ continue exactly once the trajStatus fix is in.
   777 the table is still empty at the checkpoint at step 10, so it is first
   built after the restart; a wrong count shows in the reweighting survival
   probabilities of the molecules that then attempt 2D binding.
+
+## Restart file formats
+
+Restart files are JSON since the port of nerdss_development's json-restarts
+branch; the checkpoints this check restarts from are `RESTARTS/restart<N>.json`.
+A `.dat` file written by an earlier build still restarts: `read_restart()` tells
+the two formats apart by the file's first byte, not its name.  The format round
+trip in `../restart_format` checks that the two formats carry the same state.

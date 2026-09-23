@@ -4,7 +4,583 @@
 #include <ctime>
 #include <iomanip>
 
+#include "json.hpp"
+
+#include <cmath>
+
+using json = nlohmann::json;
+
+/* The restart file is JSON: one object with the top-level keys
+ *
+ *   parameters, molTemplates, reactions, molecules, complexes, observables,
+ *   counterArrays, and implicitLipid (implicit-lipid models only).
+ *
+ * The layout follows the json-restarts branch of nerdss_development, so a file
+ * written by either build reads on the other as far as the state they share.
+ * The state this branch's restart carries beyond it is written under keys of
+ * its own, which that build's reader never looks at:
+ *
+ *   parameters.membrane.compartmentSiteD, .compartmentSiteRho
+ *   parameters.numerics
+ *   molTemplates.numEachMolType, .totalNumOfStates
+ *   reactions.back[].stateChangeIface
+ *   reactions.transmission[].bindRadius, .reactantList, .productList
+ *   molecules.list[].enforceCompartmentBC
+ *   implicitLipid
+ *
+ * Nothing in the file is positional, so a field can be added, or written for
+ * the models that need it alone, without changing what any other model's file
+ * says; the .dat format of LEGACY_write_restart() below could not do that (see
+ * expect_restart_key() in read_restart.cpp).  Doubles are written with enough
+ * digits to read back exactly.  NaN is not a JSON number and is written as
+ * null; read_restart() turns null back into NaN.
+ */
+namespace {
+
+json maybe_null(double val)
+{
+    return std::isnan(val) ? json(nullptr) : json(val);
+}
+
+json serialize_vec3(const Vec3D& v)
+{
+    return { v.x, v.y, v.z };
+}
+
+json serialize_iface_ref(const RxnIface& iface)
+{
+    // requiresState is a char.  The .dat format writes it raw, a NUL byte for
+    // "no state required"; here it is the character's integer value.
+    return {
+        { "molTypeIndex", iface.molTypeIndex },
+        { "ifaceName", iface.ifaceName },
+        { "absIfaceIndex", iface.absIfaceIndex },
+        { "relIfaceIndex", iface.relIfaceIndex },
+        { "requiresState", iface.requiresState },
+        { "requiresInteraction", iface.requiresInteraction }
+    };
+}
+
+json serialize_iface_list(const std::vector<RxnIface>& ifaceList)
+{
+    json j = json::array();
+    for (const auto& iface : ifaceList)
+        j.push_back(serialize_iface_ref(iface));
+    return j;
+}
+
+json serialize_state_change_iface(const std::pair<RxnIface, RxnIface>& stateChangeIface)
+{
+    json j = json::array();
+    j.push_back(serialize_iface_ref(stateChangeIface.first));
+    j.push_back(serialize_iface_ref(stateChangeIface.second));
+    return j;
+}
+
+json serialize_rate_list(const std::vector<RxnBase::RateState>& rateList)
+{
+    json jrates = json::array();
+    for (const auto& rate : rateList) {
+        json jr;
+        jr["rate"] = maybe_null(rate.rate);
+        jr["otherIfaceLists"] = json::array();
+        for (const auto& list : rate.otherIfaceLists)
+            jr["otherIfaceLists"].push_back(serialize_iface_list(list));
+        jrates.push_back(jr);
+    }
+    return jrates;
+}
+
+json serialize_coupled_rxn(const RxnBase::CoupledRxn& coupled)
+{
+    return {
+        { "absRxnIndex", coupled.absRxnIndex },
+        { "relRxnIndex", coupled.relRxnIndex },
+        { "rxnType", static_cast<std::underlying_type<ReactionType>::type>(coupled.rxnType) },
+        { "label", coupled.label },
+        { "probCoupled", coupled.probCoupled }
+    };
+}
+
+// CreateDestructRxn::CreateDestructMol and TransmissionRxn::TransmissionMol.
+template <typename MolWithIfaces>
+json serialize_mol_with_ifaces(const MolWithIfaces& mol)
+{
+    json jm;
+    jm["molTypeIndex"] = mol.molTypeIndex;
+    jm["molName"] = mol.molName;
+    jm["interfaceList"] = serialize_iface_list(mol.interfaceList);
+    return jm;
+}
+
+json serialize_molecule_interface(const Molecule::Iface& iface)
+{
+    json ji;
+    ji["index"] = iface.index;
+    ji["relIndex"] = iface.relIndex;
+    ji["molTypeIndex"] = iface.molTypeIndex;
+    ji["stateIndex"] = iface.stateIndex;
+    ji["stateIden"] = iface.stateIden;
+    ji["isBound"] = iface.isBound;
+    ji["coord"] = serialize_vec3(iface.coord);
+    if (iface.isBound) {
+        ji["interaction"] = {
+            { "partnerIndex", iface.interaction.partnerIndex },
+            { "partnerIfaceIndex", iface.interaction.partnerIfaceIndex },
+            { "conjBackRxn", iface.interaction.conjBackRxn }
+        };
+    }
+    return ji;
+}
+
+// The same names as the #NumericalSettings block of the .dat format.
+json serialize_numerics(const NumericalSettings& numerics)
+{
+    return {
+        { "integrationAbsError", numerics.integration.tableAbsoluteError },
+        { "integrationRelError", numerics.integration.tableRelativeError },
+        { "integrationFallbackError", numerics.integration.fallbackError },
+        { "integrationTailCutoff", numerics.integration.tailCutoff },
+        { "normalizationAbsError", numerics.integration.normalizationAbsoluteError },
+        { "normalizationRelError", numerics.integration.normalizationRelativeError },
+        { "tableRateAbsTolerance", numerics.tableLookup.reactionRate.absolute },
+        { "tableRateRelTolerance", numerics.tableLookup.reactionRate.relative },
+        { "tableDiffusionAbsTolerance", numerics.tableLookup.diffusionCoefficient.absolute },
+        { "tableDiffusionRelTolerance", numerics.tableLookup.diffusionCoefficient.relative },
+        { "explicitLipidFlatDiffusion", numerics.classification.explicitLipidFlatDiffusion },
+        { "implicitLipidFlatDiffusion", numerics.classification.implicitLipidFlatDiffusion },
+        { "associationSameAngleAbsTolerance", numerics.associationAngles.sameAngle.absolute },
+        { "associationSameAngleRelTolerance", numerics.associationAngles.sameAngle.relative },
+        { "associationRotationTolerance", numerics.associationAngles.rotationConvergenceTolerance },
+        { "associationEndpointSignTolerance", numerics.associationAngles.endpointSignTolerance },
+        { "vec3DCoordinatePrecision", numerics.vec3D.coordinateEqualityPrecision }
+    };
+}
+
+} // namespace
+
 void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
+    const std::vector<TransmissionRxn>& transmissionRxns,
+    const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
+{
+    // TRACE();
+    json j;
+
+    // parameters
+    {
+        json& jp = j["parameters"];
+        jp["nItr"] = params.nItr;
+        jp["simItr"] = simItr;
+        jp["currSimTime"] = (simItr - params.itrRestartFrom) * params.timeStep * 1E-6 + params.timeRestartFrom;
+        jp["numMolTypes"] = params.numMolTypes;
+        jp["numTotalSpecies"] = params.numTotalSpecies;
+        jp["numTotalComplex"] = params.numTotalComplex;
+        jp["numTotalUnits"] = params.numTotalUnits;
+        jp["numLipids"] = params.numLipids;
+        jp["timeStep"] = params.timeStep;
+        jp["max2DRxns"] = params.max2DRxns;
+        jp["waterBox"] = { membraneObject.waterBox.x, membraneObject.waterBox.y, membraneObject.waterBox.z };
+        jp["membrane"] = {
+            { "implicitlipidIndex", membraneObject.implicitlipidIndex },
+            { "nSites", membraneObject.nSites },
+            { "nStates", membraneObject.nStates },
+            { "No_free_lipids", membraneObject.No_free_lipids },
+            { "No_protein", membraneObject.No_protein },
+            { "totalSA", membraneObject.totalSA },
+            // The diffusion constant and density of the compartment's surface
+            // sites enter every transmission probability, and nothing else in
+            // the file records them.  Zero for a model without a compartment.
+            { "compartmentSiteD", membraneObject.droplet.D },
+            { "compartmentSiteRho", membraneObject.droplet.rho }
+        };
+        jp["numberOfFreeLipidsEachState"] = membraneObject.numberOfFreeLipidsEachState;
+        // isBox and isSphere keep the names of the two flags the .dat format
+        // carries: the box flag is the waterBox provenance and the sphere flag
+        // the geometry; see LEGACY_read_restart().
+        jp["implicitLipidParams"] = {
+            { "implicitLipid", membraneObject.implicitLipid },
+            { "TwoD", membraneObject.TwoD },
+            { "isBox", membraneObject.hasWaterBox() },
+            { "isSphere", membraneObject.isSphere() },
+            { "sphereR", membraneObject.sphereR },
+            { "hasCompartment", membraneObject.hasCompartment },
+            { "compartmentR", membraneObject.compartmentR }
+        };
+        jp["overlapSepLimit"] = params.overlapSepLimit;
+        jp["rMaxLimit"] = params.rMaxLimit;
+        jp["timeWrite"] = params.timeWrite;
+        jp["trajWrite"] = params.trajWrite;
+        jp["restartWrite"] = params.restartWrite;
+        jp["pdbWrite"] = params.pdbWrite;
+        jp["assocDissocWrite"] = params.assocDissocWrite;
+        jp["checkPoint"] = params.checkPoint;
+        jp["scaleMaxDisplace"] = params.scaleMaxDisplace;
+        jp["transitionWrite"] = params.transitionWrite;
+        jp["clusterOverlapCheck"] = params.clusterOverlapCheck;
+        jp["rngwrite"] = params.rngwrite;
+        jp["bondedComplexWrite"] = params.bondedComplexWrite;
+        jp["lastUpdateTransition"] = Parameters::lastUpdateTransition;
+        jp["numerics"] = serialize_numerics(params.numerics);
+    }
+
+    // molecule templates
+    {
+        json templates = json::array();
+        for (const auto& oneTemp : molTemplateList) {
+            json jt;
+            jt["molTypeIndex"] = oneTemp.molTypeIndex;
+            jt["molName"] = oneTemp.molName;
+            jt["copies"] = oneTemp.copies;
+            jt["mass"] = oneTemp.mass;
+            jt["radius"] = oneTemp.radius;
+            jt["isLipid"] = oneTemp.isLipid;
+            jt["isImplicitLipid"] = oneTemp.isImplicitLipid;
+            jt["isRod"] = oneTemp.isRod;
+            jt["isPoint"] = oneTemp.isPoint;
+            jt["checkOverlap"] = oneTemp.checkOverlap;
+            jt["countTransition"] = oneTemp.countTransition;
+            jt["transitionMatrixSize"] = oneTemp.transitionMatrixSize;
+            jt["outsideCompartment"] = oneTemp.outsideCompartment;
+            jt["insideCompartment"] = oneTemp.insideCompartment;
+            jt["crossesCompartment"] = oneTemp.crossesCompartment;
+            jt["transmissionRxnIndex"] = oneTemp.transmissionRxnIndex;
+            jt["comCoord"] = serialize_vec3(oneTemp.comCoord);
+            jt["D"] = serialize_vec3(oneTemp.D);
+            jt["Dr"] = serialize_vec3(oneTemp.Dr);
+            jt["rxnPartners"] = oneTemp.rxnPartners;
+
+            jt["bondList"] = json::array();
+            for (const auto& bond : oneTemp.bondList)
+                jt["bondList"].push_back({ bond[0], bond[1] });
+
+            jt["interfaces"] = json::array();
+            for (const auto& oneIface : oneTemp.interfaceList) {
+                json ji;
+                ji["index"] = oneIface.index;
+                ji["name"] = oneIface.name;
+                ji["coord"] = serialize_vec3(oneIface.iCoord);
+                ji["states"] = json::array();
+                for (const auto& oneState : oneIface.stateList) {
+                    json js;
+                    js["index"] = oneState.index;
+                    js["iden"] = oneState.iden;
+                    js["rxnPartners"] = oneState.rxnPartners;
+                    js["myForwardRxns"] = oneState.myForwardRxns;
+                    js["myCreateDestructRxns"] = oneState.myCreateDestructRxns;
+                    js["stateChangeRxns"] = json::array();
+                    for (const auto& elem : oneState.stateChangeRxns)
+                        js["stateChangeRxns"].push_back({ elem.first, elem.second });
+                    ji["states"].push_back(js);
+                }
+                jt["interfaces"].push_back(ji);
+            }
+
+            jt["ifacesWithStates"] = oneTemp.ifacesWithStates;
+            jt["monomerList"] = oneTemp.monomerList;
+
+            if (oneTemp.countTransition) {
+                jt["lifeTime"] = json::array();
+                for (int i = 0; i < oneTemp.transitionMatrixSize; ++i)
+                    jt["lifeTime"].push_back(oneTemp.lifeTime[i]);
+                jt["transitionMatrix"] = json::array();
+                for (int i = 0; i < oneTemp.transitionMatrixSize; ++i)
+                    jt["transitionMatrix"].push_back(oneTemp.transitionMatrix[i]);
+            }
+
+            templates.push_back(jt);
+        }
+        json& jtemplates = j["molTemplates"];
+        jtemplates["templates"] = templates;
+        jtemplates["absToRelIface"] = MolTemplate::absToRelIface;
+        // The count of each type is kept by the reactions that create and
+        // destroy molecules, so it cannot be recounted from the molecule list
+        // once any molecule has been destroyed: a destroyed molecule keeps its
+        // slot, and its type, in the list.
+        jtemplates["numEachMolType"] = MolTemplate::numEachMolType;
+        // The states an add file's templates bring are numbered from here
+        // (parse_molFile.cpp), so a restart with an add file needs it.
+        jtemplates["totalNumOfStates"] = Interface::State::totalNumOfStates;
+    }
+
+    // reactions
+    {
+        json& jr = j["reactions"];
+        jr["numberOfRxns"] = RxnBase::numberOfRxns;
+        jr["numForward"] = forwardRxns.size();
+        jr["numBack"] = backRxns.size();
+        jr["numCreateDestruct"] = createDestructRxns.size();
+        jr["numTransmission"] = transmissionRxns.size();
+        jr["totRxnSpecies"] = RxnBase::totRxnSpecies;
+
+        jr["forward"] = json::array();
+        for (const auto& oneRxn : forwardRxns) {
+            json jx;
+            jx["absRxnIndex"] = oneRxn.absRxnIndex;
+            jx["relRxnIndex"] = oneRxn.relRxnIndex;
+            jx["rxnLabel"] = oneRxn.rxnLabel;
+            jx["rxnType"] = static_cast<std::underlying_type<ReactionType>::type>(oneRxn.rxnType);
+            jx["isSymmetric"] = oneRxn.isSymmetric;
+            jx["isOnMem"] = oneRxn.isOnMem;
+            jx["hasStateChange"] = oneRxn.hasStateChange;
+            jx["isObserved"] = oneRxn.isObserved;
+            jx["observeLabel"] = oneRxn.observeLabel;
+            jx["productName"] = oneRxn.productName;
+            jx["isReversible"] = oneRxn.isReversible;
+            jx["conjBackRxnIndex"] = oneRxn.conjBackRxnIndex;
+            jx["irrevRingClosure"] = oneRxn.irrevRingClosure;
+            jx["bindRadSameCom"] = oneRxn.bindRadSameCom;
+            jx["loopCoopFactor"] = oneRxn.loopCoopFactor;
+            jx["length3Dto2D"] = oneRxn.length3Dto2D;
+            jx["area3Dto1D"] = oneRxn.area3Dto1D;
+            jx["bindRadius"] = oneRxn.bindRadius;
+            jx["assocAngles"] = {
+                { "theta1", maybe_null(oneRxn.assocAngles.theta1) },
+                { "theta2", maybe_null(oneRxn.assocAngles.theta2) },
+                { "phi1", maybe_null(oneRxn.assocAngles.phi1) },
+                { "phi2", maybe_null(oneRxn.assocAngles.phi2) },
+                { "omega", maybe_null(oneRxn.assocAngles.omega) }
+            };
+            jx["norm1"] = serialize_vec3(oneRxn.norm1);
+            jx["norm2"] = serialize_vec3(oneRxn.norm2);
+            jx["excludeVolumeBound"] = oneRxn.excludeVolumeBound;
+            jx["isCoupled"] = oneRxn.isCoupled;
+            if (oneRxn.isCoupled)
+                jx["coupledRxn"] = serialize_coupled_rxn(oneRxn.coupledRxn);
+            jx["intReactantList"] = oneRxn.intReactantList;
+            jx["intProductList"] = oneRxn.intProductList;
+            jx["reactantList"] = serialize_iface_list(oneRxn.reactantListNew);
+            jx["productList"] = serialize_iface_list(oneRxn.productListNew);
+            jx["rateList"] = serialize_rate_list(oneRxn.rateList);
+            // Not in the .dat format.
+            jx["stateChangeIface"] = serialize_state_change_iface(oneRxn.stateChangeIface);
+            jr["forward"].push_back(jx);
+        }
+
+        jr["back"] = json::array();
+        for (const auto& oneRxn : backRxns) {
+            json jx;
+            jx["absRxnIndex"] = oneRxn.absRxnIndex;
+            jx["relRxnIndex"] = oneRxn.relRxnIndex;
+            jx["rxnType"] = static_cast<std::underlying_type<ReactionType>::type>(oneRxn.rxnType);
+            jx["isSymmetric"] = oneRxn.isSymmetric;
+            jx["isOnMem"] = oneRxn.isOnMem;
+            jx["hasStateChange"] = oneRxn.hasStateChange;
+            jx["isObserved"] = oneRxn.isObserved;
+            jx["observeLabel"] = oneRxn.observeLabel;
+            jx["conjForwardRxnIndex"] = oneRxn.conjForwardRxnIndex;
+            jx["isCoupled"] = oneRxn.isCoupled;
+            if (oneRxn.isCoupled)
+                jx["coupledRxn"] = serialize_coupled_rxn(oneRxn.coupledRxn);
+            jx["intReactantList"] = oneRxn.intReactantList;
+            jx["intProductList"] = oneRxn.intProductList;
+            jx["reactantList"] = serialize_iface_list(oneRxn.reactantListNew);
+            jx["productList"] = serialize_iface_list(oneRxn.productListNew);
+            jx["rateList"] = serialize_rate_list(oneRxn.rateList);
+            // A back reaction carries its forward reaction's state change with
+            // the two interfaces swapped (BackRxn::BackRxn()).  nerdss_development
+            // writes this for forward reactions only and then requires it of
+            // every back reaction that has a state change, so its own files
+            // with a reversible state change do not read back; written for
+            // both here.
+            jx["stateChangeIface"] = serialize_state_change_iface(oneRxn.stateChangeIface);
+            jr["back"].push_back(jx);
+        }
+
+        jr["createDestruct"] = json::array();
+        for (const auto& oneRxn : createDestructRxns) {
+            json jx;
+            jx["absRxnIndex"] = oneRxn.absRxnIndex;
+            jx["relRxnIndex"] = oneRxn.relRxnIndex;
+            jx["rxnType"] = static_cast<std::underlying_type<ReactionType>::type>(oneRxn.rxnType);
+            jx["isOnMem"] = oneRxn.isOnMem;
+            jx["isObserved"] = oneRxn.isObserved;
+            jx["observeLabel"] = oneRxn.observeLabel;
+            jx["creationRadius"] = oneRxn.creationRadius;
+            jx["intReactantList"] = oneRxn.intReactantList;
+            jx["intProductList"] = oneRxn.intProductList;
+            jx["reactantMolList"] = json::array();
+            for (const auto& mol : oneRxn.reactantMolList)
+                jx["reactantMolList"].push_back(serialize_mol_with_ifaces(mol));
+            jx["productMolList"] = json::array();
+            for (const auto& mol : oneRxn.productMolList)
+                jx["productMolList"].push_back(serialize_mol_with_ifaces(mol));
+            jx["rateList"] = serialize_rate_list(oneRxn.rateList);
+            jr["createDestruct"].push_back(jx);
+        }
+
+        jr["transmission"] = json::array();
+        for (const auto& oneRxn : transmissionRxns) {
+            json jx;
+            jx["absRxnIndex"] = oneRxn.absRxnIndex;
+            jx["relRxnIndex"] = oneRxn.relRxnIndex;
+            jx["rxnType"] = static_cast<std::underlying_type<ReactionType>::type>(oneRxn.rxnType);
+            jx["isOnMem"] = oneRxn.isOnMem;
+            jx["isObserved"] = oneRxn.isObserved;
+            jx["observeLabel"] = oneRxn.observeLabel;
+            jx["intReactantList"] = oneRxn.intReactantList;
+            jx["intProductList"] = oneRxn.intProductList;
+            jx["reactantMolList"] = json::array();
+            for (const auto& mol : oneRxn.reactantMolList)
+                jx["reactantMolList"].push_back(serialize_mol_with_ifaces(mol));
+            jx["productMolList"] = json::array();
+            for (const auto& mol : oneRxn.productMolList)
+                jx["productMolList"].push_back(serialize_mol_with_ifaces(mol));
+            jx["rateList"] = serialize_rate_list(oneRxn.rateList);
+            // The compartment code takes the crossing interface from
+            // reactantListNew and the capture radius from bindRadius, and
+            // neither can be rebuilt from the lists above; see
+            // LEGACY_write_restart().
+            jx["bindRadius"] = oneRxn.bindRadius;
+            jx["reactantList"] = serialize_iface_list(oneRxn.reactantListNew);
+            jx["productList"] = serialize_iface_list(oneRxn.productListNew);
+            jr["transmission"].push_back(jx);
+        }
+    }
+
+    // molecules
+    {
+        json& jmols = j["molecules"];
+        jmols["count"] = moleculeList.size();
+        jmols["numberOfMolecules"] = Molecule::numberOfMolecules;
+        jmols["list"] = json::array();
+        for (const auto& oneMol : moleculeList) {
+            json jm;
+            jm["index"] = oneMol.index;
+            jm["isEmpty"] = oneMol.isEmpty;
+            jm["myComIndex"] = oneMol.myComIndex;
+            jm["molTypeIndex"] = oneMol.molTypeIndex;
+            jm["mySubVolIndex"] = oneMol.mySubVolIndex;
+            jm["mass"] = oneMol.mass;
+            jm["isLipid"] = oneMol.isLipid;
+            jm["isImplicitLipid"] = oneMol.isImplicitLipid;
+            jm["linksToSurface"] = oneMol.linksToSurface;
+            jm["isPromoter"] = oneMol.isPromoter;
+            // Set the first time a molecule is kept from crossing the
+            // compartment and never cleared, so it is state, not a per-step
+            // flag.
+            jm["enforceCompartmentBC"] = oneMol.enforceCompartmentBC;
+            jm["comCoord"] = serialize_vec3(oneMol.comCoord);
+            jm["freelist"] = oneMol.freelist;
+            jm["bndlist"] = oneMol.bndlist;
+            jm["bndpartner"] = oneMol.bndpartner;
+            jm["interfaceList"] = json::array();
+            for (const auto& iface : oneMol.interfaceList)
+                jm["interfaceList"].push_back(serialize_molecule_interface(iface));
+
+            // Reweighting lists.  One std::vector<ReweightEntry> in memory,
+            // the six parallel arrays the .dat format carries in the file,
+            // under the names the entries' fields used to have.
+            json prevlist = json::array();
+            json prevmyface = json::array();
+            json prevpface = json::array();
+            json prevnorm = json::array();
+            json ps_prev = json::array();
+            json prevsep = json::array();
+            for (const auto& oneEntry : oneMol.prevReweight) {
+                prevlist.push_back(oneEntry.partner);
+                prevmyface.push_back(oneEntry.myFace);
+                prevpface.push_back(oneEntry.partnerFace);
+                prevnorm.push_back(maybe_null(oneEntry.norm));
+                ps_prev.push_back(maybe_null(oneEntry.survProb));
+                prevsep.push_back(maybe_null(oneEntry.sep));
+            }
+            jm["prevlist"] = prevlist;
+            jm["prevmyface"] = prevmyface;
+            jm["prevpface"] = prevpface;
+            jm["prevnorm"] = prevnorm;
+            jm["ps_prev"] = ps_prev;
+            jm["prevsep"] = prevsep;
+
+            jmols["list"].push_back(jm);
+        }
+        jmols["emptyMolList"] = Molecule::emptyMolList;
+    }
+
+    // complexes
+    {
+        json& jcoms = j["complexes"];
+        jcoms["count"] = complexList.size();
+        jcoms["numberOfComplexes"] = Complex::numberOfComplexes;
+        jcoms["list"] = json::array();
+        for (const auto& oneCom : complexList) {
+            json jc;
+            jc["index"] = oneCom.index;
+            jc["isEmpty"] = oneCom.isEmpty;
+            jc["radius"] = oneCom.radius;
+            jc["mass"] = oneCom.mass;
+            jc["linksToSurface"] = oneCom.linksToSurface;
+            jc["iLipidIndex"] = oneCom.iLipidIndex;
+            jc["OnSurface"] = oneCom.OnSurface;
+            jc["onFiber"] = oneCom.onFiber;
+            jc["comCoord"] = serialize_vec3(oneCom.comCoord);
+            jc["D"] = serialize_vec3(oneCom.D);
+            jc["Dr"] = serialize_vec3(oneCom.Dr);
+            jc["memberList"] = oneCom.memberList;
+            jc["numEachMol"] = oneCom.numEachMol;
+            jc["lastNumberUpdateItrEachMol"] = oneCom.lastNumberUpdateItrEachMol;
+            jcoms["list"].push_back(jc);
+        }
+        jcoms["emptyComList"] = Complex::emptyComList;
+    }
+
+    // observables
+    j["observables"] = json::array();
+    for (const auto& observable : observablesList)
+        j["observables"].push_back({ { "name", observable.first }, { "value", observable.second } });
+
+    // counter arrays
+    {
+        json& jc = j["counterArrays"];
+        jc["nLoops"] = counterArrays.nLoops;
+        jc["nCancelOverlapPartner"] = counterArrays.nCancelOverlapPartner;
+        jc["nCancelOverlapSystem"] = counterArrays.nCancelOverlapSystem;
+        jc["nCancelDisplace2D"] = counterArrays.nCancelDisplace2D;
+        jc["nCancelDisplace3D"] = counterArrays.nCancelDisplace3D;
+        jc["nCancelDisplace3Dto2D"] = counterArrays.nCancelDisplace3Dto2D;
+        jc["nCancelSpanBox"] = counterArrays.nCancelSpanBox;
+        jc["nAssocSuccess"] = counterArrays.nAssocSuccess;
+        jc["eventArraySize"] = counterArrays.eventArraySize;
+        jc["events3D"] = counterArrays.events3D;
+        jc["events3Dto2D"] = counterArrays.events3Dto2D;
+        jc["events2D"] = counterArrays.events2D;
+        jc["bindPairList"] = counterArrays.bindPairList;
+    }
+
+    // The implicit lipid's 2D binding table, and the protein counts its entries
+    // are built from.  Each entry is computed the first time it is needed,
+    // from the free-lipid count at that step, and kept for the rest of the
+    // run; a restart that rebuilt it would use the count at the restart
+    // instead and bind with different probabilities from then on.  The protein
+    // counts are those at step 0, which a restart cannot recount from its own
+    // molecules once any have been created, destroyed or changed state.
+    if (membraneObject.implicitLipid) {
+        json& jil = j["implicitLipid"];
+        jil["numberOfProteinEachState"] = membraneObject.numberOfProteinEachState;
+        jil["binding2DTable"] = json::array();
+        for (std::size_t entry { 0 }; entry < membraneObject.IL2DbindingVec.size(); ++entry) {
+            json row = {
+                { "ka", membraneObject.ILTableIDs[3 * entry] },
+                { "Dtot", membraneObject.ILTableIDs[3 * entry + 1] },
+                { "kb", membraneObject.ILTableIDs[3 * entry + 2] },
+                { "probability", membraneObject.IL2DbindingVec[entry] }
+            };
+            jil["binding2DTable"].push_back(row);
+        }
+    }
+
+    restartFile << j.dump() << std::endl;
+}
+
+/* The .dat format.  Nothing writes it during a simulation any more; it is kept
+ * so that a file in the old format can still be produced from a system in
+ * memory (the regression harness converts between the two formats with it),
+ * and as the reference for what LEGACY_read_restart() expects.
+ */
+
+void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,

@@ -45,7 +45,8 @@ See \ref changelog for a list of changes.
 \subsection restr Restarting a Simulation
 
 - With each write of the restart file, the current state of the RNG will also be written as a binary file (called rng_state)
-- To restart a simulation, make sure the trajectory, RNG state file, and restart file are in the same directory, then run `./$EXE -r $RESTART`, where `$EXE` is the executable and $RESTART is the restart file (called restart.dat by default)
+- To restart a simulation, make sure the trajectory, RNG state file, and restart file are in the same directory, then run `./$EXE -r $RESTART`, where `$EXE` is the executable and $RESTART is the restart file (`DATA/restart.json` by default; checkpoints go to `RESTARTS/restart<step>.json`)
+- Restart files are JSON. A `.dat` restart file written by an earlier build is still read: the format is recognised from the file's contents, not its name
 - As of right now, some limitations
   - The restart will fail if the trajectory and rng_state files are not in the directory.
   - The restart blindly appends to the trajectory, i.e. it does not yet check to make sure the last written iteration matches the restart file.
