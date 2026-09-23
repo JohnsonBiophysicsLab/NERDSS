@@ -158,7 +158,13 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
 	//Correct for too fast dissociateion
 	double dissRate = currRxn.rateList.at(0).rate;
 	double poisDissoc = timeStep*dissRate/1e6; //dissRate is in units of /s, so divide by 1e6
-	double backCorrection=(1-exp(-poisDissoc))/poisDissoc;
+        // A zero rate makes this 0/0.  rateList[0] is not always the rate state
+        // the dissociation fired through - check_dissociation() picks one with
+        // find_reaction_rate_state() - so a model whose first back-reaction
+        // rate is zero got a NaN ratio, which the draw below never exceeds, and
+        // none of its loop dissociations were cancelled.  With no back
+        // correction the ratio is the forward one, as before the port.
+        double backCorrection { poisDissoc > 0 ? (1 - exp(-poisDissoc)) / poisDissoc : 1.0 };
 	correctionRatio=correctionRatio/backCorrection;
 	    //std::cout <<"Correction Ratio: "<<correctionRatio<<std::endl;
 
