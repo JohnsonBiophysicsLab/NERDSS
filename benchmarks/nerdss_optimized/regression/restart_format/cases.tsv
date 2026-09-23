@@ -1,0 +1,28 @@
+# Cases for check.sh: models chosen so that between them every section of the
+# restart file is exercised.
+#
+# Columns: id <TAB> model directory (from the repository root) <TAB> parm file
+#          <TAB> nItr <TAB> seed
+#
+# What each case adds to the file: rev_3D is the plain bimolecular baseline;
+# michaelis_menten has coupled reactions (coupledRxn); create_destroy has
+# creation and destruction reactions and destroyed molecules, so the molecule
+# list holds empty slots and numEachMolType is not the list's count;
+# compartment has transmission reactions, the compartment's site parameters and
+# enforceCompartmentBC; implicit_lipid and two_site have the implicitLipid
+# section, two_site with 2D binding table entries; sphere has the sphere
+# boundary flags; unimol_state_change has state-change reactions with back
+# reactions, which carry stateChangeIface; secretion_kd10 counts transitions
+# (lifeTime and transitionMatrix); puckered_clathrin has observables; pucadyil
+# creates molecules in a box.
+rev_3D	sample_inputs/VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	2000	12345
+michaelis_menten	sample_inputs/VALIDATE_SUITE/michaelis_menten	michaelis.inp	20000	12345
+create_destroy	sample_inputs/VALIDATE_SUITE/create_destroy	create.inp	1000	12345
+compartment	sample_inputs/compartment	clath_compartment.inp	2000	12345
+implicit_lipid	sample_inputs/implicit_lipid	parms.inp	2000	12345
+two_site	benchmarks/nerdss_optimized/regression/restart_continuation/two_site	parms.inp	2000	12345
+sphere	sample_inputs/VALIDATE_SUITE/sphere	parms_sphere.inp	2000	12345
+unimol_state_change	sample_inputs/VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	2000	12345
+secretion_kd10	sample_inputs/secretion_catalyzed_assembly/membrane/kd10	parms.inp	2000	12345
+puckered_clathrin	sample_inputs/clathrin_coat/puckered_clat.dir	parms.inp	1000	12345
+pucadyil	sample_inputs/pucadyil	parms_pucadyil_ka3d.inp	1000	12345
