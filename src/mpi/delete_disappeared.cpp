@@ -166,7 +166,18 @@ void delete_disappeared_molecules(
     if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true)
       continue;  // no checking for deleted molecules, implicit lipid
 
-    if (mol.isGhosted || mol.isShared) {
+    // Only a ghost may be dropped here.  isShared marks a molecule this rank
+    // owns and a neighbour mirrors, and receivedFromNeighborRank is a single
+    // flag for both directions: sending to the left clears it, and this pass --
+    // which is checking what the right neighbour returned -- then read that as
+    // "the right neighbour dropped it" and deleted a molecule this rank owns.
+    //
+    // A middle rank is where the two overlap.  With one owned cell its left edge
+    // stripe and its right edge stripe are the same cell, and that cell falls in
+    // the right region, so every molecule it owns was offered to this test every
+    // step.  A molecule genuinely handed over is marked isGhosted by the
+    // ghost-stripe loop before it is sent, so handovers are unaffected.
+    if (mol.isGhosted) {
       if (mol.receivedFromNeighborRank == false) {
         // Every crossing this molecule holds was counted in its complex's
         // ncross by record_crossing_pair(), so uncount them while myComIndex
