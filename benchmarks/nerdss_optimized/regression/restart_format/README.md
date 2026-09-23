@@ -1,8 +1,8 @@
 # Restart format round trip
 
 Restart files are JSON (the port of nerdss_development's `json-restarts`
-branch); the positional `.dat` format that came before is still read, and
-`LEGACY_write_restart()` can still write it.  `check.sh` tests that the two
+branch); the positional `.dat` format that came before is still read, and a run
+with `legacyRestartFormat = true` still writes it (`LEGACY_write_restart()`).  `check.sh` tests that the two
 formats carry the same state and that each reads back everything it writes:
 
 ```bash

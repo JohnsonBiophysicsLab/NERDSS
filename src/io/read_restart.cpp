@@ -736,11 +736,16 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
     std::vector<TransmissionRxn>& transmissionRxns,
     std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays)
 {
+    // A restart keeps writing the format it read, so a run that writes .dat
+    // files goes on doing so across restarts without carrying the flag in the
+    // .dat format, whose layout must not change.  An add file parsed after
+    // this can set legacyRestartFormat either way.
     if (!restart_file_is_json(restartFile)) {
         std::cout << "The restart file is in the legacy .dat format." << std::endl;
         LEGACY_read_restart(simItr, restartFile, params, simulVolume, moleculeList, complexList, molTemplateList,
             forwardRxns, backRxns, createDestructRxns, transmissionRxns, observablesList, membraneObject,
             counterArrays);
+        params.legacyRestartFormat = true;
         return;
     }
 
@@ -753,13 +758,14 @@ void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters&
         std::cerr << "Cannot read this JSON restart file: " << e.what() << std::endl;
         exit(1);
     }
+    params.legacyRestartFormat = false;
     std::cout << "Finished reading restart file." << std::endl;
 }
 
 /* The .dat format: positional, one value after another, matched by the order
- * the writer used.  Kept for the files earlier builds wrote; every new file is
- * JSON (write_restart()), and read_restart() sends each file to the reader
- * for its format.
+ * the writer used.  Files in it come from earlier builds, or from a run with
+ * legacyRestartFormat set; read_restart() sends each file to the reader for
+ * its format.
  */
 
 void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,

@@ -598,6 +598,13 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  // Restart files are JSON unless legacyRestartFormat asks for the .dat format
+  // of earlier builds.  On a restart, read_restart() set the flag from the
+  // format of the file it read and an add file may have changed it since; the
+  // names follow whatever it is now.
+  const std::string restartExtension{params.legacyRestartFormat ? ".dat" : ".json"};
+  restartFileName = "DATA/restart" + restartExtension;
+
   if (membraneObject.implicitLipid == true)
     params.implicitLipid = true; // Created this parameter for convenience.
   for (auto &oneReaction : forwardRxns) {
@@ -1762,7 +1769,7 @@ int main(int argc, char *argv[]) {
 
     // write check point
     if (simItr % params.checkPoint == 0) {
-      snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld.json", simItr);
+      snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld%s", simItr, restartExtension.c_str());
       std::ofstream restartFile(fnameProXYZ);
       if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
         write_rng_state_simItr(simItr); // write the current RNG state

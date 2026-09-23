@@ -28,6 +28,7 @@
   | restartWrite<sup>1</sup> | interval to write to restart file (integer, default: trajWrite) |
   | pdbWrite | interval to write individual pdb files (mainly for nonequilibrium simulations (integer, default: 0) |
   | fromRestart | Does the simulation start from a restart file. Not yet implemented (01/25/2019) (boolean, default: false) |
+  | legacyRestartFormat | write restart files in the positional `.dat` format of builds before the JSON format, instead of JSON; a restart keeps the format of the file it read unless an add file sets this (boolean, default: false) |
   | waterBox<sup>✝</sup> | water box dimensions (array, [x, y, z]) |
 
 ✝ indicates a required keyword

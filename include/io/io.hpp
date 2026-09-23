@@ -87,7 +87,20 @@ void write_complex_components(long long int simItr, std::ofstream& complexFile, 
     const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup IO
- * \brief Writes a restart file in json format at intervals specified in the Parameters file.
+ * \brief Writes a restart file at intervals specified in the Parameters file.
+ *
+ * JSON (write_json_restart()) unless `legacyRestartFormat` is set, which selects the .dat format
+ * of earlier builds (LEGACY_write_restart()).
+ */
+void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
+    const std::vector<TransmissionRxn>& transmissionRxns,
+    const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays);
+
+/*! \ingroup IO
+ * \brief Writes a restart file in json format.
  *
  * This is a json (text) file, which is easily parsed and read by both scripts and humans, which
  * makes debugging much simpler. The top-level structure of the file looks like:
@@ -107,7 +120,7 @@ void write_complex_components(long long int simItr, std::ofstream& complexFile, 
  * json-restarts branch of nerdss_development; the keys this branch adds on top of it are
  * listed at the top of write_restart.cpp.
  */
-void write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
+void write_json_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, const std::vector<CreateDestructRxn>& createDestructRxns,
@@ -115,7 +128,10 @@ void write_restart(long long int simItr, std::ofstream& restartFile, const Param
     const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays);
 
 /*! \ingroup IO
- * \brief Reads a restart file and sets up the simulation
+ * \brief Reads a restart file of either format and sets up the simulation.
+ *
+ * The format is recognised from the file's first byte, not its name, and `legacyRestartFormat` is
+ * set to it so that the run keeps writing the format it read.
  */
 void read_restart(long long int& simItr, std::ifstream& restartFile, Parameters& params, SimulVolume& simulVolume,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
@@ -138,10 +154,10 @@ void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Para
     std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays);
 
 /*! \ingroup IO
- * \brief Writes a restart file in the positional .dat format.
+ * \brief Writes a restart file in the positional .dat format of earlier builds.
  *
- * Nothing calls it during a simulation any more; the regression harness uses it to convert a
- * system read from either format back to .dat.
+ * write_restart() calls it when `legacyRestartFormat` is set; the regression harness uses it to
+ * convert a system read from either format back to .dat.  Its layout must not change.
  */
 void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, const Parameters& params, const SimulVolume& simulVolume,
     const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,

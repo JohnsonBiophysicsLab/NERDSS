@@ -79,5 +79,9 @@ continue exactly once the trajStatus fix is in.
 Restart files are JSON since the port of nerdss_development's json-restarts
 branch; the checkpoints this check restarts from are `RESTARTS/restart<N>.json`.
 A `.dat` file written by an earlier build still restarts: `read_restart()` tells
-the two formats apart by the file's first byte, not its name.  The format round
-trip in `../restart_format` checks that the two formats carry the same state.
+the two formats apart by the file's first byte, not its name, and a run keeps
+writing the format it restarted from.  `legacyRestartFormat = true` makes a new
+run write the `.dat` format; `RESTART_FORMAT=dat ./check.sh <nerdss>` runs the
+whole table that way, restarting from `RESTARTS/restart<N>.dat` and comparing
+the final `.dat` files.  The format round trip in `../restart_format` checks
+that the two formats carry the same state.
