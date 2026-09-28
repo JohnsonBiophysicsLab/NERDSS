@@ -25,10 +25,15 @@
 // prepare() forces isGhosted = false for it, derive_ghost_from_ownership()
 // skips it, and update_memberMolLists() skips it.  This is the one place that
 // did not.
+//
+// The test is the isGhosted flag, not a fresh x-bin comparison.  The two are
+// not the same: the flag is derived from the owning rank recorded on the
+// molecule's complex, while a ghost copy's coordinates are one step behind the
+// owner's, so both ranks could read their own copy as theirs and both count it.
 static bool is_ghosted_for_output(Molecule& mol, MpiContext& mpiContext,
                                   SimulVolume& simulVolume) {
   if (mol.isImplicitLipid) return false;
-  return is_ghosted(mol, mpiContext, simulVolume);
+  return mol.isGhosted;
 }
 
 void write_all_species(double simTime, std::vector<Molecule>& moleculeList,

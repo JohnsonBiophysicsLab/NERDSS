@@ -54,8 +54,13 @@ double print_complex_hist(std::vector<Complex>& complexList,
     // and skipped, as it is in the serial histogram.
     if (largest_id_index == -1) continue;
 
-    if (!is_owned_by_processor(moleculeList[largest_id_index], mpiContext,
-                               simulVolume)) {
+    // Count a complex on the rank that owns it.  This used to re-derive
+    // ownership from the representative molecule's x bin, which is the criterion
+    // derive_ghost_from_ownership() replaced: a ghost's coordinates are one step
+    // behind the owner's, so two ranks could both place their own copy inside
+    // their own share and both count it.  ownerRank is the authority everywhere
+    // else, so it decides here too.
+    if (com.ownerRank != mpiContext.rank) {
       continue;
     }
 

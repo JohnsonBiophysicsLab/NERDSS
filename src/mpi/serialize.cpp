@@ -13,8 +13,15 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
                          vector<Molecule> &moleculeList,
                          unsigned char *arrayRank, int &nArrayRank) {
   if (VERBOSE) cout << "serialize_complexes begins" << endl;
-  // Store number of complexes to be serialized:
-  PUSH(complexesSet.size());
+  // The count has to be the number of complexes actually written, not the size
+  // of the set, because the loop below skips empty ones.  Reserve the slot now
+  // and fill it in once the count is known, the way serialize_molecules() does:
+  // the receiver reads exactly this many complexes off the stream, so counting
+  // one too many makes it read into the bytes that follow and desynchronizes
+  // the rest of the message.
+  size_t nComplexes = 0;
+  int writeLengthAt = nArrayRank;
+  nArrayRank += sizeof(nComplexes);
 
   // TODO: AssumING 2 molecule complexes:
   for (auto &com : complexList) {
@@ -35,7 +42,11 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
     c.serialize(arrayRank, nArrayRank);
 
     complexList[*itr].receivedFromNeighborRank = false;
+    nComplexes++;
   }
+
+  // Serialize the number of complexes before the serialized complexes:
+  *((size_t *)&(arrayRank[writeLengthAt])) = nComplexes;
   // debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
   // "//serialize_complexes()");
   if (VERBOSE) cout << "serialize_complexes ends" << endl;

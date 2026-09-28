@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 
@@ -7,6 +8,34 @@
 #include "mpi/mpi_function.hpp"
 
 using namespace std;
+
+// A received complex replaces the local memberList wholesale, so a molecule that
+// was a member here and is not in the list that arrived keeps myComIndex
+// pointing at the complex while the complex no longer lists it back.  Usually
+// the molecule left that complex for another one that arrives in the same
+// message and re-parents it; when it does not, the molecule is left claiming a
+// complex that does not claim it, and delete_disappeared_complexes_partial() can
+// then destroy the complex from under it.  Nothing downstream survives that:
+// create_complex_propagation_vectors() walks the cleared memberList and
+// check_bimolecular_reactions() and the ncross reset index complexList with the
+// -1 it ends up holding.
+//
+// Put the molecule back in the list it still claims.  The complex is then stale
+// rather than inconsistent, and the next exchange replaces its memberList again.
+static void reconcile_complex_membership(vector<Molecule> &moleculeList,
+                                         vector<Complex> &complexList) {
+  for (auto &mol : moleculeList) {
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    if (mol.myComIndex < 0 ||
+        mol.myComIndex >= static_cast<int>(complexList.size()))
+      continue;
+    Complex &com = complexList[mol.myComIndex];
+    if (com.isEmpty) continue;
+    if (std::find(com.memberList.begin(), com.memberList.end(), mol.index) ==
+        com.memberList.end())
+      com.memberList.push_back(mol.index);
+  }
+}
 
 void deserialize_complexes(MpiContext &mpiContext,
                            vector<Molecule> &moleculeList,
@@ -35,8 +64,28 @@ void deserialize_complexes(MpiContext &mpiContext,
     for (auto &it : c.memberList) {  // looping over IDs
       if (VERBOSE) cout << it;
       int molIndex = find_molecule(moleculeList, it);
-      if (DEBUG && (molIndex == -1))
-        error(mpiContext, "5: complex member mol not found");
+      // A member this rank cannot resolve must not enter memberList: -1 is
+      // indexed unguarded by Complex::propagate(), Complex::update_properties()
+      // and the serializer, so it corrupts the heap rather than failing.  Drop
+      // the member and say so; the sender is supposed to ship a complex whole,
+      // so this means that invariant broke.
+      //
+      // An emptied slot is just as unusable and is reachable by find_molecule(),
+      // which matches on id alone while Molecule::MPI_remove_from_one_rank()
+      // and Complex::destroy() leave id set on the molecule they empty.  Such a
+      // molecule carries molTypeIndex == -1, which update_properties() feeds
+      // straight to numEachMol[].  All the incoming molecules are already
+      // installed by the time complexes are deserialized, so a slot still empty
+      // here is dead rather than about to be filled.
+      if (molIndex == -1 || moleculeList[molIndex].isEmpty) {
+        fprintf(stderr,
+                "rank %d: complex id=%d arrived from the left listing member "
+                "id=%d, which is %s on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it,
+                molIndex == -1 ? "not" : "deleted");
+        if (DEBUG) error(mpiContext, "5: complex member mol not found");
+        continue;
+      }
       memberList.push_back(molIndex);
       if (complexIndex == -1) {
         if (moleculeList[molIndex].justBoundThisStep) {
@@ -46,6 +95,10 @@ void deserialize_complexes(MpiContext &mpiContext,
       if (VERBOSE) cout << "(" << molIndex << "); ";
     }
     if (VERBOSE) cout << endl;
+    // An empty memberList is worse than a stale one: delete_disappeared_
+    // complexes_partial() reads memberList[0] of every complex that is not
+    // flagged empty.  Leave this rank's own copy untouched instead.
+    if (memberList.empty()) continue;
     c.memberList = memberList;
 
     // Extract unique complex identifier in the system,
@@ -56,9 +109,7 @@ void deserialize_complexes(MpiContext &mpiContext,
            << endl;
 
     if (complexIndex == -1) {  // new complex on this rank
-      if (VERBOSE)
-        printf("This is a new complex (id=%d) here\n",
-               complexList[complexIndex].id);
+      if (VERBOSE) printf("This is a new complex (id=%d) here\n", c.id);
 
       c.index = complexList.size();
       complexIndex = c.index;
@@ -79,7 +130,20 @@ void deserialize_complexes(MpiContext &mpiContext,
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
+      // Only the rank that currently owns a complex may say where ownership
+      // goes.  ownerRank travels inside the complex, so a rank holding a ghost
+      // copy could reassign it just by sending that copy back -- and ranks do
+      // send ghost copies back, because that is how a complex is handed over.
+      // A middle rank would hand a complex to one neighbour and have the other
+      // neighbour's stale copy hand it straight back, so both ended up owning
+      // it, propagating it independently from then on.
+      const int senderRank = mpiContext.rank - 1;
+      const int currentOwner = complexList[complexIndex].ownerRank;
+      const bool senderMayReassign =
+          (currentOwner == senderRank) || (currentOwner == -1);
       complexList[complexIndex] = c;  // copy all deserialized properties
+      if (!senderMayReassign)
+        complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
@@ -117,6 +181,7 @@ void deserialize_complexes(MpiContext &mpiContext,
       mol.myComIndex = complexIndex;
     }
   }
+  reconcile_complex_membership(moleculeList, complexList);
   //    debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
   //    "//end deserialize_complexes()");
   if (VERBOSE) cout << "deserialize_complexes ends" << endl;
@@ -147,10 +212,21 @@ void deserialize_complexes_right(MpiContext &mpiContext,
     for (auto &it : c.memberList) {  // looping over IDs
       if (VERBOSE) cout << it;
       int molIndex = find_molecule(moleculeList, it);
+      // Same as the left-hand side.
+      if (molIndex == -1 || moleculeList[molIndex].isEmpty) {
+        fprintf(stderr,
+                "rank %d: complex id=%d arrived from the right listing member "
+                "id=%d, which is %s on this rank; dropping the member\n",
+                mpiContext.rank, c.id, it,
+                molIndex == -1 ? "not" : "deleted");
+        if (DEBUG) error(mpiContext, "5: complex member mol not found");
+        continue;
+      }
       memberList.push_back(molIndex);
       if (VERBOSE) cout << "(" << molIndex << "); ";
     }
     if (VERBOSE) cout << endl;
+    if (memberList.empty()) continue;
     c.memberList = memberList;
 
     if (VERBOSE)
@@ -158,9 +234,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
            << endl;
 
     if (complexIndex == -1) {  // new complex on this rank
-      if (VERBOSE)
-        printf("This is a new complex (id=%d) here\n",
-               complexList[complexIndex].id);
+      if (VERBOSE) printf("This is a new complex (id=%d) here\n", c.id);
 
       c.index = complexList.size();
       complexIndex = c.index;
@@ -181,7 +255,20 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
+      // Only the rank that currently owns a complex may say where ownership
+      // goes.  ownerRank travels inside the complex, so a rank holding a ghost
+      // copy could reassign it just by sending that copy back -- and ranks do
+      // send ghost copies back, because that is how a complex is handed over.
+      // A middle rank would hand a complex to one neighbour and have the other
+      // neighbour's stale copy hand it straight back, so both ended up owning
+      // it, propagating it independently from then on.
+      const int senderRank = mpiContext.rank + 1;
+      const int currentOwner = complexList[complexIndex].ownerRank;
+      const bool senderMayReassign =
+          (currentOwner == senderRank) || (currentOwner == -1);
       complexList[complexIndex] = c;  // copy all deserialized properties
+      if (!senderMayReassign)
+        complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
@@ -219,6 +306,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       mol.myComIndex = complexIndex;
     }
   }
+  reconcile_complex_membership(moleculeList, complexList);
   //    debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
   //    "//end deserialize_complexes()");
   if (VERBOSE) cout << "deserialize_complexes ends" << endl;

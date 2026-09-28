@@ -49,7 +49,18 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
   }
 
   if (membraneObject.implicitLipid == true) {
-    membraneObject.nSites = round(membraneObject.nSites * ratio);
+    // Split the implicit-lipid sites so the ranks' shares add back up to the
+    // whole.  Rounding each rank's own share independently does not: at np=3
+    // over three cells every rank rounded 500/3 up to 167 and the merged output
+    // reported 501 lipids.  Taking the difference of two cumulative rounded
+    // counts telescopes to the original total whatever the decomposition is,
+    // and startCell is already the number of cells the earlier ranks hold.
+    const long long allSites = membraneObject.nSites;
+    const long long before = llround(1.0 * allSites * mpiContext.startCell /
+                                     totalxBins);
+    const long long upTo = llround(1.0 * allSites * (mpiContext.endCell + 1) /
+                                   totalxBins);
+    membraneObject.nSites = static_cast<int>(upTo - before);
     if (params.fromRestart == false) {
       for (auto &iface :
            molTemplateList[moleculeList[membraneObject.implicitlipidIndex]
