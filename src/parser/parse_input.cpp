@@ -296,7 +296,7 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             // A non-positive restartWrite turns the periodic restart write off and is left alone,
             // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
             if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
-                int tmp = int(params.restartWrite / params.timeWrite);
+                long long tmp = params.restartWrite / params.timeWrite;
                 if (tmp == 0)
                     tmp = 1;
                 params.restartWrite = tmp * params.timeWrite;
@@ -601,7 +601,7 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
             // A non-positive restartWrite turns the periodic restart write off and is left alone,
             // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
             if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
-                int tmp = int(params.restartWrite / params.timeWrite);
+                long long tmp = params.restartWrite / params.timeWrite;
                 if (tmp == 0)
                     tmp = 1;
                 params.restartWrite = tmp * params.timeWrite;

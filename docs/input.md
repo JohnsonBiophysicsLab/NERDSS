@@ -21,9 +21,9 @@
 \subsubsection simul Simulation Parameters
   | Keyword    | Description |
   |------------|-------------|
-  | NItr<sup>✝</sup> | requested number of iterations (timesteps) (integer) |
+  | NItr<sup>✝</sup> | requested number of iterations (timesteps) (integer<sup>2</sup>, must be positive; there is no default, so a zero, negative, fractional or unreadable value stops the run) |
   | deltat<sup>✝</sup> | timestep length (integer)|
-  | timeWrite | interval in timesteps to print the running-time block to standard output and append a row to every `DATA/*_time.dat` statistics file; 0 or a negative value writes only the first and the last row (integer, default: 10) |
+  | timeWrite<sup>2</sup> | interval in timesteps to print the running-time block to standard output and append a row to every `DATA/*_time.dat` statistics file; 0 or a negative value writes only the first and the last row (integer, default: 10) |
   | trajWrite | interval in timesteps to append a frame to `DATA/trajectory.xyz`; 0 or a negative value writes only the initial frame, nothing during or after the run (integer, default: 10) |
   | restartWrite<sup>1</sup> | interval in timesteps to overwrite the restart file; 0 or a negative value turns the periodic write off, the restart file at the end of the run is still written (integer, default: 10) |
   | pdbWrite | interval in timesteps to write a PDB file of the whole system to `PDB/<step>.pdb` (mainly for nonequilibrium simulations); 0 or a negative value writes no PDB file beyond the initial one (integer, default: -1, off) |
@@ -38,6 +38,8 @@
 ✝ indicates a required keyword
 
 <sup>1</sup> A positive restartWrite is rounded down to a multiple of timeWrite (and up to timeWrite itself when it is smaller), so set it such that restartWrite % timeWrite = 0
+
+<sup>2</sup> NItr and every write interval (timeWrite, trajWrite, restartWrite, pdbWrite, checkPoint, transitionWrite, bondedComplexWrite) are read as exact whole numbers, never through a floating-point value. `100000`, `1e5`, `5E5`, `2.5e6` and `1000000.0` are all accepted; a fractional value (`1000.5`), `nan`, `inf`, trailing characters or a value outside a 64-bit integer is not. An unreadable value is reported on stderr and replaced by the keyword's default; for NItr, which has none, the run stops. A write interval of 0 or below is taken as written and a note on stderr says what it means for that keyword.
 
 ---
 

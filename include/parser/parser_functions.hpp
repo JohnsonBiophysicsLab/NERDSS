@@ -218,6 +218,71 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
 bool read_boolean(std::string fileLine);
 
 /*! \ingroup Parser
+ * \brief Outcome of reading a step count (nItr, timeWrite, ...) with parse_step_count()
+ */
+enum class StepCountStatus {
+    ok,
+    notANumber, //!< empty, "nan", "inf", trailing characters, a bare exponent
+    notWholeNumber, //!< 1000.5, 1.5, 1e-1
+    outOfRange //!< past what a long long holds, including 1e400
+};
+
+/*! \ingroup Parser
+ * \brief Reads `text` as an exact whole number without going through floating point
+ *
+ * Accepts an optional sign, digits with an optional decimal point, and an optional exponent, so
+ * 100000, 1e5, 5E5, 2.5e6 and 1000000.0 all read.  Digits behind the decimal point are allowed
+ * only when the exponent cancels them: 1000.5 is rejected, as are nan, inf, trailing characters
+ * and anything outside a long long.  `value` is set only when the result is StepCountStatus::ok.
+ */
+StepCountStatus parse_step_count(const std::string& text, long long& value);
+
+/*! \ingroup Parser
+ * \brief What one step-count keyword accepts and what replaces a value it cannot use
+ */
+struct StepCountRule {
+    const char* keyword;
+    long long fallback; //!< the documented default, used when the value cannot be read
+    bool fatal; //!< no default exists (nItr): an unusable value ends the run
+    const char* offMeaning; //!< what a value of 0 or below means, or nullptr when it is a mistake
+    const char* minusOneMeaning; //!< what -1 means when it differs from offMeaning (checkPoint, transitionWrite), else nullptr
+};
+
+/*! \ingroup Parser
+ * \brief The rules for the step counts of the parameters block, one per keyword
+ */
+namespace StepCountRules {
+extern const StepCountRule nItr;
+extern const StepCountRule timeWrite;
+extern const StepCountRule trajWrite;
+extern const StepCountRule restartWrite;
+extern const StepCountRule pdbWrite;
+extern const StepCountRule checkPoint;
+extern const StepCountRule transitionWrite;
+extern const StepCountRule bondedComplexWrite;
+}
+
+/*! \ingroup Parser
+ * \brief Result of resolve_step_count(): the value to store, whether the run must stop, and what to tell the user
+ */
+struct StepCountReading {
+    long long value;
+    bool fatal;
+    std::string message; //!< empty when the value was taken as written
+};
+
+/*! \ingroup Parser
+ * \brief Applies a StepCountRule to the text of a parameter value
+ *
+ * A whole number is taken as written.  Where the rule documents what 0 or below means (every
+ * write interval: off, with the periodic write guarded by `interval > 0` downstream), such a value
+ * is stored as given and the message is a note saying what it does; where it does not (nItr),
+ * the value is a mistake.  A decimal, nan, inf, overflow or non-numeric value falls back to the
+ * rule's default with a warning, or is fatal for a keyword without a default.
+ */
+StepCountReading resolve_step_count(const std::string& text, const StepCountRule& rule);
+
+/*! \ingroup Parser
  * \brief Reads a formatted block of internal coordinates starting with the center of mass coordinate
  *
  * Format:
