@@ -29,6 +29,30 @@ void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     ++complexList[moleculeList[pro2].myComIndex].ncross;
 }
 
+void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList)
+{
+    MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
+    bool isMonomer { oneMol.bndpartner.empty() };
+    bool canDestroy { oneTemp.canDestroy };
+    if (isMonomer && canDestroy) {
+        std::vector<int>& oneList { oneTemp.monomerList };
+        std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
+        if (result != std::end(oneList)) {
+            oneList.erase(result);
+        }
+    }
+}
+
+void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList)
+{
+    MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
+    bool isMonomer { oneMol.bndpartner.empty() };
+    bool canDestroy { oneTemp.canDestroy };
+    if (isMonomer && canDestroy) {
+        oneTemp.monomerList.emplace_back(oneMol.index);
+    }
+}
+
 void zero_partner_probvec(
     const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners)
 {

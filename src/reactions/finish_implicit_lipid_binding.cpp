@@ -47,20 +47,8 @@ void finish_implicit_lipid_binding(long long int iter, Molecule& protein, Molecu
     // be needed to move the complex back inside the sphere.
     reflect_complex_rad_rot(membraneObject, proteinCom, moleculeList, RS3D, false);
 
-    // update oneTemp.monomerList when oneTemp.canDestroy is true and the protein is a monomer
-    {
-        MolTemplate& oneTemp { molTemplateList[protein.molTypeIndex] };
-        bool isMonomer { protein.bndpartner.empty() };
-        bool canDestroy { oneTemp.canDestroy };
-        if (isMonomer && canDestroy) {
-            //remove from monomerList
-            std::vector<int>& oneList { oneTemp.monomerList };
-            std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), protein.index) };
-            if (result != std::end(oneList)) {
-                oneList.erase(result);
-            }
-        }
-    }
+    // Binding takes a destroyable monomer out of its template's monomerList.
+    remove_from_monomer_list(protein, molTemplateList);
 
     // update Molecule interface statuses
     protein.interfaceList[proteinIface].interaction.partnerIndex = lipid.index;

@@ -83,6 +83,31 @@ void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     std::vector<Complex>& complexList);
 
 /*!
+ * \brief Takes `oneMol` off its template's monomerList, if it belongs there.
+ *
+ * `MolTemplate::monomerList` is the pool a destruction or transmission
+ * reaction draws from, kept only for templates with `canDestroy` set.  A
+ * molecule that has just bound leaves it.  The test is made on the molecule as
+ * it stands, `bndpartner.empty()`, so it fires only when the bound list is
+ * still empty after the association - which the associate_box copy flagged
+ * with "TODO: why is it possible that the bndpartner is empty right after
+ * binding?".  Seven copies kept that test, and it is kept here.
+ *
+ * A molecule that is not on the list is left alone.
+ */
+void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
+
+/*!
+ * \brief Puts `oneMol` on its template's monomerList, if it belongs there.
+ *
+ * The other direction: a molecule left without a partner by a dissociation
+ * rejoins the pool.  Same test as remove_from_monomer_list(), and appended
+ * without looking for an existing entry, as the two break_interaction copies
+ * did.
+ */
+void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
+
+/*!
  * \brief Zeroes the reaction probability every partner recorded for `mol`.
  *
  * Called once a reaction involving `mol` has fired, so that `mol` cannot react
