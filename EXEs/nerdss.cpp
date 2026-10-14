@@ -694,7 +694,13 @@ int main(int argc, char *argv[]) {
       print_complex_hist(complexList, assemblyfile, simItr, params,
                          molTemplateList, moleculeList, number_of_lipids);
 
-  // set some parameters
+  // Every write interval reads the same way: a positive value is a period in
+  // timesteps, and 0 or a negative value turns the periodic write off.  The
+  // writes at the start and the end of the run do not depend on the interval.
+  // checkPoint and transitionWrite keep their documented default of nItr / 10
+  // when they are left at the -1 the input parser starts from; a run shorter
+  // than ten steps makes that quotient 0, which then means off instead of a
+  // division by zero in the modulo below.
   if (params.checkPoint == -1) {
     params.checkPoint = params.nItr / 10;
   }
@@ -1533,25 +1539,21 @@ int main(int argc, char *argv[]) {
       trajFile.close();
     }
 
-    if (params.pdbWrite != -1) {
-      if (simItr % params.pdbWrite == 0) {
-        // std::cout << "Writing PDB file for current frame...\n";
-        write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-                  membraneObject);
-      }
+    if (params.pdbWrite > 0 && simItr % params.pdbWrite == 0) {
+      // std::cout << "Writing PDB file for current frame...\n";
+      write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+                membraneObject);
     }
 
-    if (params.transitionWrite != -1) {
-      if (simItr % params.transitionWrite == 0) {
-        // std::cout << "Writing transition matrix...\n";
-        std::ofstream transitionFile{transitionFileName,
-                                     std::ios::app}; // for append
-        write_transition((simItr - params.itrRestartFrom) * params.timeStep *
-                                 Constants::usToSeconds +
-                             params.timeRestartFrom,
-                         transitionFile, molTemplateList);
-        transitionFile.close();
-      }
+    if (params.transitionWrite > 0 && simItr % params.transitionWrite == 0) {
+      // std::cout << "Writing transition matrix...\n";
+      std::ofstream transitionFile{transitionFileName,
+                                   std::ios::app}; // for append
+      write_transition((simItr - params.itrRestartFrom) * params.timeStep *
+                               Constants::usToSeconds +
+                           params.timeRestartFrom,
+                       transitionFile, molTemplateList);
+      transitionFile.close();
     }
 
     // remove the empty complexes
@@ -1764,14 +1766,14 @@ int main(int argc, char *argv[]) {
     }
 
     // write bonded complex data
-    if ( (params.bondedComplexWrite >= 0) && (simItr % params.bondedComplexWrite == 0) )
+    if (params.bondedComplexWrite > 0 && simItr % params.bondedComplexWrite == 0)
     {
         std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
         write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
     }
 
-    // write check point
-    if (simItr % params.checkPoint == 0) {
+    // write check point (checkPoint <= 0 turns the periodic checkpoint off)
+    if (params.checkPoint > 0 && simItr % params.checkPoint == 0) {
       snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld%s", simItr, restartExtension.c_str());
       std::ofstream restartFile(fnameProXYZ);
       if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
@@ -1786,7 +1788,9 @@ int main(int argc, char *argv[]) {
     using duration = std::chrono::duration<double>;
     durationList.erase(durationList.begin());
     durationList.emplace_back(MDTimer::now() - startStep);
-    if (simItr % params.timeWrite == 0) {
+    // timeWrite <= 0 turns the periodic statistics output off; the rows at the
+    // start and the end of the run are still written.
+    if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       double timeSimulated{(simItr - params.itrRestartFrom) * params.timeStep *
                                Constants::usToSeconds +
                            params.timeRestartFrom};
@@ -1894,7 +1898,7 @@ int main(int argc, char *argv[]) {
     restartFile.close();
 
     // write bonded complex data
-    if (params.bondedComplexWrite >= 0)
+    if (params.bondedComplexWrite > 0)
     {
         std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
         write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
@@ -1912,13 +1916,13 @@ int main(int argc, char *argv[]) {
     // std::cout << "Writing final configuration...\n";
     write_xyz("DATA/final_coords.xyz", params, moleculeList, molTemplateList);
 
-    if (params.pdbWrite != -1) {
+    if (params.pdbWrite > 0) {
       // std::cout << "Writing PDB file for current frame.\n";
       write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
                 membraneObject);
     }
 
-    if (params.transitionWrite != -1) {
+    if (params.transitionWrite > 0) {
       // std::cout << "Writing transition matrix...\n";
       std::ofstream transitionFile{transitionFileName,
                                    std::ios::app}; // for append

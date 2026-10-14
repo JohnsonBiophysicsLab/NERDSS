@@ -293,8 +293,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             //            params.numTotalUnits += params.numTotalUnits / 100;
 
             // Make sure the writing of restart file and timestep information is in unison.
-            // A non-positive restartWrite turns the periodic restart write off and is left alone.
-            if (params.restartWrite > 0 && params.restartWrite % params.timeWrite != 0) {
+            // A non-positive restartWrite turns the periodic restart write off and is left alone,
+            // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
+            if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
                 int tmp = int(params.restartWrite / params.timeWrite);
                 if (tmp == 0)
                     tmp = 1;
@@ -597,8 +598,9 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
             //            params.numTotalUnits += params.numTotalUnits / 100;
 
             // Make sure the writing of restart file and timestep information is in unison.
-            // A non-positive restartWrite turns the periodic restart write off and is left alone.
-            if (params.restartWrite > 0 && params.restartWrite % params.timeWrite != 0) {
+            // A non-positive restartWrite turns the periodic restart write off and is left alone,
+            // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
+            if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
                 int tmp = int(params.restartWrite / params.timeWrite);
                 if (tmp == 0)
                     tmp = 1;
