@@ -108,6 +108,30 @@ void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& 
 void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
 
 /*!
+ * \brief Performs the uniMolStateChange that a dissociation is coupled to.
+ *
+ * A back reaction can name a forward uniMolStateChange as its `coupledRxn`;
+ * once the bond is broken, whichever of the two products carries that
+ * reaction's reactant interface changes state.  Both products are searched,
+ * every interface of each, and the last match wins, as the three copies did;
+ * no match is an input error and ends the run.  The observable, the species
+ * copy numbers and the molecule's and complex's `trajStatus` move with the
+ * state.
+ *
+ * Three sites wrote this out: check_dissociation(), the explicit-protein arm
+ * of check_dissociation_implicitlipid() (the implicit lipid's own arm has no
+ * molecule to search and stays there), and
+ * check_for_unimolecular_reactions_population().
+ *
+ * \param[in] coupledRxn the forward reaction the back reaction couples to.
+ * \param[in] pro1Index, pro2Index the two products of the dissociation.
+ */
+void perform_coupled_state_change(const ForwardRxn& coupledRxn, int pro1Index, int pro2Index,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, copyCounters& counterArrays,
+    std::map<std::string, int>& observablesList);
+
+/*!
  * \brief Zeroes the reaction probability every partner recorded for `mol`.
  *
  * Called once a reaction involving `mol` has fired, so that `mol` cannot react
