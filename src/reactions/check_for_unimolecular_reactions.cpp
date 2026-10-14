@@ -4,6 +4,15 @@
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 
+/* This routine is called by the MPI step only (check_perform_zeroth_first_order_
+ * reactions()); the serial loop replaced its call with
+ * check_for_unimolecular_reactions_population().  Unlike the serial routines it
+ * mirrors, it does not maintain counterArrays.copyNumSpecies, and that is
+ * deliberate: in the MPI build the array is a scratch buffer that
+ * src/io_mpi/write_all_species.cpp zeroes and recounts from moleculeList at
+ * every write, and nothing reads it between writes (the free-protein count in
+ * check_dissociation_implicitlipid.cpp counts moleculeList itself under
+ * mpi_).  A tally kept here would be overwritten before anyone read it. */
 void check_for_unimolecular_reactions(
     unsigned simItr, Parameters& params, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, SimulVolume& simulVolume,
@@ -111,8 +120,6 @@ void check_for_unimolecular_reactions(
                       // check observables
                       count_unimolecular_observable(isStateChangeBackRxn, rxnIndex, forwardRxns, backRxns, observablesList);
 
-                      // --counterArrays.copyNumSpecies[tmpImplicitLipidStateIndex];
-                      // ++counterArrays.copyNumSpecies[newState.absIfaceIndex];
                       --membraneObject.numberOfFreeLipidsEachState
                             [tmpImplicitLipidStateIndex];
                       ++membraneObject
@@ -202,9 +209,6 @@ void check_for_unimolecular_reactions(
                     // check observables
                     count_unimolecular_observable(isStateChangeBackRxn, rxnIndex, forwardRxns, backRxns, observablesList);
 
-                    // --counterArrays.copyNumSpecies[stateItr->index];
-                    // ++counterArrays.copyNumSpecies[newState.absIfaceIndex];
-
                     /*State change happens here.*/
                     moleculeList[molItr].interfaceList[relIndex].change_state(
                         relStateIndex, newState.absIfaceIndex,
@@ -275,7 +279,6 @@ void check_for_unimolecular_reactions(
                   //           << oneRxn.absRxnIndex << " at iteration " <<
                   //           simItr << '\n';
 
-                  // --counterArrays.copyNumSpecies[tmpImplicitLipidStateIndex];
                   --membraneObject.numberOfFreeLipidsEachState
                         [tmpImplicitLipidStateIndex];
 
@@ -327,7 +330,6 @@ void check_for_unimolecular_reactions(
                   //           << " from reaction " << oneRxn.absRxnIndex <<
                   //           '\n';
 
-                  // ++counterArrays.copyNumSpecies[tmpImplicitLipidStateIndex];
                   ++membraneObject.numberOfFreeLipidsEachState
                         [tmpImplicitLipidStateIndex];
 
@@ -386,14 +388,6 @@ void check_for_unimolecular_reactions(
             //           << " with reaction "
             //           << oneRxn.absRxnIndex << " at iteration " << simItr <<
             //           '\n';
-
-            // decrement the copy number array for everything in complex
-            // for (auto& memMol :
-            // complexList[moleculeList[molItr].myComIndex].memberList) {
-            //     for (auto& iface : moleculeList[memMol].interfaceList) {
-            //         --counterArrays.copyNumSpecies[iface.index];
-            //     }
-            // }
 
             complexList[moleculeList[molItr].myComIndex].destroy(moleculeList,
                                                                  complexList);
@@ -466,10 +460,6 @@ void check_for_unimolecular_reactions(
             moleculeList[molItr].trajStatus = TrajStatus::propagated;
             complexList[moleculeList[molItr].myComIndex].trajStatus =
                 TrajStatus::propagated;
-
-            // update the copy number array
-            // for (const auto& iface : moleculeList[newMolIndex].interfaceList)
-            //     ++counterArrays.copyNumSpecies[iface.index];
 
             if (oneRxn.isObserved) {
               auto observeItr = observablesList.find(oneRxn.observeLabel);
