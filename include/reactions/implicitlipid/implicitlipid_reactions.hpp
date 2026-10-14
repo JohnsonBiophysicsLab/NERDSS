@@ -50,6 +50,26 @@ int implicit_lipid_state_index(const std::vector<Interface::State>& stateList, c
 const std::vector<Interface::State>& implicit_lipid_state_list(const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
 
+/*! \brief Commit an accepted association between `protein` and the implicit lipid.
+ *
+ * Called by associate_implicitlipid_box() and associate_implicitlipid_sphere()
+ * once the rejection checks have passed, with the pair already sorted into
+ * roles: the box and sphere routines receive the molecules in the order the
+ * reaction lists them, and the implicit lipid may be either.  Writes the
+ * protein complex's temporary coordinates to its real ones, links it to the
+ * surface (`iLipidIndex`, `linksToSurface`, `OnSurface`, `D.z = 0`), resets the
+ * lipid's single-member complex, reflects the protein complex back into the
+ * volume, takes the protein off its template's monomer list, binds
+ * `proteinIface` to `lipidIface`, writes the BOND record when `assocDissocFile`
+ * is open, and zeroes the protein's reaction probabilities for the rest of the
+ * step.  The two `update_properties()` calls and the reflection are made on
+ * the same complexes in the same order as before the extraction.
+ */
+void finish_implicit_lipid_binding(long long int iter, Molecule& protein, Molecule& lipid, Complex& proteinCom,
+    Complex& lipidCom, int proteinIface, int lipidIface, const ForwardRxn& currRxn, double RS3D,
+    std::vector<Molecule>& moleculeList, std::vector<MolTemplate>& molTemplateList,
+    const Membrane& membraneObject, std::ofstream& assocDissocFile);
+
 /*!
  * \brief Gets the distance between one Molecule's Interface and the membrane surface, and determines if it is within Rmax, and can therefore
  * react.

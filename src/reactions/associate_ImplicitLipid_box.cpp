@@ -22,14 +22,18 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         }
     }
 
+    // The reaction may list the implicit lipid first or second, and the
+    // bookkeeping after the geometry only cares which of the pair is which.
+    Molecule& protein { reactMol2.isImplicitLipid ? reactMol1 : reactMol2 };
+    Molecule& lipid { reactMol2.isImplicitLipid ? reactMol2 : reactMol1 };
+    Complex& proteinCom { reactMol2.isImplicitLipid ? reactCom1 : reactCom2 };
+    Complex& lipidCom { reactMol2.isImplicitLipid ? reactCom2 : reactCom1 };
+    int proteinIface { reactMol2.isImplicitLipid ? ifaceIndex1 : ifaceIndex2 };
+    int lipidIface { reactMol2.isImplicitLipid ? ifaceIndex2 : ifaceIndex1 };
+
     // we need to set implicit-lipid's temporary position according to mol.
-    if (reactMol2.isImplicitLipid == true) {
-        reactMol2.create_position_implicit_lipid(reactMol1, ifaceIndex2, currRxn.bindRadius, membraneObject);
-        reactCom2.comCoord = reactMol2.comCoord;
-    } else {
-        reactMol1.create_position_implicit_lipid(reactMol2, ifaceIndex1, currRxn.bindRadius, membraneObject);
-        reactCom1.comCoord = reactMol1.comCoord;
-    }
+    lipid.create_position_implicit_lipid(protein, lipidIface, currRxn.bindRadius, membraneObject);
+    lipidCom.comCoord = lipid.comCoord;
 
     // set up temporary coordinates
     for (auto& memMol : reactCom1.memberList)
@@ -297,164 +301,8 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
     /*Keep track of the sizes of complexes that associated*/
     track_association_events(reactCom1, reactCom2, transitionToSurface, isOnMembrane, counterArrays);
 
-    if (reactMol2.isImplicitLipid == true) {
-        // write temporary to real coords and clear temporary coordinates
-        for (auto memMol : reactCom1.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
-            moleculeList[memMol].trajStatus = TrajStatus::propagated;
-            moleculeList[memMol].need_to_send = true;
-        }
-        //add link to surface for the molecule
-        moleculeList[reactMol1.index].linksToSurface++;
-        // update complexes
-        reactCom1.iLipidIndex = reactMol2.index; //index in molecule list of the implicit lipid.
-        reactCom1.linksToSurface++;
-        reactCom1.update_properties(moleculeList, molTemplateList); // recalculate the properties of the first complex
-        reactCom1.OnSurface = true; // the complex is on membrane now.
-        reactCom1.D.z = 0;
-        /*Clear implicit lipid properties*/
-        moleculeList[reactMol2.index].clear_tmp_association_coords();
-        reactCom2.memberList.clear();
-        reactCom2.memberList.push_back(reactMol2.index);
-        // std::cout << " Size of IL's complex:" << reactCom2.memberList.size() << " Interfaces on IL: " << moleculeList[reactMol2.index].interfaceList.size() << std::endl;
-        reactCom2.update_properties(moleculeList, molTemplateList); // recalculate the properties of the second complex
-        //Enforce boundary conditions
-        reflect_complex_rad_rot(membraneObject, reactCom1, moleculeList, RS3D, false);
-        //------------------------START UPDATE MONOMERLIST-------------------------
-        // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer
-        // reactMol1
-        {
-            Molecule& oneMol { reactMol1 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                //remove from monomerList
-                std::vector<int>& oneList { oneTemp.monomerList };
-                std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-                if (result != std::end(oneList)) {
-                    oneList.erase(result);
-                }
-            }
-        }
-        //------------------------END UPDATE MONOMERLIST---------------------------
-        // update Molecule interface statuses
-        reactMol1.interfaceList[ifaceIndex1].interaction.partnerIndex = reactMol2.index;
-        reactMol1.interfaceList[ifaceIndex1].interaction.partnerIfaceIndex = ifaceIndex2;
-        if (currRxn.isReversible) {
-            reactMol1.interfaceList[ifaceIndex1].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
-        }
-        reactMol1.interfaceList[ifaceIndex1].isBound = true;
-        //**************************************************
-        //**************************************************
-        reactMol1.interfaceList[ifaceIndex1].index = currRxn.productListNew[0].absIfaceIndex;
-
-        // add to the list of bound interfaces and remove from the list of free interfaces
-        reactMol1.bndlist.push_back(ifaceIndex1);
-        reactMol1.bndpartner.push_back(reactMol2.index);
-        {
-            size_t tmpItr { 0 };
-            for (unsigned i { 0 }; i < reactMol1.freelist.size(); ++i) {
-                if (reactMol1.freelist[i] == ifaceIndex1)
-                    tmpItr = i;
-            }
-            reactMol1.freelist[tmpItr] = reactMol1.freelist.back();
-            reactMol1.freelist.pop_back();
-        }
-
-        // Set probability of this protein to zero in all reactions so it doesn't try to
-        // react again but the partners still will avoid overlapping.
-        zero_partner_probvec(reactMol1, moleculeList, true);
-
-        // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
-        reactCom1.ncross = -1;
-        reactMol1.crossings.clear();
-        //mol2 is the implicit lipid.
-    } else {
-        //Mol1 is implicit lipid.
-        // write temporary to real coords and clear temporary coordinates
-        for (auto memMol : reactCom2.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
-            moleculeList[memMol].trajStatus = TrajStatus::propagated;
-            moleculeList[memMol].need_to_send = true;
-        }
-        //add link to surface for the molecule
-        moleculeList[reactMol2.index].linksToSurface++;
-        // update complexes
-        reactCom2.iLipidIndex = reactMol1.index; //index in molecule list of the implicit lipid.
-        reactCom2.linksToSurface++;
-        reactCom2.update_properties(moleculeList, molTemplateList); // recalculate the properties of the first complex
-        reactCom2.OnSurface = true; // the complex is on membrane now.
-        reactCom2.D.z = 0;
-        /*Clear implicit lipid properties*/
-        moleculeList[reactMol1.index].clear_tmp_association_coords();
-        reactCom1.memberList.clear();
-        reactCom1.memberList.push_back(reactMol1.index);
-        // std::cout << " Size of IL's complex:" << reactCom1.memberList.size() << " Interfaces on IL: " << moleculeList[reactMol1.index].interfaceList.size() << std::endl;
-        reactCom1.update_properties(moleculeList, molTemplateList); // recalculate the properties of the second complex
-
-        //Enforce boundary conditions
-        reflect_complex_rad_rot(membraneObject, reactCom2, moleculeList, RS3D, false);
-        //------------------------START UPDATE MONOMERLIST-------------------------
-        // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer
-        // reactMol2
-        {
-            Molecule& oneMol { reactMol2 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                //remove from monomerList
-                std::vector<int>& oneList { oneTemp.monomerList };
-                std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-                if (result != std::end(oneList)) {
-                    oneList.erase(result);
-                }
-            }
-        }
-        //------------------------END UPDATE MONOMERLIST---------------------------
-        // update Molecule interface statuses
-        reactMol2.interfaceList[ifaceIndex2].interaction.partnerIndex = reactMol1.index;
-        reactMol2.interfaceList[ifaceIndex2].interaction.partnerIfaceIndex = ifaceIndex1;
-        if (currRxn.isReversible) {
-            reactMol2.interfaceList[ifaceIndex2].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
-        }
-        reactMol2.interfaceList[ifaceIndex2].isBound = true;
-        //**************************************************
-        //**************************************************
-        reactMol2.interfaceList[ifaceIndex2].index = currRxn.productListNew[0].absIfaceIndex;
-        if (assocDissocFile.is_open()) {
-            assocDissocFile << "ITR:" << iter << "," << "BOND," 
-            << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << ifaceIndex1 << "," 
-            << molTemplateList[reactMol2.molTypeIndex].molName << "," << reactMol2.index << "," << ifaceIndex2 << std::endl;
-        }
-        // add to the list of bound interfaces and remove from the list of free interfaces
-        reactMol2.bndlist.push_back(ifaceIndex2);
-        reactMol2.bndpartner.push_back(reactMol1.index);
-        {
-            size_t tmpItr { 0 };
-            for (unsigned i { 0 }; i < reactMol2.freelist.size(); ++i) {
-                if (reactMol2.freelist[i] == ifaceIndex2)
-                    tmpItr = i;
-            }
-            reactMol2.freelist[tmpItr] = reactMol2.freelist.back();
-            reactMol2.freelist.pop_back();
-        }
-
-        // Set probability of this protein to zero in all reactions so it doesn't try to
-        // react again but the partners still will avoid overlapping.
-        zero_partner_probvec(reactMol2, moleculeList, true);
-
-        // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
-        reactCom2.ncross = -1;
-        reactMol2.crossings.clear();
-    } //reactmol1 is implicit lipid
+    finish_implicit_lipid_binding(iter, protein, lipid, proteinCom, lipidCom, proteinIface, lipidIface, currRxn,
+        RS3D, moleculeList, molTemplateList, membraneObject, assocDissocFile);
 
     //update the number of bound species
     update_Nboundpairs(reactMol1.molTypeIndex, reactMol2.molTypeIndex, 1, params, counterArrays);
