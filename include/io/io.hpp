@@ -207,11 +207,6 @@ void write_all_species(double simTime, std::vector<Molecule>& moleculeList, std:
     const Membrane& membraneObject, MpiContext& mpiContext, SimulVolume& simulVolume); // for mpi version
 
 /*! \ingroup IO
- * \brief Find all molecules whose partners change in this time interval. 
- */
-void write_single_molecule_rxn(double simTime, std::ofstream &smtRxnFile, const std::vector<Molecule> &moleculeList, const std::vector<Molecule> &snapshot, const std::vector<MolTemplate> &molTemplateList);
-
-/*! \ingroup IO
  * \brief Prints out information about all species in the system (Molecules and Complexes)
  */
 void print_system_information(long long int simItr, std::ofstream& systemFile, const std::vector<Molecule>& moleculeList,

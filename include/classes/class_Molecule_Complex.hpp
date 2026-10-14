@@ -148,7 +148,6 @@ struct Molecule {
         int relIndex { -1 }; //!< this interface's relative index (index in Molecule::interfaceList)
         int molTypeIndex { -1 }; //!< index of this interface's parent Molecule's MolTemplate (makes comparisons easier)
         bool isBound { false }; //!< is this interface bound
-        float boundTime { -1 }; //!< time the interface was bound
         bool excludeVolume { false }; //!< need check exclude volume?
 
         Interaction interaction{};
@@ -574,7 +573,6 @@ public:
 
     void update_properties(const std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
     void display();
-    Complex create(const Molecule& mol, const MolTemplate& molTemp);
     void destroy(std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
     void put_back_into_SimulVolume(int& itr, Molecule& errantMol, const Membrane& membraneObject, std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
     void translate(Vec3D transVec, std::vector<Molecule>& moleculeList);

@@ -37,7 +37,6 @@ inline double radial_sign(RadialSide side) { return static_cast<double>(static_c
  * \brief Enforces reflecting boundary conditions during dissociation reactions.
  */
 // void reflect_complex_rad_rot(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double RS3Dinput);
-void reflect_complex_rad_rot_inx(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList);
 void reflect_complex_rad_rot(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double RS3Dinput, bool isInsideCompartment);
 void reflect_complex_rad_rot_box(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double RS3Dinput);
 void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double radius, double RS3Dinput);

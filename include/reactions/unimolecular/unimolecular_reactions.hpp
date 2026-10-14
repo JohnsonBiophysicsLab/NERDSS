@@ -61,10 +61,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
     const std::vector<CreateDestructRxn>& createDestructRxns, std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays, Membrane& membraneObject, std::ofstream& assocDissocFile);
 
-void check_for_destruction(unsigned simItr, const Parameters& params, const std::vector<CreateDestructRxn>& createDestructRxns,
-    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
-    const std::vector<MolTemplate>& molTemplateList);
-
 
 bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
 // <<<<<<< HEAD

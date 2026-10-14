@@ -162,9 +162,6 @@ void determine_bound_iface_index(int& totSpecies, ParsedMol::IfaceInfo& targIfac
     ParsedRxn& parsedRxn, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList);
 
-bool areCorrespondingMolecules(std::pair<std::string, ParsedMol::IfaceInfo>& prodMolIface,
-    std::pair<std::string, ParsedMol::IfaceInfo>& reactMolIface);
-
 /*! \ingroup Parser
  * \brief returns true if the two ifaces are identical but for their states
  */

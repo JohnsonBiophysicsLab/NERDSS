@@ -176,7 +176,6 @@ struct Parameters {
     double timeStep { 0 }; //!< timestep, in microseconds.  used to be deltat
     double mass { 0 }; //!< total mass of the system (do we need this?)
     int max2DRxns { 10000 }; //!< maximum number of allowed unique 2D reactions
-    int maxUniqueSpecies { 1000 }; //!< maximum number of allowed unique species
     long long int itrRestartFrom { 0 }; //!< number of timesteps from when the simlation restart
     double timeRestartFrom { 0.0 }; //!< time from when the simulation restart (unit: s)
     double sphereR = 0;
@@ -261,7 +260,6 @@ struct Parameters {
         PUSH(timeStep);
         PUSH(mass);
         PUSH(max2DRxns);
-        PUSH(maxUniqueSpecies);
         PUSH(itrRestartFrom);
         PUSH(timeRestartFrom);
         PUSH(dt);
@@ -323,7 +321,6 @@ struct Parameters {
         POP(timeStep);
         POP(mass);
         POP(max2DRxns);
-        POP(maxUniqueSpecies);
         POP(itrRestartFrom);
         POP(timeRestartFrom);
         POP(dt);
