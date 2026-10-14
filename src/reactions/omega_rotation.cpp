@@ -1,5 +1,4 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, double targOmega, const ForwardRxn& currRxn,
@@ -9,7 +8,6 @@ void omega_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Mol
     const auto sameAngle = [&settings](double lhs, double rhs) {
         return areSameAngle(lhs, rhs, settings.sameAngle);
     };
-    // TRACE();
     /*! \ingroup Associate
      * \brief Performs a rotation of two molecules to some target omega angle, the com-iface1 to sigma to com-iface2
      * dihedral angle

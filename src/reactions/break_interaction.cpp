@@ -1,7 +1,6 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
     const BackRxn& currRxn, std::vector<Molecule>& moleculeList,

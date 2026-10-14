@@ -1,5 +1,4 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 /*What is the angular displacement between the site-COM of an associating molecule
   calculate the dot-product between the two vectors, the tmpICoords and the Coords.
 */

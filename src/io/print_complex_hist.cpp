@@ -9,7 +9,6 @@
 #include "debug/debug.hpp"
 #include "io/io.hpp"
 #include "mpi/mpi_function.hpp"
-#include "tracing.hpp"
 
 std::string complex_composition_string(const Complex& com,
                                        const std::vector<MolTemplate>& molTemplateList,

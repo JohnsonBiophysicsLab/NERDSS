@@ -3,7 +3,6 @@
 #include "io/io.hpp"
 #include "parser/parser_functions.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include <cctype>
 #include <cmath>
 #include <iostream>

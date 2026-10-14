@@ -5,7 +5,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
-#include "tracing.hpp"
 
 #include <iostream>
 
@@ -47,7 +46,6 @@ void translate_tmp_coords(Complex& targCom, std::vector<Molecule>& moleculeList,
 void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2,
     std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius)
 {
-    // TRACE();
     // Associating proteins have been moved to contact. Before assigning them to the complexsame complex,
     // test to see if the complex is too big to fit in the box.
 

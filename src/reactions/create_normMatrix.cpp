@@ -1,10 +1,8 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
-#include "tracing.hpp"
 
 void create_normMatrix(gsl_matrix*& normMatrix, double bindRadius, double Dtot, double kr, double comRMax,
     double RStepSize, const Parameters& params)
 {
-    // TRACE();
     //    double result, error;
     const double xLowB { bindRadius };
     int itr { 0 };

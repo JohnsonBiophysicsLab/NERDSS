@@ -1,13 +1,11 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 
 // only works for complex on sphere surface
 Vec3D create_complex_propagation_vectors_on_sphere(const Parameters& params, Complex& targCom)
 {
-    // TRACE();
     Vec3D trajTrans;
 
     const double R_fixed = params.sphereR;

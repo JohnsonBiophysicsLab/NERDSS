@@ -2,7 +2,6 @@
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 #include <vector>
 
@@ -160,7 +159,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, copyCounters& counterArrays, Membrane& membraneObject)
 {
-    // TRACE();
     //  int track1 = 143;
     //int track2= 182;
     int pro1MolType = moleculeList[pro1Index].molTypeIndex;

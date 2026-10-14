@@ -3,7 +3,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
-#include "tracing.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 
 #include <iomanip>
@@ -14,7 +13,6 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, Membrane& membraneObject)
 {
-    // TRACE();
     const auto& stateList = molTemplateList[stateChangeMol.molTypeIndex].interfaceList[stateChangeIface].stateList;
     double bindRadius { 0 };
     bool isStateChangeBackRxn { static_cast<bool>(rxnItr[2]) };

@@ -1,8 +1,19 @@
-#include "error_handling.hpp"
 #include "io/io.hpp"
 #include "parser/parser_functions.hpp"
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
+#include <string>
+
+/* Reports an unparseable reaction line and exits.  This was the one function
+ * still used from error_handling.hpp, whose other exception classes and
+ * error helpers had no callers left. */
+template <class X, class Y> static void invalid_rxn(std::string&& message, X _func, Y _line)
+{
+    std::cerr << "INVALID_RXN_ERR (" << _func << ", " << _line << "): " << message << '\n';
+    exit(6);
+}
 
 void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvidedRxns,
     std::vector<MolTemplate>& molTemplateList, std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,

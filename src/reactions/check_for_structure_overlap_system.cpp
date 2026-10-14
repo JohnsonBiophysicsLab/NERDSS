@@ -1,7 +1,6 @@
 #include "classes/class_Rxns.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 /*  Checks to see if the centers of masses of any of the molecules that are undergoing physical association
  * overlap with any of the other molecules in the system! Only checks molecules that are flagged with checkOverlap=1
@@ -15,7 +14,6 @@ void check_for_structure_overlap_system(bool& flag, const Complex& reactCom1, co
     std::vector<Molecule>& moleculeList, const Parameters& params,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns)
 {
-    // TRACE();
 
     // int measure_overlap_system(int c1, int c2, Complex *ind_com, Fullmol *bases, Parms plist, Protein *wholep,
     // Complex *all_com, Fullmol *allbases, int c1Main, int c2Main) {

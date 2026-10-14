@@ -1,7 +1,6 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
-#include "tracing.hpp"
 
 void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
     std::vector<double>& ILTableIDs, BiMolData& biMolData, const Parameters& params,

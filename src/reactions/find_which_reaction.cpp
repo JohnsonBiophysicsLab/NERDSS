@@ -1,12 +1,10 @@
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& rateIndex, bool& isStateChangeBackRxn,
     const Interface::State& currState, const Molecule& reactMol1, const Molecule& reactMol2,
     const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
     const std::vector<MolTemplate>& molTemplateList)
 {
-    // TRACE();
     // Both flags are properties of the Molecules, not of the reaction, so they
     // are read once instead of once per candidate reaction.
     const bool mol1IsImplicitLipid { reactMol1.isImplicitLipid };

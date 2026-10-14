@@ -13,7 +13,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 //! \brief Overlap sweep for a complex in solution.

@@ -1,7 +1,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& params,
@@ -21,7 +20,6 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
      stored new displacements. If a protein has already updated its position (done in sequential order) then itr cannot
      resample a new position, the current protein must still continue to avoid overlapping, however.
     */
-    // TRACE();
     int com1Index { moleculeList[pro1Index].myComIndex };
     size_t com1Size { complexList[com1Index].memberList.size() };
 

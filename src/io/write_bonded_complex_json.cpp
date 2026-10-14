@@ -225,7 +225,6 @@ static json maybe_null(double val)
 // This one does not make weird state modifications to the molecule
 static Quat molecule_orientation(const MolTemplate& oneTemplate, const Molecule& targMol)
 {
-    // TRACE();
     Quat firstRot {};
     Quat secondRot {};
     // make a temporary copy of the interface coordinates for us to modify

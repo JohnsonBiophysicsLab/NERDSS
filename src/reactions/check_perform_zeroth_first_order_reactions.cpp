@@ -33,7 +33,6 @@
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "split.cpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 void check_perform_zeroth_first_order_reactions(

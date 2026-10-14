@@ -1,6 +1,5 @@
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 #include <cstdint>
 
@@ -21,7 +20,6 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
     std::vector<Molecule>& moleculeList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    // TRACE();
     // get which box the Molecule belongs to
     int xItr { int((createdMol.comCoord.x + membraneObject.waterBox.x / 2) / simulVolume.subCellSize.x) };
     int yItr { int((createdMol.comCoord.y + membraneObject.waterBox.y / 2) / simulVolume.subCellSize.y) };

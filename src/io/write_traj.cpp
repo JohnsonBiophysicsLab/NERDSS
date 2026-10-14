@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -7,7 +6,6 @@
 void write_traj(long long int iter, std::ofstream& trajFile, const Parameters& params, const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    // TRACE();
     // TODO: I need to change this so that it fills up the trajectory with empties so that molecules are always in the
     // same line in the trajectory
     std::string chain { "ABCDEFGHIJKLMNOPQRSTUVWXYZ" };

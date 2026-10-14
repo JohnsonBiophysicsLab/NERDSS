@@ -1,6 +1,5 @@
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 void create_molecule_and_complex_from_transmission_rxn(int parentMolIndex, int& newMolIndex, int& newComIndex,
     MolTemplate& createdMolTemp, Parameters& params, const TransmissionRxn& currRxn, SimulVolume& simulVolume,

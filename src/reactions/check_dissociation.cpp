@@ -5,7 +5,6 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 
 void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolume& simulVolume,
@@ -14,7 +13,6 @@ void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolu
     std::vector<Complex>& complexList, const std::vector<BackRxn>& backRxns, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<CreateDestructRxn>& createDestructRxns, copyCounters& counterArrays, const Membrane& membraneObject, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     for (int relIface1Itr { 0 }; relIface1Itr < moleculeList[molItr].bndlist.size(); ++relIface1Itr) {
         if(moleculeList[molItr].isDissociated)
             break;

@@ -2,7 +2,6 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 #include <algorithm>
 

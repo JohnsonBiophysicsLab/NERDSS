@@ -6,7 +6,6 @@
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 #include <cmath>
 #include <iomanip>
@@ -17,7 +16,6 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, Membrane& membraneObject)
 {
-    // TRACE();
     const auto& stateList = molTemplateList[stateChangeMol.molTypeIndex].interfaceList[stateChangeIface].stateList;
     double bindRadius { 0 };
     bool isStateChangeBackRxn { static_cast<bool>(rxnItr[2]) };

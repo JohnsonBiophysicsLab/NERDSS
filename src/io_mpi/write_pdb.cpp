@@ -1,7 +1,6 @@
 #include "debug/debug.hpp"
 #include "io/io.hpp"
 #include "mpi/mpi_function.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
