@@ -111,7 +111,7 @@ void determine_exiting_compartment_probability(double distToCompartment, const s
 
 // some functions that helps calculate the 2D binding probability.
 double dissociate2D(paramsIL &parameters2D);
-double integral_for_blockdistance2D(paramsIL& parameters2D);
+double integrate_function2D(const paramsIL& parameters2D);
 double function2D(double u, void* parameter);
 void block_distance(paramsIL& parameters2D);
 double dissociate3D(double dt, double Dtot, double sigma, double ka, double kb);

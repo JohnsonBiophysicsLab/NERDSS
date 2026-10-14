@@ -61,8 +61,15 @@ double function2D(double u, void* parameter)
     return out;
 }
 
-// the block-distance
-double integral_for_blockdistance2D(paramsIL& parameters2D)
+// The integral of function2D() over u in [0, inf) for one set of parameters,
+// which block_distance() evaluates at each trial R2D and pimplicitlipid_2D()
+// once more at the R2D it settles on.  qagiu first; when it fails to converge
+// (the integrand oscillates, through the Bessel functions), the domain is cut
+// at a u beyond which the integrand is below 1e-5 and qags is retried on
+// [0, u2] with u2 shrunk by a tenth each time until it succeeds.  GSL's error
+// handler is off for the duration so a failed qagiu returns instead of
+// aborting.  Two copies of this stood here, one per caller.
+double integrate_function2D(const paramsIL& parameters2D)
 {
     paramsIL params = parameters2D;
 
@@ -106,7 +113,7 @@ void block_distance(paramsIL& parameters2D)
     while (std::abs(rmax - rmin) > criterion) {
         rmean = 0.5 * (rmax + rmin);
         parameters2D.R2D = rmean;
-        right = 4 * kb * integral_for_blockdistance2D(parameters2D);
+        right = 4 * kb * integrate_function2D(parameters2D);
         if (right > left) {
             rmin = rmean;
         } else {
@@ -127,29 +134,7 @@ double pimplicitlipid_2D(paramsIL& parameters2D)
     }
     block_distance(parameters2D);
     // std::cout<<parameters2D.R2D<<std::endl;
-    paramsIL params = parameters2D;
-    gsl_integration_workspace* w = gsl_integration_workspace_alloc(1e6);
-    double result, error;
-    double eps1 = 1.0e-5;
-    double eps2 = eps1;
-    gsl_function F;
-    F.function = &function2D;
-    F.params = &params;
-    gsl_set_error_handler_off();
-    int status = gsl_integration_qagiu(&F, 0, eps1, eps2, 1000000, w, &result, &error);
-    if (status != GSL_SUCCESS) {
-        double u1 = 0;
-        double u2 = 1.0e4;
-        while (std::abs(function2D(u2, F.params)) > 1.0e-5) {
-            u2 = u2 * 1.5;
-        }
-        while (status != GSL_SUCCESS) {
-            status = gsl_integration_qags(&F, u1, u2, eps1, eps1, 1000000, w, &result, &error);
-            u2 = u2 * 0.9;
-        }
-    }
-    gsl_integration_workspace_free(w);
-    gsl_set_error_handler(NULL);
+    double result = integrate_function2D(parameters2D);
 
     //double ka = parameters2D.ka;
     return result * 4 * ka;
