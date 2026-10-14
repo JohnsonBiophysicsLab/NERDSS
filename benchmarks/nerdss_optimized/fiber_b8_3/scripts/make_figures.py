@@ -14,6 +14,7 @@ BUILDS = [  # key, label, colour
     ("master", "master (c507ae30)", BLUE),
     ("b13_before", "1.3 before: B8.2 only, pre-cut drops fiber pairs", ORANGE),
     ("b13_fix", "1.3 fixed: B8.2 + B8.3", AQUA),
+    ("b13_grid", "1.3 fixed + grid sized by the 1D reach", AQUA),
     ("b13_fix_legacy_nob82", "legacy stream, B8.2 reverted, B8.3 fixed (= master byte for byte)", GRAY),
     ("b13_before_legacy", "legacy stream, B8.2 only", GRAY),
     ("b13_fix_legacy", "legacy stream, B8.2 + B8.3", GRAY),
@@ -69,7 +70,7 @@ for y, (k, lab, col) in zip(range(len(tb))[::-1], tb):
     ax.barh(y, m, color=col, height=0.6); ax.errorbar(m, y, xerr=e, fmt="none", ecolor=TXT, capsize=3)
     ax.scatter(T[k]["wall"], [y] * len(T[k]["wall"]), s=18, color="white", edgecolor=TXT, zorder=3, lw=0.8)
     ax.text(max(T[k]["wall"]) + 1.5, y, f"{m:.1f} s", va="center", fontsize=9)
-ax.set_yticks(range(len(tb))[::-1]); ax.set_yticklabels([b[1].split(":")[0] for b in tb], fontsize=9)
+ax.set_yticks(range(len(tb))[::-1]); ax.set_yticklabels([b[1].split(":")[0].replace(" + grid", "\n+ grid") for b in tb], fontsize=9)
 ax.set_xlabel("wall time of a 100 000-step run (s), one run at a time, 2 repeats (dots)")
 ax.set_title("D. Run time", loc="left", fontsize=10)
 if tb: ax.set_xlim(0, max(max(T[b[0]]["wall"]) for b in tb) * 1.25)
@@ -109,3 +110,28 @@ if "b13_fix_count" in runs:
     fig.suptitle("B8.3: the rMaxLimit pre-cut against the 1D reach, two-species fiber model", fontsize=11, fontweight="semibold", x=0.02, y=1.04, ha="left")
     fig.savefig(out / "fig2_b8_3_precut.png", dpi=150, bbox_inches="tight"); fig.savefig(out / "fig2_b8_3_precut.svg", bbox_inches="tight")
 print("wrote", sorted(p.name for p in out.iterdir()))
+
+# ---------------- Figure 3: the cell grid sized by the 1D reach ------------------------------
+if "b13_fix_count" in runs and "b13_grid_count" in runs:
+    fig, axs = plt.subplots(1, 2, figsize=(13, 4.6)); fig.subplots_adjust(wspace=0.3)
+    panels = [("b13_fix_count", "A. rMaxLimit from the 3D estimate (62 nm, 32 cells of 62.5 nm)"),
+              ("b13_grid_count", "B. rMaxLimit from the 1D reach (82 nm, 24 cells of 83.3 nm)")]
+    for ax, (k, title) in zip(axs, panels):
+        seeds = runs[k]["seeds"]; c0 = next(iter(seeds.values())); rmax = c0["counts"]["rMaxLimit"]; nb = len(c0["hist_seen"])
+        tot = lambda key: [sum(v[key][i] for v in seeds.values()) / len(seeds) for i in range(nb)]
+        seen, react, excl = tot("hist_seen"), tot("hist_react"), tot("hist_excl")
+        ax.stairs(seen, range(nb + 1), color=GRAY, lw=1.5, label="fiber pairs offered by the cell list (per molecule pair)")
+        ax.stairs(excl, range(nb + 1), color=ORANGE, lw=2, label="admitted by the 1D exclusion rule")
+        ax.stairs(react, range(nb + 1), color=AQUA, lw=2, label="admitted by the 1D reaction rule")
+        ax.set_yscale("log"); ax.set_ylim(1, 1e8); ax.set_xlim(0, 130)
+        ax.axvline(rmax, color=TXT, lw=1.2, ls="--"); ax.text(rmax + 1, 5e7, f"rMaxLimit = {rmax:.0f} nm", ha="left", va="top", fontsize=8.5)
+        ax.axvline(82, color=AQUA, lw=1, ls=":"); ax.text(83, 3e3, "1D reach\n82 nm", fontsize=8, color=TXT2)
+        ax.set_xlabel("pair separation along the fiber |Δx| (nm), 1 nm bins"); ax.set_ylabel("pair evaluations per 300 000-step run")
+        ax.grid(axis="y", color=GRID, lw=0.8); ax.set_axisbelow(True); ax.set_title(title, loc="left", fontsize=10)
+        C = {kk: sum(v["counts"][kk] for v in seeds.values()) for kk in c0["counts"] if kk != "rMaxLimit"}
+        ax.text(0.02, 0.05, f"admitted beyond rMaxLimit: reaction {C['react_admit_beyond']:,} of {C['react_admit']:,}, exclusion {C['excl_admit_beyond']:,} of {C['excl_admit']:,}",
+                transform=ax.transAxes, fontsize=8, color=TXT2)
+    axs[0].legend(frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(1.1, -0.16), ncol=3)
+    fig.suptitle("Cell grid sized by the 1D reach: what the cell list offers (instrumented builds, 4 seeds, per run)", fontsize=11, fontweight="semibold", x=0.02, y=1.04, ha="left")
+    fig.savefig(out / "fig3_grid_1d_reach.png", dpi=150, bbox_inches="tight"); fig.savefig(out / "fig3_grid_1d_reach.svg", bbox_inches="tight")
+    print("wrote fig3")

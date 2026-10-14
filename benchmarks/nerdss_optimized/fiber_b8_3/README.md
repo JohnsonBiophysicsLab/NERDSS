@@ -1,10 +1,10 @@
 # B8 on the fiber model: master against nerdss-optimized-1.3
 
 Measurement behind the B8.3 fix (`1a5d164a`, "Exempt fiber pairs from the
-rMaxLimit pre-cut") and the master-versus-branch comparison of B8 as a whole
+rMaxLimit pre-cut"), the grid sizing that followed from it (`22828ec3`), and the master-versus-branch comparison of B8 as a whole
 (B8.2, the pro2 exclusion block's missing fiber branch, `07d2b8d5`; B8.3,
 the pre-cut). Run on 2026-10-14. Builds: `master` at `c507ae30`; the 1.3
-branch at `5f56ede1` (before) and `1a5d164a` (fixed); Apple clang, `make
+branch at `5f56ede1` (before), `1a5d164a` (fixed) and `22828ec3` (grid); Apple clang, `make
 serial`, `-O3`.
 
 ## The defect (B8.3)
@@ -43,6 +43,8 @@ kinetics, seeds 20260901 to 20260948).
 | `b13_before_legacy` | `5f56ede1` + `legacy_stream.patch` | B8.2 alone under master's stream |
 | `b13_fix_legacy` | `1a5d164a` + `legacy_stream.patch` | B8.2 + B8.3 under master's stream |
 | `b13_fix_count` | `1a5d164a` + `scripts/count_B8_3.patch` | counts, for every fiber pair, whether it lies beyond `rMaxLimit` and whether the 1D rules admit it |
+| `b13_grid` | `22828ec3` | `b13_fix` plus `set_rMaxLimit()` sized by the 1D reach for promoter pairs (section below) |
+| `b13_grid_count` | `22828ec3` + `scripts/count_B8_3.patch` | the same, instrumented |
 
 The two patches are in `reference_2026-10-09/` (`scripts/legacy_stream_patch.py`,
 `fiber_b8/scripts/revert_B8_2.patch`).
@@ -63,6 +65,7 @@ on every 20th step of a 300 000-step run; a bound pair sits at exactly sigma):
 | `master` | 237, 220, 215, 228 | 225.0 +- 4.8 |
 | `b13_before` (B8.2 only) | 14, 16, 15, 17 | 15.5 +- 0.6 |
 | `b13_fix` (B8.2 + B8.3) | 17, 9, 15, 9 | 12.5 +- 2.1 |
+| `b13_grid` (B8.2 + B8.3 + grid by the 1D reach) | 11, 12, 9, 14 | 11.5 +- 1.0 |
 | `b13_fix_legacy_nob82` (= `master`) | 237, 220, 215, 228 | 225.0 +- 4.8 |
 | `b13_before_legacy` | 11, 10, 8, 13 | 10.5 +- 1.0 |
 | `b13_fix_legacy` | 9, 11, 11, 9 | 10.0 +- 0.6 |
@@ -89,8 +92,15 @@ step, which is why the realized effect is small.
 mean bond count is 38.9, 38.8 and 39.6 of 50.
 
 **Run time** (100 000 steps, one run at a time, 2 repeats): `master` 29.4 s,
-`b13_before` 24.9 s, `b13_fix` 25.1 s. Exempting fiber pairs costs about 1%
-on this model, where every pair is a fiber pair.
+`b13_before` 24.9 s, `b13_fix` 25.1 s, `b13_grid` 27.0 s. Exempting fiber
+pairs costs about 1% on this model, where every pair is a fiber pair; the
+wider cells of `b13_grid` cost a further 8% (the cell list offers 33% more
+fiber pairs per run, 352 million against 264 million).
+
+**Standard suite** (`suite_*.tsv`, the 13 cases of `cases.tsv`): byte
+identical between `b13_before` and `b13_fix`, and between `b13_fix` and
+`b13_grid`. No case in the tree sets `isPromoter`. The timing columns of the
+second file are not comparable: that suite ran alongside the fiber batch.
 
 ## Figures
 
@@ -98,12 +108,38 @@ on this model, where every pair is a fiber pair.
   distribution next to the exclusion zone, association kinetics, run time.
 - `figs/fig2_b8_3_precut.png`: where the admitted fiber pairs sit relative to
   `rMaxLimit`, and the share the pre-cut dropped.
+- `figs/fig3_grid_1d_reach.png`: what the cell list offers with the grid
+  sized by the 3D estimate and by the 1D reach.
 
-Panel A of figure 2 also shows that the cell list itself offers pairs beyond
-the 62.5 nm cell width with a probability falling linearly to zero at twice
-the width, on `master` and on the branch alike: the +-1 stencil was sized
-by the same 3D estimate. That is a separate, pre-existing limit on 1D
-reach, not part of B8.
+## The cell grid sized by the 1D reach (`22828ec3`)
+
+Panel A of figure 2 (and of figure 3) shows a second consequence of the
+same 3D estimate: the cell grid is `rMaxLimit` wide with a +-1 stencil, so
+a fiber pair further apart than one cell width (62.5 nm here) is offered to
+the pair search with a probability falling linearly to zero at two widths,
+while the 1D rules reach 82 nm. That holds on `master` and on the branch
+alike, and the B8.3 exemption cannot help with it: a pair the cell list
+never offers never reaches the pre-cut.
+
+`set_rMaxLimit()` now takes, for a reaction whose two reactant templates are
+both promoters, the larger of the 3D estimate and the 1D reach
+4 sqrt(2 (D1.x + D2.x) dt) + sigma. On this model `rMaxLimit` becomes 82 nm
+and the grid 24 cells of 83.3 nm instead of 32 of 62.5 nm. Instrumented
+(`b13_grid_count`, 4 seeds):
+
+| | `b13_fix_count` (62 nm) | `b13_grid_count` (82 nm) |
+| --- | ---: | ---: |
+| fiber pairs offered by the cell list, per run | 264 million | 352 million |
+| admitted by the 1D reaction rule, beyond `rMaxLimit` | 5 156 of 21 762 (23.7%) | 0 of 21 962 |
+| admitted by the 1D exclusion rule, beyond `rMaxLimit` | 75 799 864 of 1 032 727 583 (7.3%) | 0 of 1 037 576 221 |
+
+Figure 3 shows the offered histogram flat out to the 1D reach with the new
+grid, where before it had already lost a quarter of the pairs at 82 nm.
+Realized overlaps are unchanged within scatter (11.5 +- 1.0 against
+12.5 +- 2.1), as expected for pairs 3 to 4 standard deviations apart. The
+fiber exemption in the pre-cut (`1a5d164a`) is kept: it still covers a
+fiber pair whose templates are not both promoters, and it is now redundant
+rather than wrong for the rest.
 
 ## Reproducing
 
