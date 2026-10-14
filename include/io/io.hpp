@@ -22,11 +22,6 @@
  * \brief Functions for input/output of coordinates, parameters, trajectories, etc.
  */
 
-#if defined(__APPLE__) || defined(__linux__)
-std::ostream& bon(std::ostream& os);
-std::ostream& boff(std::ostream& os);
-#endif
-
 std::ostream& linebreak(std::ostream& os);
 std::ostream& llinebreak(std::ostream& os);
 void write_psf(const Parameters& params, const std::vector<Molecule>& moleculeList,

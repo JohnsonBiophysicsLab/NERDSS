@@ -328,7 +328,6 @@ void read_bonds(int numBonds, std::ifstream& molFile, MolTemplate& molTemplate);
 /*************************/
 
 /* LIST POPULATION */
-size_t find_molTypeIndex_from_ifaceIndex(const int& targIfaceIndex, const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup Parser
  * \brief Just sets the conjugate reaction iterators to the iterator of the last element in forwardRxns

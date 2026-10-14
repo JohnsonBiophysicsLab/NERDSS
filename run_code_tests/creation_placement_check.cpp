@@ -39,7 +39,6 @@
 
 gsl_rng* r; // the globals the simulator defines in main()
 unsigned long totMatches = 0;
-long long randNum = 0;
 
 namespace {
 

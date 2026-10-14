@@ -40,9 +40,7 @@ gsl_rng *r; /* global generator */
 
 // easier to read timer
 using MDTimer = std::chrono::system_clock;
-using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
 /* INITIALIZE GLOBALS */
-long long randNum = 0;
 unsigned long totMatches = 0;
 
 int main(int argc, char *argv[]) {

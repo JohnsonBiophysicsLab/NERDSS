@@ -378,12 +378,7 @@ struct Molecule {
     // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
     static std::unordered_map<size_t, size_t> mapIdToIndex;
 
-    void write_crd_file(std::ofstream& os) const;
-    void write_crd_file_cout() const;
-    friend std::ostream& operator<<(std::ostream& os, const Molecule& mol);
-
     // association member functions
-    void display_assoc_icoords(const std::string& name);
     void update_association_coords(const Vec3D& vec);
     void set_tmp_association_coords();
     void clear_tmp_association_coords();
@@ -395,12 +390,7 @@ struct Molecule {
     void MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
 
     void display(const MolTemplate& molTemplate) const;
-    void display_all() const;
-    void display_my_coords(const std::string& name);
     void print(MpiContext &mpiContext) const;
-
-    bool operator==(const Molecule& rhs) const;
-    bool operator!=(const Molecule& rhs) const;
 
     Molecule() {}
     // Listed comCoord first to match the declaration order above, which is what
@@ -495,110 +485,6 @@ struct Molecule {
         POP(id);
         POP(complexId);
     }
-    /*
-    Function serialize serializes the Molecule
-    into array of bytes.
-    */
-    void serialize_back(unsigned char* arrayRank, int& nArrayRank) {
-        // std::cout << "+Molecule serialization starts here..." << std::endl;
-        // crossings goes on the wire as the same four parallel arrays, in the
-        // same order, so the format is byte-identical to the pre-merge build.
-        std::vector<double> cross_prob;
-        std::vector<int> cross_base, cross_int;
-        std::vector<std::array<int, 3>> cross_rxn;
-        cross_prob.reserve(crossings.size());
-        cross_base.reserve(crossings.size());
-        cross_int.reserve(crossings.size());
-        cross_rxn.reserve(crossings.size());
-        for (const auto& oneCross : crossings) {
-            cross_prob.push_back(oneCross.prob);
-            cross_base.push_back(oneCross.partner);
-            cross_int.push_back(oneCross.myIface);
-            cross_rxn.push_back(oneCross.rxn);
-        }
-        serialize_primitive_vector<double>(cross_prob, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(cross_base, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(cross_int, arrayRank, nArrayRank);
-        serialize_vector_array<int, 3>(cross_rxn, arrayRank, nArrayRank);
-        // currReweight goes on the wire as the same six parallel arrays, in the
-        // same order, so the format is byte-identical to the pre-merge build.
-        // The temporaries cost nothing that was not already being paid:
-        // serialize_primitive_vector() takes its vector by value, so all six
-        // were being copied here before as well.
-        std::vector<int> curr_list, curr_myface, curr_pface;
-        std::vector<double> curr_norm, curr_ps, curr_sep;
-        curr_list.reserve(currReweight.size());
-        curr_myface.reserve(currReweight.size());
-        curr_pface.reserve(currReweight.size());
-        curr_norm.reserve(currReweight.size());
-        curr_ps.reserve(currReweight.size());
-        curr_sep.reserve(currReweight.size());
-        for (const auto& oneEntry : currReweight) {
-            curr_list.push_back(oneEntry.partner);
-            curr_myface.push_back(oneEntry.myFace);
-            curr_pface.push_back(oneEntry.partnerFace);
-            curr_norm.push_back(oneEntry.norm);
-            curr_ps.push_back(oneEntry.survProb);
-            curr_sep.push_back(oneEntry.sep);
-        }
-        serialize_primitive_vector<int>(curr_list, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(curr_myface, arrayRank, nArrayRank);
-        serialize_primitive_vector<int>(curr_pface, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(curr_norm, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(curr_ps, arrayRank, nArrayRank);
-        serialize_primitive_vector<double>(curr_sep, arrayRank, nArrayRank);
-        // std::cout << "+Total molecule size in bytes: " << start << std::endl;
-    }
-    void deserialize_back(unsigned char* arrayRank, int& nArrayRank) {
-        // Mirror of serialize_back(): four arrays off the wire, reassembled.
-        std::vector<double> cross_prob;
-        std::vector<int> cross_base, cross_int;
-        std::vector<std::array<int, 3>> cross_rxn;
-        deserialize_primitive_vector<double>(cross_prob, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(cross_base, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(cross_int, arrayRank, nArrayRank);
-        deserialize_vector_array<int, 3>(cross_rxn, arrayRank, nArrayRank);
-        // Bound by the shortest of the four, not by the first.  Each array
-        // carries its own count off the wire, so a truncated message can leave
-        // them disagreeing; indexing the siblings by cross_base's length would
-        // then read past their ends.  The four always match when written by
-        // serialize_back(), so this costs nothing and only bounds the damage.
-        // read_restart.cpp guards the same hazard the same way.
-        size_t crossCount { cross_base.size() };
-        if (cross_int.size() < crossCount) crossCount = cross_int.size();
-        if (cross_rxn.size() < crossCount) crossCount = cross_rxn.size();
-        if (cross_prob.size() < crossCount) crossCount = cross_prob.size();
-        crossings.clear();
-        crossings.reserve(crossCount);
-        for (size_t crossItr { 0 }; crossItr < crossCount; ++crossItr) {
-            crossings.emplace_back(cross_base[crossItr], cross_int[crossItr],
-                cross_rxn[crossItr], cross_prob[crossItr]);
-        }
-        // Mirror of serialize_back(): six arrays off the wire, reassembled into
-        // currReweight.  The six always carry the same number of elements
-        // because they are written from one vector.
-        std::vector<int> curr_list, curr_myface, curr_pface;
-        std::vector<double> curr_norm, curr_ps, curr_sep;
-        deserialize_primitive_vector<int>(curr_list, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(curr_myface, arrayRank, nArrayRank);
-        deserialize_primitive_vector<int>(curr_pface, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(curr_norm, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(curr_ps, arrayRank, nArrayRank);
-        deserialize_primitive_vector<double>(curr_sep, arrayRank, nArrayRank);
-        // Bounded by the shortest of the six, for the reason above.
-        size_t rwCount { curr_list.size() };
-        if (curr_myface.size() < rwCount) rwCount = curr_myface.size();
-        if (curr_pface.size() < rwCount) rwCount = curr_pface.size();
-        if (curr_norm.size() < rwCount) rwCount = curr_norm.size();
-        if (curr_ps.size() < rwCount) rwCount = curr_ps.size();
-        if (curr_sep.size() < rwCount) rwCount = curr_sep.size();
-        currReweight.clear();
-        currReweight.reserve(rwCount);
-        for (size_t entryItr { 0 }; entryItr < rwCount; ++entryItr) {
-            currReweight.emplace_back(curr_norm[entryItr], curr_ps[entryItr], curr_sep[entryItr],
-                curr_list[entryItr], curr_myface[entryItr], curr_pface[entryItr]);
-        }
-    }
 };
 
 struct Complex {
@@ -647,8 +533,6 @@ public:
 
     // static variables
     static int numberOfComplexes; //!< total number of complexes in the system. starts out equal to numberOfMolecules
-    static int currNumberComTypes;
-    static int currNumberMolTypes;
     static std::vector<int> emptyComList; //!< list of indices to empty Complexes in complexList
 
     // TODO: TEMPORARY
@@ -688,11 +572,8 @@ public:
     // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
     static std::unordered_map<size_t, size_t> mapIdToIndex;
 
-    friend std::ostream& operator<<(std::ostream& os, const Molecule& mol);
-
     void update_properties(const std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
     void display();
-    void display(const std::string& name);
     Complex create(const Molecule& mol, const MolTemplate& molTemp);
     void destroy(std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
     void put_back_into_SimulVolume(int& itr, Molecule& errantMol, const Membrane& membraneObject, std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
@@ -703,9 +584,7 @@ public:
 
     Complex() = default;
     //    Complex(Molecule mol, Vec3D D, Vec3D Dr);
-    Complex(const Molecule& mol, const MolTemplate& oneTemp);
     Complex(int _index, const Molecule& _memMol, const MolTemplate& _molTemp);
-    Complex(Vec3D comCoord, Vec3D D, Vec3D Dr);
     Complex(Vec3D comCoord, Vec3D D, Vec3D Dr, int idComplex);
 
     /*
@@ -754,8 +633,6 @@ public:
         PUSH(OnSurface);
         PUSH(tmpOnSurface);
         PUSH(numberOfComplexes);
-        PUSH(currNumberComTypes);
-        PUSH(currNumberMolTypes);
         // serialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);
         serialize_primitive_vector<int>(obs, arrayRank, nArrayRank);
         PUSH(linksToSurface);
@@ -784,8 +661,6 @@ public:
         POP(OnSurface);
         POP(tmpOnSurface);
         POP(numberOfComplexes);
-        POP(currNumberComTypes);
-        POP(currNumberMolTypes);
         // deserialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);
         deserialize_primitive_vector<int>(obs, arrayRank, nArrayRank);
         POP(linksToSurface);
@@ -797,15 +672,6 @@ public:
         tmpComCoord.deserialize(arrayRank, nArrayRank);
         POP(id);
         POP(ownerRank);
-    }
-    /*
-    Function serialize serializes the Molecule into arrayRank of bytes.
-    */
-    void serialize_back(unsigned char* arrayRank, int& nArrayRank) {
-        PUSH(ncross);
-    }
-    void deserialize_back(unsigned char* arrayRank, int& nArrayRank) {
-        POP(ncross);
     }
 };
 

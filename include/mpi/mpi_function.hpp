@@ -46,20 +46,6 @@ bool check_ownership_invariant(MpiContext &mpiContext,
 int find_complex(vector<Complex> &complexList, int id);
 
 /*! \ingroup mpi_function
- * \brief update the properties of molecule when it is in the shared zone
- */
-inline void in_shared_zone(Molecule &mol) {
-  // TODO: introduce shared complex if needed
-}
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it is not in the share zone
- */
-inline void not_in_shared_zone(Molecule &mol) {
-  // TODO: remove complex sharing if needed
-}
-
-/*! \ingroup mpi_function
  * \brief update the copycounters when complex enter ghosted zone
  */
 void update_copyCounters_enter_ghosted_zone(MpiContext &mpiContext, Molecule &mol, vector<MolTemplate> &molTemplateList,

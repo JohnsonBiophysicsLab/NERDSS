@@ -2,19 +2,13 @@
  * \brief Functions related to association
  *
  * The quaternion arithmetic itself lives in class_Quat.hpp so that it inlines
- * into the propagation and association loops.  What is left here is the printing
- * and the sampler, neither of which is on a hot path.
+ * into the propagation and association loops.  What is left here is the
+ * sampler, which is not on a hot path.
  */
 
 #include "classes/class_Quat.hpp"
 #include "math/rand_gsl.hpp"
 #include <cmath>
-
-std::ostream& operator<<(std::ostream& os, const Quat& q)
-{
-    os << '[' << q.w << ", " << q.x << "i, " << q.y << "j, " << q.z << "k]";
-    return os;
-}
 
 Quat rand_unit_quat()
 {

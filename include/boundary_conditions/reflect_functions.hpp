@@ -64,7 +64,6 @@ void reflect_traj_complex_radial(const Parameters& params, std::vector<Molecule>
  */
 // void reflect_traj_check_span(double xtot, double ytot, double ztot, const Parameters& params, Complex& targCom,
 //     std::vector<Molecule>& moleculeList, std::array<double, 9>& M, const Membrane& membraneObject, double RS3Dinput);
-void reflect_traj_check_span(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput);
 void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput);
 void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius, double RS3Dinput);
 
@@ -72,7 +71,7 @@ void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, 
  * \brief Enforces reflecting boundary conditions by placing Complex and component Molecules back into the box without
  * checking bounds after doing so.
  *
- * Child function of reflect_traj_check_span
+ * Child function of reflect_traj_check_span_box / reflect_traj_check_span_sphere
  */
 // void reflect_traj_complex_rad_rot_nocheck(
 //     const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, std::array<double, 9>& M, const Membrane& membraneObject, double RS3Dinput);
@@ -90,7 +89,6 @@ void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Compl
 
 // void check_if_spans_box(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2,
 //     std::vector<Molecule>& moleculeList, const Membrane& membraneObject);
-void check_if_spans(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList, const Membrane& membraneObject);
 void check_if_spans_box(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList, const Membrane& membraneObject);
 void check_if_spans_sphere(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius);
 

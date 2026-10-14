@@ -71,25 +71,6 @@ void debug_firstEmptyIndex(MpiContext &mpiContext, string errorMessage);
 void debug_bndpartner_interface(MpiContext &mpiContext, string errorMessage);
 
 /*! \ingroup debug
- * \brief print a vector to standard output
- */
-template <typename T>
-void print_vector(vector<T> vec) {
-  if (!vec.size()) {
-    cout << "/";
-    return;
-  }
-  cout << "(";
-  bool first = true;
-  for (auto &it : vec) {
-    if (!first) cout << ",";
-    first = false;
-    cout << it;
-  }
-  cout << ")";
-}
-
-/*! \ingroup debug
  * \brief Check consistence of mol.myComIndex and com.memberList
  */
 void debug_molecule_complex_missmatch(MpiContext &mpiContext,
