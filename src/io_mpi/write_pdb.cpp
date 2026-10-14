@@ -94,7 +94,6 @@ void write_pdb(long long int simItr, unsigned frameNum,
                 const std::vector<MolTemplate>& molTemplateList,
                 const Membrane& membraneObject, int rank, MpiContext& mpiContext,
                 SimulVolume& simulVolume) {
-    long long int totFrames{params.nItr / params.trajWrite};
     std::ofstream cifFile{"PDB/" + std::to_string(rank) + "_" +
                           std::to_string(frameNum) + ".cif"};
     auto printTime =

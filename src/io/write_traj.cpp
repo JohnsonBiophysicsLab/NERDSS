@@ -16,7 +16,7 @@ void write_traj(long long int iter, std::ofstream& trajFile, const Parameters& p
         molTypeNames.push_back(molTemp.molName.substr(0, 4));
 
     trajFile << params.numTotalUnits << '\n';
-    trajFile << "iteration: " << iter << std::endl;
+    trajFile << "iteration: " << iter << '\n';
     int numWritten { 0 };
     for (auto& mol : moleculeList) {
         if (mol.isEmpty || mol.isImplicitLipid)
@@ -28,7 +28,6 @@ void write_traj(long long int iter, std::ofstream& trajFile, const Parameters& p
                 trajFile << std::setw(4) << molTypeNames[mol.molTypeIndex] << ' ' << std::fixed << iface.coord << '\n';
                 ++numWritten;
             }
-            trajFile << std::flush;
         }
     }
     /*

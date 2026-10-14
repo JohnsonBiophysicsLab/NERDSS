@@ -1523,7 +1523,9 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    if (simItr % params.trajWrite == 0) {
+    // trajWrite <= 0 means no trajectory frames after the initial one; the
+    // guard also keeps a 0 out of the modulo.
+    if (params.trajWrite > 0 && simItr % params.trajWrite == 0) {
       // std::cout << "Writing trajectory...\n";
       std::ofstream trajFile{trajFileName, std::ios::app}; // for append
       write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
@@ -1739,8 +1741,9 @@ int main(int argc, char *argv[]) {
     //    } // done if empty
     //  }   // done over all complexes
 
-    // write restart
-    if (simItr % params.restartWrite == 0) {
+    // write restart (restartWrite <= 0 disables the periodic write; the final
+    // restart file below is still written)
+    if (params.restartWrite > 0 && simItr % params.restartWrite == 0) {
       auto endTime = MDTimer::now();
       auto endTimeFormat = MDTimer::to_time_t(endTime);
       std::ofstream restartFile{restartFileName,
@@ -1898,11 +1901,13 @@ int main(int argc, char *argv[]) {
     }
     
 
-    // std::cout << "Writing trajectory..." << '\n';
-    std::ofstream trajFile{trajFileName, std::ios::app}; // for append
-    write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
-               membraneObject);
-    trajFile.close();
+    if (params.trajWrite > 0) {
+      // std::cout << "Writing trajectory..." << '\n';
+      std::ofstream trajFile{trajFileName, std::ios::app}; // for append
+      write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
+                 membraneObject);
+      trajFile.close();
+    }
 
     // std::cout << "Writing final configuration...\n";
     write_xyz("DATA/final_coords.xyz", params, moleculeList, molTemplateList);

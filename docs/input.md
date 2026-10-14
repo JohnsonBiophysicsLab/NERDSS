@@ -24,8 +24,8 @@
   | NItr<sup>✝</sup> | requested number of iterations (timesteps) (integer) |
   | deltat<sup>✝</sup> | timestep length (integer)|
   | timeWrite | interval to write timestep information (integer, default: 10) |
-  | trajWrite | interval to write to coordinates file (integer, default: 10) |
-  | restartWrite<sup>1</sup> | interval to write to restart file (integer, default: trajWrite) |
+  | trajWrite | interval in timesteps to append a frame to `DATA/trajectory.xyz`; 0 or a negative value writes only the initial frame, nothing during or after the run (integer, default: 10) |
+  | restartWrite<sup>1</sup> | interval in timesteps to overwrite the restart file; 0 or a negative value turns the periodic write off, the restart file at the end of the run is still written (integer, default: 10) |
   | pdbWrite | interval to write individual pdb files (mainly for nonequilibrium simulations (integer, default: 0) |
   | fromRestart | Does the simulation start from a restart file. Not yet implemented (01/25/2019) (boolean, default: false) |
   | legacyRestartFormat | write restart files in the positional `.dat` format of builds before the JSON format, instead of JSON; a restart keeps the format of the file it read unless an add file sets this (boolean, default: false) |
@@ -34,7 +34,7 @@
 
 ✝ indicates a required keyword
 
-<sup>1</sup> Must be set such that restartWrite % trajWrite = 0
+<sup>1</sup> A positive restartWrite is rounded down to a multiple of timeWrite (and up to timeWrite itself when it is smaller), so set it such that restartWrite % timeWrite = 0
 
 ---
 
