@@ -1,0 +1,83 @@
+--- b13_fix/src/reactions/check_bimolecular_reactions.cpp	2026-10-14 13:23:57
++++ b13_fix_count/src/reactions/check_bimolecular_reactions.cpp	2026-10-14 13:28:48
+@@ -5,7 +5,31 @@
+ #include "tracing.hpp"
+ #include <algorithm>
+ #include <vector>
++#include <iostream>
++#include <cmath>
+ 
++// NERDSS_COUNT_B8_3: per-run counters for fiber pairs reaching the pre-cut.
++namespace {
++struct B83Counter {
++    long fiberSeen {0}, fiberBeyond {0};            // fiber pairs at the pre-cut; of those, beyond rMaxLimit
++    long reactAdmit {0}, reactAdmitBeyond {0};      // 1D reaction rule admits (would reach determine_1D's table)
++    long exclAdmit {0}, exclAdmitBeyond {0};        // 1D exclusion rule admits (record_crossing_pair)
++    static constexpr int NB { 130 };                // 1 nm bins of |dx| for admitted pairs
++    long reactHist[NB] {}, exclHist[NB] {}, seenHist[NB] {};
++    double rMaxLimit {0};
++    bool beyond {false};
++    ~B83Counter() {
++        std::cerr << "B83_COUNT rMaxLimit=" << rMaxLimit << " fiber_seen=" << fiberSeen << " fiber_beyond=" << fiberBeyond
++                  << " react_admit=" << reactAdmit << " react_admit_beyond=" << reactAdmitBeyond
++                  << " excl_admit=" << exclAdmit << " excl_admit_beyond=" << exclAdmitBeyond << '\n';
++        std::cerr << "B83_HIST_SEEN"; for (int i = 0; i < NB; ++i) std::cerr << ' ' << seenHist[i]; std::cerr << '\n';
++        std::cerr << "B83_HIST_REACT"; for (int i = 0; i < NB; ++i) std::cerr << ' ' << reactHist[i]; std::cerr << '\n';
++        std::cerr << "B83_HIST_EXCL"; for (int i = 0; i < NB; ++i) std::cerr << ' ' << exclHist[i]; std::cerr << '\n';
++    }
++    void bin(long* h, double d) { int i = int(std::floor(d)); if (i >= 0 && i < NB) ++h[i]; }
++} b83;
++}
++
+ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, double* tableIDs, unsigned& DDTableIndex,
+     const Parameters& params, std::vector<gsl_matrix*>& normMatrices, std::vector<gsl_matrix*>& survMatrices,
+     std::vector<gsl_matrix*>& pirMatrices, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+@@ -105,8 +129,16 @@
+     // 1550 of 20220 reacting pairs sit beyond rMaxLimit, by up to 1.109x.  On
+     // rev_3D, rev_3Dto2D, clathrin and mem_localization, whose rMaxLimit comes
+     // from a 3D reaction, not one of 16.7 million does.
++    b83.beyond = false;
+     if (canInteract) {
+         const Vec3D comSep { moleculeList[pro1Index].comCoord - moleculeList[pro2Index].comCoord };
++        {
++            const bool fib { complexList[moleculeList[pro1Index].myComIndex].onFiber && complexList[moleculeList[pro2Index].myComIndex].onFiber };
++            if (fib) {
++                b83.rMaxLimit = params.rMaxLimit; ++b83.fiberSeen; b83.bin(b83.seenHist, std::abs(comSep.x));
++                if (comSep.x * comSep.x + comSep.y * comSep.y + comSep.z * comSep.z > params.rMaxLimit * params.rMaxLimit) { ++b83.fiberBeyond; b83.beyond = true; }
++            }
++        }
+         if (comSep.x * comSep.x + comSep.y * comSep.y + comSep.z * comSep.z
+             > params.rMaxLimit * params.rMaxLimit) {
+             const bool bothOnSurface { complexList[moleculeList[pro1Index].myComIndex].OnSurface
+@@ -200,7 +232,14 @@
+ 
+                                     BiMolData biMolData { pro1Index, pro2Index, com1Index, com2Index, relIface1, relIface2,
+                                         absIface1, absIface2, Dtot, magMol1, magMol2 };
+-                                    // std::cout << "Evaluate 1-D binding " << pro1Index << ", " << pro2Index << " Dtot " << Dtot << std::endl;
++                                    {   // NERDSS_COUNT_B8_3: same admission test as determine_1D_bimolecular_reaction_probability()
++                                        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
++                                        const double RMax3D { 3.0 * sqrt(6.0 * Dtot * params.timeStep) + forwardRxns[rxnIndex].bindRadius };
++                                        if (moleculeList[pro1Index].isPromoter != moleculeList[pro2Index].isPromoter) RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
++                                        const Vec3D d { moleculeList[pro1Index].interfaceList[relIface1].coord - moleculeList[pro2Index].interfaceList[relIface2].coord };
++                                        const double R1 { std::abs(d.x) }, R3D { sqrt(d.x * d.x + d.y * d.y + d.z * d.z) };
++                                        if (R1 <= RMax && R3D <= RMax3D) { ++b83.reactAdmit; b83.bin(b83.reactHist, R1); if (b83.beyond) ++b83.reactAdmitBeyond; }
++                                    }
+                                     determine_1D_bimolecular_reaction_probability(
+                                         simItr, rxnIndex, rateIndex,
+                                         isStateChangeBackRxn, biMolData, params,
+@@ -283,6 +322,7 @@
+                                         }
+                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
+                                         if (R1 < RMax) {
++                                            ++b83.exclAdmit; b83.bin(b83.exclHist, R1); if (b83.beyond) ++b83.exclAdmitBeyond;
+                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                 std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+                                         }
+@@ -389,6 +429,7 @@
+                                         }
+                                         double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
+                                         if (R1 < RMax) {
++                                            ++b83.exclAdmit; b83.bin(b83.exclHist, R1); if (b83.beyond) ++b83.exclAdmitBeyond;
+                                             record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                                                 std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+                                         }
