@@ -73,7 +73,6 @@
 #pragma once
 
 #include "classes/class_Membrane.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Quat.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"

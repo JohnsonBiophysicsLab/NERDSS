@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"

@@ -18,7 +18,6 @@
  * @return             True if the distance between the two molecules is less than the sum of their radii plus a safety margin of 2.
  */
 bool are_molecules_in_vicinity(const Molecule& mol1, const Molecule& mol2, const std::vector<MolTemplate>& molTemplates);
-bool areInVicinity(const Molecule& mol1, const Molecule& mol2, const std::vector<MolTemplate>& molTemplateList);
 
 /*!
  * \ingroup SystemSetup

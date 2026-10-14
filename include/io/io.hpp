@@ -14,7 +14,6 @@
 #pragma once
 
 //#include "classes/class_mol_containers.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
@@ -32,8 +31,6 @@ std::ostream& linebreak(std::ostream& os);
 std::ostream& llinebreak(std::ostream& os);
 void write_psf(const Parameters& params, const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList);
-void write_crds(std::string name, const std::vector<Complex>& Complexlist, const std::vector<Molecule>& bases);
-void write_crds(const std::vector<Complex>& Complexlist, const std::vector<Molecule>& bases); // overloaded crd dump for errors
 
 /*!
  * \brief Writes the coordinates of all Molecules in the system to an XYZ coordinate file.
@@ -51,40 +48,6 @@ void write_traj(long long int iter, std::ofstream& trajFile, const Parameters& p
  * \brief Writes/appends the transition matrix in the system to the transition matrix file.
  */
 void write_transition(double iter, std::ofstream& transitionFile, const std::vector<MolTemplate>& molTemplateList);
-
-/*! \ingroup IO
- * \brief Debugging IO function to write an xyz file for a associating complexes.
- */
-void write_xyz_assoc(std::string filename, const Complex& reactCom1, const Complex& reactCom2,
-    const std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Debugging IO function to write an xyz file for a associating complexes to std cout.
- */
-void write_xyz_assoc_cout(const Complex& reactCom1, const Complex& reactCom2,
-    const std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Writes the coordinates of a complex to a file
- */
-void write_complex_crds(
-    std::string name, const Complex& complex1, const Complex& complex2, std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Writes out timestep information, such as the different molecular types in the system.
- *
- * TODO: This description needs more information
- */
-void write_timestep_information(long long int simItr, std::ofstream& outFile, std::ofstream& molecTypesFile,
-    std::ofstream& textTimeStatFile, const Parameters& params, std::vector<std::vector<int>>& molecTypesList,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList);
-
-/*! \ingroup IO
- * \brief Writes the number of each component Molecule in all complexes at the current timestep
- */
-void write_complex_components(long long int simItr, std::ofstream& complexFile, const Parameters& params,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
-    const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup IO
  * \brief Writes a restart file at intervals specified in the Parameters file.

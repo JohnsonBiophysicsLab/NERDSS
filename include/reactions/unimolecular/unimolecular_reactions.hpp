@@ -13,7 +13,6 @@
 
 #pragma once
 
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
@@ -76,9 +75,6 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
     std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList, int ILindexMol, const ForwardRxn &conjForwardRxn, 
     bool &breakLinkComplex, double timeStep, std::ofstream& assocDissocFile);
 // >>>>>>> master
-
-bool determine_parent_complex(int pro1Index, int pro2Index, int newComIndex, std::vector<Molecule>& moleculeList,
-    std::vector<Complex>& complexList);
 
 bool determine_parent_complex_IL(int pro1Index, int pro2Index, int newComIndex, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, int ILindexMol);
