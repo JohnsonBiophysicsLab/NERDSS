@@ -361,7 +361,9 @@ int main(int argc, char* argv[]) {
   }
 
   // Set the interval to write checkpoint and transition matrix file if it is
-  // not specified
+  // not specified (-1): the documented default is nItr / 10.  Any other value
+  // of 0 or below, and a quotient of 0, turns the periodic write off; see the
+  // same block in EXEs/nerdss.cpp.
   if (params.checkPoint == -1) {
     params.checkPoint = params.nItr / 10;
   }
@@ -1053,7 +1055,7 @@ int main(int argc, char* argv[]) {
                  createDestructRxns, durationList, startStep, totalTimeStart,
                  observablesList, assemblyfile);
 
-    if (simItr % params.timeWrite == 0) {
+    if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       std::cout << "total computation time: " << total_computation_time
                 << " seconds\n";
       std::cout << "total communication time: " << total_communication_time

@@ -213,13 +213,19 @@ struct Parameters {
     // IO information. Iterators need to be long long because they can exceed 2^32
     bool fromRestart { false }; //!< is this simulation initialized from a restart file. used to be int restart
     bool assocDissocWrite { false }; //!< is association and dissociation written to a file
-    long long int timeWrite { 10 }; //!< timestep interval to print timestep. used to be statwrite
-    long long int trajWrite { 10 }; //!< timestep interval to write coordinates file. used to be configwrite
-    long long int restartWrite { 10 }; //!< timestep interval to write a restart file
-    long long int pdbWrite { -1 }; //!< interval to write pdb
-    long long int checkPoint { -1 }; //!< interval to write checkpoint
-    long long int transitionWrite { -1 }; //!< timestep interval to write transition matrix
-    long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON file
+    /* Write intervals, in timesteps.  A positive value is a period; 0 or a
+     * negative value turns that periodic write off (the writes at the start
+     * and the end of the run do not depend on it).  checkPoint and
+     * transitionWrite are the exception for -1 only: left at -1 they take
+     * the documented default of nItr / 10 (EXEs/nerdss.cpp, nerdss_mpi.cpp),
+     * so write 0 to turn those two off. */
+    long long int timeWrite { 10 }; //!< timestep interval to print timestep information and the *_time.dat statistics. used to be statwrite
+    long long int trajWrite { 10 }; //!< timestep interval to append a frame to the trajectory file. used to be configwrite
+    long long int restartWrite { 10 }; //!< timestep interval to overwrite DATA/restart.*
+    long long int pdbWrite { -1 }; //!< timestep interval to write a PDB file; -1 (default) is off
+    long long int checkPoint { -1 }; //!< timestep interval to write RESTARTS/restart<step>.*; -1 (default) means nItr / 10, 0 is off
+    long long int transitionWrite { -1 }; //!< timestep interval to write the transition matrix; -1 (default) means nItr / 10, 0 is off
+    long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON files; -1 (default) is off
     bool clusterOverlapCheck { false }; //!< is overlap checked by cluster 
     bool rngwrite { false }; //!< whether to write rng state along with restart files (checkpoints)
     //! Write restart files in the positional .dat format of builds before the JSON format instead of
