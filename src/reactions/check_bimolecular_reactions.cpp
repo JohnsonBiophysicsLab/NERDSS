@@ -84,10 +84,17 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
     // rMaxLimit yet still walk the whole freelist x rxnPartners x freelist
     // search and find_which_reaction() for every combination.
     //
-    // Two pairs are exempt.
+    // Three cases are exempt.
     //
     // The volume-exclusion path below is not gated at all: it carries its own
     // radii, and its 2D branch reaches to RMax * 10, far outside rMaxLimit.
+    //
+    // Pairs with both complexes on a fiber are not gated, because rMaxLimit
+    // is not a bound for them either.  set_rMaxLimit() estimates every reach
+    // as 3 sqrt(6 Dtot dt) with Dtot averaged over three axes, while the 1D
+    // reaction and exclusion rules reach 4 sqrt(2 (D1.x + D2.x) dt): with
+    // D.y = D.z = 0 that is 4/3 as far, so a fiber pair between the two
+    // radii was evaluated by master and dropped here (B8.3).
     //
     // Pairs with both complexes on the surface are not gated either, because
     // rMaxLimit is not a bound for them.  set_rMaxLimit() estimates a 2D
@@ -104,7 +111,9 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
             > params.rMaxLimit * params.rMaxLimit) {
             const bool bothOnSurface { complexList[moleculeList[pro1Index].myComIndex].OnSurface
                 && complexList[moleculeList[pro2Index].myComIndex].OnSurface };
-            if (!bothOnSurface)
+            const bool bothOnFiber { complexList[moleculeList[pro1Index].myComIndex].onFiber
+                && complexList[moleculeList[pro2Index].myComIndex].onFiber };
+            if (!bothOnSurface && !bothOnFiber)
                 canInteract = false;
         }
     }
