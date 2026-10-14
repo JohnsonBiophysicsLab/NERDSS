@@ -53,6 +53,7 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numericsassociationendpointsigntolerance", ParamKeyword::numericsAssociationEndpointSignTolerance },
     { "numericsvec3dcoordinateprecision", ParamKeyword::numericsVec3DCoordinatePrecision },
     { "legacyrestartformat", ParamKeyword::legacyRestartFormat },
+    { "histogrammolstates", ParamKeyword::histogramMolStates },
 };
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
@@ -210,6 +211,10 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             this->legacyRestartFormat = read_boolean(value);
             std::cout << "Read in legacyRestartFormat: " << std::boolalpha << this->legacyRestartFormat << std::endl;
             break;
+        case 39:
+            this->histogramMolStates = read_boolean(value);
+            std::cout << "Read in histogramMolStates: " << std::boolalpha << this->histogramMolStates << std::endl;
+            break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
         }
@@ -299,6 +304,8 @@ void Parameters::display()
     std::cout << "RNGwrite: " << rngwrite << "\n";
     std::cout << "bondedComplexWrite: " << bondedComplexWrite << "\n";
     std::cout << "Restart file format: " << (legacyRestartFormat ? "legacy .dat" : "JSON") << "\n";
+    std::cout << "Complex histogram counts molecule states (histogramMolStates): " << std::boolalpha
+              << histogramMolStates << std::noboolalpha << "\n";
 
     std::cout << "Numerical settings:\n";
     std::cout << "  2D table integration abs/rel error: " << numerics.integration.tableAbsoluteError << " / "

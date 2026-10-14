@@ -1221,3 +1221,134 @@ Two things to weigh before starting:
 Both parts are expected to be bit-for-bit result-preserving, so the 13-case
 bitwise suite is the right check, which makes this the cheaper of the two to
 validate.
+
+---
+
+## Version 1.3 - changes after the 2026-10-09 reference
+
+The branch was frozen as `nerdss-optimized-ref-2026-10-09` (`3505932d`) and the
+reference outputs of that build are kept under
+`benchmarks/nerdss_optimized/reference_2026-10-09/`. Everything below is on
+`nerdss-optimized-1.3`, branched from that commit, and is held to the same rule
+as before: with every new parameter left at its default, every output file of
+every suite case is byte-identical to the reference build's, restart files
+included.
+
+### `histogramMolStates` - interface states in the complex histogram
+
+`DATA/histogram_complexes_time.dat` lists, at every `timeWrite`, the complexes
+present by composition, one line per composition with its count first. The
+composition was the number of molecules of each *type*: `print_complex_hist()`
+tallied `numEachMol[mol.molTypeIndex]` over the members and wrote `name: n. `
+per type. Interface states never entered, so in `sample_inputs/enzyme` a
+phosphorylated `pip2(head~P)` and an unphosphorylated `pip2(head~U)` were one
+species, `pip2`, and a complex of two P lipids and one U lipid was the same line
+as one of one P and two U. For the models whose chemistry *is* the state change
+(`enzyme`, `auto_phos`, `VALIDATE_SUITE/michaelis_menten`) that discards the
+quantity of interest; for a model where the state is incidental the type-level
+tally is the one wanted. So it is a switch, off by default:
+
+```
+start parameters
+    histogramMolStates = true
+end parameters
+```
+
+With it on, members of one type are tallied apart when their interface states
+differ, and named as the species of `copy_numbers_time.dat` are, listing only
+the interfaces with more than one state:
+
+```
+Time (s): 0.001
+2	A(ser~P): 1. Phos: 1.
+2	A(ser~P): 1. A(ser~U): 1.
+3	A(ser~P): 1.
+7	Phos: 1.
+99	A(ser~U): 1.
+```
+
+where the default writes `2  A: 1. Phos: 1.`, `2  A: 2.`, `7  Phos: 1.` and
+`102  A: 1.` for the same frame. A molecule with two state interfaces is
+`A(ser~U,tag~U)`, in the `.mol` file's interface order. An implicit lipid stays
+the plain `name: n.` entry: its complexes count it through `linksToSurface`, not
+through members, and the links carry no state.
+
+**Where it lives.** Both histogram writers, the serial `print_complex_hist()` in
+[`src/io/print_complex_hist.cpp`](../src/io/print_complex_hist.cpp) and
+`nerdss_mpi`'s per-rank one in `src/io_mpi/print_complex_hist.cpp`, now build
+the line through one function, `complex_composition_string()`. With the switch
+off it is the tally the histogram always wrote, a vector indexed by type walked
+in type order, so the default output is the old output byte for byte and costs
+what it cost. With the switch on it tallies into a `std::map` keyed by (type
+index, state identities of the multi-state interfaces), so the entries of a line
+are ordered by type and then by state, and a composition always prints the same
+way whatever order its members were added in. The parameter is a `bool` in
+`Parameters` (`ParamKeyword::histogramMolStates`, keyword `histogramMolStates`),
+serialized with the rest for the MPI exchange.
+
+**Restart files.** The switch is written to the JSON restart file only when it is
+set, and `read_json_restart()` takes a missing key as off. Writing it
+unconditionally would have changed every restart file of every default run,
+which is what the bitwise comparison against the reference build hashes. A
+restart from a JSON checkpoint therefore keeps the switch without an add file;
+the `.dat` format cannot carry it (its layout is fixed), so a restart from a
+`.dat` file needs `histogramMolStates = true` in the add file.
+
+**Verification.**
+`benchmarks/nerdss_optimized/regression/histogram_mol_states/check.sh` runs
+`auto_phos`, `VALIDATE_SUITE/unimol_state_change_reversible` and `enzyme`
+three times each with one seed, as is, with the switch written as `false`, and
+with it `true`, and checks that the `false` run equals the plain run on every
+output file; that the `true` run equals it on every file but the histogram and
+differs in the restart files by the parameter alone; that collapsing the
+state-aware histogram onto types reproduces the plain histogram frame by frame;
+that its totals agree with the `Type(iface~S)` columns of
+`copy_numbers_time.dat`; and that a restart from the `true` run's checkpoint
+keeps the switch and reproduces its frames. All three pass. The two suite tables
+against the reference binary, switch off: every case byte-identical on every
+hashed file (`cases.tsv`, 13 of 13; `coverage_cases.tsv`, 5 of 5 pre-existing
+cases). `coverage_cases.tsv` gains `hist_mol_states`, `auto_phos` with the switch
+on, which against the reference binary (where the keyword is ignored with a
+warning) differs in `histogram_complexes_time.dat` and `restart.json` only.
+`nerdss_mpi` at one and two ranks writes the state-aware histogram, and the
+merged file's monomer counts equal the merged copy numbers. GCC 15 builds it
+without a warning and agrees with the clang build frame by frame (the lines
+within a frame come out of an `unordered_map`, so their order differs between
+the two standard libraries, as it always has).
+
+**Cost.** `interleaved_timing.sh`, three repetitions, reference binary against
+this one, on the state-change models each at its own `timeWrite` and with the
+switch on (`_on`; the reference binary ignores the keyword, so its `_on` row is a
+second measurement of the switch-off cost). `enzyme_hist` writes the histogram
+every 10 steps instead of every 50000, which is 200 writes of a 6410-molecule
+system in 2000 steps, to make the histogram's own cost visible at all:
+
+| case | nItr | histogram writes | switch | reference: instructions | this build: instructions | ratio | reference: CPU s | this build: CPU s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| auto_phos | 150000 | 300 | off | 31.159 G | 31.163 G | 1.000 | 2.720 | 2.720 |
+| auto_phos | 150000 | 300 | on | 31.137 G | 31.211 G | 1.002 | 2.720 | 2.720 |
+| michaelis | 150000 | 300 | off | 48.781 G | 48.763 G | 1.000 | 4.300 | 4.280 |
+| michaelis | 150000 | 300 | on | 48.782 G | 48.807 G | 1.001 | 4.280 | 4.290 |
+| unimol | 20000 | 200 | off | 40.055 G | 40.067 G | 1.000 | 4.550 | 4.540 |
+| unimol | 20000 | 200 | on | 40.056 G | 40.211 G | 1.004 | 4.570 | 4.550 |
+| enzyme | 8000 | 2 | off | 95.470 G | 95.462 G | 1.000 | 7.610 | 7.560 |
+| enzyme | 8000 | 2 | on | 95.464 G | 95.476 G | 1.000 | 7.570 | 7.560 |
+| enzyme_hist | 2000 | 200 | off | 28.680 G | 28.886 G | 1.007 | 2.200 | 2.200 |
+| enzyme_hist | 2000 | 200 | on | 28.675 G | 30.600 G | 1.067 | 2.190 | 2.320 |
+
+Instructions retired are the load-proof measure (see the comment in
+`interleaved_timing.sh`); CPU seconds are the median of three. With the switch
+off, every model is within 0.1% of the reference, which is the vector tally
+unchanged. The one exception is the write-every-10-steps stress case, 0.7% more
+instructions and the same CPU time: the composition now comes back from a
+function as a string instead of being built in place. With the switch on, the
+models at their own `timeWrite` do not move either; the stress case costs 6%
+more instructions, about 8 million per histogram write of a 6410-molecule
+system, which is the `std::map` and the per-member state key. At `enzyme`'s own
+cadence (one write per 50000 steps) that is nothing, and a model that writes
+the histogram often enough for it to matter is writing far more trajectory
+than histogram.
+
+The tables are from `interleaved_timing.sh 3`, case table and models under the
+scratch directory of the run (the `_on` parameter files are the stock files with
+`histogramMolStates = true` added, and `enzyme_hist` sets `timeWrite = 10`).

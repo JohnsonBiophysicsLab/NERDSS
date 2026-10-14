@@ -29,6 +29,7 @@
   | pdbWrite | interval to write individual pdb files (mainly for nonequilibrium simulations (integer, default: 0) |
   | fromRestart | Does the simulation start from a restart file. Not yet implemented (01/25/2019) (boolean, default: false) |
   | legacyRestartFormat | write restart files in the positional `.dat` format of builds before the JSON format, instead of JSON; a restart keeps the format of the file it read unless an add file sets this (boolean, default: false) |
+  | histogramMolStates | count molecules of one type separately in `DATA/histogram_complexes_time.dat` when their interface states differ, named as in `copy_numbers_time.dat`: `pip2(head~P): 2. pip2(head~U): 1.` and `pip2(head~P): 1. pip2(head~U): 2.` are then two complexes, where the default writes both as `pip2: 3.`. Only interfaces with more than one state are named, `A(tag~U,ser~P)` when there are two; an implicit lipid stays `name: n.`. Carried in the JSON restart file when set; a `.dat` restart needs an add file to keep it (boolean, default: false) |
   | waterBox<sup>✝</sup> | water box dimensions (array, [x, y, z]) |
 
 ✝ indicates a required keyword

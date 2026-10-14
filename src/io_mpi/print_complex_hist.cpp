@@ -15,22 +15,14 @@ double print_complex_hist(std::vector<Complex>& complexList,
                           std::vector<Molecule>& moleculeList,
                           int nImplicitLipids, MpiContext& mpiContext,
                           SimulVolume& simulVolume) {
-  int n_mol_types = molTemplateList.size();
   int n_complexes = complexList.size();
   std::unordered_map<std::string, int> complex_count_dict;
-  std::vector<std::string> mol_type_names;
-
-  for (auto i = 0; i < n_mol_types; i++) {
-    mol_type_names.push_back(molTemplateList[i].molName);
-  }
 
   for (auto i = 0; i < n_complexes; i++) {
     auto& com = complexList[i];
     if (com.isEmpty) {
       continue;
     }
-
-    std::vector<int> numEachMol(n_mol_types, 0);
 
     int n_members = com.memberList.size();
 
@@ -39,7 +31,6 @@ double print_complex_hist(std::vector<Complex>& complexList,
 
     for (auto j = 0; j < n_members; j++) {
       auto& mol = moleculeList[com.memberList[j]];
-      numEachMol[mol.molTypeIndex] += 1;
 
       if (mol.id > largest_id && mol.isImplicitLipid == false) {
         largest_id = mol.id;
@@ -64,18 +55,8 @@ double print_complex_hist(std::vector<Complex>& complexList,
       continue;
     }
 
-    if (molTemplateList[0].isImplicitLipid) {
-      numEachMol[0] = com.linksToSurface;
-    }
-
-    std::string components_string = "";
-
-    for (auto j = 0; j < n_mol_types; j++) {
-      if (numEachMol[j] != 0) {
-        components_string +=
-            mol_type_names[j] + ": " + std::to_string(numEachMol[j]) + ". ";
-      }
-    }
+    std::string components_string = complex_composition_string(
+        com, molTemplateList, moleculeList, params.histogramMolStates);
 
     // update the count of this complex
     if(components_string!=""){
@@ -95,7 +76,7 @@ double print_complex_hist(std::vector<Complex>& complexList,
           << "\n";
 
   if(molTemplateList[0].isImplicitLipid){
-    outfile << nImplicitLipids << '\t' << mol_type_names[0] << ": 1." << "\n";
+    outfile << nImplicitLipids << '\t' << molTemplateList[0].molName << ": 1." << "\n";
   }
 
   for (auto& pair : complex_count_dict) {

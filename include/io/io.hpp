@@ -204,7 +204,23 @@ void init_NboundPairs(
 void write_NboundPairs(copyCounters& counterArrays, std::ofstream& outfile, int it, const Parameters& params, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup IO
+ * \brief The composition line of one complex for histogram_complexes_time.dat, without the count.
+ *
+ * Members are tallied by molecule type, in molTypeIndex order, as "name: n. " entries.  With
+ * `params.histogramMolStates` set, molecules of one type whose interface states differ are tallied
+ * apart, named like the species of copy_numbers_time.dat: "A(ser~P): 1. A(ser~U): 2. ", listing only
+ * the interfaces that have more than one state, and ordered within a type by those states.  An
+ * implicit lipid is always the plain "name: linksToSurface. " entry, since its links carry no state.
+ * Empty when the complex holds nothing to report (the implicit lipid's own complex).
+ */
+std::string complex_composition_string(const Complex& com, const std::vector<MolTemplate>& molTemplateList,
+    const std::vector<Molecule>& moleculeList, bool byState);
+
+/*! \ingroup IO
  * \brief print calculated histogram of distinct types of complexes, based on protein/lipid composition.
+ *
+ * Each frame lists one line per distinct composition, count first, built by complex_composition_string();
+ * `params.histogramMolStates` selects whether interface states tell members of one type apart.
  */
 double print_complex_hist(std::vector<Complex>& complexList, std::ofstream& outfile, int it, Parameters params,
     std::vector<MolTemplate>& molTemplateList, std::vector<Molecule>& moleculeList, int nImplicitLipids);

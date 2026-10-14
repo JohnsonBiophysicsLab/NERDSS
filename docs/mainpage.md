@@ -42,6 +42,11 @@ See \ref changelog for a list of changes.
   | `--debug-force-assoc`                       | force association to occur whenever possible (optional, for debug only)   |
   | `-r <filename>`, -`--restart <filename>`    | declares the restart file (optional)                                      |
 
+\subsection hist The complex histogram
+
+- `DATA/histogram_complexes_time.dat` lists, at every `timeWrite`, how many complexes of each composition exist, one line per composition: `4	A: 2.` means four complexes made of two A molecules
+- By default the composition counts molecule types only, so a phosphorylated `pip2(head~P)` and an unphosphorylated `pip2(head~U)` are one species, `pip2`. With `histogramMolStates = true` in the parameters block they are two, named as in `copy_numbers_time.dat`: `pip2(head~P): 2. pip2(head~U): 1.` and `pip2(head~P): 1. pip2(head~U): 2.` are then different complexes. The switch changes this file only; the trajectory and every other output are the same either way
+
 \subsection restr Restarting a Simulation
 
 - With each write of the restart file, the current state of the RNG will also be written as a binary file (called rng_state)

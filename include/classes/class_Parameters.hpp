@@ -75,7 +75,8 @@ enum class ParamKeyword : int {
     numericsAssociationRotationTolerance = 35,
     numericsAssociationEndpointSignTolerance = 36,
     numericsVec3DCoordinatePrecision = 37,
-    legacyRestartFormat = 38 //!< write restart files in the .dat format of builds before the JSON format
+    legacyRestartFormat = 38, //!< write restart files in the .dat format of builds before the JSON format
+    histogramMolStates = 39 //!< histogram_complexes_time.dat tells molecules of one type apart by their interface states
 };
 
 /*! \enum MolKeyword
@@ -225,6 +226,12 @@ struct Parameters {
     //! JSON.  A restart keeps the format of the file it read (read_restart() sets this) unless an add
     //! file sets it; the file names follow it (DATA/restart.dat, RESTARTS/restart<N>.dat).
     bool legacyRestartFormat { false };
+    //! Count molecules of one type separately in DATA/histogram_complexes_time.dat when their
+    //! interface states differ, so pip2(head~U) and pip2(head~P) are two species there and
+    //! (2 U, 1 P) and (1 U, 2 P) are two complexes.  Off, the histogram counts by molecule type
+    //! only, as it always did.  Carried in the JSON restart file when set; the .dat format
+    //! cannot carry it, so a .dat restart needs an add file to keep it.
+    bool histogramMolStates { false };
                             // Normally we do not need to restart with the same rng
                             // sequence, set this true to print the rng_state so
                             // that restarts can be identical
@@ -293,6 +300,7 @@ struct Parameters {
         PUSH(clusterOverlapCheck);
         PUSH(rngwrite)
         PUSH(legacyRestartFormat);
+        PUSH(histogramMolStates);
         PUSH(checkUnimoleculeReactionPopulation);
         PUSH(hasRankCommunicationForLargeComplex);
     }
@@ -354,6 +362,7 @@ struct Parameters {
         POP(clusterOverlapCheck);
         POP(rngwrite);
         POP(legacyRestartFormat);
+        POP(histogramMolStates);
         POP(checkUnimoleculeReactionPopulation);
         POP(hasRankCommunicationForLargeComplex);
         numerics.validate();
