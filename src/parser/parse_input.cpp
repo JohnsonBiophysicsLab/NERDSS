@@ -121,6 +121,71 @@ void Membrane::require_boundary() const
     exit(1);
 }
 
+/*! \brief Finish the boundary once the input has been read.
+ *
+ * A sphere is simulated inside a bounding box of its own diameter, which
+ * create_water_box() fabricates, and `sphereVol` is read wherever a volume is
+ * needed.  Five start-up paths ended with this (the three in nerdss.cpp and
+ * the two the MPI main takes); require_boundary() goes first so that none of
+ * them runs against the all-zero box.
+ */
+void Membrane::finish_boundary()
+{
+    require_boundary();
+
+    // create water box for sphere boundary
+    if (isSphere()) {
+        create_water_box();
+        sphereVol = (4.0 * M_PI * pow(sphereR, 3.0)) / 3.0;
+    }
+}
+
+/*! \brief Abort when the compartment does not fit the boundary.
+ *
+ * Two checks, made after finish_boundary() by a new simulation and by a
+ * restart with an add file: a sphere cannot hold a compartment, and in a box
+ * the gap between the compartment and every face must be at least 2 rMaxLimit.
+ * A restart without an add file makes neither, as before: nerdss.cpp's third
+ * copy had only the sphere box, and at that site `rMaxLimit` holds the value
+ * the restart file restored, so a run that started under the check could fail
+ * it on restart.
+ *
+ * nerdss.cpp made the sphere check before fabricating the sphere's box; here
+ * it comes after, which changes nothing since the run ends on it.
+ */
+void Membrane::require_compartment_fits(double rMaxLimit) const
+{
+    if (!hasCompartment)
+        return;
+
+    if (isSphere()) {
+        std::cerr << "Compartment should not exist in a sphere system!" << std::endl;
+        exit(1);
+    }
+
+    // check the size of the compartment: make sure that the waterbox boundary
+    // to the compartment should be larger than the rMaxLimit
+    bool tooSmallBox = false;
+    if (waterBox.x / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of x dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (waterBox.y / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of y dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (waterBox.z / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of z dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (tooSmallBox == true) {
+        exit(1);
+    }
+}
+
 void Membrane::display()
 {
     std::cout << " isSphere? " << std::boolalpha << isSphere() << std::endl;

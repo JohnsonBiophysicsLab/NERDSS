@@ -197,6 +197,16 @@ struct Membrane {
     //! \brief Abort unless the input named a boundary.  See parse_input.cpp.
     void require_boundary() const;
 
+    //! \brief require_boundary(), then give a sphere the bounding box and the
+    //! volume the rest of the code reads from it.  Every start-up path ends its
+    //! boundary parsing with this; see parse_input.cpp.
+    void finish_boundary();
+
+    //! \brief Abort when the compartment cannot fit: a sphere holds none, and a
+    //! box must keep 2 rMaxLimit between the compartment and each face.  See
+    //! parse_input.cpp.
+    void require_compartment_fits(double rMaxLimit) const;
+
     void set_value_BC(std::string value, BoundaryKeyword keywords);
     /*In here, we could also store coordinate vector
       for a single representative lipid

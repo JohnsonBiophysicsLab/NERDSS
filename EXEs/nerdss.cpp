@@ -215,53 +215,8 @@ int main(int argc, char *argv[]) {
     moleculeList.reserve(reservation);
     complexList.reserve(reservation);
 
-    // A boundaries block naming neither a waterBox nor a sphere leaves
-    // shape Unspecified, which every dispatch treats as a box - against a
-    // waterBox of all zeros.  Fail here instead.
-    membraneObject.require_boundary();
-
-    // create water box for sphere boundary
-    if (membraneObject.isSphere()) {
-      if (membraneObject.hasCompartment == true) {
-        std::cerr << "Compartment should not exist in a sphere system!"
-                  << std::endl;
-        exit(1);
-      }
-      membraneObject.create_water_box();
-      membraneObject.sphereVol =
-          (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-    }
-
-    // check the size of the compartment: make sure that the waterbox boundary
-    // to the compartment should be larger than the rMaxLimit
-    if (membraneObject.isSphere() == false &&
-        membraneObject.hasCompartment == true) {
-      bool tooSmallBox = false;
-      if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of x dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (membraneObject.waterBox.y / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of y dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (membraneObject.waterBox.z / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of z dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (tooSmallBox == true) {
-        exit(1);
-      }
-    }
+    membraneObject.finish_boundary();
+    membraneObject.require_compartment_fits(params.rMaxLimit);
 
     // generate the system coordinates, write out coordinate and topology files
     // modify generate coordinates to keep molecules out of compartment
@@ -462,53 +417,8 @@ int main(int argc, char *argv[]) {
                                    tempLastStateIndexBeforeAdd, numStateAdd,
                                    numDoubleBeforeAdd);
 
-      // A boundaries block naming neither a waterBox nor a sphere leaves
-      // shape Unspecified, which every dispatch treats as a box - against a
-      // waterBox of all zeros.  Fail here instead.
-      membraneObject.require_boundary();
-
-      // create water box for sphere boundary
-      if (membraneObject.isSphere()) {
-        if (membraneObject.hasCompartment == true) {
-          std::cerr << "Compartment should not exist in a sphere system!"
-                    << std::endl;
-          exit(1);
-        }
-        membraneObject.create_water_box();
-        membraneObject.sphereVol =
-            (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-      }
-
-      // check the size of the compartment: make sure that the waterbox boundary
-      // to the compartment should be larger than the rMaxLimit
-      if (membraneObject.isSphere() == false &&
-          membraneObject.hasCompartment == true) {
-        bool tooSmallBox = false;
-        if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of x dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (membraneObject.waterBox.y / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of y dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (membraneObject.waterBox.z / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of z dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (tooSmallBox == true) {
-          exit(1);
-        }
-      }
+      membraneObject.finish_boundary();
+      membraneObject.require_compartment_fits(params.rMaxLimit);
 
       // generate the coordinates, write out coordinate and topology files for
       // added molecules
@@ -527,17 +437,7 @@ int main(int argc, char *argv[]) {
       write_psf(params, moleculeList, molTemplateList);
     }
 
-    // A boundaries block naming neither a waterBox nor a sphere leaves
-    // shape Unspecified, which every dispatch treats as a box - against a
-    // waterBox of all zeros.  Fail here instead.
-    membraneObject.require_boundary();
-
-    // create water box for sphere boundary
-    if (membraneObject.isSphere()) {
-      membraneObject.create_water_box();
-      membraneObject.sphereVol =
-          (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-    }
+    membraneObject.finish_boundary();
 
     std::cout
         << " Total number of states (reactant and product)  in the system "
