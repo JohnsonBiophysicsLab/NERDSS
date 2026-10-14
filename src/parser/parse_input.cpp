@@ -788,8 +788,8 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
         }
     }
 
-    //here wew need to add three new inputs for pop_react_lists
-    populate_reaction_lists_for_add(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum, addBackRxnNum, addCreateDestructRxnNum);
+    // only the add file's reactions: the restart file's are entered already
+    populate_reaction_lists(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum);
 
     for (auto& oneTemp : molTemplateList) {
         // here's where we remove duplicate reaction partners
