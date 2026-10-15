@@ -641,6 +641,16 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, left);
+    // An association merges the partner's complex into the initiator's, or
+    // the other way round -- associate() keeps whichever complex the reaction
+    // lists first -- and the survivor keeps its ownerRank.  A ghost partner
+    // merged into a complex this rank owns, or an owned initiator merged into
+    // a complex the neighbour owns, therefore changes owner here and now, but
+    // isGhosted was only ever re-derived after a receive.  A rank with no
+    // neighbour on the receiving side (the last rank in this half-step, the
+    // first rank in the other) never received, so the flag stayed stale past
+    // the exchange and the molecule was owned by both ranks, or by neither.
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after bimol left");
@@ -838,6 +848,8 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, right);
+    // Same as after the left pass: the flag follows the complex.
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after bimol right");

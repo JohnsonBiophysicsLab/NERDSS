@@ -41,6 +41,18 @@ bool check_ownership_invariant(MpiContext &mpiContext,
                                const char *label);
 
 /*! \ingroup mpi_function
+ * \brief Set every molecule's isGhosted from its complex's ownerRank: a ghost
+ * is a member of a complex another rank owns.  Called after each receive and
+ * after each bimolecular pass, the two places where complex membership or
+ * ownership changes.  With skipUnclaimed, members of a complex nobody has
+ * claimed yet (ownerRank -1) keep their flag; see the definition.
+ */
+void derive_ghost_from_ownership(MpiContext &mpiContext,
+                                 vector<Molecule> &moleculeList,
+                                 vector<Complex> &complexList,
+                                 bool skipUnclaimed);
+
+/*! \ingroup mpi_function
  * \brief Search for the complex with the same ID within complexList
  */
 int find_complex(vector<Complex> &complexList, int id);

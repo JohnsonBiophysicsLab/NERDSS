@@ -7,16 +7,29 @@
 using namespace std;
 
 // Ghost status is derived, never decided independently: a molecule is a ghost
-// exactly when its complex is owned by somebody else.  This runs after the
-// complexes have been deserialized, because molecules arrive first and the
-// ownership stamp travels with the complex.
-static void derive_ghost_from_ownership(MpiContext &mpiContext,
-                                        vector<Molecule> &moleculeList,
-                                        vector<Complex> &complexList) {
+// exactly when its complex is owned by somebody else.  After a receive this
+// runs once the complexes have been deserialized, because molecules arrive
+// first and the ownership stamp travels with the complex; the bimolecular
+// passes call it too, because an association moves molecules between
+// complexes without touching the flag (see EXEs/nerdss_mpi.cpp).
+//
+// A complex with no owner yet (ownerRank -1) is one the step-top pass made
+// here, by dissociation or creation, and claim_unowned_complexes() or the
+// send loops settle it before it is handed to a neighbour.  Between the
+// bimolecular pass and that send its members keep the flag they have, which
+// is the one they inherited from the owned complex they came from, so the
+// post-pass call skips it.  The post-receive call keeps reading -1 as "not
+// mine": the only such complex left after a receive is a fragment lying
+// entirely in the far ghost stripe, which this rank does not integrate.
+void derive_ghost_from_ownership(MpiContext &mpiContext,
+                                 vector<Molecule> &moleculeList,
+                                 vector<Complex> &complexList,
+                                 bool skipUnclaimed) {
   for (auto &mol : moleculeList) {
     if (mol.isImplicitLipid || mol.isEmpty) continue;
     int ci = mol.myComIndex;
     if (ci < 0 || ci >= (int)complexList.size()) continue;
+    if (skipUnclaimed && complexList[ci].ownerRank == -1) continue;
     mol.isGhosted = (complexList[ci].ownerRank != mpiContext.rank);
   }
 }
@@ -280,7 +293,7 @@ void receive_right_neighborhood_zones(
                                 mpiContext.MPIArrayFromRight,
                                 mpiContext.nMPIArrayFromRight, keptLocalCom,
                                 keptLocalMol);
-    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, false);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "R3 deserialize_complexes_right", 2);
@@ -412,7 +425,7 @@ void receive_left_neighborhood_zones(
     deserialize_complexes(mpiContext, moleculeList, complexList,
                           mpiContext.MPIArrayFromLeft,
                           mpiContext.nMPIArrayFromLeft);
-    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, false);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "L3 deserialize_complexes", 2);
