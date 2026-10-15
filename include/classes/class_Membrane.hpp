@@ -153,7 +153,6 @@ struct Membrane {
 
     //    double RD2D = 0; // block-distance for 2D->2D reaction of implicit-lipid case
     double totalSA { 0 };
-    double Dz { 0 };
     double offset { 0 };
     double lipidLength { 0.0 };
     bool implicitLipid = false;
@@ -232,7 +231,6 @@ struct Membrane {
     //    double RD2D = 0; // block-distance for 2D->2D reaction of
     //    implicit-lipid case
     PUSH(totalSA);
-    PUSH(Dz);
     PUSH(offset);
     PUSH(lipidLength);
     PUSH(implicitLipid);
@@ -269,7 +267,6 @@ struct Membrane {
     //    double RD2D = 0; // block-distance for 2D->2D reaction of
     //    implicit-lipid case
     POP(totalSA);
-    POP(Dz);
     POP(offset);
     POP(lipidLength);
     POP(implicitLipid);
