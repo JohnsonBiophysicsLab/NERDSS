@@ -122,10 +122,8 @@ int main(int argc, char* argv[]) {
   ProfilerStart(profileFileName.c_str());
 #endif
 
-  mkdir("PDB", 0777);
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
-  mkdir("mergePDB", 0777);
   mkdir("mergeOUT", 0777);
 
   if (DEBUG) {
@@ -471,9 +469,14 @@ int main(int argc, char* argv[]) {
     LOC(4.2, " @ START SIMULATION_LOOP ", PROC_ALL);
   }
 
-  // write the pdb of the initial system
-  write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-            membraneObject, mpiContext.rank, mpiContext, simulVolume);
+  // write the pdb of the initial system; pdbWrite <= 0 writes no PDB file at
+  // all, and then neither PDB directory is made
+  if (params.pdbWrite > 0) {
+    mkdir("PDB", 0777);
+    mkdir("mergePDB", 0777);
+    write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+              membraneObject, mpiContext.rank, mpiContext, simulVolume);
+  }
 
   for (simItr += 1; simItr <= params.nItr; ++simItr) {
     if (1) {
@@ -1096,7 +1099,8 @@ int main(int argc, char* argv[]) {
 
   // MERGE THE OUTPUTS FROM ALL THE PROCESSORS
   if (mpiContext.rank == 0) {
-    merge_outputs(mpiContext.nprocs, molTemplateList.size());
+    merge_outputs(mpiContext.nprocs, molTemplateList.size(),
+                  params.pdbWrite > 0);
   }
 
   delete[] tableIDs;

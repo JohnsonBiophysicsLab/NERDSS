@@ -56,7 +56,7 @@ void processFile(const std::string& filename,
   file.close();
 }
 
-void merge_outputs(int totalrank, int molTemplateNum) {
+void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles) {
   // MERGE THE PDB FILES IN THE PDB FOLDER AND STORE THE MERGED FILES IN
   // MERGEPDB FOLDER
   int n = totalrank;
@@ -77,7 +77,9 @@ void merge_outputs(int totalrank, int molTemplateNum) {
       }
     }
     closedir(dir);
-  } else {
+  } else if (mergePdbFiles) {
+    // pdbWrite <= 0 makes no PDB folder, so its absence is only an error
+    // when PDB files were written
     std::cerr << "Could not open directory: " << pdb_folder << std::endl;
   }
 

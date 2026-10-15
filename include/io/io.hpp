@@ -220,7 +220,7 @@ void write_output(long long int simItr, Parameters& params,std::string trajFileN
     std::vector<CreateDestructRxn>& createDestructRxns, std::vector<std::chrono::duration<double>>& durationList, MDTimer::time_point& startStep,
     MDTimer::time_point& totalTimeStart, std::map<std::string, int>& observablesList, std::ofstream& assemblyfile); // for mpi version
 
-void merge_outputs(int totalrank, int molTemplateNum); // for mpi version
+void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles); // for mpi version
 
 /*! \ingroup IO
  * \brief Outputs structural information on bonded complexes for ioNERDSS and

@@ -171,10 +171,13 @@ while IFS=$'\t' read -r id dir parm n_itr extra; do
                     while IFS= read -r f; do
                         printf '%s  %s/%s\n' "$(sha_file "$f")" "$id" "$f"
                     done
-                find PDB -type f 2>/dev/null | LC_ALL=C sort |
-                    while IFS= read -r f; do
-                        printf '%s  %s/%s\n' "$(tail -n +2 "$f" | sha_stdin)" "$id" "$f"
-                    done
+                # pdbWrite <= 0 (the default) makes no PDB directory at all
+                if [[ -d PDB ]]; then
+                    find PDB -type f | LC_ALL=C sort |
+                        while IFS= read -r f; do
+                            printf '%s  %s/%s\n' "$(tail -n +2 "$f" | sha_stdin)" "$id" "$f"
+                        done
+                fi
             ) >> "$OUT_DIR/manifest.sha256"
         fi
 
