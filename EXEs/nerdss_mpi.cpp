@@ -46,7 +46,6 @@
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "split.cpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 #ifdef ENABLE_PROFILING
@@ -87,38 +86,10 @@ gsl_rng* r;
 using MDTimer = std::chrono::system_clock;
 
 /**
- * @typedef timeDuration
- * @brief Alias for std::chrono::duration used for timing.
- */
-using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
-
-/**
- * @var randNum
- * @brief Global variable to store a random number.
- */
-long long randNum = 0;
-
-/**
  * @var totMatches
  * @brief Global variable to store the total number of matches.
  */
 unsigned long totMatches = 0;
-
-/**
- * @brief Prints the elements of a vector and an associated message.
- *
- * @tparam T Type of the vector elements.
- * @param vec Vec3D to print.
- * @param s Message to print before the vector.
- */
-template <typename T>
-void printVec(vector<T>& vec, string s) {
-  cout << s << ":" << endl;
-  for (auto elem : vec) {
-    cout << elem << "\t";
-  }
-  cout << endl;
-}
 
 /**
  * @brief Main function that serves as an entrypoint to the program.

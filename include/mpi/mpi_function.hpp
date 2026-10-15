@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
@@ -45,20 +44,6 @@ bool check_ownership_invariant(MpiContext &mpiContext,
  * \brief Search for the complex with the same ID within complexList
  */
 int find_complex(vector<Complex> &complexList, int id);
-
-/*! \ingroup mpi_function
- * \brief update the properties of molecule when it is in the shared zone
- */
-inline void in_shared_zone(Molecule &mol) {
-  // TODO: introduce shared complex if needed
-}
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it is not in the share zone
- */
-inline void not_in_shared_zone(Molecule &mol) {
-  // TODO: remove complex sharing if needed
-}
 
 /*! \ingroup mpi_function
  * \brief update the copycounters when complex enter ghosted zone
@@ -189,12 +174,6 @@ void delete_disappeared_complexes_partial(MpiContext &mpiContext, vector<Molecul
 void delete_disappeared_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
 
 /*! \ingroup mpi_function
- * \brief Send data to neighbor rank
- */
-void send_data_to_neighboring_ranks(MpiContext &mpiContext, long long int simItr, Parameters &params, SimulVolume &simulVolume,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject);
-
-/*! \ingroup mpi_function
  * \brief Send data to left neighbor rank
  */
 void send_data_to_left_neighboring_ranks(MpiContext &mpiContext, long long int simItr, Parameters &params, SimulVolume &simulVolume, 
@@ -205,14 +184,6 @@ void send_data_to_left_neighboring_ranks(MpiContext &mpiContext, long long int s
  */
 void send_data_to_right_neighboring_ranks(MpiContext &mpiContext, long long int simItr, Parameters &params, SimulVolume &simulVolume, vector<int> &right,
     vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject);
-
-/*! \ingroup mpi_function
- * \brief Receive shared zones from both left and right neighboring rank,
- * deserialize received molecules, update interfaces to match molecules on this
- * rank, and delete those molecules that were sent, but not received back
- */
-void receive_neighborhood_zones(MpiContext &mpiContext, long long int simItr, long long int startSimItr,long long int stopSimItr, SimulVolume &simulVolume,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays);
 
 /*! \ingroup mpi_function
  * \brief Receive shared zones from right neighboring rank, deserialize received

@@ -2,7 +2,6 @@
 #include "classes/class_Cluster.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Index, Parameters& params, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)

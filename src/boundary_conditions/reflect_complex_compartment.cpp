@@ -11,11 +11,9 @@
  */
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
-#include "tracing.hpp"
 
 void reflect_complex_compartment(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double RS3Dinput)
 {
-    // TRACE();
     // only works for the complex after association or diffusion, spherical system
 
     // declare the boundary

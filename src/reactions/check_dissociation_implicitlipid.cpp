@@ -5,7 +5,6 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 void check_dissociation_implicitlipid(long long int simItr, const Parameters& params, SimulVolume& simulVolume,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, unsigned int molItr,std::vector<Molecule>& moleculeList,
@@ -13,7 +12,6 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
     const std::vector<CreateDestructRxn>& createDestructRxns, copyCounters& counterArrays, Membrane& membraneObject, 
     std::vector<double>& IL2DbindingVec, std::vector<double>& IL2DUnbindingVec, std::vector<double>& ILTableIDs, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     double Dtot;
     if (moleculeList[molItr].isGhosted == true) {
         return;

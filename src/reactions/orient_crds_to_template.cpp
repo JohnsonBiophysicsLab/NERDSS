@@ -1,11 +1,9 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 #include <cmath>
 
 Quat orient_crds_to_template(const MolTemplate& oneTemplate, Molecule& targMol)
 {
-    // TRACE();
     Quat firstRot {};
     Quat secondRot {};
     { // first rotation

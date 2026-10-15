@@ -4,7 +4,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <cmath>
 #include <iomanip>
 

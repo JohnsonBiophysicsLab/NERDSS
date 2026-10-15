@@ -30,13 +30,11 @@
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
-#include "tracing.hpp"
 
 void reflect_traj_complex_radial(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom,
     const Membrane& membraneObject, double radius, RadialSide side, double RS3Dinput, bool skipOnSurface,
     bool recheckSpan)
 {
-    // TRACE();
 
     // for implicit-lipid model, the boundary surface must consider the reflecting-surface RS3D
     // for explicit-lipid model, membraneObject.RS3D = 0. And, for those proteins that are bound on surface, they are not allowed to reflect along Z-axis

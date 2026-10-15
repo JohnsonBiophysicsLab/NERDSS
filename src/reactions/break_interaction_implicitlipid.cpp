@@ -1,12 +1,10 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
-#include "tracing.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 
 void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
     const BackRxn& currRxn, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     /*Find the new absIface for mol1*/
     int absIface1 { -1 };
     int absIface2 { -1 };

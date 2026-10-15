@@ -4,7 +4,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <cmath>
 #include <iomanip>
 
@@ -17,7 +16,6 @@ void associate_sphere(long long int iter,
     Membrane& membraneObject, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     if (reactCom1.index == reactCom2.index) {
         // skip to protein interation updates
         // std::cout << "Closing a loop, no rotations performed.\n";

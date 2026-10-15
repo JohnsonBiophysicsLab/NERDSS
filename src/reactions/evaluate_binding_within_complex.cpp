@@ -2,22 +2,8 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 #include <algorithm>
-
-void write_debug_info(int pro1Index, int pro2Index, int iface1Index, int iface2Index, const ForwardRxn& oneRxn,
-    const copyCounters& counterArrays, double R1, double Keq, double probvec1, int Nc, double pdiss, double self,
-    double Volume)
-{
-    // TRACE();
-    // just writes debug info to cout, function call is easier to comment out
-    // std::cout << " WITHIN COMPLEX: Proteins are R1=: " << R1 << " < bindRadSameCom: " << oneRxn.bindRadSameCom
-    //           << " Proteins: " << pro1Index << ' ' << pro2Index << " interfaces: " << iface1Index << ' ' << iface2Index
-    //           << " set probvec: " << probvec1 << " pdiss: " << pdiss << " Keq/V: " << Keq / Volume
-    //           << " copy A: " << counterArrays.copyNumSpecies[iface2Index] << " copy C: " << Nc << " self: " << self
-    //           << '\n';
-}
 
 void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Index, int iface2Index, int rxnIndex,
     int rateIndex, bool isBiMolStateChange, const Parameters& params, std::vector<Molecule>& moleculeList,

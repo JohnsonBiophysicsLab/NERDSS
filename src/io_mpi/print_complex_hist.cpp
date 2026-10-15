@@ -7,7 +7,6 @@
 #include "debug/debug.hpp"
 #include "io/io.hpp"
 #include "mpi/mpi_function.hpp"
-#include "tracing.hpp"
 
 double print_complex_hist(std::vector<Complex>& complexList,
                           std::ofstream& outfile, int it, Parameters params,

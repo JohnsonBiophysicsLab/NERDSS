@@ -4,23 +4,6 @@
 #include <ctime>
 #include <iomanip>
 
-std::ostream& bon(std::ostream& os)
-{
-    /*! \ingroup Text
-     * \brief Turns bolding of iostream on (only works for macOS/Unix
-     */
-
-    return os << "\e[1m";
-}
-
-std::ostream& boff(std::ostream& os)
-{
-    /*! \ingroup Text
-     * \brief Turns bolding of iostream off (only works for macOS/Unix
-     */
-    return os << "\e[0m";
-}
-
 std::ostream& llinebreak(std::ostream& os)
 {
     /*! \ingroup Text

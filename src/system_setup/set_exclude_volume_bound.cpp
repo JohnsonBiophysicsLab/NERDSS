@@ -32,7 +32,6 @@
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "split.cpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 using namespace std;

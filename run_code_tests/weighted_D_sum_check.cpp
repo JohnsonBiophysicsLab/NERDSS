@@ -11,7 +11,6 @@
 
 gsl_rng* r; // the globals the simulator defines in main(); unused here
 unsigned long totMatches = 0;
-long long randNum = 0;
 
 static bool bitEqual(double a, double b)
 {

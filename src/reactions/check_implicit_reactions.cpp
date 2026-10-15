@@ -3,7 +3,6 @@
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 
 // pro2Index is a lipid's index.
@@ -16,7 +15,6 @@ void check_implicit_reactions(
     const std::vector<BackRxn> &backRxns, copyCounters &counterArrays,
     Membrane &membraneObject, std::vector<double> &IL2DbindingVec,
     std::vector<double> &IL2DUnbindingVec, std::vector<double> &ILTableIDs) {
-  // TRACE();
   // only consider when pro2 IS implicit-lipid
   if (moleculeList[pro2Index].isImplicitLipid == false)
     return;

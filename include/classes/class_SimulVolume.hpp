@@ -50,8 +50,6 @@ struct SimulVolume {
          */
         uint64_t typeMask{ 0 };
 
-        void display();
-
         /*
         Function serialize serializes the SubVolume into array of bytes.
         */

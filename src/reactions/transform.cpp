@@ -10,8 +10,8 @@ void transform(Vec3D& reactIface, Molecule& reactMol1, Molecule& reactMol2, cons
     // return without transformation if axis is already on the z-axis.
     //
     // A caller that passes zero for axisLength gets an angle of 0 back and so
-    // skips the whole transform; that is the "unmeasured axis" case, and
-    // check_bases.cpp relies on it.  See Vec3D::angle_between.
+    // skips the whole transform; that is the "unmeasured axis" case.  See
+    // Vec3D::angle_between.
     double ang { alignAxis.angle_between(axis, 1.0, axisLength) };
     if (ang == M_PI || ang == 0)
         return;

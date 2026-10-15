@@ -1,7 +1,6 @@
 #include "classes/class_Rxns.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 /*
   Loop over all interfaces of base1 and then base2.
@@ -12,7 +11,6 @@
 void measure_overlap_free_protein_interfaces(Molecule base1, Molecule baseTmp, bool& flagCancel,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns)
 {
-    // TRACE();
     int pro1MolType = base1.molTypeIndex;
 
     bool canInteract { false };

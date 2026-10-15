@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <string>
@@ -778,7 +777,6 @@ void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Para
     std::vector<TransmissionRxn>& transmissionRxns,
     std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays)
 {
-    // TRACE();
     try {
         // Read parameters
         std::cout << "READ IN PARMATERS from restart file" << std::endl;

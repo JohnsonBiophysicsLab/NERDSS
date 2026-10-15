@@ -1,12 +1,14 @@
 /*! \file reflect_dispatch.cpp
  * \brief Picks the box, sphere or compartment reflector for each boundary operation.
  *
- * These six functions were six files, each holding ten to twenty live lines
+ * These four functions were six files, each holding ten to twenty live lines
  * behind one to three hundred lines of its own former body, commented out.
  * There is nothing left in any of them but the geometry choice, and reading
  * them side by side is the only way to see that the choice is not made the same
- * way in all six: the two that take a compartment flag consult it, the other
- * four look only at `membraneObject.isSphere()`.
+ * way in all of them: the three that take a compartment flag consult it, the
+ * fourth looks only at `membraneObject.isSphere()`.  Two more dispatchers,
+ * reflect_traj_check_span and check_if_spans, used to live here; nothing
+ * called them, the callers pick the _box or _sphere child directly.
  *
  * The commented-out bodies are gone.  Every one of them was an earlier version
  * of the `_box` routine that now lives in its own file, and `git log` has them.
@@ -64,14 +66,6 @@ void reflect_traj_complex_rad_rot(
     }
 }
 
-void reflect_traj_check_span(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput)
-{
-    if (membraneObject.isSphere())
-        reflect_traj_check_span_sphere(params, targCom, moleculeList, membraneObject, membraneObject.sphereR, RS3Dinput);
-    else
-        reflect_traj_check_span_box(params, targCom, moleculeList, membraneObject, RS3Dinput);
-}
-
 void reflect_traj_complex_rad_rot_nocheck(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput)
 {
     if (membraneObject.isSphere() == true)
@@ -102,17 +96,4 @@ void reflect_traj_tmp_crds(const Parameters& params, std::vector<Molecule>& mole
         reflect_traj_tmp_crds_radial(
             params, moleculeList, targCom, traj, membraneObject.compartmentR, RadialSide::Inside, RS3Dinput);
     }
-}
-
-/* ASSOCIATION SPAN CHECK */
-
-void check_if_spans(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2,
-    std::vector<Molecule>& moleculeList, const Membrane& membraneObject)
-{
-    // Associating proteins have been moved to contact. Before assigning them to the same
-    // complex, test to see if the complex is too big to fit in the box.
-    if (membraneObject.isSphere() == true)
-        check_if_spans_sphere(cancelAssoc, params, reactCom1, reactCom2, moleculeList, membraneObject, membraneObject.sphereR);
-    else
-        check_if_spans_box(cancelAssoc, params, reactCom1, reactCom2, moleculeList, membraneObject);
 }

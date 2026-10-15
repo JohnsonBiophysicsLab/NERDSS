@@ -14,14 +14,6 @@
 
 #include "classes/mpi_functions.hpp"
 
-#define ACTION_INCREASE_SPECIES 1
-#define ACTION2 2
-#define ACTION3 3
-#define ACTION4 4
-
-#define REQUIRE_ROTATE 1
-#define REQUIRE2 2
-
 #define min2(a, b) ((a) < (b) ? (a) : (b))
 
 struct Membrane;
@@ -29,21 +21,8 @@ struct SimulVolume;
 struct Molecule;
 struct Complex;
 
-// MPIComplexInfo holds information about complex needed for the complex owner:
-struct MPIComplexInfo {
- public:
-  // How big is the complex in terms of number of ranks:
-  int minRank, maxRank;
-  // Vector holding rank numbers that requested association to the complex:
-  std::vector<int> iRankAssociationTries;
-  // Vector holding number of association requests by these ranks:
-  std::vector<int> nRankAssociationTries;
-  // Total number of molecules that requested association to the rank:
-  int nAssociationTries = 0;
-};
-
 // The members below are guarded by mpi_, so this struct has one layout in a
-// serial build and another in an MPI build: 240 bytes versus 336, with xOffset
+// serial build and another in an MPI build: 176 bytes versus 272, with xOffset
 // at byte 56 versus 136.  Mixing objects from the two modes in one link used to
 // succeed and then misread every domain bound at run time.
 //
@@ -243,13 +222,8 @@ typedef struct structMpiContext {  // holds MPI related data
   #endif
 
   // Vector of vectors will hold information one rank has to send to other
-  // ranks, and receive from them:
+  // ranks:
   std::vector<std::vector<unsigned char> > toRank;
-  std::vector<std::vector<unsigned char> > fromRank;
-
-  // For a complex index, define information about which complex holder requires
-  // what:
-  std::unordered_map<int, MPIComplexInfo*> myComplexes;
 
   Membrane* membraneObject;
   SimulVolume* simulVolume;

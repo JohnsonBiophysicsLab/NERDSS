@@ -1,5 +1,4 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, double sigmaLength,
     const ForwardRxn& currRxn, Molecule reactMol1, Molecule reactMol2,
@@ -8,7 +7,6 @@ double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, d
     const auto sameAngle = [&settings](double lhs, double rhs) {
         return areSameAngle(lhs, rhs, settings.sameAngle);
     };
-    // TRACE();
     /*Re-aligns the molecules so that Sigma faces purely along the z-axis. 
      */
     transform(reactIface1, reactMol1, reactMol2, sigma, sigmaLength);

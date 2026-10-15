@@ -65,9 +65,6 @@ struct ParsedMol {
         friend std::ostream& operator<<(std::ostream& os, const ParsedMol::IfaceInfo& oneInfo);
         bool operator==(const ParsedMol::IfaceInfo& iface) const;
         bool operator!=(const ParsedMol::IfaceInfo& iface) const;
-        bool operator==(const RxnIface& rxnIface) const;
-        bool operator<(const IfaceInfo& rhs) const;
-        bool operator>(const IfaceInfo& rhs) const;
 
         // change the status of the reaction, for products
         void change_ifaceRxnStatus(int newIndex, Involvement newRxnStatus);
@@ -84,7 +81,6 @@ struct ParsedMol {
 
         IfaceInfo() = default;
         IfaceInfo(std::string _ifaceName, char _state, bool _isBound, Involvement _ifaceRxnStatus, int speciesIndex);
-        IfaceInfo(std::string _ifaceName, char _state, bool _isBound, int _bondIndex, Involvement _ifaceRxnStatus);
         IfaceInfo(std::string _ifaceName, char _state, bool _isBound, int _bondIndex, Involvement _ifaceRxnStatus,
             int speciesIndex);
 
@@ -101,9 +97,6 @@ struct ParsedMol {
     int specieIndex { -1 }; //!< The index of the specie in the reaction
     std::string molName; //!< name of the corresponding MolTemplate (makes it easier for matching)
     std::vector<IfaceInfo> interfaceList;
-
-    bool operator==(const ParsedMol& mol1) const;
-    std::ostream& display_full_name(std::ostream& os) const;
 
     // member functions
     //    void set_ifaceAndStateNames();
@@ -129,8 +122,6 @@ struct ParsedRxn : public ForwardRxn {
     bool willBeMultipleRxns { false }; //!< does an interface have no explicit state
     std::multimap<int, ParsedMol::IfaceInfo> noStateList; //!< list of ifaces which have states but do not declare them.
     //!< Form of the multimap is {index of ParsedMol the interface is on, index of the interface in ifaceList}
-    bool includesIntCoords { false }; //!< does the file include internal coordinates
-    std::vector<Vec3D> norms;
     double creationRadius { 1.0 }; //!< see CreateDesructRxn
 
     double onRate3Dka { std::numeric_limits<double>::quiet_NaN() }; //!< the forward rate of the reaction, micro
@@ -148,16 +139,6 @@ struct ParsedRxn : public ForwardRxn {
     std::vector<ParsedMol::IfaceInfo> rxnProducts; //!< reactant interfaces with Involvement::interactionChange
 
     /* REACTION CREATION FUNCTIONS */
-    /*!
-     * \brief Checks previously parsed ForwardRxns for the reactant of a unimolecular state change reaction with a
-     * bound reactant.
-     *
-     * If the reactants are bound in a unimolecular state change reaction, check through all previous forward
-     * reactions for the reactants. If none of the reactions already have the state change product as a reaction
-     * forming the state change reactant exists, create a new absolute interface index.
-     */
-    void check_previous_bound_states(int& totSpecies, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList);
-
     /*!\ingroup Parser
      * \brief The purpose of this function is to determine which of the parsed interfaces are reactants.
      *
@@ -244,8 +225,6 @@ struct ParsedRxn : public ForwardRxn {
 
     ParsedRxn() = default;
 };
-
-bool operator==(const std::vector<RxnIface>& rxnIfaceList, const std::vector<ParsedMol::IfaceInfo>& parsedIfaceList);
 
 // struct IntCoordCont {
 //    /*! \struct IntCoordCont

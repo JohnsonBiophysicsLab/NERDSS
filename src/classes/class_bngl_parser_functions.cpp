@@ -82,26 +82,6 @@ std::ostream& operator<<(std::ostream& os, const ReactionType& rxnType)
     }
 }
 
-bool operator==(const std::vector<RxnIface>& rxnIfaceList, const std::vector<ParsedMol::IfaceInfo>& parsedIfaceList)
-{
-    if (parsedIfaceList.size() != rxnIfaceList.size())
-        return false;
-
-    unsigned numMatches { 0 };
-    for (unsigned rxnItr { 0 }; rxnItr < rxnIfaceList.size(); ++rxnItr) {
-        for (unsigned parsedItr { 0 }; parsedItr < parsedIfaceList.size(); ++parsedItr) {
-            if (rxnIfaceList[rxnItr].requiresInteraction == parsedIfaceList[parsedItr].isBound
-                && rxnIfaceList[rxnItr].requiresState == parsedIfaceList[parsedItr].state
-                && rxnIfaceList[rxnItr].molTypeIndex == parsedIfaceList[parsedItr].molTypeIndex) {
-                ++numMatches;
-                break;
-            }
-        }
-    }
-
-    return (numMatches == parsedIfaceList.size());
-}
-
 // I am so sick of writing this out, so here's a type alias
 using parsedIface = std::pair<const std::string, ParsedMol::IfaceInfo>;
 
@@ -116,20 +96,6 @@ ParsedMol::IfaceInfo::IfaceInfo(
 {
     if (_state != '\0')
         ifaceAndStateName = _ifaceName + "~" + _state;
-    else
-        ifaceAndStateName = ifaceName;
-}
-
-ParsedMol::IfaceInfo::IfaceInfo(
-    std::string _ifaceName, char _state, bool _isBound, int _bondIndex, Involvement _ifaceRxnStatus)
-    : ifaceName(_ifaceName)
-    , state(_state)
-    , isBound(_isBound)
-    , bondIndex(_bondIndex)
-    , ifaceRxnStatus(_ifaceRxnStatus)
-{
-    if (_state != '\0')
-        ifaceAndStateName = ifaceName + "~" + _state;
     else
         ifaceAndStateName = ifaceName;
 }
@@ -161,12 +127,6 @@ bool ParsedMol::IfaceInfo::operator==(const ParsedMol::IfaceInfo& iface) const
         && (bool { this->isBound == iface.isBound }) && (bool { this->bondIndex == iface.bondIndex }));
 }
 
-bool ParsedMol::IfaceInfo::operator==(const RxnIface& rxnIface) const
-{
-    return (bool { this->absIndex == rxnIface.absIfaceIndex } && bool { this->state == rxnIface.requiresState }
-        && bool { this->isBound == rxnIface.requiresInteraction });
-}
-
 std::ostream& operator<<(std::ostream& os, const ParsedMol::IfaceInfo& oneInfo)
 {
     os << oneInfo.absIndex << ", ";
@@ -178,10 +138,6 @@ std::ostream& operator<<(std::ostream& os, const ParsedMol::IfaceInfo& oneInfo)
     return os;
 }
 
-bool ParsedMol::IfaceInfo::operator<(const ParsedMol::IfaceInfo& rhs) const { return speciesIndex < rhs.speciesIndex; }
-
-bool ParsedMol::IfaceInfo::operator>(const ParsedMol::IfaceInfo& rhs) const { return rhs < *this; }
-
 void ParsedMol::IfaceInfo::change_ifaceRxnStatus(int newIndex, Involvement newRxnStatus)
 {
     this->indexFound = true;
@@ -190,43 +146,6 @@ void ParsedMol::IfaceInfo::change_ifaceRxnStatus(int newIndex, Involvement newRx
 }
 
 /* ParsedMol */
-// Constructors
-ParsedMol::ParsedMol(const MolTemplate& oneTemp)
-{
-    molTypeIndex = oneTemp.molTypeIndex;
-    molName = oneTemp.molName;
-    for (const auto& tempIface : oneTemp.interfaceList)
-        interfaceList.emplace_back(tempIface);
-}
-
-bool ParsedMol::operator==(const ParsedMol& mol1) const
-{
-    if ((this->molName != mol1.molName) || (this->interfaceList.size() != mol1.interfaceList.size()))
-        return false;
-    for (auto& thisTargetIface : this->interfaceList) {
-        // check each iface on this mol to see if it exists on mol1
-        //        auto ifacePos { mol1.interfaceList.find(thisTargetIface.first) };
-        auto ifacePos = std::find_if(mol1.interfaceList.begin(), mol1.interfaceList.end(),
-            [&](const ParsedMol::IfaceInfo& iface) { return iface.ifaceName == thisTargetIface.ifaceName; });
-        if (ifacePos != mol1.interfaceList.end())
-            return thisTargetIface == *ifacePos;
-    }
-    return false;
-}
-
-std::ostream& ParsedMol::display_full_name(std::ostream& os) const
-{
-    os << this->molName << '(';
-    size_t ifaceSizeIterator { 0 };
-    for (auto& iface : interfaceList) {
-        if (ifaceSizeIterator != interfaceList.size() - 1)
-            os << iface.ifaceName << ", ";
-        else
-            os << iface.ifaceName << ']';
-    }
-    return os;
-}
-
 void ParsedMol::display() const
 {
     std::cout << "Parsed Mol: " << molName << '\n';
@@ -536,28 +455,6 @@ void ParsedRxn::display() const
     if (isReversible)
         std::cout << "micro Off Rate: " << offRatekb << '\n';
     std::cout << "macro Off Rate: " << offRateMacro << '\n';
-}
-
-void ParsedRxn::check_previous_bound_states(int& totSpecies, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList)
-{
-    for (auto& oneRxn : forwardRxns) {
-        if (oneRxn.rxnType == ReactionType::bimolecular) {
-            for (auto& oneProduct : oneRxn.productListNew) {
-                if (oneProduct.requiresState == this->rxnReactants[0].state) {
-                    // add species for the biomolecular Product with other states of oneProduct
-                    for (auto& oneState : molTemplateList[this->rxnReactants[0].molTypeIndex].interfaceList[this->rxnReactants[0].relIndex].stateList) {
-                        if (oneState.iden != this->rxnReactants[0].state) {
-                            ++totSpecies;
-                            this->rxnProducts.emplace_back();
-                            this->rxnProducts.back().absIndex = totSpecies;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    std::cout << "Warning: must declare association reaction before declaring a state change of its product.\n";
 }
 
 void ParsedRxn::determine_reactants()

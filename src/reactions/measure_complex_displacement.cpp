@@ -1,7 +1,6 @@
 #include "classes/class_Rxns.hpp"
 #include "reactions/association/association.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 /*
   tmpComCoord hold temporary crds. 
@@ -15,7 +14,6 @@ void measure_complex_displacement(bool& flag, Complex& reactCom1, Complex& react
     std::vector<Molecule>& moleculeList, const Parameters& params,
     const std::vector<MolTemplate>& molTemplateList, const std::vector<Complex>& complexList)
 {
-    // TRACE();
     double dx, dy, dz;
     double R2;
     double Dtot1, Dtot2, cf, Dr1, Dr2;

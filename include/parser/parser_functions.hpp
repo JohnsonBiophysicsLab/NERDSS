@@ -73,7 +73,6 @@
 #pragma once
 
 #include "classes/class_Membrane.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Quat.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
@@ -162,9 +161,6 @@ void determine_iface_indices(int specieIndex, int& totSpecies, ParsedMol& targMo
 void determine_bound_iface_index(int& totSpecies, ParsedMol::IfaceInfo& targIface,
     ParsedRxn& parsedRxn, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList);
-
-bool areCorrespondingMolecules(std::pair<std::string, ParsedMol::IfaceInfo>& prodMolIface,
-    std::pair<std::string, ParsedMol::IfaceInfo>& reactMolIface);
 
 /*! \ingroup Parser
  * \brief returns true if the two ifaces are identical but for their states
@@ -329,7 +325,6 @@ void read_bonds(int numBonds, std::ifstream& molFile, MolTemplate& molTemplate);
 /*************************/
 
 /* LIST POPULATION */
-size_t find_molTypeIndex_from_ifaceIndex(const int& targIfaceIndex, const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup Parser
  * \brief Just sets the conjugate reaction iterators to the iterator of the last element in forwardRxns

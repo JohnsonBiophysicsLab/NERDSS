@@ -27,8 +27,6 @@ public:
     std::vector<bool> implicitDouble; // is the bound complex an implicit?
     std::vector<bool> canDissociate; // can the specie dissociate?
     std::vector<std::vector<int>> bindPairList; // one mol index of the specie (the first forward reactant), used for the dissociation pool
-    std::vector<std::vector<int>> bindPairListIL2D; // one mol index of the specie, used for the dissociation pool, 2D implicit lipid bound, complex.linksToSurface > 1
-    std::vector<std::vector<int>> bindPairListIL3D; // one mol index of the specie, used for the dissociation pool, 3D implicit lipid bound, complex.linksToSurface == 1
   int eventArraySize {20};
   std::vector<int> events3D;
   std::vector<int> events2D;

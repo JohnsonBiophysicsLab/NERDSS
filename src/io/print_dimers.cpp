@@ -1,6 +1,5 @@
 #include "classes/class_Molecule_Complex.hpp"
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <iostream>
 
 using namespace std;
@@ -8,7 +7,6 @@ using namespace std;
 void print_dimers(std::vector<Complex>& complexList, std::ofstream& outfile, int it, Parameters params,
     std::vector<MolTemplate>& molTemplateList)
 {
-    // TRACE();
     int i, j;
     int size;
     int p1;

@@ -5,7 +5,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <cmath>
 #include <iomanip>
 #include <iostream>

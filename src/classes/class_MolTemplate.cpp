@@ -37,54 +37,15 @@ Interface::Interface(std::string name, const Vec3D& iCoord)
 {
 }
 
-Interface::State::State(const std::string& ifaceAndStateName, char iden, int index)
-    : ifaceAndStateName(ifaceAndStateName)
-    , iden(iden)
-    , index(index)
-{
-}
 Interface::State::State(const std::string& ifaceAndStateName, int index)
     : ifaceAndStateName(ifaceAndStateName)
     , index(index)
 {
 }
 
-Interface::Interface(std::string name, std::vector<Interface::State> states, Vec3D iCoord)
-    : iCoord(iCoord)
-    , name(name)
-    , stateList(states)
-{
-    set_ifaceAndStateNames();
-}
-
-// Functions
-void Interface::set_ifaceAndStateNames()
-{
-    // set the full name of the iface+state automatically during construction
-    if (stateList.size() > 1) {
-        for (auto& state : stateList) {
-            if (state.iden != '\0') {
-                state.ifaceAndStateName = name + "~" + state.iden;
-            }
-        }
-    }
-}
 /*******************/
 
 /* MOLTEMPLATE */
-
-// Constructors
-MolTemplate::MolTemplate(std::string molName, std::vector<Interface>& interfaceList)
-    : molName(molName)
-    , interfaceList(interfaceList)
-{
-}
-
-MolTemplate::MolTemplate(Vec3D& comCoord, std::vector<Interface>& Interfaces)
-    : comCoord(comCoord)
-    , interfaceList(Interfaces)
-{
-}
 
 // Functions
 void MolTemplate::display() const
@@ -155,17 +116,6 @@ void MolTemplate::display() const
     }
 }
 
-void MolTemplate::display(const std::string& name) const
-{
-    std::cout << "MolTemplate " << name << ':' << '\n';
-    std::cout << "Rod? " << std::boolalpha << isRod << '\n';
-    std::cout << "Radius: " << radius << '\n';
-    std::cout << comCoord << '\n';
-    for (auto& iface : interfaceList)
-        std::cout << iface.iCoord << '\n';
-    std::cout << '\n';
-}
-
 int MolTemplate::find_relIndex_from_absIndex(int targStateIndex) const
 {
     /*!
@@ -186,19 +136,6 @@ int MolTemplate::find_relIndex_from_absIndex(int targStateIndex) const
     //    not_in_cont_err(__PRETTY_FUNCTION__, __LINE__);
     return 0; // it'll terminate before it hits this, this is just so it
     // doesn't yell at me for not returning an int
-}
-
-int MolTemplate::find_absIndex_from_relIndex(int relIndex, char state) const
-{
-    for (auto& iface : interfaceList) {
-        for (auto& tempState : iface.stateList) {
-            if (state == tempState.iden && relIndex == iface.index)
-                return tempState.index;
-        }
-    }
-
-    std::cerr << "Absolute index for state " << state << " cannot be found on interface " << relIndex << ".\n";
-    exit(1);
 }
 
 void MolTemplate::cache_diffusion_derivatives()
@@ -309,25 +246,6 @@ void MolTemplate::set_value(std::string& line, MolKeyword molKeyword)
     default: {
         std::cout << "Keyword [BLANK] is not a valid keyword, ignoring." << '\n';
     }
-    }
-}
-
-size_t find_molTypeIndex_from_ifaceIndex(const int& targIfaceIndex, const std::vector<MolTemplate>& molTemplateList)
-{
-    /* this function should find the molTypeIndex of the parent MolTemplate of am absolute ifaceIndex */
-    try {
-        for (auto& oneTemplate : molTemplateList) {
-            for (auto& oneIface : oneTemplate.interfaceList) {
-                for (auto& oneState : oneIface.stateList) {
-                    if (oneState.index == targIfaceIndex)
-                        return oneTemplate.molTypeIndex;
-                }
-            }
-        }
-        throw std::out_of_range("Interface::State index cannot be found in list of MolTemplates...");
-    } catch (const std::out_of_range& e) {
-        // TODO: write some handling here
-        exit(1);
     }
 }
 

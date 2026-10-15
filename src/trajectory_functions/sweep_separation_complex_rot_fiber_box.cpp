@@ -3,7 +3,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 void sweep_separation_complex_rot_fiber_box(
@@ -17,7 +16,6 @@ void sweep_separation_complex_rot_fiber_box(
   */
 
   // std::cout << "Iter num: " << simItr << " Molecule Index: " << selfIndex << std::endl;
-  // TRACE();
   int comIndex1{moleculeList[selfIndex].myComIndex};
   int startProIndex = selfIndex;
   int com1Size = complexList[comIndex1].memberList.size();

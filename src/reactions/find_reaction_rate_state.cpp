@@ -1,11 +1,9 @@
 #include "io/io.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 
 int find_reaction_rate_state(int simItr, int relIfaceIndex1, int relIfaceIndex2, const Molecule& reactMol1,
     const Molecule& reactMol2, const BackRxn& backRxn, const std::vector<MolTemplate>& molTemplateList)
 {
-    // TRACE();
     int reactIndex1 { -1 };
     int reactIndex2 { -1 };
     for (std::size_t reactItr { 0 }; reactItr < backRxn.reactantListNew.size(); ++reactItr) {

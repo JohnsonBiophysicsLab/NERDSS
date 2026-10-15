@@ -135,11 +135,6 @@ double rand_gsl64()
     return result < 1.0 ? result : std::nextafter(1.0, 0.0);
 }
 
-void srand_gsl(int num)
-{
-    gsl_rng_set(r, num);
-}
-
 void write_rng_state()
 {
     write_rng_state_file("DATA/rng_state");

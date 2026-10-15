@@ -20,7 +20,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
-#include "tracing.hpp"
 
 /*evaluates reflection across a spherical boundary based on tmpCoords of all proteins. targCOM tmpCOM coords also must be consistent-updated.
  *Does not update molecule traj vectors, just updates the passed in vector traj, to collect for both complexes.
@@ -28,7 +27,6 @@
 void reflect_traj_tmp_crds_radial(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom,
     std::array<double, 3>& traj, double radius, RadialSide side, double RS3Dinput)
 {
-    // TRACE();
     /*This routine updated April 2020 to test if a large complex that spans the sphere could extend out in both directions
     if so, it attempts to correct for this by resampling the complex's translational updates.
     */

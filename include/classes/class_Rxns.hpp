@@ -54,7 +54,6 @@ struct RxnIface {
     char requiresState { '\0' }; //!< the state required for this reaction to occur (Interface::State.iden)
     bool requiresInteraction { false }; //!< does the interface need to be bound to something
 
-    bool operator==(const Molecule::Iface&) const;
     friend std::ostream& operator<<(std::ostream& os, const RxnIface& oneIface);
 
     RxnIface() = default;
@@ -383,8 +382,6 @@ public:
     Angles assocAngles { std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN() }; //!< Angles relative to sigma for association
 
     void display() const override;
-    void assoc_display(const std::vector<MolTemplate>& molTemplateList) const;
-    ForwardRxn bngl_copy_rxn();
 
     // constructors
     ForwardRxn() = default;

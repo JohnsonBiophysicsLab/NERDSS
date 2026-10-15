@@ -83,27 +83,6 @@ bool areSameAngle(double ang1, double ang2, const ComparisonTolerance& tolerance
 bool areParallel(const double& angle);
 
 /*! \ingroup Associate
- * \brief Checks if the sign of the angle is the correct sign demanded by the desired angle.
- */
-bool angleSignIsCorrect(const Vec3D& vec1, const Vec3D& vec2);
-
-/*!
- * \brief Checks the center of mass to interface vectors of the parent complex of an associating molecule to make sure
- * all magnitudes were conserved during the association.
- *
- * Just a safety check. Can be removed, if need be.
- */
-bool conservedMags(const Complex& targCom, const std::vector<Molecule>& moleculeList);
-
-/*!
- * \brief Checks the center of mass to interface vectors of the parent Complex of an associating Molecule to ensure the
- * angles were conserved during association.
- *
- * Just a safety check. Can be removed, if need be.
- */
-bool conservedRigid(const Complex& targCom, const std::vector<Molecule>& moleculeList);
-
-/*! \ingroup Associate
  * \brief A generic version of dihedral_projection and phi_projection, to project any arbitray axes onto a plane
  * TODO: Rename this
  */
@@ -124,10 +103,9 @@ Vec3D create_arbitrary_vector(Vec3D& vec);
  * \param[in] reactMol1 current molecule being rotated and transformed
  * \param[in] reactMol2 other molecule in the association event
  * \param[in] axis axis around which the molecules are rotating
- * \param[in] axisLength length of `axis`.  Passed rather than measured because
- *            callers disagree about which length they mean: check_bases.cpp
- *            passes zero for an axis it never measured, which makes this
- *            function a no-op, and that is the behaviour it relies on.
+ * \param[in] axisLength length of `axis`.  Passed rather than measured so that
+ *            a caller can pass zero for an axis it never measured, which makes
+ *            this function a no-op.
  *
  * NOTE: Only use this function if the calling function is passed reactMol1 and reactMol2 by value, NOT by
  * reference. This function alters the coordinates in a way that is not desired by association, but required in the
@@ -341,19 +319,6 @@ double calculate_phi(Vec3D reactIface1, int ifaceIndex2, Molecule reactMol1, Mol
     const Vec3D& axis, double axisLength, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList);
 
 /* OTHER */
-/*! \ingroup Associate
- * \brief Checks to make sure association was successful.
- *
- * Checks if
- *   1. all angles are at their desired value
- *   2. magnitude of the interface-center of mass vectors was conserved
- *   3. the rigitidy of the molecules was conserved
- */
-void check_bases(bool& cancelAssoc, const Vec3D& reactIface1, const Vec3D& reactIface2, int ifaceIndex1,
-    int ifaceIndex2, const Molecule& reactMol1, const Molecule& reactMol2, const Complex& reactCom1,
-    const Complex& reactCom2, const ForwardRxn& currRxn, const std::vector<Molecule>& moleculeList,
-    const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings);
-
 /*! \ingroup Associate
  * \brief Checks to see if the centers of masses of any of the molecules that are undergoing physical association 
  * to prevent steric overlap. Only checks molecules that are flagged with checkOverlap=1

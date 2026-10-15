@@ -1,13 +1,11 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int rateIndex, bool isStateChangeBackRxn,
     BiMolData& biMolData, const Parameters& params,
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns)
 {
-    // TRACE();
     /*3D reaction*/
     add_3D_rotational_diffusion(
         biMolData, complexList, params, params.numerics.classification.explicitLipidFlatDiffusion);

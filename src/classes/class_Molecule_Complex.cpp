@@ -28,8 +28,6 @@
 int Molecule::numberOfMolecules = 0;
 int Molecule::maxID = 0;
 int Complex::numberOfComplexes = 0;
-int Complex::currNumberComTypes = 0;
-int Complex::currNumberMolTypes = 0;
 int Complex::maxID = 0;
 std::vector<int> Complex::emptyComList{};
 std::vector<int> Molecule::emptyMolList{};
@@ -42,25 +40,6 @@ bool skipLine(std::string line) {
   // this in particular, without also including needed lines that have comments
   // at the end
   return line.empty() || line[0] == '#';
-}
-
-Complex::Complex(const Molecule &mol, const MolTemplate &oneTemp)
-    : Complex(mol.comCoord, oneTemp.D, oneTemp.Dr, Complex::maxID++) {
-      // TODO: oneTemp ?
-  mass = mol.mass;
-  memberList.push_back(mol.index);
-  index = mol.index;
-  radius = oneTemp.radius;
-  if (mol.isPromoter)
-    onFiber = true;
-  if (mol.isLipid)
-    OnSurface = true;
-  // Will elements of this array below be initialized to zero??
-  numEachMol = std::vector<int>(MolTemplate::numMolTypes);
-  ++numEachMol[oneTemp.molTypeIndex];
-
-  lastNumberUpdateItrEachMol.resize(MolTemplate::numMolTypes);
-  receivedFromNeighborRank = true;
 }
 
 Complex::Complex(int _index, const Molecule &_memMol,
@@ -79,20 +58,12 @@ Complex::Complex(int _index, const Molecule &_memMol,
   receivedFromNeighborRank = true;
 }
 
-Complex::Complex(Vec3D comcoords, Vec3D D, Vec3D Dr)
-    : comCoord(comcoords), D(D), Dr(Dr) {}
-
 Complex::Complex(Vec3D comcoords, Vec3D D, Vec3D Dr, int idComplex)
     : comCoord(comcoords), D(D), Dr(Dr), id(idComplex) {
   receivedFromNeighborRank = true;
 }
 
 // Overloaded operators //
-std::ostream &operator<<(std::ostream &os, const std::array<double, 3> &arr) {
-  os << arr[0] << ' ' << arr[1] << ' ' << arr[2];
-  return os;
-}
-
 void operator+(Vec3D &c, const double scal) {
   c.x += scal;
   c.y += scal;
@@ -103,13 +74,6 @@ void operator*(Vec3D &c, const double scal) {
   c.x *= scal;
   c.y *= scal;
   c.z *= scal;
-}
-
-std::ostream &operator<<(std::ostream &os, const Molecule &mol) {
-  os << mol.tmpComCoord << std::endl;
-  for (auto &iface : mol.tmpICoords)
-    os << iface << std::endl;
-  return os;
 }
 
 // bool operator==(const IntCoordCont::Mol& mol1, const IntCoordCont::Mol& mol2)
@@ -160,64 +124,6 @@ void Molecule::display(const MolTemplate &molTemplate) const {
     }
   }
 }
-void Molecule::display_all() const {
-  std::cout << "Index: " << index << '\n';
-  std::cout << "Is empty: " << std::boolalpha << isEmpty << '\n';
-  if (!isEmpty) {
-
-    std::cout << "Parent complex index: " << myComIndex << '\n';
-    std::cout << "Sub volume index: " << mySubVolIndex << '\n';
-    std::cout << "Is a lipid: " << std::boolalpha << isLipid << '\n';
-    std::cout << "Is a promoter: " << std::boolalpha << isPromoter << '\n';
-    std::cout << "Center of mass coordinate: " << comCoord << '\n';
-    std::cout << "Interfaces:\n";
-    for (const auto &iface : interfaceList) {
-      std::cout << "\t---\n";
-      std::cout << "\tRelative index: " << iface.relIndex << '\n';
-      std::cout << "\tAbsolute index: " << iface.index << '\n';
-
-      std::cout << "\tCoordinate: " << iface.coord << '\n';
-      if (iface.stateIden != '\0')
-        std::cout << "\tCurrent state: " << iface.stateIden << '\n';
-      if (iface.isBound) {
-        std::cout << "\tInteraction:\n";
-        std::cout << "\t\tPartner index: " << iface.interaction.partnerIndex
-                  << '\n';
-        std::cout << "\t\tPartner interface index "
-                  << iface.interaction.partnerIfaceIndex << '\n';
-      }
-    }
-  }
-}
-
-void Molecule::display_assoc_icoords(const std::string &name) {
-  std::cout << name << ':' << std::endl;
-  std::cout << std::setw(8) << std::setprecision(12) << std::right
-            << tmpComCoord << std::endl;
-  for (auto &icoord : tmpICoords)
-    std::cout << std::setw(8) << std::setprecision(12) << std::right << icoord
-              << std::endl;
-  std::cout << std::endl;
-}
-void Molecule::display_my_coords(const std::string &name) {
-  std::cout << name << ':' << std::endl;
-  std::cout << comCoord << '\n';
-  for (const auto &iface : interfaceList) {
-    std::cout << iface.coord << '\n';
-  }
-}
-
-void Molecule::write_crd_file(std::ofstream &os) const {
-  os << tmpComCoord << std::endl;
-  for (auto &icoord : tmpICoords)
-    os << icoord << std::endl;
-}
-void Molecule::write_crd_file_cout() const {
-  std::cout << comCoord << std::endl;
-  for (auto &iface : interfaceList)
-    std::cout << iface.coord << std::endl;
-}
-
 void Molecule::set_tmp_association_coords() {
   tmpComCoord = comCoord;
   for (auto &iface : interfaceList) {
@@ -559,16 +465,6 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
     this->create_random_coords(molTemplate, membraneObject);
 }
 
-bool Molecule::operator==(const Molecule &rhs) const {
-  return std::tie(myComIndex, molTypeIndex, index, comCoord) ==
-         std::tie(rhs.myComIndex, rhs.molTypeIndex, rhs.index, rhs.comCoord);
-}
-
-bool Molecule::operator!=(const Molecule &rhs) const {
-  return std::tie(myComIndex, molTypeIndex, index, comCoord) !=
-         std::tie(rhs.myComIndex, rhs.molTypeIndex, rhs.index, rhs.comCoord);
-}
-
 void Molecule::Interaction::clear() {
   partnerIfaceIndex = -1;
   partnerIndex = -1;
@@ -834,18 +730,6 @@ void Complex::update_properties(
 }
 
 void Complex::display() {
-  std::cout << "Comcoords: " << comCoord << std::endl;
-  std::cout << "Member list:";
-  for (auto &mp : memberList)
-    std::cout << ' ' << mp;
-  std::cout << std::endl;
-  std::cout << "D: " << D << '\n';
-  std::cout << "Dr: " << Dr << '\n';
-  std::cout << std::endl;
-}
-
-void Complex::display(const std::string &name) {
-  std::cout << name << std::endl;
   std::cout << "Comcoords: " << comCoord << std::endl;
   std::cout << "Member list:";
   for (auto &mp : memberList)

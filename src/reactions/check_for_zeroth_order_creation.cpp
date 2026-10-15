@@ -1,7 +1,6 @@
 #include "math/constants.hpp"
 #include "math/rand_gsl.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 
 void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulVolume &simulVolume, const std::vector<ForwardRxn> &forwardRxns,
@@ -9,7 +8,6 @@ void check_for_zeroth_order_creation(unsigned simItr, Parameters &params, SimulV
                                      std::vector<Complex> &complexList, std::vector<MolTemplate> &molTemplateList,
                                      std::map<std::string, int> &observablesList, copyCounters &counterArrays, Membrane &membraneObject)
 {
-    // TRACE();
     for (auto &oneRxn : createDestructRxns)
     {
         if (oneRxn.rxnType == ReactionType::zerothOrderCreation)

@@ -1,7 +1,6 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 #include <numeric>
 
 namespace {
@@ -71,7 +70,6 @@ void draw_coords_after_uni_reaction(
 Molecule initialize_molecule_after_zeroth_reaction(
     int index, Parameters& params, MolTemplate& molTemplate, const CreateDestructRxn& currRxn, const Membrane& membraneObject)
 {
-    // TRACE();
     /*!
      * \brief Creates a molecule according to a creation from concentration reaction (CreateDestructRxn), assigns
      * coords.
@@ -111,7 +109,6 @@ Molecule initialize_molecule_after_zeroth_reaction(
 Molecule initialize_molecule_after_uni_reaction(int index, const Molecule& parentMol, Parameters& params,
     MolTemplate& molTemplate, const CreateDestructRxn& currRxn)
 {
-    // TRACE();
     Molecule tmp {};
     tmp.molTypeIndex = molTemplate.molTypeIndex;
     tmp.mass = molTemplate.mass;

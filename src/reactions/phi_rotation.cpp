@@ -1,7 +1,6 @@
 #include "classes/class_Molecule_Complex.hpp"
 #include "io/io.hpp"
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
     Complex& reactCom1, Complex& reactCom2, const Vec3D& normal, const double& targPhi, const ForwardRxn& currRxn,
@@ -11,7 +10,6 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
     const auto sameAngle = [&settings](double lhs, double rhs) {
         return areSameAngle(lhs, rhs, settings.sameAngle);
     };
-    // TRACE();
     /*! \ingroup Associate
      * \brief Function to rotate a Molecule to some a target dihedral phi, relative to sigma (the
      (sigma)-(interface)-(normal) dihedral)

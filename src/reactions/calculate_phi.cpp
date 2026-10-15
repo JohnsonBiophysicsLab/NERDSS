@@ -1,10 +1,8 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 double calculate_phi(Vec3D reactIface1, int ifaceIndex2, Molecule reactMol1, Molecule reactMol2, const Vec3D& normal,
     const Vec3D& axis, double axisLength, const ForwardRxn& currRxn, const std::vector<MolTemplate>& molTemplateList)
 {
-    // TRACE();
     // coordinate transform along com-iface vector
     transform(reactIface1, reactMol1, reactMol2, axis, axisLength);
 

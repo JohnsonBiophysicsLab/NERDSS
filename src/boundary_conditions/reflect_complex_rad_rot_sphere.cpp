@@ -11,7 +11,6 @@
  */
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
-#include "tracing.hpp"
 
 namespace {
 
@@ -35,7 +34,6 @@ ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>&
 
 void reflect_complex_rad_rot_sphere(const Membrane& membraneObject, Complex& targCom, std::vector<Molecule>& moleculeList, double radius, double RS3Dinput)
 {
-    // TRACE();
     // only works for the complex after association or diffusion, spherical system
     // For the sphere system, many times of reflections may need to move the complex back inside the sphere!!
     //

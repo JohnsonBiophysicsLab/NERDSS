@@ -28,7 +28,6 @@
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "classes/class_ShellIndex.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 #include <chrono>
 #include <cstring>
@@ -40,9 +39,7 @@ gsl_rng *r; /* global generator */
 
 // easier to read timer
 using MDTimer = std::chrono::system_clock;
-using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
 /* INITIALIZE GLOBALS */
-long long randNum = 0;
 unsigned long totMatches = 0;
 
 int main(int argc, char *argv[]) {

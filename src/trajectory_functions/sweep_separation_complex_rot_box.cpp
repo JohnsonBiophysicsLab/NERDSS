@@ -1,7 +1,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 /*
@@ -39,7 +38,6 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject,
     bool ignoreZBetweenSurfacePartners)
 {
-    // TRACE();
     int com1Index { moleculeList[pro1Index].myComIndex };
     size_t com1Size { complexList[com1Index].memberList.size() };
 

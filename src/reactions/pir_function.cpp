@@ -1,9 +1,7 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
-#include "tracing.hpp"
 
 double pir_function(double x, void* p)
 {
-    // TRACE();
     double alp, bet, tet, P, T, h, f;
     IntegrandParams& params = *reinterpret_cast<IntegrandParams*>(p);
 

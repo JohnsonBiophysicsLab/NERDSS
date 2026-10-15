@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -166,7 +165,6 @@ void write_json_restart(long long int simItr, std::ofstream& restartFile, const 
     const std::vector<TransmissionRxn>& transmissionRxns,
     const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
 {
-    // TRACE();
     json j;
 
     // parameters
@@ -611,7 +609,6 @@ void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, cons
     const std::vector<TransmissionRxn>& transmissionRxns,
     const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
 {
-    // TRACE();
     // Write parameters
     restartFile.precision(20);
     {

@@ -18,21 +18,6 @@
 #include <classes/class_SimulVolume.hpp>
 #include <iostream>
 
-/* SIMULBOX::SUBBOX */
-// Member Functions
-void SimulVolume::SubVolume::display() {
-  std::cout << "SubVolume " << absIndex << '\n';
-  std::cout << "\tRel. Indices: [" << xIndex << ", " << yIndex << ", " << zIndex
-            << "]\n";
-  std::cout << "\tMolecule Members:";
-  for (auto &mol : memberMolList)
-    std::cout << ' ' << mol;
-  std::cout << "\n\tNeighbors (abs. index):";
-  for (auto &cell : neighborList)
-    std::cout << ' ' << cell;
-  std::cout << std::endl;
-}
-
 /* SIMULBOX::DIMENSIONS */
 // Constructors
 /*! \brief Largest number of SubBoxes that still leaves every edge >= cellLength.
