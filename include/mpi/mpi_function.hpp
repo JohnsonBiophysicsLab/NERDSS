@@ -117,7 +117,8 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vec
 
 void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices,
-    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank);
+    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank,
+    vector<char> &keptLocalCom, vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Serialize complexes from complexList with indices within complexesSet
@@ -130,7 +131,8 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membr
  */
 void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
 
-void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
+void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
+    const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Map global unique id to local index

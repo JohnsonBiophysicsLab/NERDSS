@@ -240,6 +240,11 @@ void receive_right_neighborhood_zones(
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;
+    // Which complexes, and which of their molecules, kept their local copy
+    // because this rank changed them this step.  Decided once, before any
+    // molecule is overwritten, and applied to the complexes that follow.
+    vector<char> keptLocalCom;
+    vector<char> keptLocalMol;
     // Deserialize molecules and complexes from shared zone and update
     // interfaces, indices, myComIndex-es, etc. Updating molecules myComIndex-es
     // requires deserializating new complexes.
@@ -250,7 +255,7 @@ void receive_right_neighborhood_zones(
         mpiContext, simulVolume, moleculeList, complexList, molTemplateList,
         membraneObject, counterArrays, indices, indicesEnteringMolecules,
         indicesExitingMolecules, mpiContext.MPIArrayFromRight,
-        mpiContext.nMPIArrayFromRight);  // last parameter is ghostStripe
+        mpiContext.nMPIArrayFromRight, keptLocalCom, keptLocalMol);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "R1 deserialize_molecules_right", 1);
@@ -273,7 +278,8 @@ void receive_right_neighborhood_zones(
     }
     deserialize_complexes_right(mpiContext, moleculeList, complexList,
                                 mpiContext.MPIArrayFromRight,
-                                mpiContext.nMPIArrayFromRight);
+                                mpiContext.nMPIArrayFromRight, keptLocalCom,
+                                keptLocalMol);
     derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
