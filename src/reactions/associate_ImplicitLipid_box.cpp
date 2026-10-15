@@ -55,7 +55,6 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
       need orientation corrections for implicit model
         */
         // std::cout << "Before operate: " << std::endl;
-        // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
         // create references to reacting interfaces
         Vec3D& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
@@ -103,7 +102,6 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         }
 
         // std::cout << "After move protein to the membrane: " << std::endl;
-        // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
         if ((molTemplateList[reactMol1.molTypeIndex].isPoint && reactMol2.isImplicitLipid == true) || (molTemplateList[reactMol2.molTypeIndex].isPoint && reactMol1.isImplicitLipid == true)) {
             // binding protein is point, no orientations to specify
@@ -152,7 +150,6 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
 
             // std::cout << "After rotation: " << std::endl;
-            // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
             if (isOnMembrane == true || transitionToSurface == true) {
                 /*return orientation of normal back to starting position*/
@@ -249,7 +246,6 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         } //only correct orientations if both particles are not points.
 
         // std::cout << "Before check overlop: " << std::endl;
-        // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
         //Reflect off the box.
         std::array<double, 3> traj; //=new double[3];
@@ -272,7 +268,6 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
 
             // std::cout << "CRDS after reflecting off of the BOX by " << traj[0] << ' ' << traj[1] << ' ' << traj[2]
             //           << std::endl;
-            // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
         }
         /* CHECKS */
         bool cancelAssoc { false };

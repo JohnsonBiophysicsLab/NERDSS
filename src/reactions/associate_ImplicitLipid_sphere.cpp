@@ -39,7 +39,6 @@ void associate_implicitlipid_sphere(
     for (auto& mol : reactCom2.memberList)
         moleculeList[mol].set_tmp_association_coords();
     // std::cout << " In Associate binidng to sphere surface " << std::endl;
-    // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
 
     // create references to reacting interfaces
     Vec3D& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
@@ -72,13 +71,10 @@ void associate_implicitlipid_sphere(
         for (auto& mp : reactCom1.memberList)
             moleculeList[mp].update_association_coords(transVec1);
         // std::cout << "Position after pushed to sigma: " << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
     } // Move protein to sigma
     // now rotate reactCom1
     // std::cout << "ImplicitLipid model, need to rotate the complex, and make it stick on the sphere.  \n";
     // std::cout << "Pre-MEMBRANE ROT, COORDS: " << std::endl;
-    // reactMol1.display_assoc_icoords("mol1");
     if (molTemplateList[reactMol1.molTypeIndex].isPoint) {
         // If both molecules are points, no orientations to specify
         // std::cout << " Move two point particles to contact along current separation vector, NO ORIENTATION \n";
@@ -160,7 +156,6 @@ void associate_implicitlipid_sphere(
     }
 
     // std::cout << "Pos-MEMBRANE ROT, COORDS: " << std::endl;
-    // reactMol1.display_assoc_icoords("mol1");
 
     // std::cout << "OVERLAP CHECK  AND REFLECT OFF SPHERE: " << std::endl;
     // Reflect off the sphere.
@@ -184,7 +179,6 @@ void associate_implicitlipid_sphere(
 
         // std::cout << "CRDS after reflecting off of the SPHERE by " << traj[0] << ' '
         //           << traj[1] << ' ' << traj[2] << std::endl;
-        // write_xyz_assoc_cout(reactCom1, reactCom2, moleculeList);
     }
     /* CHECKS */
     bool cancelAssoc { false };

@@ -61,7 +61,6 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
 
         // if (reactMol1.index == 29 || reactMol2.index == 29) {
         //   std::cout << "before rotation for theta" << std::endl;
-        //   moleculeList[11].display_assoc_icoords("mol");
         //   std::cout << "rotQuatPos = " << rotQuatPos << std::endl;
         //   std::cout << "rotQuatNeg = " << rotQuatNeg << std::endl;
         // }
@@ -71,7 +70,6 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
 
         // if (reactMol1.index == 29 || reactMol2.index == 29) {
         //   std::cout << "after rotation for theta" << std::endl;
-        //   moleculeList[11].display_assoc_icoords("mol");
         // }
 
         v1 = Vec3D { reactIface1 - reactMol1.tmpComCoord };

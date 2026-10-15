@@ -1852,9 +1852,6 @@ int main(int argc, char *argv[]) {
       write_all_species(currTime, speciesFile1, counterArrays);
       // speciesFile.close();
 
-      // write_single_molecule_rxn(currTime, smtRxnFile, moleculeList,
-      // snapshotMolecules, molTemplateList); snapshotMolecules = moleculeList;
-
       // Estimate time remaining
       duration avgTimeStepDuration =
           std::accumulate(durationList.begin(), durationList.end(),
@@ -1955,8 +1952,7 @@ int main(int argc, char *argv[]) {
                         Constants::usToSeconds +
                     params.timeRestartFrom};
     write_all_species(currTime, speciesFile1, counterArrays);
-    // write_single_molecule_rxn(currTime, smtRxnFile, moleculeList,
-    // snapshotMolecules, molTemplateList); Write out N bound pairs, histogram
+    // Write out N bound pairs, histogram
     // of complex compositions, and monomer/dimer counts.
     write_NboundPairs(counterArrays, pairOutfile, simItr, params, moleculeList);
     print_dimers(complexList, dimerfile, simItr, params, molTemplateList);

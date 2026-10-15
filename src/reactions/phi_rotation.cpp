@@ -97,7 +97,6 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
             = calculate_phi(reactIface1, ifaceIndex2, reactMol1, reactMol2, normal, rotAxis, rotAxis.length(),
                 currRxn, molTemplateList);
 
-        //write_xyz_assoc("phi_forward2.xyz", reactCom1, reactCom2, moleculeList);
 	// quit out if the angles are damn near the same, or if the target is 0/M_PI, if the current angle is -0 or -M_PI
         if ((sameAngle(targPhi, M_PI) || sameAngle(targPhi, 0)) && sameAngle(targPhi, -currPhi)) {
 	  //if(areSameAngle(targPhi, currPhi)){
@@ -164,7 +163,6 @@ void phi_rotation(Vec3D& reactIface1, Vec3D& reactIface2, int ifaceIndex2, Molec
                 // std::cout << "Phi After: " << currPhi << std::endl;
                 return;
             }
-            //write_xyz_assoc("phi_reversal2.xyz", reactCom1, reactCom2, moleculeList);
 
             // If the rotation still didn't give the desired angle
             

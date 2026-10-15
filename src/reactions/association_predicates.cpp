@@ -81,6 +81,4 @@ bool requiresSignFlip(Vec3D axis, Vec3D v1, Vec3D v2)
         return projectedVec1.unit_cross(projectedVec2).x > 0;
     }
 
-    // if the angle sign isn't correct, return true
-    //    return !angleSignIsCorrect(projectedVec1, projectedVec2);
 }
