@@ -26,6 +26,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "boundary_conditions/reflect_functions.hpp"
@@ -478,6 +479,9 @@ int main(int argc, char* argv[]) {
               membraneObject, mpiContext.rank, mpiContext, simulVolume);
   }
 
+  // What this rank last handed its right neighbour, by molecule id: the copy
+  // that comes back at the next first exchange is compared against it.
+  std::unordered_map<int, MolSnapshot> sentRight;
   for (simItr += 1; simItr <= params.nItr; ++simItr) {
     if (1) {
       // if (mpiContext.rank == 0) {
@@ -578,6 +582,9 @@ int main(int argc, char* argv[]) {
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
         tableIDs, DDTableIndex);
+    // A pair across the boundary with the right neighbour is that
+    // neighbour's to decide; see region_split.cpp.
+    drop_right_ghost_crossings(mpiContext, moleculeList, complexList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after measure_separations");
@@ -605,27 +612,16 @@ int main(int argc, char* argv[]) {
     }
     std::vector<int> left{};
     std::vector<int> right{};
+    // One split for the whole step; see region_split.cpp.
+    const int midIndex = region_mid_index(mpiContext);
     for (int i = 0; i < moleculeList.size(); i++) {
       // reset the need_to_send flag to false
       moleculeList[i].need_to_send = false;
 
-      int x_bin = get_x_bin(mpiContext, moleculeList[i]);
-      if (mpiContext.rank == 0) {
-        if (x_bin < (simulVolume.numSubCells.x - 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else if (mpiContext.rank == mpiContext.nprocs - 1) {
-        if (x_bin < (simulVolume.numSubCells.x + 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else {
-        if (x_bin < (simulVolume.numSubCells.x) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      }
+      if (get_x_bin(mpiContext, moleculeList[i]) < midIndex)
+        left.push_back(i);
+      else
+        right.push_back(i);
     }
 
     if (DEBUG) {
@@ -758,6 +754,7 @@ int main(int argc, char* argv[]) {
     claim_unowned_complexes(mpiContext, moleculeList, complexList, simulVolume);
 
     // send to left
+    vector<MolSnapshot> sentLeftState;
     if (mpiContext.rank > 0) {
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d)...\n", mpiContext.rank,
@@ -766,6 +763,14 @@ int main(int argc, char* argv[]) {
       send_data_to_left_neighboring_ranks(
           mpiContext, simItr, params, simulVolume, left, moleculeList,
           complexList, molTemplateList, membraneObject);
+      // What every molecule's bonds and complex were when the left neighbour
+      // was given its copy.  The receive from the left compares against it to
+      // tell a molecule that changed here since -- by the receive from the
+      // right, or by the second bimolecular pass -- whose copy from the
+      // neighbour is stale, from one that did not.  trajStatus cannot tell:
+      // by then every flag has been reset, and the left region carried
+      // "propagated" all along anyway.
+      snapshot_molecules(moleculeList, complexList, sentLeftState);
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d) done.\n",
                mpiContext.rank, mpiContext.rank - 1);
@@ -787,7 +792,7 @@ int main(int argc, char* argv[]) {
       }
       receive_right_neighborhood_zones(
           mpiContext, simItr, simulVolume, right, moleculeList, complexList,
-          molTemplateList, membraneObject, counterArrays);
+          molTemplateList, membraneObject, counterArrays, sentRight);
       if (VERBOSE) {
         printf("Receiving data from rank (%d) to rank (%d) done\n",
                mpiContext.rank + 1, mpiContext.rank);
@@ -821,23 +826,10 @@ int main(int argc, char* argv[]) {
       // reset the need_to_send flag to false
       moleculeList[i].need_to_send = false;
 
-      int x_bin = get_x_bin(mpiContext, moleculeList[i]);
-      if (mpiContext.rank == 0) {
-        if (x_bin < (simulVolume.numSubCells.x - 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else if (mpiContext.rank == mpiContext.nprocs - 1) {
-        if (x_bin < (simulVolume.numSubCells.x + 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else {
-        if (x_bin < (simulVolume.numSubCells.x) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      }
+      if (get_x_bin(mpiContext, moleculeList[i]) < midIndex)
+        left.push_back(i);
+      else
+        right.push_back(i);
     }
 
     // do the right part, send to right and recieve from left
@@ -847,14 +839,6 @@ int main(int argc, char* argv[]) {
     if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
       check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after left exchange");
-    // What every molecule's bonds and complex were before the second
-    // bimolecular pass.  The receive from the left compares against it to
-    // tell a molecule this pass changed -- whose copy from the neighbour is
-    // stale -- from one it did not, because by then every trajStatus has been
-    // reset and the left region carried "propagated" all along anyway.
-    vector<MolSnapshot> stateBeforeSecondHalf;
-    if (mpiContext.rank > 0)
-      snapshot_molecules(moleculeList, complexList, stateBeforeSecondHalf);
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
@@ -991,7 +975,7 @@ int main(int argc, char* argv[]) {
       }
       send_data_to_right_neighboring_ranks(
           mpiContext, simItr, params, simulVolume, right, moleculeList,
-          complexList, molTemplateList, membraneObject);
+          complexList, molTemplateList, membraneObject, sentRight);
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d) done.\n",
                mpiContext.rank, mpiContext.rank + 1);
@@ -1021,8 +1005,7 @@ int main(int argc, char* argv[]) {
       }
       receive_left_neighborhood_zones(
           mpiContext, simItr, simulVolume, left, moleculeList, complexList,
-          molTemplateList, membraneObject, counterArrays,
-          stateBeforeSecondHalf);
+          molTemplateList, membraneObject, counterArrays, sentLeftState);
       if (VERBOSE) {
         printf("Receiving data from rank (%d) to rank (%d) done\n",
                mpiContext.rank - 1, mpiContext.rank);

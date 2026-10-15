@@ -131,8 +131,10 @@ void send_data_to_right_neighboring_ranks(
     MpiContext &mpiContext, long long int simItr, Parameters &params,
     SimulVolume &simulVolume, vector<int> &right,
     vector<Molecule> &moleculeList, vector<Complex> &complexList,
-    vector<MolTemplate> &molTemplateList, Membrane &membraneObject) {
+    vector<MolTemplate> &molTemplateList, Membrane &membraneObject,
+    unordered_map<int, MolSnapshot> &sentRight) {
   if (VERBOSE) cout << "send_data_to_right_neighboring_ranks begins" << endl;
+  sentRight.clear();
   // simulVolume.update_memberMolLists(params, moleculeList, complexList,
   //                                   molTemplateList, membraneObject, simItr,
   //                                   mpiContext);
@@ -184,6 +186,20 @@ void send_data_to_right_neighboring_ranks(
       }
     }
 
+    // What the right neighbour is given, by id: at the next first exchange
+    // its copy of these comes back, and a copy that still matches this is one
+    // the neighbour did not touch.
+    for (int molIdx : moleculesSet) {
+      const Molecule &mol = moleculeList[molIdx];
+      MolSnapshot s;
+      if (mol.myComIndex >= 0 &&
+          mol.myComIndex < static_cast<int>(complexList.size()))
+        s.comId = complexList[mol.myComIndex].id;
+      for (const auto &iface : mol.interfaceList)
+        if (iface.interaction.partnerIndex != -1) s.nBound++;
+      sentRight[mol.id] = s;
+    }
+
     mpiContext.nMPIArrayToRight = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToRight, mpiContext.nMPIArrayToRight,
@@ -219,7 +235,8 @@ void receive_right_neighborhood_zones(
     MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume,
     vector<int> &right, vector<Molecule> &moleculeList,
     vector<Complex> &complexList, vector<MolTemplate> &molTemplateList,
-    Membrane &membraneObject, copyCounters &counterArrays) {
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const unordered_map<int, MolSnapshot> &sentRight) {
   if (VERBOSE) cout << "receive_right_neighborhood_zones begins" << endl;
 
   if (DEBUG) {
@@ -268,7 +285,7 @@ void receive_right_neighborhood_zones(
         mpiContext, simulVolume, moleculeList, complexList, molTemplateList,
         membraneObject, counterArrays, indices, indicesEnteringMolecules,
         indicesExitingMolecules, mpiContext.MPIArrayFromRight,
-        mpiContext.nMPIArrayFromRight, keptLocalCom, keptLocalMol);
+        mpiContext.nMPIArrayFromRight, sentRight, keptLocalCom, keptLocalMol);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "R1 deserialize_molecules_right", 1);
@@ -281,7 +298,7 @@ void receive_right_neighborhood_zones(
     }
     delete_disappeared_molecules(
         mpiContext, simulVolume, membraneObject, moleculeList, complexList,
-        right, molTemplateList);
+        right, molTemplateList, false);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "R2 delete_disappeared_molecules", 1);
@@ -322,8 +339,7 @@ void receive_right_neighborhood_zones(
   // Delete all complexes that were just in the shared zone before sending to
   // the neighbor rank, but were not received back: only process the right bound
   // of the rank
-  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
-                                       false);
+  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList);
   if (CHECK_STRUCTURE)
     check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                               "R4 delete_disappeared_complexes_partial");
@@ -357,7 +373,7 @@ void receive_left_neighborhood_zones(
     vector<int> &left, vector<Molecule> &moleculeList,
     vector<Complex> &complexList, vector<MolTemplate> &molTemplateList,
     Membrane &membraneObject, copyCounters &counterArrays,
-    const vector<MolSnapshot> &beforeSecondHalf) {
+    const vector<MolSnapshot> &sentLeft) {
   if (VERBOSE) cout << "receive_left_neighborhood_zones begins" << endl;
 
   // If not first rank, receive data from the left rank,
@@ -407,7 +423,7 @@ void receive_left_neighborhood_zones(
                           molTemplateList, membraneObject, counterArrays,
                           indices, indicesEnteringMolecules,
                           indicesExitingMolecules, mpiContext.MPIArrayFromLeft,
-                          mpiContext.nMPIArrayFromLeft, beforeSecondHalf,
+                          mpiContext.nMPIArrayFromLeft, sentLeft,
                           keptLocalCom, keptLocalMol);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
@@ -419,7 +435,7 @@ void receive_left_neighborhood_zones(
     }
     delete_disappeared_molecules(mpiContext, simulVolume, membraneObject,
                                  moleculeList, complexList, left,
-                                 molTemplateList);
+                                 molTemplateList, true);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "L2 delete_disappeared_molecules", 1);
@@ -463,8 +479,7 @@ void receive_left_neighborhood_zones(
   // Delete all complexes that were just in the shared zone before sending to
   // the neighbor rank, but were not received back: only process the left bound
   // of the rank
-  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
-                                       true);
+  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList);
   if (CHECK_STRUCTURE)
     check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                               "L4 delete_disappeared_complexes_partial");

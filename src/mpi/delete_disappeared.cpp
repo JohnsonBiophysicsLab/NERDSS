@@ -79,8 +79,7 @@ void delete_disappeared_complexes(MpiContext &mpiContext,
 
 void delete_disappeared_complexes_partial(MpiContext &mpiContext,
                                           vector<Molecule> &moleculeList,
-                                          vector<Complex> &complexList,
-                                          bool left) {
+                                          vector<Complex> &complexList) {
   if (VERBOSE) cout << "delete_disappeared_complexes_partial begins" << endl;
   int count{0};
   // How many molecules still on this rank claim each complex through
@@ -99,55 +98,31 @@ void delete_disappeared_complexes_partial(MpiContext &mpiContext,
         mol.myComIndex < static_cast<int>(complexList.size()))
       claims[mol.myComIndex]++;
   }
+  // A complex the neighbour merged into another, or that moved beyond the
+  // neighbour's edge, does not come back, and its molecules either did not
+  // come back either -- delete_disappeared_molecules() has had them -- or
+  // came back naming the complex they are in now.  Whether this rank's copy
+  // goes is decided by whether any molecule here still names it.  One that
+  // is still claimed is stale rather than gone, and the next exchange
+  // replaces it.  One that nobody names is garbage wherever its last member
+  // now sits, whoever owned it, and whatever receivedFromNeighborRank says:
+  // that flag is one bit for both directions, and on a rank that owns one
+  // column the left neighbour's echo of the column sets it after the send
+  // to the right has cleared it, so a complex the right neighbour merged
+  // away read as received.  The region gate this pass used to apply had the
+  // same hole from the other side: a member the neighbour had just moved
+  // across the regions' boundary put its old complex beyond both passes.
   for (auto &com : complexList) {
     if (com.isEmpty) continue;
-
-    int zone_index;
-    int mid_index;
-
-    if (1)
-    // if(com.memberList.size() > 0)
-    {
-      zone_index = get_x_bin(mpiContext, moleculeList[com.memberList[0]]);
-      if (mpiContext.rank == 0) {
-        mid_index = (mpiContext.simulVolume->numSubCells.x - 1) / 2;
-      } else if (mpiContext.rank == mpiContext.nprocs - 1) {
-        mid_index = (mpiContext.simulVolume->numSubCells.x + 1) / 2;
-      } else {
-        mid_index = (mpiContext.simulVolume->numSubCells.x) / 2;
-      }
-
-      if (left) {
-        if (zone_index >= mid_index) continue;
-      } else {
-        if (zone_index < mid_index) continue;
-      }
-    }
-
-    if (!com.receivedFromNeighborRank) {
-      if (!com.deleteIfNotReceivedBack) {
-        // TODO:ASK: (complex management):
-        //  update myComIndex of com.memberList molecules to match new molecule.
-
-      } else {
-        if (!com.isEmpty) {
-          // Keep a complex its own molecules still claim.  It is stale rather
-          // than gone, and the next exchange replaces it; an orphaned molecule
-          // is not recoverable the same way.
-          if (com.index >= 0 && com.index < static_cast<int>(claims.size()) &&
-              claims[com.index] > 0)
-            continue;
-          count++;
-          if (VERBOSE)
-            cout << "### Deleting complex id=" << com.id
-                 << ", complex index=" << com.index << endl
-                 << "        zone index=" << zone_index
-                 << "        mid index=" << mid_index << endl;
-          com.memberList.clear();
-          com.destroy(moleculeList, complexList);
-        }
-      }
-    }
+    if (com.index >= 0 && com.index < static_cast<int>(claims.size()) &&
+        claims[com.index] > 0)
+      continue;
+    count++;
+    if (VERBOSE)
+      cout << "### Deleting complex id=" << com.id
+           << ", complex index=" << com.index << endl;
+    com.memberList.clear();
+    com.destroy(moleculeList, complexList);
   }
 
   if (VERBOSE)
@@ -158,13 +133,24 @@ void delete_disappeared_complexes_partial(MpiContext &mpiContext,
 void delete_disappeared_molecules(
     MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject,
     vector<Molecule> &moleculeList, vector<Complex> &complexList,
-    vector<int> &region, vector<MolTemplate> &molTemplateList) {
+    vector<int> &region, vector<MolTemplate> &molTemplateList,
+    bool fromLeft) {
   if (VERBOSE) cout << "delete_disappeared_molecules begins" << endl;
   int count{0};
+  // The neighbour that just sent answers only for the complexes it owns.  A
+  // ghost of the other neighbour's complex that sits in this region -- on a
+  // rank with one owned column, that column is mirrored by both neighbours,
+  // and a complex the right neighbour owns can have a member in it -- is not
+  // in this message because the sender never had it, not because it is gone.
+  const int farNeighbour = fromLeft ? mpiContext.rank + 1 : mpiContext.rank - 1;
   for (auto &molIndex : region) {
     Molecule &mol = moleculeList[molIndex];
     if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true)
       continue;  // no checking for deleted molecules, implicit lipid
+    if (mol.myComIndex >= 0 &&
+        mol.myComIndex < static_cast<int>(complexList.size()) &&
+        complexList[mol.myComIndex].ownerRank == farNeighbour)
+      continue;
 
     // Only a ghost may be dropped here.  isShared marks a molecule this rank
     // owns and a neighbour mirrors, and receivedFromNeighborRank is a single
@@ -173,10 +159,11 @@ void delete_disappeared_molecules(
     // "the right neighbour dropped it" and deleted a molecule this rank owns.
     //
     // A middle rank is where the two overlap.  With one owned cell its left edge
-    // stripe and its right edge stripe are the same cell, and that cell falls in
-    // the right region, so every molecule it owns was offered to this test every
-    // step.  A molecule genuinely handed over is marked isGhosted by the
-    // ghost-stripe loop before it is sent, so handovers are unaffected.
+    // stripe and its right edge stripe are the same cell, and that cell is in
+    // the left region (see region_mid_index()), so every molecule it owns is
+    // offered to this test at the receive from the left every step.  A
+    // molecule genuinely handed over is marked isGhosted by the ghost-stripe
+    // loop before it is sent, so handovers are unaffected.
     if (mol.isGhosted) {
       if (mol.receivedFromNeighborRank == false) {
         // Every crossing this molecule holds was counted in its complex's

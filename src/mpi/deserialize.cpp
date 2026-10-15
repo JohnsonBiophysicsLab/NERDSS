@@ -54,17 +54,19 @@ void snapshot_molecules(const vector<Molecule> &moleculeList,
 }
 
 // The second exchange of a step carries the left neighbour's copy of this
-// rank's left edge, and that copy is stale by whatever the second bimolecular
-// pass did here: an initiator in the right region can bind a partner in the
-// left region, which rewires the partner's interface and moves it into the
-// initiator's complex.  The neighbour mirrors the partner from the first
-// exchange and knows nothing of that.  trajStatus cannot tell the two apart
-// -- the left region keeps "propagated" from the first half, so that a complex
-// spanning both regions is not moved twice, and every flag is reset before the
-// send -- so the test is against a snapshot taken before the pass: a molecule
-// whose complex id or bound-interface count differs was changed by it, and so
-// was one that did not exist then.  As at the first exchange, the decision is
-// per complex: it is one object on the wire and one object here.
+// rank's left edge, and that copy is stale by whatever happened here after
+// the copy was sent: the second bimolecular pass, whose initiator in the
+// right region can bind a partner in the left region, rewiring the partner's
+// interface and moving it into the initiator's complex; and, on a rank that
+// owns one column, the receive from the right, which lands in the same column
+// the left neighbour mirrors.  The neighbour knows nothing of either.
+// trajStatus cannot tell the two apart -- the left region keeps "propagated"
+// from the first half, so that a complex spanning both regions is not moved
+// twice, and every flag is reset before the send -- so the test is against a
+// snapshot taken as the copy was sent: a molecule whose complex id or
+// bound-interface count differs was changed since, and so was one that did
+// not exist then.  As at the first exchange, the decision is per complex: it
+// is one object on the wire and one object here.
 static bool changed_since(const Molecule &mol,
                           const vector<Complex> &complexList,
                           const vector<MolSnapshot> &before) {
@@ -435,7 +437,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
                            vector<int> &indicesEnteringMolecules,
                            vector<int> &indicesExitingMolecules,
                            unsigned char *arrayRank, int &nArrayRank,
-                           const vector<MolSnapshot> &beforeSecondHalf,
+                           const vector<MolSnapshot> &sentLeft,
                            vector<char> &keptLocalCom,
                            vector<char> &keptLocalMol) {
   // Decide which complexes keep their local copy before any molecule is
@@ -446,8 +448,18 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
   for (size_t ci = 0; ci < complexList.size(); ci++)
     if (!complexList[ci].isEmpty &&
         changed_in_second_half(complexList[ci], moleculeList, complexList,
-                               beforeSecondHalf))
+                               sentLeft))
       keptLocalCom[ci] = 1;
+  // A complex the right neighbour owns is not the left neighbour's to
+  // replace: its copy of it, if it has one at all, is a mirror of a mirror.
+  // Those meet only on a rank that owns one column, where the left
+  // neighbour's echo of that column would put the right neighbour's complex
+  // back to where it was at the first exchange.
+  if (mpiContext.rank < mpiContext.nprocs - 1)
+    for (size_t ci = 0; ci < complexList.size(); ci++)
+      if (!complexList[ci].isEmpty &&
+          complexList[ci].ownerRank == mpiContext.rank + 1)
+        keptLocalCom[ci] = 1;
   keptLocalMol.assign(moleculeList.size(), 0);
 
   int nMols;   // number of molecules to deserialize
@@ -492,7 +504,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       const int localCom = moleculeList[molIndex].myComIndex;
       const bool keepLocal =
           changed_since(moleculeList[molIndex], complexList,
-                        beforeSecondHalf) ||
+                        sentLeft) ||
           (localCom >= 0 && localCom < static_cast<int>(keptLocalCom.size()) &&
            keptLocalCom[localCom]);
       if (keepLocal) {
@@ -569,8 +581,18 @@ void deserialize_molecules_right(
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject,
     copyCounters &counterArrays, vector<int> &indices,
     vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules,
-    unsigned char *arrayRank, int &nArrayRank, vector<char> &keptLocalCom,
-    vector<char> &keptLocalMol) {
+    unsigned char *arrayRank, int &nArrayRank,
+    const unordered_map<int, MolSnapshot> &sentRight,
+    vector<char> &keptLocalCom, vector<char> &keptLocalMol) {
+  int nMols;   // number of molecules to deserialize
+  POP(nMols);  // deserialize from arrayRank
+  if (VERBOSE)
+    printf("deserializing (%d) molecules from the right rank...\n", nMols);
+  // The whole message is read before anything is decided: the decision per
+  // complex below reads the received copies as well as the local ones.
+  vector<Molecule> received(nMols);
+  for (int i = 0; i < nMols; i++) received[i].deserialize(arrayRank, nArrayRank);
+
   // Decide which complexes keep their local copy before any molecule is
   // overwritten.  A received molecule carries the sender's trajStatus, so once
   // one member of a complex has been replaced the test would read the
@@ -580,19 +602,48 @@ void deserialize_molecules_right(
     if (!complexList[ci].isEmpty &&
         changed_here_this_step(complexList[ci], moleculeList))
       keptLocalCom[ci] = 1;
+  // ...unless the neighbour changed the complex too.  Its copy of a molecule
+  // that no longer matches what this rank sent it is a bond the neighbour's
+  // first half made into this rank's edge, or a change to a complex the
+  // neighbour owns; either way the neighbour has acted on it and its copy is
+  // the one both ranks have to end up with.  On a rank that owns two columns
+  // or more this rank's edge is not moved before this exchange, so the two
+  // tests never both hold; on a rank that owns one column its whole column
+  // was moved in the first half, and keeping it would drop every bond the
+  // right neighbour made into it, leaving the neighbour's initiator bound to
+  // a partner that is not bound back.  A molecule this rank also bound in
+  // the same half-step is lost either way; that is the one case neither
+  // choice can make consistent.
+  vector<char> neighbourChanged(complexList.size(), 0);
+  for (const Molecule &mol : received) {
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    auto sent = sentRight.find(mol.id);
+    if (sent == sentRight.end()) continue;
+    int nBound = 0;
+    for (const auto &iface : mol.interfaceList)
+      if (iface.interaction.partnerIndex != -1) nBound++;
+    // On the wire myComIndex carries the complex id.
+    if (mol.myComIndex == sent->second.comId && nBound == sent->second.nBound)
+      continue;
+    const int molIndex = find_molecule(moleculeList, mol.id);
+    if (molIndex == -1) continue;
+    const int ci = moleculeList[molIndex].myComIndex;
+    if (ci >= 0 && ci < static_cast<int>(complexList.size()))
+      neighbourChanged[ci] = 1;
+  }
+  for (size_t ci = 0; ci < complexList.size(); ci++)
+    if (neighbourChanged[ci]) keptLocalCom[ci] = 0;
+  // A complex the left neighbour owns is not the right neighbour's to
+  // replace; see deserialize_molecules() for the mirror of this.
+  if (mpiContext.rank > 0)
+    for (size_t ci = 0; ci < complexList.size(); ci++)
+      if (!complexList[ci].isEmpty &&
+          complexList[ci].ownerRank == mpiContext.rank - 1)
+        keptLocalCom[ci] = 1;
   keptLocalMol.assign(moleculeList.size(), 0);
 
-  int nMols;   // number of molecules to deserialize
-  POP(nMols);  // deserialize from arrayRank
-  if (VERBOSE)
-    printf("deserializing (%d) molecules from the right rank...\n", nMols);
-  // Deserialize received molecules and update structures:
-  for (int iDeserialize = 0; iDeserialize < nMols; iDeserialize++) {
-    // Deserialize each received molecule:
-    Molecule mol;
-
-    mol.deserialize(arrayRank, nArrayRank);
-
+  // Apply received molecules and update structures:
+  for (Molecule &mol : received) {
     if (VERBOSE) printf("deserializing mol (id=%d) ...\n", mol.id);
 
     update_mySubVolIndex(mpiContext, mol, membraneObject, simulVolume);
@@ -624,9 +675,10 @@ void deserialize_molecules_right(
       // replaced with the stale copy while the complex itself was then kept:
       // the replaced member was left holding the complex ID the wire carries
       // in myComIndex, with nothing to map it back to an index.
+      // The decision is the complex's: a propagated member of a complex the
+      // neighbour changed is replaced with the rest of it.
       const int localCom = moleculeList[molIndex].myComIndex;
       const bool keepLocal =
-          moleculeList[molIndex].trajStatus == TrajStatus::propagated ||
           (localCom >= 0 && localCom < static_cast<int>(keptLocalCom.size()) &&
            keptLocalCom[localCom]);
       if (keepLocal) {
