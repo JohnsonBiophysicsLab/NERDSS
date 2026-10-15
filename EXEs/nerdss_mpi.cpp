@@ -847,6 +847,14 @@ int main(int argc, char* argv[]) {
     if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
       check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after left exchange");
+    // What every molecule's bonds and complex were before the second
+    // bimolecular pass.  The receive from the left compares against it to
+    // tell a molecule this pass changed -- whose copy from the neighbour is
+    // stale -- from one it did not, because by then every trajStatus has been
+    // reset and the left region carried "propagated" all along anyway.
+    vector<MolSnapshot> stateBeforeSecondHalf;
+    if (mpiContext.rank > 0)
+      snapshot_molecules(moleculeList, complexList, stateBeforeSecondHalf);
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
@@ -1013,7 +1021,8 @@ int main(int argc, char* argv[]) {
       }
       receive_left_neighborhood_zones(
           mpiContext, simItr, simulVolume, left, moleculeList, complexList,
-          molTemplateList, membraneObject, counterArrays);
+          molTemplateList, membraneObject, counterArrays,
+          stateBeforeSecondHalf);
       if (VERBOSE) {
         printf("Receiving data from rank (%d) to rank (%d) done\n",
                mpiContext.rank - 1, mpiContext.rank);

@@ -37,10 +37,70 @@ static void reconcile_complex_membership(vector<Molecule> &moleculeList,
   }
 }
 
+void snapshot_molecules(const vector<Molecule> &moleculeList,
+                    const vector<Complex> &complexList,
+                    vector<MolSnapshot> &snapshot) {
+  snapshot.assign(moleculeList.size(), MolSnapshot{});
+  for (size_t i = 0; i < moleculeList.size(); i++) {
+    const Molecule &mol = moleculeList[i];
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    MolSnapshot &s = snapshot[i];
+    if (mol.myComIndex >= 0 &&
+        mol.myComIndex < static_cast<int>(complexList.size()))
+      s.comId = complexList[mol.myComIndex].id;
+    for (const auto &iface : mol.interfaceList)
+      if (iface.interaction.partnerIndex != -1) s.nBound++;
+  }
+}
+
+// The second exchange of a step carries the left neighbour's copy of this
+// rank's left edge, and that copy is stale by whatever the second bimolecular
+// pass did here: an initiator in the right region can bind a partner in the
+// left region, which rewires the partner's interface and moves it into the
+// initiator's complex.  The neighbour mirrors the partner from the first
+// exchange and knows nothing of that.  trajStatus cannot tell the two apart
+// -- the left region keeps "propagated" from the first half, so that a complex
+// spanning both regions is not moved twice, and every flag is reset before the
+// send -- so the test is against a snapshot taken before the pass: a molecule
+// whose complex id or bound-interface count differs was changed by it, and so
+// was one that did not exist then.  As at the first exchange, the decision is
+// per complex: it is one object on the wire and one object here.
+static bool changed_since(const Molecule &mol,
+                          const vector<Complex> &complexList,
+                          const vector<MolSnapshot> &before) {
+  if (mol.index < 0 || mol.index >= static_cast<int>(before.size()))
+    return true;
+  const MolSnapshot &s = before[mol.index];
+  int comId = -1;
+  if (mol.myComIndex >= 0 &&
+      mol.myComIndex < static_cast<int>(complexList.size()))
+    comId = complexList[mol.myComIndex].id;
+  if (comId != s.comId) return true;
+  int nBound = 0;
+  for (const auto &iface : mol.interfaceList)
+    if (iface.interaction.partnerIndex != -1) nBound++;
+  return nBound != s.nBound;
+}
+
+static bool changed_in_second_half(const Complex &com,
+                                   const vector<Molecule> &moleculeList,
+                                   const vector<Complex> &complexList,
+                                   const vector<MolSnapshot> &before) {
+  for (int m : com.memberList) {
+    if (m < 0 || m >= static_cast<int>(moleculeList.size())) continue;
+    const Molecule &mol = moleculeList[m];
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    if (changed_since(mol, complexList, before)) return true;
+  }
+  return false;
+}
+
 void deserialize_complexes(MpiContext &mpiContext,
                            vector<Molecule> &moleculeList,
                            vector<Complex> &complexList,
-                           unsigned char *arrayRank, int &nArrayRank) {
+                           unsigned char *arrayRank, int &nArrayRank,
+                           const vector<char> &keptLocalCom,
+                           const vector<char> &keptLocalMol) {
   if (VERBOSE) cout << "deserialize_complexes begins" << endl;
   // Store number of complexes to be deserialized:
   size_t nComplexes;
@@ -86,6 +146,12 @@ void deserialize_complexes(MpiContext &mpiContext,
         if (DEBUG) error(mpiContext, "5: complex member mol not found");
         continue;
       }
+      // A member whose local copy was kept stays in the complex it is in
+      // here; re-parenting it to the received complex would have it listed
+      // by two complexes and naming the wrong one.
+      if (molIndex < static_cast<int>(keptLocalMol.size()) &&
+          keptLocalMol[molIndex])
+        continue;
       memberList.push_back(molIndex);
       if (complexIndex == -1) {
         if (moleculeList[molIndex].justBoundThisStep) {
@@ -118,13 +184,18 @@ void deserialize_complexes(MpiContext &mpiContext,
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
                complexList[complexIndex].id);
-      // if (complexList[complexIndex].trajStatus == TrajStatus::propagated) {
-      //   if (VERBOSE)
-      //     printf("Skip complex (id=%d) because it is already propagated.\n",
-      //            complexList[complexIndex].id);
-      //   complexList[complexIndex].receivedFromNeighborRank = true;
-      //   continue;
-      // }
+      // The decision deserialize_molecules() took for the members: every
+      // member of a complex changed in the second half kept its local copy,
+      // so the complex keeps its local copy too, or the members would name a
+      // complex that no longer lists them.
+      if (complexIndex < static_cast<int>(keptLocalCom.size()) &&
+          keptLocalCom[complexIndex]) {
+        if (VERBOSE)
+          printf("Skip complex (id=%d) because this rank changed it.\n",
+                 complexList[complexIndex].id);
+        complexList[complexIndex].receivedFromNeighborRank = true;
+        continue;
+      }
 
       auto vecOld = complexList[complexIndex].memberList;
       if (VERBOSE)
@@ -363,7 +434,22 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
                            copyCounters &counterArrays, vector<int> &indices,
                            vector<int> &indicesEnteringMolecules,
                            vector<int> &indicesExitingMolecules,
-                           unsigned char *arrayRank, int &nArrayRank) {
+                           unsigned char *arrayRank, int &nArrayRank,
+                           const vector<MolSnapshot> &beforeSecondHalf,
+                           vector<char> &keptLocalCom,
+                           vector<char> &keptLocalMol) {
+  // Decide which complexes keep their local copy before any molecule is
+  // overwritten: a received molecule carries the sender's bonds and complex
+  // id, so once one member has been replaced the comparison against the
+  // snapshot would read the neighbour's state as this rank's.
+  keptLocalCom.assign(complexList.size(), 0);
+  for (size_t ci = 0; ci < complexList.size(); ci++)
+    if (!complexList[ci].isEmpty &&
+        changed_in_second_half(complexList[ci], moleculeList, complexList,
+                               beforeSecondHalf))
+      keptLocalCom[ci] = 1;
+  keptLocalMol.assign(moleculeList.size(), 0);
+
   int nMols;   // number of molecules to deserialize
   POP(nMols);  // deserialize from arrayRank
   if (VERBOSE)
@@ -399,19 +485,25 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
         error(mpiContext, "7 // deserialize_molecules()");
       mol.index = molIndex;
 
-      // check whether disassociated TODO: there might be an issue when
-      // dissociation included, so we need to represent the dissociation status
-      // with a different TrajStatus value
-      // if (moleculeList[molIndex].trajStatus == TrajStatus::propagated) {
-      //   // std::cout << "skip deserialize molecule id
-      //   // "<<moleculeList[molIndex].id <<std::endl;
-      //   if (VERBOSE)
-      //     printf(
-      //         "mol (id=%d) has been propagated, so skip the
-      //         deserialization.\n", mol.id);
-      //   moleculeList[molIndex].receivedFromNeighborRank = true;
-      //   continue;
-      // }
+      // This rank's copy is the newer one when the second bimolecular pass
+      // changed the molecule's complex here: the neighbour's copy dates from
+      // the first exchange and would undo the bond on this side only, leaving
+      // the initiator bound to a partner that is not bound back.
+      const int localCom = moleculeList[molIndex].myComIndex;
+      const bool keepLocal =
+          changed_since(moleculeList[molIndex], complexList,
+                        beforeSecondHalf) ||
+          (localCom >= 0 && localCom < static_cast<int>(keptLocalCom.size()) &&
+           keptLocalCom[localCom]);
+      if (keepLocal) {
+        if (VERBOSE)
+          printf("mol (id=%d) was changed here this half-step, so skip the "
+                 "deserialization.\n",
+                 mol.id);
+        moleculeList[molIndex].receivedFromNeighborRank = true;
+        keptLocalMol[molIndex] = 1;
+        continue;
+      }
 
       // Update mySubVolIndex if needed
       // (received molecule might have moved by another rank

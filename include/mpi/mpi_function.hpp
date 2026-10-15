@@ -121,11 +121,32 @@ void serialize_molecules_partial(MpiContext &mpiContext, SimulVolume &simulVolum
     vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank, set<int> &complexesSet, int cellX);
 
 /*! \ingroup mpi_function
+ * \brief What a molecule looked like at one point of the step: which complex
+ * it was in and how many of its interfaces were bound.
+ *
+ * The second bimolecular pass is the only thing between the two exchanges of
+ * a step that changes a bond or moves a molecule between complexes, so a
+ * molecule whose entry differs from a snapshot taken before that pass was
+ * changed by it.  trajStatus cannot tell: the left region keeps "propagated"
+ * from the first half, and every flag is reset before the second send.
+ */
+struct MolSnapshot {
+  int comId{-1};   //!< id of the molecule's complex, -1 for none
+  int nBound{0};   //!< interfaces whose partnerIndex is set
+};
+
+/*! \ingroup mpi_function
+ * \brief Record every molecule's MolSnapshot, indexed like moleculeList
+ */
+void snapshot_molecules(const vector<Molecule> &moleculeList, const vector<Complex> &complexList, vector<MolSnapshot> &snapshot);
+
+/*! \ingroup mpi_function
  * \brief deserialize molecules
  */
 void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices, vector<int> &indicesEnteringMolecules,
-    vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank);
+    vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank, const vector<MolSnapshot> &beforeSecondHalf,
+    vector<char> &keptLocalCom, vector<char> &keptLocalMol);
 
 void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices,
@@ -141,7 +162,8 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membr
 /*! \ingroup mpi_function
  * \brief Deserialize complexes into complexList if they don't exist
  */
-void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
+void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
+    const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
 
 void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
     const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
@@ -220,7 +242,8 @@ void receive_right_neighborhood_zones(MpiContext &mpiContext, long long int simI
  * those molecules that were sent, but not received back
  */
 void receive_left_neighborhood_zones(MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume, vector<int> &left, vector<Molecule> &moleculeList,
-    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays);
+    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays,
+    const vector<MolSnapshot> &beforeSecondHalf);
 
 /*! \ingroup mpi_function
  * \brief Prepare rank data

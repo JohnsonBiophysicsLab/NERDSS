@@ -356,7 +356,8 @@ void receive_left_neighborhood_zones(
     MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume,
     vector<int> &left, vector<Molecule> &moleculeList,
     vector<Complex> &complexList, vector<MolTemplate> &molTemplateList,
-    Membrane &membraneObject, copyCounters &counterArrays) {
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const vector<MolSnapshot> &beforeSecondHalf) {
   if (VERBOSE) cout << "receive_left_neighborhood_zones begins" << endl;
 
   // If not first rank, receive data from the left rank,
@@ -390,6 +391,12 @@ void receive_left_neighborhood_zones(
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;
+    // Which complexes, and which of their molecules, kept their local copy
+    // because the second bimolecular pass changed them here.  Decided once,
+    // against the snapshot taken before that pass, before any molecule is
+    // overwritten, and applied to the complexes that follow.
+    vector<char> keptLocalCom;
+    vector<char> keptLocalMol;
     // Deserialize molecules and complexes from shared zone and update
     // interfaces, indices, myComIndex-es, etc. Updating molecules myComIndex-es
     // requires deserializating new complexes.
@@ -400,7 +407,8 @@ void receive_left_neighborhood_zones(
                           molTemplateList, membraneObject, counterArrays,
                           indices, indicesEnteringMolecules,
                           indicesExitingMolecules, mpiContext.MPIArrayFromLeft,
-                          mpiContext.nMPIArrayFromLeft);
+                          mpiContext.nMPIArrayFromLeft, beforeSecondHalf,
+                          keptLocalCom, keptLocalMol);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "L1 deserialize_molecules", 1);
@@ -424,7 +432,8 @@ void receive_left_neighborhood_zones(
     }
     deserialize_complexes(mpiContext, moleculeList, complexList,
                           mpiContext.MPIArrayFromLeft,
-                          mpiContext.nMPIArrayFromLeft);
+                          mpiContext.nMPIArrayFromLeft, keptLocalCom,
+                          keptLocalMol);
     derive_ghost_from_ownership(mpiContext, moleculeList, complexList, false);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
