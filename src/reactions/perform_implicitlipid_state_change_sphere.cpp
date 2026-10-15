@@ -95,7 +95,6 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
     Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
     Vec3D startCOM; //=new double[3];
@@ -131,7 +130,6 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
     } // Move protein to sigma
 
     //    std::cout <<" CRDS TO SIGMA: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
     // TODO: do something else if only one is a point
     if (molTemplateList[facilitatorMol.molTypeIndex].isPoint) {
         /*If both molecules are points, no orientations to specify*/
@@ -188,7 +186,6 @@ void perform_implicitlipid_state_change_sphere(int stateChangeIface, int facilit
             moleculeList[mp].update_association_coords(vtraj);
 
         // std::cout << "CRDS after reflecting off of the sphere by " << traj[0] << ' ' << traj[1] << ' ' << traj[2] << std::endl;
-        // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
     }
     /* CHECKS */
     bool cancelAssoc { false };

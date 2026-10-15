@@ -40,5 +40,4 @@ double calculate_omega(Vec3D reactIface1, int reactIface2, const Vec3D& sigma, d
     //    projVec1.calc_magnitude();
     //    projVec2.calc_magnitude();
     //
-    //    return (angleSignIsCorrect(projVec1, projVec2)) ? projVec1.angle_between(projVec2) : -projVec1.angle_between(projVec2);
 }

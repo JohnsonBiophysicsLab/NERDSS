@@ -131,8 +131,6 @@ void associate_sphere(long long int iter,
                 for (auto& mp : reactCom2.memberList)
                     moleculeList[mp].update_association_coords(transVec2);
                 // std::cout << "Position after pushed to sigma: " << std::endl;
-                // reactMol1.display_assoc_icoords("mol1");
-                // reactMol2.display_assoc_icoords("mol2");
             }
         } // Move protein to sigma
 
@@ -206,8 +204,6 @@ void associate_sphere(long long int iter,
         com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList); // com of c1+c2 (final (tmp) coordinates).
         // std::cout << "Pre-MEMBRANE ROT: COMPLEX PAIR COM: " << finalCOM.x << ' '
         //           << finalCOM.y << ' ' << finalCOM.z << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
 
         if (isOnMembrane == true || transitionToSurface == true) {
             //return orientation of normal back to starting position
@@ -322,8 +318,6 @@ void associate_sphere(long long int iter,
 
         // std::cout << " FINAL COORDS PRIOR TO OVERLAP CHECK  AND REFLECT OFF SPHERE: "
         //           << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
 
         /*Reflect off the sphere.*/
         std::array<double, 3> traj;
@@ -350,8 +344,6 @@ void associate_sphere(long long int iter,
 
             // std::cout << "CRDS after reflecting off of the SPHERE by " << traj[0] << ' '
             //           << traj[1] << ' ' << traj[2] << std::endl;
-            // reactMol1.display_assoc_icoords("mol1");
-            // reactMol2.display_assoc_icoords("mol2");
         }
         /*Calculate the angles swept out by the interface to COM vectors as a result of the displacement*/
         calc_angular_displacement(ifaceIndex1, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, moleculeList);

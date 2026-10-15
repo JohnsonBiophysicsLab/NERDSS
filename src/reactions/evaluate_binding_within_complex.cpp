@@ -90,8 +90,7 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
                 //                 }
 
                 // std::cout<<"LOOP CLOSURE RATE, /us: "<<rateClose<<" m value: "<<m<<" c0 value: "<<c0_nm3<<" reaction
-                // prob: "<<probvec1<<std::endl; write_debug_info(pro1Index, pro2Index, iface1Index, iface2Index,
-                // oneRxn, counterArrays, R1, Keq, probvec1, Nc, pdiss, self, Volume);
+                // prob: "<<probvec1<<std::endl;
 
                 int proA = pro1Index;
                 int ifaceA = iface1Index;

@@ -73,8 +73,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     Molecule memProtein;
 
     // std::cout << "Initial coordinates: " << std::endl;
-    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
     int slowPro = reactMol2.index;
     if (reactCom1.D.x + reactCom1.D.y + reactCom1.D.z <
@@ -210,10 +208,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //             << std::endl;
     //   std::string molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol1.index);
-    //   reactMol1.display_assoc_icoords(molIDstr);
     //   molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol2.index);
-    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     if (isOnFiber == true) {
@@ -291,8 +287,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     com_of_two_tmp_complexes(reactCom2, reactCom2, afterSigmaCOM2, moleculeList);
 
     // std::cout << "Diplace during pushing to sigma: " << std::endl;
-    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
     // std::cout << "COM1: " << std::endl;
     // std::cout << sqrt((afterSigmaCOM1.x - startCOM1.x) *
     // (afterSigmaCOM1.x - startCOM1.x) + (afterSigmaCOM1.y - startCOM1.y)
@@ -309,10 +303,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //             << std::endl;
     //   std::string molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol1.index);
-    //   reactMol1.display_assoc_icoords(molIDstr);
     //   molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol2.index);
-    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     if (molTemplateList[reactMol1.molTypeIndex].isPoint && molTemplateList[reactMol2.molTypeIndex].isPoint) {
@@ -391,8 +383,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
   
 
     // std::cout << "Diplace during rotating: " << std::endl;
-    // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-    // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
     // std::cout << "COM1: " << std::endl;
     // std::cout << sqrt((afterSigmaCOM1.x - afterRotateCOM1.x) *
     // (afterSigmaCOM1.x - afterRotateCOM1.x) + (afterSigmaCOM1.y -
@@ -455,8 +445,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
         rotate(pivot, memRot, reactCom2, moleculeList); // This may create NAN in coordinates
 
         // std::cout << " IS ON MEMBRANE/Fiber, CORRECT ORIENTATION ! " << std::endl;
-        // reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-        // reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
         
       // } // checking all points
     }
@@ -472,10 +460,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //             << std::endl;
     //   std::string molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol1.index);
-    //   reactMol1.display_assoc_icoords(molIDstr);
     //   molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol2.index);
-    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     Vec3D postCOM;
@@ -522,12 +508,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
 
       
       // std::cout << "TRANSLATE SLOWPRO TO ORIG SIGMA COM BY SHIFTING: " << std::endl;
-      //   reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-      //   reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
       // if (iter == 818823) {
         // std::cout << "NEW AFTER TRANSLATIONAL SHIFT: " << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
       // }
       Vec3D afterTranShiftCOM1;
       com_of_two_tmp_complexes(reactCom1, reactCom1, afterTranShiftCOM1, moleculeList);
@@ -575,13 +557,9 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       //   std::cout <<d2.length()<<std::endl;
       // if (iter == 818823) {
         // std::cout << "NEW AFTER ROTATIONAL ALIGN: " << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
       // }
     }
     // std::cout << "NEW AFTER ROTATIONAL ALIGN: " << std::endl;
-    //     reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-    //     reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
     Vec3D currCOM1;
     com_of_two_tmp_complexes(reactCom1, reactCom1, currCOM1, moleculeList);
@@ -610,8 +588,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
 
 
     // std::cout << "CORRECT FIBER PROTEIN POSITION: " << std::endl;
-    //     reactMol1.display_assoc_icoords(std::to_string(reactMol1.index));
-    //     reactMol2.display_assoc_icoords(std::to_string(reactMol2.index));
 
     /*
       CHECK IF BELOW BOX
@@ -752,10 +728,8 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     //             << std::endl;
     //   std::string molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol1.index);
-    //   reactMol1.display_assoc_icoords(molIDstr);
     //   molIDstr = "molecule ID: ";
     //   molIDstr += std::to_string(reactMol2.index);
-    //   reactMol2.display_assoc_icoords(molIDstr);
     // }
 
     std::array<double, 3> traj; //=new double[3];
@@ -785,8 +759,6 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
       // if (iter == 818823) {
       //   std::cout << "CRDS after reflecting off of the BOX by " << traj[0]
       //             << ' ' << traj[1] << ' ' << traj[2] << std::endl;
-      //   reactMol1.display_assoc_icoords("mol1");
-      //   reactMol2.display_assoc_icoords("mol2");
       // }
     }
     /*Calculate the angles swept out by the interface to COM vectors as a result

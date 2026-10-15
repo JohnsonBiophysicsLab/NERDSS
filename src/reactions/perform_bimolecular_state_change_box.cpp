@@ -56,7 +56,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     Vec3D& reactIface1 = facilitatorMol.tmpICoords[facilitatorIface];
     Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
     Vec3D startCOM; //=new double[3];
@@ -141,7 +140,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     } //end moving to sigma
 
     //    std::cout <<" CRDS TO SIGMA: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     // TODO: do something else if only one is a point
     if (molTemplateList[facilitatorMol.molTypeIndex].isPoint && molTemplateList[stateChangeMol.molTypeIndex].isPoint) {
@@ -167,12 +165,10 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
         Vec3D pivot;
 
         if (slowPro == facilitatorMol.index) {
-            //	facilitatorMol.display_assoc_icoords("CURRORIENTATION_TOROTATE1");
             memRot = save_mem_orientation(memProtein, facilitatorMol, molTemplateList[facilitatorMol.molTypeIndex]);
             pivot = facilitatorMol.tmpComCoord;
 
         } else {
-            //stateChangeMol.display_assoc_icoords("CURRORIENTATION_TOROTATE2");
             memRot = save_mem_orientation(memProtein, stateChangeMol, molTemplateList[stateChangeMol.molTypeIndex]);
             pivot = stateChangeMol.tmpComCoord;
         }
@@ -187,8 +183,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
         rotate(pivot, memRot, facilitatorCom, moleculeList);
         rotate(pivot, memRot, stateChangeCom, moleculeList);
         // std::cout <<" AFTER ROTATION1: "<<std::endl;
-        //facilitatorMol.display_assoc_icoords("molecule 1");
-        //stateChangeMol.display_assoc_icoords("molecule 2");
 
         //	    std::cout <<"CRDS after forcing back to membrane bound orientation: \n";*/
     }
@@ -259,8 +253,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     } //is onMembrane
 
     // std::cout << " FINAL COORDS PRIOR TO OVERLAP CHECK " << std::endl;
-    //write_xyz_assoc("final.xyz", facilitatorCom, stateChangeCom, moleculeList);
-    // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
 
     /*Reflect off the box.*/
     //Vec3D traj {};
@@ -287,7 +279,6 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
             moleculeList[mp].update_association_coords(vtraj);
 
         // std::cout << "CRDS after reflecting off of the BOX by " << traj[0] << ' ' << traj[1] << ' ' << traj[2] << std::endl;
-        // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
     }
     /* CHECKS */
     bool cancelAssoc { false };
