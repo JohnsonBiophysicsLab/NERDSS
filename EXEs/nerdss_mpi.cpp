@@ -1104,7 +1104,12 @@ int main(int argc, char* argv[]) {
   std::cout << "total communication time: " << total_communication_time
             << " seconds\n";
 
-  // MERGE THE OUTPUTS FROM ALL THE PROCESSORS
+  // MERGE THE OUTPUTS FROM ALL THE PROCESSORS.  Every rank has flushed its
+  // last copy-number row, histogram block and PDB frame by the time it gets
+  // here, but rank 0 can get here first: the step loop only waits on the
+  // neighbours' messages, not on their writes.  So wait for every rank before
+  // reading the per-rank files, or the merged files lose their final rows.
+  MPI_Barrier(MPI_COMM_WORLD);
   if (mpiContext.rank == 0) {
     merge_outputs(mpiContext.nprocs, molTemplateList.size(),
                   params.pdbWrite > 0);
