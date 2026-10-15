@@ -374,7 +374,12 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       const int currentOwner = complexList[complexIndex].ownerRank;
       const bool senderMayReassign =
           (currentOwner == senderRank) || (currentOwner == -1);
+      // ncross counts the candidate reactions of the members, which stay
+      // this rank's (deserialize_molecules_right()); the sender's count is
+      // of its own lists.
+      const int localNcross = complexList[complexIndex].ncross;
       complexList[complexIndex] = c;  // copy all deserialized properties
+      complexList[complexIndex].ncross = localNcross;
       if (!senderMayReassign)
         complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
@@ -718,7 +723,15 @@ void deserialize_molecules_right(
       //   indicesExitingMolecules.push_back(molIndex);
       // }
 
-      Molecule oldMol = moleculeList[molIndex];
+      // A received copy carries no candidate reactions: the sender's refer
+      // to its own indices and are not on the wire.  The candidates this
+      // rank listed at the top of the step are still the ones its second
+      // half draws from, so they stay -- unless the sender reacted or moved
+      // the molecule, which it says by trajStatus, and then the molecule is
+      // out of this step's draws the same way a reacted molecule is in a
+      // serial run, where associate() clears both reactants' lists.
+      if (mol.trajStatus != TrajStatus::propagated)
+        mol.crossings = std::move(moleculeList[molIndex].crossings);
       moleculeList[molIndex] = mol;
 
       auto newCellIndex = moleculeList[molIndex].mySubVolIndex;
