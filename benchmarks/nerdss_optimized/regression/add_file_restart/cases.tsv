@@ -1,0 +1,11 @@
+# Cases for check.sh.
+#
+# Columns: id <TAB> model directory (from the repository root; holds parms.inp,
+#          add.inp and the .mol files) <TAB> steps N per leg <TAB> seed of leg 1
+#          <TAB> seed of leg 2 <TAB> species columns the add file brings to
+#          DATA/copy_numbers_time.dat, comma-separated
+#
+# Both models are testAdd: A binds an implicit lipid M in a box or on a sphere;
+# add.inp brings B, A + B and B + M.  See README.md.
+box	sample_inputs/testAdd/box	2000	20260810	20260811	A(a!1).B(b!1),B(m!1).M(m!1)
+sphere	sample_inputs/testAdd/sphere	2000	20260810	20260811	A(a!1).B(b!1),B(m!1).M(m!1)
