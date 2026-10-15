@@ -138,6 +138,13 @@ void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &molec
 void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<int> &indices);
 
 /*! \ingroup mpi_function
+ * \brief verify molecule/complex/partner links agree in both directions
+ */
+bool check_structure_invariant(MpiContext &mpiContext, std::vector<Molecule> &moleculeList,
+                               std::vector<Complex> &complexList, long long simItr,
+                               const char *label, int mode = 0);
+
+/*! \ingroup mpi_function
  * \brief give an owner to every complex created since the last start-up seed
  */
 void claim_unowned_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList,

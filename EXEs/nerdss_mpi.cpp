@@ -546,6 +546,9 @@ int main(int argc, char* argv[]) {
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after first-order");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("4.5");
@@ -572,6 +575,9 @@ int main(int argc, char* argv[]) {
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
         tableIDs, DDTableIndex);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after measure_separations");
 
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
@@ -632,6 +638,9 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, left);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol left");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("6 (End decide whether to perform reactions 1)");
@@ -655,6 +664,9 @@ int main(int argc, char* argv[]) {
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after overlap left");
 
     if (DEBUG) {
       LOC(8.0, " @ AFTER_PROPAGATE ", PROC_ALL, simItr);
@@ -744,6 +756,9 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after send left");
     if (DEBUG) {
       check_complex_index(mpiContext, moleculeList, complexList);
     }
@@ -763,6 +778,9 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after receive right");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//after receive right");
@@ -817,6 +835,9 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, right);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol right");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("6 (End decide whether to perform reactions 2)");
@@ -837,6 +858,9 @@ int main(int argc, char* argv[]) {
     check_overlap(right, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after overlap right");
 
     if (DEBUG) {
       LOC(8.0, " @ AFTER_PROPAGATE ", PROC_ALL, simItr);
@@ -955,6 +979,9 @@ int main(int argc, char* argv[]) {
     if (DEBUG) {
       debug_firstEmptyIndex(mpiContext, "AFTER SEND");
     }
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after send right");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "// AFTER SEND");
@@ -975,6 +1002,9 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after receive left");
     if (1) {
       //  if (mpiContext.rank == 0) {
       end_communication_time = MPI_Wtime();
@@ -1000,6 +1030,9 @@ int main(int argc, char* argv[]) {
                        molTemplateList, observablesList, counterArrays,
                        membraneObject, mpiContext);
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after remove_empty_slots");
     if (DEBUG) {
       DEBUG_FIND_MOL("7: before 4.10");
       DEBUG_FIND_COMPLEX("7: before 4.10");
