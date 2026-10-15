@@ -164,11 +164,14 @@ void parse_input_for_a_new_simulation(
                                     mpiContext);
   simulVolume.display();
 
-  // Write beginning of trajectory
-  std::ofstream trajFile{trajFileName};
-  write_traj(0, trajFile, params, moleculeList, molTemplateList,
-             membraneObject);
-  trajFile.close();
+  // Write beginning of trajectory; trajWrite <= 0 writes no trajectory file at
+  // all, the initial frame included
+  if (params.trajWrite > 0) {
+    std::ofstream trajFile{trajFileName};
+    write_traj(0, trajFile, params, moleculeList, molTemplateList,
+               membraneObject);
+    trajFile.close();
+  }
 
   // Initialize transition matrix for each molType
   check_transition_matrix_size(molTemplateList, createDestructRxns);

@@ -286,11 +286,14 @@ int main(int argc, char *argv[]) {
                                       molTemplateList, membraneObject, simItr);
     simulVolume.display();
 
-    // write beginning of trajectory
-    std::ofstream trajFile{trajFileName};
-    write_traj(0, trajFile, params, moleculeList, molTemplateList,
-               membraneObject);
-    trajFile.close();
+    // write beginning of trajectory; trajWrite <= 0 writes no trajectory file
+    // at all, the initial frame included
+    if (params.trajWrite > 0) {
+      std::ofstream trajFile{trajFileName};
+      write_traj(0, trajFile, params, moleculeList, molTemplateList,
+                 membraneObject);
+      trajFile.close();
+    }
 
     // initialize transition matrix for each molType
     for (auto &molTemp : molTemplateList) {
@@ -692,7 +695,8 @@ int main(int argc, char *argv[]) {
 
   // Every write interval reads the same way: a positive value is a period in
   // timesteps, and 0 or a negative value turns the periodic write off.  For
-  // pdbWrite, off also drops the files at the start and the end of the run.
+  // pdbWrite and trajWrite, off also drops the frames at the start and the end
+  // of the run.
   // checkPoint and transitionWrite keep their documented default of nItr / 10
   // when they are left at the -1 the input parser starts from; a run shorter
   // than ten steps makes that quotient 0, which then means off instead of a
@@ -1530,8 +1534,8 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // trajWrite <= 0 means no trajectory frames after the initial one; the
-    // guard also keeps a 0 out of the modulo.
+    // trajWrite <= 0 means no trajectory frames at all; the guard also keeps
+    // a 0 out of the modulo.
     if (params.trajWrite > 0 && simItr % params.trajWrite == 0) {
       // std::cout << "Writing trajectory...\n";
       std::ofstream trajFile{trajFileName, std::ios::app}; // for append
