@@ -1232,7 +1232,102 @@ reference outputs of that build are kept under
 `nerdss-optimized-1.3`, branched from that commit, and is held to the same rule
 as before: with every new parameter left at its default, every output file of
 every suite case is byte-identical to the reference build's, restart files
-included.
+included. The one deliberate exception is `PDB/0.pdb`, which a run at the
+default `pdbWrite` no longer writes (see the next section); every `DATA/` and
+`RESTARTS/` file is still identical.
+
+### `pdbWrite` and `trajWrite` - off writes no file at all
+
+Every write interval reads one way on this branch: a positive value is a period
+in timesteps, and 0 or a negative value is off. For `pdbWrite` and `trajWrite`,
+off used to mean only "no periodic frames": the frame at the start of the run
+was written regardless, `PDB/<step>.pdb` by `nerdss.cpp` just before the time
+loop and the step-0 frame of `DATA/trajectory.xyz` at start-up, so no setting
+gave a run without PDB or trajectory output. Now off writes nothing:
+
+| keyword | positive value | 0 or negative |
+| --- | --- | --- |
+| `pdbWrite` (default -1, off) | the first step, every multiple, the last step | no PDB file, and no `PDB/` directory (`nerdss_mpi`: no `PDB/` or `mergePDB/`) |
+| `trajWrite` (default 10) | the first step, every multiple, the last step | no `DATA/trajectory.xyz` |
+
+A run that wants only the end points sets the interval to `nItr` or more.
+
+**The default changes for `pdbWrite`.** Its default, -1, is off, so a run that
+never sets `pdbWrite` no longer writes `PDB/0.pdb`, which every such run wrote
+before. Nothing else in a default run changes. `trajWrite` defaults to 10, so
+its default output does not change.
+
+**Restart files are deliberately left out.** `restartWrite <= 0` still writes
+`DATA/restart.json` at the end of the run, so a finished run can always be
+continued and audited. `checkPoint <= 0` turns the `RESTARTS/` checkpoints off,
+as before.
+
+**No state was being collected for these outputs.** `write_pdb()` and
+`write_traj()` read the molecule list when they are called. Turning them off
+saves exactly the writes and nothing else. The per-event counters behind the
+statistics files (`copyNumSpecies`, `nBoundPairs`, the association-event
+arrays) cost O(1) per reaction. `copyNumSpecies` also drives the population-based
+reactions, and all of them are carried in the restart file, so they stay.
+
+**Where it lives.** The initial PDB write in `EXEs/nerdss.cpp` and
+`EXEs/nerdss_mpi.cpp`, and the initial trajectory frame in `EXEs/nerdss.cpp`
+and `src/parser/parse_input_for_a_new_simulation.cpp`, are now guarded by
+`interval > 0`, like the periodic and final writes already were. The PDB
+directories are made at that point instead of at start-up. `merge_outputs()`
+takes a flag, so a run without PDB files no longer reports the missing folder
+as an error. The stderr note for a non-positive value
+(`src/parser/parse_step_count.cpp`) and `docs/input.md` say what off now means.
+`run_suite.sh` hashed `PDB/` with `find` under `set -o pipefail`, which aborted
+the whole suite once a case had no PDB directory, so it now checks that the
+directory exists first.
+
+**Verification.** `cases.tsv` (14 cases, seed 20260810) was run against
+`29798a7f`. All 263 `DATA/` and `RESTARTS/` files are byte-identical. The 9
+cases at the default `pdbWrite` lose `PDB/0.pdb`, and the 5 that set it
+positive write identical frames. With the `trajWrite` change on top, all 273
+hashed files are identical to the `pdbWrite`-only build: every case sets
+`trajWrite > 0`. A hexamer run with either interval off writes the same
+remaining files as one with it at 500, apart from the interval recorded in
+`restart.json`, and its trajectory at 500 matches `29798a7f`. `nerdss_mpi` at
+np=2 with `pdbWrite = -1` writes no `PDB/` or `mergePDB/`, and its `DATA/` and
+`mergeOUT/` files are the same as with `pdbWrite = 500`.
+`make CC=g++-15 serial checks` builds in a clean tree and passes.
+
+**What PDB output costs.** Five suite models were run at a reduced `nItr` with
+`pdbWrite` at -1, 1000, 100 and 10 (one binary, three interleaved repetitions,
+medians; instructions retired varied by less than 0.1% between repetitions).
+The share is (with - off) / with, and the speedup is with / off, both in
+instructions:
+
+| case | nItr | pdbWrite | PDB files | instructions | CPU s | share of the run spent on PDB | speedup from turning it off |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| rev_3D | 5000 | -1 (off) | 0 | 18.44 G | 1.77 | - | - |
+| rev_3D | 5000 | 1000 | 6 | 19.28 G | 1.84 | 4% | 1.05x |
+| rev_3D | 5000 | 100 | 51 | 25.57 G | 2.42 | 28% | 1.39x |
+| rev_3D | 5000 | 10 | 501 | 88.47 G | 8.22 | 79% | 4.80x |
+| hexamer | 6000 | -1 (off) | 0 | 20.84 G | 1.74 | - | - |
+| hexamer | 6000 | 1000 | 7 | 21.57 G | 1.80 | 3% | 1.04x |
+| hexamer | 6000 | 100 | 61 | 27.25 G | 2.29 | 24% | 1.31x |
+| hexamer | 6000 | 10 | 601 | 84.05 G | 7.33 | 75% | 4.03x |
+| sphere | 10000 | -1 (off) | 0 | 19.30 G | 2.36 | - | - |
+| sphere | 10000 | 1000 | 11 | 19.70 G | 2.39 | 2% | 1.02x |
+| sphere | 10000 | 100 | 101 | 22.94 G | 2.69 | 16% | 1.19x |
+| sphere | 10000 | 10 | 1001 | 55.35 G | 5.72 | 65% | 2.87x |
+| implicit_lipid | 25000 | -1 (off) | 0 | 12.63 G | 0.92 | - | - |
+| implicit_lipid | 25000 | 1000 | 26 | 13.21 G | 0.98 | 4% | 1.05x |
+| implicit_lipid | 25000 | 100 | 251 | 18.19 G | 1.43 | 31% | 1.44x |
+| implicit_lipid | 25000 | 10 | 2501 | 67.99 G | 5.95 | 81% | 5.38x |
+| clathrin | 37500 | -1 (off) | 0 | 11.44 G | 0.81 | - | - |
+| clathrin | 37500 | 1000 | 39 | 12.57 G | 0.92 | 9% | 1.10x |
+| clathrin | 37500 | 100 | 376 | 22.34 G | 1.80 | 49% | 1.95x |
+| clathrin | 37500 | 10 | 3751 | 120.12 G | 10.55 | 90% | 10.50x |
+
+One PDB frame costs 2 to 13 ms of CPU on these models (22 to 140 M
+instructions), against a timestep of tens to hundreds of microseconds. The cost
+is the formatted text of every interface of every molecule, and the share
+follows the ratio of frames to steps. Removing only the step-0 frame, which is
+what changes for a default run, saves one frame per run (about 0.1 G
+instructions on a 2000-step hexamer run), which is negligible.
 
 ### `histogramMolStates` - interface states in the complex histogram
 
