@@ -44,9 +44,9 @@
 # transmits.  Its removal loop needs a denser model than any sample holds.
 compartment	compartment	clath_compartment.inp	30000
 
-# Unimolecular state change: count_unimolecular_observable, and the
-# check_for_unimolstatechange_reactions path around it.
-unimol_state_change	VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	20000
+# The unimolecular state change (count_unimolecular_observable and the
+# check_for_unimolstatechange_reactions path) used to be here, and is now in
+# cases.tsv so that the np>1 validation reaches it too.
 
 # Volume exclusion between bound partners: the `if (canExclude == true)` half of
 # check_bimolecular_reactions(), which no case in cases.tsv enters at all - line

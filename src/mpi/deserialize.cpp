@@ -187,10 +187,31 @@ void deserialize_complexes(MpiContext &mpiContext,
   if (VERBOSE) cout << "deserialize_complexes ends" << endl;
 }
 
+// The first exchange of a step carries the right neighbour's copy of this
+// rank's edge molecules, and that copy is stale by whatever this rank did to
+// them at the top of the step: the unimolecular state changes and
+// dissociations run on every rank at once, before anything is sent.  Those
+// routines mark what they touched TrajStatus::propagated, so a complex this
+// rank changed is one whose trajStatus, or any member's, says so.  The
+// decision is per complex, because a complex is one object on the wire and
+// one object here: taking some members and not others leaves the two halves
+// naming different complexes.
+static bool changed_here_this_step(const Complex &com,
+                                   const vector<Molecule> &moleculeList) {
+  if (com.trajStatus == TrajStatus::propagated) return true;
+  for (int m : com.memberList) {
+    if (m < 0 || m >= static_cast<int>(moleculeList.size())) continue;
+    if (moleculeList[m].trajStatus == TrajStatus::propagated) return true;
+  }
+  return false;
+}
+
 void deserialize_complexes_right(MpiContext &mpiContext,
                                  vector<Molecule> &moleculeList,
                                  vector<Complex> &complexList,
-                                 unsigned char *arrayRank, int &nArrayRank) {
+                                 unsigned char *arrayRank, int &nArrayRank,
+                                 const vector<char> &keptLocalCom,
+                                 const vector<char> &keptLocalMol) {
   if (VERBOSE) cout << "deserialize_complexes begins..." << endl;
   // Store number of complexes to be deserialized:
   size_t nComplexes;
@@ -222,6 +243,13 @@ void deserialize_complexes_right(MpiContext &mpiContext,
         if (DEBUG) error(mpiContext, "5: complex member mol not found");
         continue;
       }
+      // A member whose local copy was kept stays in the complex it is in
+      // here.  Re-parenting it to the received complex would have it listed
+      // by two complexes and naming the wrong one, which is exactly the state
+      // that the per-complex decision exists to prevent.
+      if (molIndex < static_cast<int>(keptLocalMol.size()) &&
+          keptLocalMol[molIndex])
+        continue;
       memberList.push_back(molIndex);
       if (VERBOSE) cout << "(" << molIndex << "); ";
     }
@@ -243,7 +271,14 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
                complexList[complexIndex].id);
-      if (complexList[complexIndex].trajStatus == TrajStatus::propagated) {
+      // The decision deserialize_molecules_right() took for the members, read
+      // from its snapshot rather than retaken here: by now the members that
+      // were replaced carry the sender's trajStatus, which says nothing about
+      // what this rank did.  Every member of a complex changed here kept its
+      // local copy, so the complex keeps its local copy too, or the members
+      // would name a complex that no longer lists them.
+      if (complexIndex < static_cast<int>(keptLocalCom.size()) &&
+          keptLocalCom[complexIndex]) {
         if (VERBOSE)
           printf("Skip complex (id=%d) because it is already propagated.\n",
                  complexList[complexIndex].id);
@@ -442,7 +477,19 @@ void deserialize_molecules_right(
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject,
     copyCounters &counterArrays, vector<int> &indices,
     vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules,
-    unsigned char *arrayRank, int &nArrayRank) {
+    unsigned char *arrayRank, int &nArrayRank, vector<char> &keptLocalCom,
+    vector<char> &keptLocalMol) {
+  // Decide which complexes keep their local copy before any molecule is
+  // overwritten.  A received molecule carries the sender's trajStatus, so once
+  // one member of a complex has been replaced the test would read the
+  // neighbour's flag as this rank's and keep the rest of the complex stale.
+  keptLocalCom.assign(complexList.size(), 0);
+  for (size_t ci = 0; ci < complexList.size(); ci++)
+    if (!complexList[ci].isEmpty &&
+        changed_here_this_step(complexList[ci], moleculeList))
+      keptLocalCom[ci] = 1;
+  keptLocalMol.assign(moleculeList.size(), 0);
+
   int nMols;   // number of molecules to deserialize
   POP(nMols);  // deserialize from arrayRank
   if (VERBOSE)
@@ -478,17 +525,25 @@ void deserialize_molecules_right(
         error(mpiContext, "7 // deserialize_molecules()");
       mol.index = molIndex;
 
-      // check whether disassociated TODO: there might be an issue when
-      // dissociation included, so we need to represent the dissociation status
-      // with a different TrajStatus value
-      if (moleculeList[molIndex].trajStatus == TrajStatus::propagated) {
-        // std::cout << "skip deserialize molecule id
-        // "<<moleculeList[molIndex].id <<std::endl;
+      // This rank's copy is the newer one when this rank changed the
+      // molecule's complex at the top of the step.  The test used to be the
+      // molecule's own trajStatus, but a state change marks only the molecule
+      // it changed and the complex, so the other member of a dimer was
+      // replaced with the stale copy while the complex itself was then kept:
+      // the replaced member was left holding the complex ID the wire carries
+      // in myComIndex, with nothing to map it back to an index.
+      const int localCom = moleculeList[molIndex].myComIndex;
+      const bool keepLocal =
+          moleculeList[molIndex].trajStatus == TrajStatus::propagated ||
+          (localCom >= 0 && localCom < static_cast<int>(keptLocalCom.size()) &&
+           keptLocalCom[localCom]);
+      if (keepLocal) {
         if (VERBOSE)
           printf(
               "mol (id=%d) has been propagated, so skip the deserialization.\n",
               mol.id);
         moleculeList[molIndex].receivedFromNeighborRank = true;
+        keptLocalMol[molIndex] = 1;
         continue;
       }
 

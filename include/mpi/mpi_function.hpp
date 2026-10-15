@@ -117,7 +117,8 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vec
 
 void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices,
-    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank);
+    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank,
+    vector<char> &keptLocalCom, vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Serialize complexes from complexList with indices within complexesSet
@@ -130,12 +131,20 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membr
  */
 void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
 
-void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
+void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
+    const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Map global unique id to local index
  */
 void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<int> &indices);
+
+/*! \ingroup mpi_function
+ * \brief verify molecule/complex/partner links agree in both directions
+ */
+bool check_structure_invariant(MpiContext &mpiContext, std::vector<Molecule> &moleculeList,
+                               std::vector<Complex> &complexList, long long simItr,
+                               const char *label, int mode = 0);
 
 /*! \ingroup mpi_function
  * \brief give an owner to every complex created since the last start-up seed
