@@ -671,9 +671,12 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the left part...\n");
     }
-    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
-      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
-                                "after bimol#1");
+    // No ownership checkpoint here.  Between a bimolecular pass and its
+    // exchange only the reacting rank knows that an association moved a
+    // molecule into a complex the neighbour owns, or pulled a ghost into one
+    // of its own, so the ranks cannot agree on the owner until the exchange
+    // has carried the merged complex across.  The sound checkpoints are the
+    // ones after an exchange: "after left exchange" below and "step top".
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
