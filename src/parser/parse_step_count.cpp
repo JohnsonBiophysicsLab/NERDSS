@@ -118,11 +118,11 @@ const StepCountRule StepCountRules::nItr { "nItr", 0, true, nullptr, nullptr };
 const StepCountRule StepCountRules::timeWrite { "timeWrite", 10, false,
     "turns the periodic statistics output off; only the first and the last rows are written", nullptr };
 const StepCountRule StepCountRules::trajWrite { "trajWrite", 10, false,
-    "turns the trajectory write off; only the initial frame is written", nullptr };
+    "turns the trajectory write off; no frame is written, not even the initial one", nullptr };
 const StepCountRule StepCountRules::restartWrite { "restartWrite", 10, false,
     "turns the periodic restart write off; the restart file at the end of the run is still written", nullptr };
 const StepCountRule StepCountRules::pdbWrite { "pdbWrite", -1, false,
-    "turns the PDB write off; only the initial PDB file is written", nullptr };
+    "turns the PDB write off; no PDB file is written, not even the initial one", nullptr };
 const StepCountRule StepCountRules::checkPoint { "checkPoint", -1, false,
     "turns checkpoint restart files off", "means a checkpoint restart file every nItr / 10 timesteps" };
 const StepCountRule StepCountRules::transitionWrite { "transitionWrite", -1, false,

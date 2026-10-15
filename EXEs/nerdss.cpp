@@ -74,7 +74,6 @@ int main(int argc, char *argv[]) {
   std::string paramFile{};
   // set up some output files
   // Creating a directory
-  mkdir("PDB", 0777);
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
 
@@ -287,11 +286,14 @@ int main(int argc, char *argv[]) {
                                       molTemplateList, membraneObject, simItr);
     simulVolume.display();
 
-    // write beginning of trajectory
-    std::ofstream trajFile{trajFileName};
-    write_traj(0, trajFile, params, moleculeList, molTemplateList,
-               membraneObject);
-    trajFile.close();
+    // write beginning of trajectory; trajWrite <= 0 writes no trajectory file
+    // at all, the initial frame included
+    if (params.trajWrite > 0) {
+      std::ofstream trajFile{trajFileName};
+      write_traj(0, trajFile, params, moleculeList, molTemplateList,
+                 membraneObject);
+      trajFile.close();
+    }
 
     // initialize transition matrix for each molType
     for (auto &molTemp : molTemplateList) {
@@ -692,8 +694,9 @@ int main(int argc, char *argv[]) {
                          molTemplateList, moleculeList, number_of_lipids);
 
   // Every write interval reads the same way: a positive value is a period in
-  // timesteps, and 0 or a negative value turns the periodic write off.  The
-  // writes at the start and the end of the run do not depend on the interval.
+  // timesteps, and 0 or a negative value turns the periodic write off.  For
+  // pdbWrite and trajWrite, off also drops the frames at the start and the end
+  // of the run.
   // checkPoint and transitionWrite keep their documented default of nItr / 10
   // when they are left at the -1 the input parser starts from; a run shorter
   // than ten steps makes that quotient 0, which then means off instead of a
@@ -839,8 +842,13 @@ int main(int argc, char *argv[]) {
   // both the new-simulation and restart branches have final copy numbers here
   check_transition_matrix_size(molTemplateList, createDestructRxns);
 
-  write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-            membraneObject);
+  // pdbWrite <= 0 writes no PDB file at all, the initial one included, so the
+  // PDB directory is made only when there is something to put in it.
+  if (params.pdbWrite > 0) {
+    mkdir("PDB", 0777);
+    write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+              membraneObject);
+  }
   std::cout << "*************** BEGIN SIMULATION **************** "
             << std::endl;
   // begin the timer
@@ -1526,8 +1534,8 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // trajWrite <= 0 means no trajectory frames after the initial one; the
-    // guard also keeps a 0 out of the modulo.
+    // trajWrite <= 0 means no trajectory frames at all; the guard also keeps
+    // a 0 out of the modulo.
     if (params.trajWrite > 0 && simItr % params.trajWrite == 0) {
       // std::cout << "Writing trajectory...\n";
       std::ofstream trajFile{trajFileName, std::ios::app}; // for append
