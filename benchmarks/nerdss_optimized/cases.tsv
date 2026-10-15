@@ -10,6 +10,10 @@
 # One VALIDATE_SUITE case and the Gag example are deliberately absent; see
 # known_broken.tsv for why.  create_destroy and clock_model were absent for the
 # same reason until 394fdd1 and 52b9ab3 fixed them, and are not added here yet.
+#
+# This table is also what the np>1 validation runs (run_mpi_suite.sh), so a
+# model that has to be exercised across ranks belongs here rather than in
+# coverage_cases.tsv, which only the serial coverage pass reads.
 rev_3D	VALIDATE_SUITE/bimolecular_reversible/rev_3D	parms3d.inp	20000
 rev_2D	VALIDATE_SUITE/bimolecular_reversible/rev_2D	parms2D.inp	200
 rev_3Dto2D	VALIDATE_SUITE/bimolecular_reversible/rev_3Dto2D	parms3dto2d.inp	8000
@@ -23,3 +27,9 @@ implicit_lipid	VALIDATE_SUITE/implicit_lipid	parms.inp	100000
 sphere	VALIDATE_SUITE/sphere	parms_sphere.inp	40000
 michaelis_menten	VALIDATE_SUITE/michaelis_menten	michaelis.inp	150000
 mem_localization	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	2000
+# The only reversible unimolecular state change (count_unimolecular_observable
+# and the check_for_unimolstatechange_reactions path), and the only model whose
+# dimers sit in the rank stripe while a step-top state change marks one member:
+# the MPI case that d8f1c8ac fixed, which the serial-only coverage table could
+# not reach.
+unimol_state_change	VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	20000
