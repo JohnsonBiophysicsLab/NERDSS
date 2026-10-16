@@ -36,11 +36,18 @@ See \ref changelog for a list of changes.
 
   | Flag | Description|
   |------|------------|
-  | `-f <filename>`, `--parmfile <filename>`    | declares the parameter file (required)                                    |
-  | `--seed`                                    | manually declare a seed for RNG (optional)                                |
+  | `-f <filename>`, `--parmfile <filename>`    | declares the parameter file (required unless restarting)                  |
+  | `-s <n>`, `--seed <n>`                      | manually declare a seed for RNG, a whole number (optional)                |
+  | `-r <filename>`, `--restart <filename>`     | declares the restart file (optional)                                      |
+  | `-a <filename>`, `--add <filename>`         | declares an add file applied on restart (optional)                        |
+  | `-c <filename>`, `--coordinate <filename>`  | declares a file of initial coordinates (optional)                         |
+  | `-v`, `--verbose`                           | more log output; `-vv` for the most (optional)                            |
   | `--debug-force-dissoc`                      | force dissociation to occur whenever possible (optional, for debug only)  |
   | `--debug-force-assoc`                       | force association to occur whenever possible (optional, for debug only)   |
-  | `-r <filename>`, -`--restart <filename>`    | declares the restart file (optional)                                      |
+  | `--print-system-info`                       | print the system information (optional)                                   |
+  | `-h`, `--help`                              | list the flags and exit                                                   |
+
+- Flags are read with `getopt_long`, so a long flag also takes its value after `=` (`--seed=12`) and short flags can be combined (`-vv`). An unknown flag, a flag missing its value, a seed that is not a whole number, or a stray argument stops the run with a message
 
 \subsection hist The complex histogram
 

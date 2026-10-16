@@ -101,9 +101,10 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
     std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject, int numDoubleBeforeAdd);
 
 /*!\ingroup Parser
- * \brief This function parses command line flag.
+ * \brief This function parses the command line flags with getopt_long.
  *
- * TODO: 
+ * Exits with status 1 on an unknown flag, a missing value, a bad seed or a
+ * stray argument, and with status 0 after printing --help.
  */
 void parse_command(int argc, char* argv[], Parameters& params, std::string& paramFileName, std::string& restartFileName, std::string& addFileName, std::string &coordinateFileName, unsigned int& seed);
 
