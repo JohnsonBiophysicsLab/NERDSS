@@ -131,14 +131,7 @@ void parse_input_for_a_new_simulation(
   // lives at this site too; without it `bin/nerdss` would fail fast on a
   // boundary-less input while `bin/nerdss_mpi` silently ran box physics against
   // an all-zero WaterBox.
-  membraneObject.require_boundary();
-
-  // Create water box for sphere boundary
-  if (membraneObject.isSphere()) {
-    membraneObject.create_water_box();
-    membraneObject.sphereVol =
-        (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-  }
+  membraneObject.finish_boundary();
 
   // Generate the system coordinates, write out coordinate and topology files
   std::string coordinateFileName{""};

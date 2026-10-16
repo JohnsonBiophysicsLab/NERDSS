@@ -361,14 +361,15 @@ void create_conjugate_reaction_itrs(std::vector<ForwardRxn>& forwardRxns, std::v
 
 /*!\ingroup Parser
  * \brief This function populates the vectors of the Interface's pertinent reactions for each State
+ *
+ * \param[in] firstForwardRxn the first reaction to enter.  A new simulation
+ * enters every reaction; a restart with an add file has the restart file's
+ * reactions entered already and passes the number of them, so that only the
+ * add file's are entered.
  */
 void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
     const std::vector<CreateDestructRxn>& createDestructRxns,
-    std::vector<MolTemplate>& molTemplateList);
-/*******************/
-void populate_reaction_lists_for_add(const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<CreateDestructRxn>& createDestructRxns,
-    std::vector<MolTemplate>& molTemplateList, int addForwardRxnNum, int addBackRxnNum, int addCreateDestructRxnNum);
+    std::vector<MolTemplate>& molTemplateList, size_t firstForwardRxn = 0);
 
 /* DISPLAY */
 std::string write_mol_iface(std::string mol, std::string iface);

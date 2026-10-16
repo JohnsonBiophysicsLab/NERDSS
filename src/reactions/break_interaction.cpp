@@ -378,48 +378,9 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
             else
                 Complex::emptyComList.push_back(newComIndex);
         }
-        //------------------------START UPDATE MONOMERLIST-------------------------
-        // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer, add to monomerList if new monomer produced
-        // reactMol1
-        {
-            Molecule& oneMol { reactMol1 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                // add to monomerList
-                oneTemp.monomerList.emplace_back(oneMol.index);
-            }
-
-            // std::cout << "For mol " << oneMol.index << ": "
-            //           << "canDestory is " << oneTemp.canDestroy << "\t"
-            //           << "isMonomer is " << isMonomer << std::endl;
-            // std::cout << "Now the monomerList is: ";
-            // for (auto one : oneTemp.monomerList) {
-            //     std::cout << one << "\t";
-            // }
-            // std::cout << std::endl;
-        }
-        // reactMol2
-        {
-            Molecule& oneMol { reactMol2 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                // add to monomerList
-                oneTemp.monomerList.emplace_back(oneMol.index);
-            }
-            // std::cout << "For mol " << oneMol.index << ": "
-            //           << "canDestory is " << oneTemp.canDestroy << "\t"
-            //           << "isMonomer is " << isMonomer << std::endl;
-            // std::cout << "Now the monomerList is: ";
-            // for (auto one : oneTemp.monomerList) {
-            //     std::cout << one << "\t";
-            // }
-            // std::cout << std::endl;
-        }
-        //------------------------END UPDATE MONOMERLIST---------------------------
+        // A product left without a partner rejoins its template's monomerList.
+        add_to_monomer_list(reactMol1, molTemplateList);
+        add_to_monomer_list(reactMol2, molTemplateList);
     } // end if to actually perform dissociation, so not cancelled
     return cancelDissociation;
 }
