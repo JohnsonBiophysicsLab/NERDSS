@@ -197,19 +197,26 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
     parsedRxn.productList.erase(std::remove_if(parsedRxn.productList.begin(), parsedRxn.productList.end(), [&](const ParsedMol& mol) { return mol.molTypeIndex == -2; }), parsedRxn.productList.end());
     // Get the reaction parameters
     std::string line;
-    std::string tmpLine { line }; // to avoid altering the original line, just in case
-    while (line != "endreactions") {
+    while (true) {
         auto initialPos = reactionFile.tellg();
-        getline(reactionFile, line);
+        // A file that ends without `end reactions` would otherwise loop here
+        // forever, since getline leaves line unchanged once the stream fails.
+        if (!getline(reactionFile, line))
+            break;
         line.erase(
             std::remove_if(line.begin(), line.end(), [](unsigned char x) { return std::isspace(x); }), line.end());
+        remove_comment(line);
 
-        if ((line.find('#') != std::string::npos) && line[0] != '#')
-            remove_comment(line);
-
-        if (line[0] == '#') {
-            initialPos = reactionFile.tellg();
+        std::string tmpLine { line };
+        std::transform(tmpLine.begin(), tmpLine.end(), tmpLine.begin(), ::tolower);
+        if (tmpLine.empty()) {
             continue;
+        } else if (tmpLine == "endreactions") {
+            // Leave `end reactions` for the caller, whose loop ends the block on
+            // it.  Consuming it here made the caller parse every later line of
+            // the file as another reaction.
+            reactionFile.seekg(initialPos);
+            break;
         } else if ((line.find("->") != std::string::npos) || (line.find("<->") != std::string::npos)) {
             // if the next line contains a reaction, seek back to where you started in the file and stop looking for
             // parameter keywords

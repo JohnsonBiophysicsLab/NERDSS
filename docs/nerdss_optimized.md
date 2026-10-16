@@ -1447,3 +1447,47 @@ than histogram.
 The tables are from `interleaved_timing.sh 3`, case table and models under the
 scratch directory of the run (the `_on` parameter files are the stock files with
 `histogramMolStates = true` added, and `enzyme_hist` sets `timeWrite = 10`).
+
+### Blocks after `end reactions`
+
+A parameter file could hold nothing but comments and blank lines after its
+reactions block. `parse_reaction()` read a reaction's parameter lines until the
+next reaction line or `end reactions`. It sought back to the start of a reaction
+line so the caller would parse it next, but it consumed `end reactions`. The
+reactions loop in `parse_input()` and `parse_input_for_add()` then never saw the
+end of the block, and parsed every later non-blank line as another reaction. A
+`start observables` block placed after the reactions exited with
+`INVALID_RXN_ERR (parse_reaction, 66): Missing reaction arrow.`, and so did a
+second `start parameters` block, in a new run and in an add file alike.
+
+`parse_reaction()` now seeks back to the start of `end reactions` too, so the
+caller's loop ends the block on it and the outer loop goes on to the next
+block. Two related defects in the same loop are fixed with it:
+
+- **Case.** The caller matches `end reactions` without case or spaces;
+  `parse_reaction()` compared the space-stripped line exactly, so it walked past
+  `End Reactions`. It now lowercases the line for that comparison.
+- **No `end reactions`.** A file ending inside the reactions block hung:
+  `getline` leaves the line unchanged once the stream has failed, so the loop
+  waited forever for a line it would never read. It now stops at the end of
+  the file.
+
+The `line[0]` reads on an empty line were well defined (C++11 gives `'\0'` at
+`size()`); the loop now strips the comment and skips empty lines before
+looking at the line at all.
+
+**Placement.** Older builds keep the bug, so a parameter file meant to run on
+any NERDSS version must still put every block before `start reactions`.
+
+**Verification.** No sample input has anything but comments after its
+reactions block, so outputs do not change: every output file of every case in
+`cases.tsv` and `coverage_cases.tsv` is byte-identical to the 1.3 tip's build.
+`rev_3D` (3000 steps) run with an observables block after the reactions, with a
+second parameters block after them that sets `timeWrite`, with
+`End Reactions   # done`, and with no `end reactions` line at all writes the
+same files as the tip's build run on the stock file with that `timeWrite`; the
+tip exits on the first two and hangs on the last two. `nerdss_mpi` at `-np 2`
+honours the trailing `timeWrite` too. A `testAdd/box/1` restart with an add file
+holding an observables block, or a second parameters block setting `nItr`,
+after its reactions writes the same 20 files as the tip's build run on the
+plain add file.
