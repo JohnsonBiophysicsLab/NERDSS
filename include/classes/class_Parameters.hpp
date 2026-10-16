@@ -202,6 +202,12 @@ struct Parameters {
     std::string trajFile { "trajectory.xyz" };
     std::string restartFile { "restart.dat" };
 
+    // where <name>.mol files are looked for (--mol-dir, --mol-dir-recursive).
+    // Empty is the working directory.  Only parsing reads these, so they are
+    // neither written to restart files nor sent between MPI ranks.
+    std::string molDir {};
+    bool molDirRecursive { false }; //!< search molDir's subdirectories as well
+
     // TODO: TEMPORARY
     bool isNonEQ { false };
 

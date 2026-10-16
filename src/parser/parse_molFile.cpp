@@ -1,6 +1,6 @@
 #include "parser/parser_functions.hpp"
 
-MolTemplate parse_molFile(std::string& mol)
+MolTemplate parse_molFile(const std::string& molFileName)
 {
     /* NOTE: need to edit both this and enum class MolKeyword if you want to add keywords  */
     std::map<const std::string, MolKeyword> molKeywords = {
@@ -23,10 +23,10 @@ MolTemplate parse_molFile(std::string& mol)
         { "outsidecompartment", MolKeyword::outsideCompartment },
         { "insidecompartment", MolKeyword::insideCompartment }};
 
-    std::cout << mol + ".mol" << '\n';
-    std::ifstream molFile { mol + ".mol" };
+    std::cout << molFileName << '\n';
+    std::ifstream molFile { molFileName };
     if (!molFile) {
-        std::cout << "Cannot open molecule config file for molecule " << mol << '\n';
+        std::cerr << "Cannot open molecule config file " << molFileName << ", exiting.\n";
         exit(1);
     }
 

@@ -299,10 +299,36 @@ std::string create_tmp_line(const std::string &line);
 /*!\ingroup Parser
  * \brief This function reads an unformatted (other than the internal coordinates) molecule information file.
  *
- * @param[in] mol molecule to whom the molecule information file belongs
+ * @param[in] molFileName path of the mol file, from locate_mol_file()
  * @param[out] completed MolTemplate
  */
-MolTemplate parse_molFile(std::string& mol);
+MolTemplate parse_molFile(const std::string& molFileName);
+
+/*!\ingroup Parser
+ * \brief Reads the optional `start molFiles` ... `end molFiles` block of an
+ * input file: one `molName = path` per line, a relative path being relative
+ * to the input file's directory.
+ *
+ * Parsers before this block existed skip it, as they skip any top-level line
+ * that is not a block they know.  Exits on a malformed or repeated entry.
+ */
+std::map<std::string, std::string> read_mol_file_paths(const std::string& inputFileName);
+
+/*!\ingroup Parser
+ * \brief Returns the path of the mol file for molecule molName: its entry in
+ * molFilePaths if it has one, otherwise <molName>.mol in params.molDir (in
+ * the working directory if that is empty), searched recursively when
+ * params.molDirRecursive is set.  Exits if the file is not found, or is found
+ * more than once in a recursive search.
+ */
+std::string locate_mol_file(const std::string& molName, const Parameters& params,
+    const std::map<std::string, std::string>& molFilePaths);
+
+/*!\ingroup Parser
+ * \brief Warns about molFilePaths entries that name no molecule in providedMols.
+ */
+void warn_unused_mol_file_paths(const std::map<std::string, std::string>& molFilePaths,
+    const std::vector<std::string>& providedMols, const std::string& inputFileName);
 
 /*! \ingroup Parser
  * \brief Reads the diffusion constant arrays from the parameters block
