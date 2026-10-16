@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/nerdss_banner_export.svg" alt="Project banner" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/nerdss_banner_export_dark.svg">
+    <img src="docs/nerdss_banner_export.svg" alt="Project banner" width="100%">
+  </picture>
 </p>
 
 
