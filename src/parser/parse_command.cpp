@@ -21,8 +21,8 @@ void print_usage(const char *program, std::ostream &os) {
         "restart.dat<rank>)\n"
      << "  -a, --add <file>         add file applied on restart\n"
      << "  -c, --coordinate <file>  initial coordinates\n"
-     << "      --mol-dir <dir>      read <name>.mol files from this directory\n"
-     << "      --mol-dir-recursive <dir>\n"
+     << "  -m, --mol-dir <dir>      read <name>.mol files from this directory\n"
+     << "  -M, --mol-dir-recursive <dir>\n"
      << "                           ... or from anywhere under it\n"
      << "  -v, --verbose            more log output; -vv for the most\n"
      << "      --debug-force-dissoc force dissociation whenever possible\n"
@@ -66,8 +66,6 @@ void parse_command(int argc, char *argv[], Parameters &params,
     OPT_DEBUG_FORCE_DISSOC = 256,
     OPT_DEBUG_FORCE_ASSOC,
     OPT_PRINT_SYSTEM_INFO,
-    OPT_MOL_DIR,
-    OPT_MOL_DIR_RECURSIVE,
   };
   static const struct option longOptions[] = {
       {"parmfile", required_argument, nullptr, 'f'},
@@ -80,13 +78,13 @@ void parse_command(int argc, char *argv[], Parameters &params,
       {"debug-force-dissoc", no_argument, nullptr, OPT_DEBUG_FORCE_DISSOC},
       {"debug-force-assoc", no_argument, nullptr, OPT_DEBUG_FORCE_ASSOC},
       {"print-system-info", no_argument, nullptr, OPT_PRINT_SYSTEM_INFO},
-      {"mol-dir", required_argument, nullptr, OPT_MOL_DIR},
-      {"mol-dir-recursive", required_argument, nullptr, OPT_MOL_DIR_RECURSIVE},
+      {"mol-dir", required_argument, nullptr, 'm'},
+      {"mol-dir-recursive", required_argument, nullptr, 'M'},
       {nullptr, 0, nullptr, 0}};
 
   bool molDirGiven{false};
   int opt{};
-  while ((opt = getopt_long(argc, argv, "f:s:r:a:c:vh", longOptions,
+  while ((opt = getopt_long(argc, argv, "f:s:r:a:c:m:M:vh", longOptions,
                             nullptr)) != -1) {
     switch (opt) {
     case 'f':
@@ -130,12 +128,12 @@ void parse_command(int argc, char *argv[], Parameters &params,
     case OPT_PRINT_SYSTEM_INFO:
       params.debugParams.printSystemInfo = true;
       break;
-    case OPT_MOL_DIR:
-    case OPT_MOL_DIR_RECURSIVE: {
-      const bool recursive{opt == OPT_MOL_DIR_RECURSIVE};
+    case 'm':
+    case 'M': {
+      const bool recursive{opt == 'M'};
       if (molDirGiven && recursive != params.molDirRecursive) {
-        std::cerr << "--mol-dir and --mol-dir-recursive cannot be combined, "
-                     "exiting.\n";
+        std::cerr << "-m/--mol-dir and -M/--mol-dir-recursive cannot be "
+                     "combined, exiting.\n";
         exit(1);
       }
       if (!is_directory(optarg)) {

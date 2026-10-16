@@ -41,8 +41,8 @@ See \ref changelog for a list of changes.
   | `-r <filename>`, `--restart <filename>`     | declares the restart file (optional)                                      |
   | `-a <filename>`, `--add <filename>`         | declares an add file applied on restart (optional)                        |
   | `-c <filename>`, `--coordinate <filename>`  | declares a file of initial coordinates (optional)                         |
-  | `--mol-dir <dir>`                           | read `X.mol` from `<dir>` instead of the working directory (optional)     |
-  | `--mol-dir-recursive <dir>`                 | read `X.mol` from anywhere under `<dir>` (optional)                       |
+  | `-m <dir>`, `--mol-dir <dir>`               | read `X.mol` from `<dir>` instead of the working directory (optional)     |
+  | `-M <dir>`, `--mol-dir-recursive <dir>`     | read `X.mol` from anywhere under `<dir>` (optional)                       |
   | `-v`, `--verbose`                           | more log output; `-vv` for the most (optional)                            |
   | `--debug-force-dissoc`                      | force dissociation to occur whenever possible (optional, for debug only)  |
   | `--debug-force-assoc`                       | force association to occur whenever possible (optional, for debug only)   |
@@ -55,9 +55,9 @@ See \ref changelog for a list of changes.
 
 - For each molecule `X`, the first of these that applies gives its mol file:
   1. An entry for `X` in a `molFiles` block of the input file (below)
-  2. `X.mol` in the `--mol-dir` directory, or the one file named `X.mol` anywhere under the `--mol-dir-recursive` directory
+  2. `X.mol` in the `-m`/`--mol-dir` directory, or the one file named `X.mol` anywhere under the `-M`/`--mol-dir-recursive` directory
   3. `X.mol` in the working directory
-- `--mol-dir-recursive` stops with an error if `X.mol` is in more than one place under the directory; name the one to use in a `molFiles` block. It skips hidden directories (`.git`) and does not follow symbolic links to directories. The two flags cannot be combined
+- `-M`/`--mol-dir-recursive` stops with an error if `X.mol` is in more than one place under the directory; name the one to use in a `molFiles` block. It skips hidden directories (`.git`) and does not follow symbolic links to directories. The two flags cannot be combined
 - A `molFiles` block maps molecule names to mol files, which may then have any name:
 
       start molFiles
