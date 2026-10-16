@@ -14,27 +14,75 @@ using namespace std;
 // authority for who integrates and who tallies a complex, so an unclaimed
 // complex belongs to nobody.
 //
-// Claim the ones this rank made.  This is the same rule prepare() seeds with --
-// a complex is this rank's if it has a member this rank owns by position -- and
-// it is only ever applied to a complex no rank has stamped yet, so it cannot
-// contradict a handover.  The position test partitions the bins cleanly, so two
-// ranks cannot both claim.
+// Claim the ones this rank made.  Two rules, either suffices, and both are
+// only ever applied to a complex no rank has stamped yet, so neither can
+// contradict a handover.
+//
+// By position: a complex is this rank's if it has a member this rank owns by
+// position.  This is the rule prepare() seeds with, and the position test
+// partitions the bins cleanly, so two ranks cannot both claim.
+//
+// By descent: a complex is this rank's if none of its members is a ghost.
+// isGhosted is derived from the owning complex's stamp at each exchange, and
+// the only reaction code that writes it is a creation, for the molecule it
+// makes; so a member that is not a ghost was, at the last exchange, in a
+// complex this rank owned, and an unstamped complex made of such members was
+// split off one of this rank's complexes by a dissociation at the top of this
+// step, or created here.  What this rank dissociates is this rank's, wherever
+// the product's members sit.
+//
+// The position rule alone left one product unowned for half a step: a dimer
+// this rank owns straddling its last owned column and the right neighbour's
+// first, dissociated at the top of the step with the fresh complex going to
+// the member in the neighbour's column.  Nothing here owns that column by
+// position, so the product kept ownerRank -1 through the send to the left;
+// the right neighbour's copy of it, still bound in the parent, is that
+// rank's ghost of a complex owned here, and derive_ghost_from_ownership()
+// at the receive from the right then marked this rank's copy a ghost too.
+// Owned by nobody, it stayed that way through the second half until the
+// send to the right stamped it over (the bin n-1 loop in
+// send_data_to_right_*), one exchange late.  The mirror image on the left
+// never showed: a product in bin 0 keeps its parent's non-ghost flag and is
+// stamped over by the send to the left before any exchange re-derives the
+// flag.  Claiming by descent before that first exchange makes the right side
+// behave the same way: the product is this rank's through the second half,
+// in which the right ghost column lies, and the next send hands it to the
+// neighbour.  Nothing else about the step changes: the dissociation has
+// already displaced the product and marked it propagated, and a pair across
+// the right boundary is the neighbour's to decide
+// (drop_right_ghost_crossings()), so an owned product does nothing more in
+// that half-step than an unowned one did.  What the claim restores is the
+// invariant everything else reads -- one owner for every complex at every
+// checkpoint -- for the tallies, for the far-neighbour rules keyed on
+// ownerRank, and for check_ownership_invariant().
+//
+// Two ranks cannot both claim by descent either: a member can be a non-ghost
+// on one rank only, the rank whose complex it was in.  Nor can descent pick
+// up a complex that is a neighbour's: an association's survivor is the
+// initiator's complex and keeps its stamp, so the only unstamped complexes
+// are this step's dissociation and creation products.
 void claim_unowned_complexes(MpiContext &mpiContext,
                              vector<Molecule> &moleculeList,
                              vector<Complex> &complexList,
                              SimulVolume &simulVolume) {
   for (auto &com : complexList) {
     if (com.isEmpty || com.ownerRank != -1) continue;
-    bool mine = false;
+    bool byPosition = false;
+    bool byDescent = true;
+    int counted = 0;
     for (int m : com.memberList) {
       if (m < 0 || m >= (int)moleculeList.size()) continue;
       if (moleculeList[m].isEmpty || moleculeList[m].isImplicitLipid) continue;
-      if (is_owned_by_processor(moleculeList[m], mpiContext, simulVolume)) {
-        mine = true;
-        break;
-      }
+      counted++;
+      if (moleculeList[m].isGhosted) byDescent = false;
+      if (!byPosition &&
+          is_owned_by_processor(moleculeList[m], mpiContext, simulVolume))
+        byPosition = true;
     }
-    if (!mine) continue;
+    // The implicit lipid is exempt from the ghost rule and is skipped above,
+    // so a complex with no counted member says nothing about descent.
+    if (counted == 0) byDescent = false;
+    if (!byPosition && !byDescent) continue;
     com.ownerRank = mpiContext.rank;
     // isGhosted is derived from ownerRank, so it has to follow: write_all_species()
     // reads the flag, and check_ownership_invariant() classifies by it.
