@@ -112,18 +112,11 @@ void parse_input_for_a_restart_simulation(
   // lives at this site too; without it `bin/nerdss` would fail fast on a
   // boundary-less input while `bin/nerdss_mpi` silently ran box physics against
   // an all-zero WaterBox.
-  membraneObject.require_boundary();
+  membraneObject.finish_boundary();
 
   // transitionMatrix and lifeTime were sized from the restart file; check them
   // against the copy numbers this run actually has
   check_transition_matrix_size(molTemplateList, createDestructRxns);
-
-  // Create water box for sphere boundary
-  if (membraneObject.isSphere()) {
-    membraneObject.create_water_box();
-    membraneObject.sphereVol =
-        (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-  }
 
   std::cout << " Total number of states (reactant and product)  in the system "
             << RxnBase::totRxnSpecies << std::endl;

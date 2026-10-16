@@ -83,6 +83,55 @@ void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     std::vector<Complex>& complexList);
 
 /*!
+ * \brief Takes `oneMol` off its template's monomerList, if it belongs there.
+ *
+ * `MolTemplate::monomerList` is the pool a destruction or transmission
+ * reaction draws from, kept only for templates with `canDestroy` set.  A
+ * molecule that has just bound leaves it.  The test is made on the molecule as
+ * it stands, `bndpartner.empty()`, so it fires only when the bound list is
+ * still empty after the association - which the associate_box copy flagged
+ * with "TODO: why is it possible that the bndpartner is empty right after
+ * binding?".  Seven copies kept that test, and it is kept here.
+ *
+ * A molecule that is not on the list is left alone.
+ */
+void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
+
+/*!
+ * \brief Puts `oneMol` on its template's monomerList, if it belongs there.
+ *
+ * The other direction: a molecule left without a partner by a dissociation
+ * rejoins the pool.  Same test as remove_from_monomer_list(), and appended
+ * without looking for an existing entry, as the two break_interaction copies
+ * did.
+ */
+void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
+
+/*!
+ * \brief Performs the uniMolStateChange that a dissociation is coupled to.
+ *
+ * A back reaction can name a forward uniMolStateChange as its `coupledRxn`;
+ * once the bond is broken, whichever of the two products carries that
+ * reaction's reactant interface changes state.  Both products are searched,
+ * every interface of each, and the last match wins, as the three copies did;
+ * no match is an input error and ends the run.  The observable, the species
+ * copy numbers and the molecule's and complex's `trajStatus` move with the
+ * state.
+ *
+ * Three sites wrote this out: check_dissociation(), the explicit-protein arm
+ * of check_dissociation_implicitlipid() (the implicit lipid's own arm has no
+ * molecule to search and stays there), and
+ * check_for_unimolecular_reactions_population().
+ *
+ * \param[in] coupledRxn the forward reaction the back reaction couples to.
+ * \param[in] pro1Index, pro2Index the two products of the dissociation.
+ */
+void perform_coupled_state_change(const ForwardRxn& coupledRxn, int pro1Index, int pro2Index,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, copyCounters& counterArrays,
+    std::map<std::string, int>& observablesList);
+
+/*!
  * \brief Zeroes the reaction probability every partner recorded for `mol`.
  *
  * Called once a reaction involving `mol` has fired, so that `mol` cannot react

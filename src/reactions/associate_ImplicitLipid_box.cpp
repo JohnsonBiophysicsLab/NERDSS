@@ -22,24 +22,41 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         }
     }
 
+    // The reaction may list the implicit lipid first or second.  Everything
+    // below runs on the pair as (protein, lipid), whichever way it was listed:
+    // the protein's complex is the one that moves to sigma and is reflected
+    // off the box, the lipid's is the one whose orientation is restored, and
+    // the rotations pivot on whichever interface is passed first, so running
+    // them in listed order gives a different floating-point sequence per
+    // listing.  The angles belong to the listed order, so they are sorted into
+    // roles along with the molecules.
+    const bool lipidListedSecond { reactMol2.isImplicitLipid };
+    Molecule& protein { lipidListedSecond ? reactMol1 : reactMol2 };
+    Molecule& lipid { lipidListedSecond ? reactMol2 : reactMol1 };
+    Complex& proteinCom { lipidListedSecond ? reactCom1 : reactCom2 };
+    Complex& lipidCom { lipidListedSecond ? reactCom2 : reactCom1 };
+    int proteinIface { lipidListedSecond ? ifaceIndex1 : ifaceIndex2 };
+    int lipidIface { lipidListedSecond ? ifaceIndex2 : ifaceIndex1 };
+    const double proteinTheta { lipidListedSecond ? currRxn.assocAngles.theta1 : currRxn.assocAngles.theta2 };
+    const double lipidTheta { lipidListedSecond ? currRxn.assocAngles.theta2 : currRxn.assocAngles.theta1 };
+    const double proteinPhi { lipidListedSecond ? currRxn.assocAngles.phi1 : currRxn.assocAngles.phi2 };
+    const double lipidPhi { lipidListedSecond ? currRxn.assocAngles.phi2 : currRxn.assocAngles.phi1 };
+    const Vec3D& proteinNorm { lipidListedSecond ? currRxn.norm1 : currRxn.norm2 };
+    const Vec3D& lipidNorm { lipidListedSecond ? currRxn.norm2 : currRxn.norm1 };
+
     // we need to set implicit-lipid's temporary position according to mol.
-    if (reactMol2.isImplicitLipid == true) {
-        reactMol2.create_position_implicit_lipid(reactMol1, ifaceIndex2, currRxn.bindRadius, membraneObject);
-        reactCom2.comCoord = reactMol2.comCoord;
-    } else {
-        reactMol1.create_position_implicit_lipid(reactMol2, ifaceIndex1, currRxn.bindRadius, membraneObject);
-        reactCom1.comCoord = reactMol1.comCoord;
-    }
+    lipid.create_position_implicit_lipid(protein, lipidIface, currRxn.bindRadius, membraneObject);
+    lipidCom.comCoord = lipid.comCoord;
 
     // set up temporary coordinates
-    for (auto& memMol : reactCom1.memberList)
+    for (auto& memMol : proteinCom.memberList)
         moleculeList[memMol].set_tmp_association_coords();
 
-    for (auto& mol : reactCom2.memberList)
+    for (auto& mol : lipidCom.memberList)
         moleculeList[mol].set_tmp_association_coords();
 
     bool isOnMembrane = false;
-    if (reactCom1.OnSurface && reactCom2.OnSurface) {
+    if (proteinCom.OnSurface && lipidCom.OnSurface) {
         isOnMembrane = true;
         // std::cout << " IMPLICIT LIPID 2D CASE" << std::endl;
     }
@@ -57,16 +74,16 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         // std::cout << "Before operate: " << std::endl;
 
         // create references to reacting interfaces
-        Vec3D& reactIface1 = reactMol1.tmpICoords[ifaceIndex1];
-        Vec3D& reactIface2 = reactMol2.tmpICoords[ifaceIndex2];
-        Vec3D sigma { reactIface1 - reactIface2 };
+        Vec3D& proteinIfaceCrd = protein.tmpICoords[proteinIface];
+        Vec3D& lipidIfaceCrd = lipid.tmpICoords[lipidIface];
+        Vec3D sigma { proteinIfaceCrd - lipidIfaceCrd };
         // orientation corrections for membrane bound components
-        Molecule memProtein = reactMol2;
-        int slowPro = reactMol2.index;
+        Molecule memProtein = lipid;
+        int slowPro = lipid.index;
 
-        if (reactCom1.D.x < reactCom2.D.x) {
-            slowPro = reactMol1.index;
-            memProtein = reactMol1; // rotate relative to the slower protein. Clat + IL, IL is slower; Clat-IL + IL, Clat-IL is slower
+        if (proteinCom.D.x < lipidCom.D.x) {
+            slowPro = protein.index;
+            memProtein = protein; // rotate relative to the slower protein. Clat + IL, IL is slower; Clat-IL + IL, Clat-IL is slower
         }
 
         double tol = 1E-14;
@@ -75,35 +92,23 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
          * back, as rotation can cause large displacements
          * */
         Vec3D startCOM;
-        com_of_two_tmp_complexes(reactCom1, reactCom2, startCOM, moleculeList);
+        com_of_two_tmp_complexes(proteinCom, lipidCom, startCOM, moleculeList);
 
         // MOVE PROTEIN TO THE MEMBRANE.
         {
             double sigmaMag = sigma.length();
             Vec3D transVec1 = Vec3D(-(sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
-            Vec3D transVec2 { 0.0, 0.0, 0.0 };
-            if (reactMol1.isImplicitLipid == true) {
-                transVec2 = Vec3D((sigmaMag - currRxn.bindRadius - RS3D) / sigmaMag * sigma);
-                transVec1.x = 0;
-                transVec1.y = 0;
-                transVec1.z = 0;
-            }
-            // if (reactMol2.isImplicitLipid == true)
-            //     std::cout << " transVec1 to sigma: " << transVec1.x << ' ' << transVec1.y << ' ' << transVec1.z << std::endl;
-            // if (reactMol1.isImplicitLipid == true)
-            //     std::cout << " transVec2 to sigma: " << transVec2.x << ' ' << transVec2.y << ' ' << transVec2.z << std::endl;
+            // std::cout << " transVec1 to sigma: " << transVec1.x << ' ' << transVec1.y << ' ' << transVec1.z << std::endl;
 
             // update the temporary coordinates
-            // keep the membrane protein fix, and move the other one
-            for (auto& mp : reactCom1.memberList)
+            // keep the implicit lipid fixed, and move the protein's complex
+            for (auto& mp : proteinCom.memberList)
                 moleculeList[mp].update_association_coords(transVec1);
-            for (auto& mp : reactCom2.memberList)
-                moleculeList[mp].update_association_coords(transVec2);
         }
 
         // std::cout << "After move protein to the membrane: " << std::endl;
 
-        if ((molTemplateList[reactMol1.molTypeIndex].isPoint && reactMol2.isImplicitLipid == true) || (molTemplateList[reactMol2.molTypeIndex].isPoint && reactMol1.isImplicitLipid == true)) {
+        if (molTemplateList[protein.molTypeIndex].isPoint) {
             // binding protein is point, no orientations to specify
             // std::cout << " Move point particle to implicit lipid NO ORIENTATION." << std::endl;
         } else { // not point.
@@ -111,18 +116,18 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             // std::cout << std::setw(8) << std::setfill('-') << ' ' << std::endl
             //           << "THETA 1" << std::endl
             //           << std::setw(8) << ' ' << std::setfill(' ') << std::endl;
-            theta_rotation(reactIface1, reactIface2, reactMol1, reactMol2, currRxn.assocAngles.theta1, reactCom1, reactCom2, moleculeList, params.numerics.associationAngles);
+            theta_rotation(proteinIfaceCrd, lipidIfaceCrd, protein, lipid, proteinTheta, proteinCom, lipidCom, moleculeList, params.numerics.associationAngles);
             // std::cout << std::setw(30) << std::setfill('-') << ' ' << std::setfill(' ') << std::endl;
             // std::cout << "THETA 2" << std::endl
             //           << std::setw(8) << std::setfill('-') << ' ' << std::setfill(' ') << std::endl;
-            theta_rotation(reactIface2, reactIface1, reactMol2, reactMol1, currRxn.assocAngles.theta2, reactCom2, reactCom1, moleculeList, params.numerics.associationAngles);
+            theta_rotation(lipidIfaceCrd, proteinIfaceCrd, lipid, protein, lipidTheta, lipidCom, proteinCom, moleculeList, params.numerics.associationAngles);
             /* OMEGA */
             // if protein has theta M_PI, uses protein norm instead of com_iface vector
             // std::cout << std::setw(6) << std::setfill('-') << ' ' << std::endl
             //           << "OMEGA" << std::endl
             //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
             if (!std::isnan(currRxn.assocAngles.omega)) {
-                omega_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, currRxn.assocAngles.omega, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
+                omega_rotation(proteinIfaceCrd, lipidIfaceCrd, lipidIface, protein, lipid, proteinCom, lipidCom, currRxn.assocAngles.omega, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P1 or P2 is a rod-type protein, no dihedral for associated complex." << std::endl;
 
@@ -131,8 +136,8 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             // std::cout << std::setw(6) << std::setfill('-') << ' ' << std::endl
             //           << "PHI 1" << std::endl
             //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
-            if (!std::isnan(currRxn.assocAngles.phi1)) {
-                phi_rotation(reactIface1, reactIface2, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, currRxn.norm1, currRxn.assocAngles.phi1, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
+            if (!std::isnan(proteinPhi)) {
+                phi_rotation(proteinIfaceCrd, lipidIfaceCrd, lipidIface, protein, lipid, proteinCom, lipidCom, proteinNorm, proteinPhi, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P1 has no valid phi angle." << std::endl;
             // PHI 2
@@ -140,14 +145,14 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
             //           << "PHI 2" << std::endl
             //           << std::setw(6) << ' ' << std::setfill(' ') << std::endl;
 
-            if (!std::isnan(currRxn.assocAngles.phi2)) {
-                phi_rotation(reactIface2, reactIface1, ifaceIndex1, reactMol2, reactMol1, reactCom2, reactCom1, currRxn.norm2, currRxn.assocAngles.phi2, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
+            if (!std::isnan(lipidPhi)) {
+                phi_rotation(lipidIfaceCrd, proteinIfaceCrd, proteinIface, lipid, protein, lipidCom, proteinCom, lipidNorm, lipidPhi, currRxn, moleculeList, molTemplateList, params.numerics.associationAngles);
             } //else
             // std::cout << "P2 has no valid phi angle." << std::endl;
 
             /*FINISHED ROTATING, NO CONSTRAINTS APPLIED TO SURFACE REACTIONS*/
             Vec3D finalCOM;
-            com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
+            com_of_two_tmp_complexes(proteinCom, lipidCom, finalCOM, moleculeList);
 
             // std::cout << "After rotation: " << std::endl;
 
@@ -155,19 +160,19 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
                 /*return orientation of normal back to starting position*/
                 Quat memRot;
                 Vec3D pivot;
-                if (slowPro == reactMol1.index) {
-                    memRot = save_mem_orientation(memProtein, reactMol1, molTemplateList[reactMol1.molTypeIndex]);
-                    pivot = reactMol1.tmpComCoord;
+                if (slowPro == protein.index) {
+                    memRot = save_mem_orientation(memProtein, protein, molTemplateList[protein.molTypeIndex]);
+                    pivot = protein.tmpComCoord;
 
                 } else {
-                    memRot = save_mem_orientation(memProtein, reactMol2, molTemplateList[reactMol2.molTypeIndex]);
-                    pivot = reactMol2.tmpComCoord;
+                    memRot = save_mem_orientation(memProtein, lipid, molTemplateList[lipid.molTypeIndex]);
+                    pivot = lipid.tmpComCoord;
                 }
-                rotate(pivot, memRot, reactCom1, moleculeList);
-                rotate(pivot, memRot, reactCom2, moleculeList);
+                rotate(pivot, memRot, proteinCom, moleculeList);
+                rotate(pivot, memRot, lipidCom, moleculeList);
             }
 
-            com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList);
+            com_of_two_tmp_complexes(proteinCom, lipidCom, finalCOM, moleculeList);
             Vec3D dtrans {};
             dtrans.x = startCOM.x - finalCOM.x;
             dtrans.y = startCOM.y - finalCOM.y;
@@ -175,9 +180,9 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
 
             if (isOnMembrane == true || transitionToSurface == true)
                 dtrans.z = 0.0;
-            for (auto& mp : reactCom1.memberList)
+            for (auto& mp : proteinCom.memberList)
                 moleculeList[mp].update_association_coords(dtrans);
-            for (auto& mp : reactCom2.memberList)
+            for (auto& mp : lipidCom.memberList)
                 moleculeList[mp].update_association_coords(dtrans);
 
             double zchg = 0;
@@ -187,31 +192,13 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
                 /* For the impicit binding, we need to move the impicit lipid to the bottom of box */
                 dtrans.x = 0;
                 dtrans.y = 0;
-                for (auto& mp : reactCom1.memberList) {
+                // The implicit lipid is never a member of the protein's complex,
+                // so only the lipid's complex can hold one.
+                for (auto& mp : lipidCom.memberList) {
                     if (moleculeList[mp].isImplicitLipid == true) {
                         if (moleculeList[mp].tmpComCoord.z < -membraneObject.waterBox.z / 2.0) {
                             double ztmp = (-membraneObject.waterBox.z / 2.0)
                                 - moleculeList[mp].tmpComCoord.z; // lipid COM is below box bottom
-                            if (ztmp > zchg) {
-                                zchg = ztmp; // largest dip below membrane
-                                isBelowBottom = true;
-                            }
-                        }
-                        if (moleculeList[mp].tmpComCoord.z - 0.01 > -membraneObject.waterBox.z / 2.0) {
-                            double ztmp = (-membraneObject.waterBox.z / 2.0) - moleculeList[mp].tmpComCoord.z; // lipid COM is ABOVE box bottom, here ztmp is negtive
-                            // std::cout << "WARNING, during associate, implicit LIPID IS ABOVE MEMBRANE BY " << -ztmp << '\n';
-                            // move the lipid back to the bottom
-                            if (-ztmp > zchg) {
-                                zchg = -ztmp;
-                                isAboveBottom = true;
-                            }
-                        }
-                    }
-                }
-                for (auto& mp : reactCom2.memberList) {
-                    if (moleculeList[mp].isImplicitLipid == true) {
-                        if (moleculeList[mp].tmpComCoord.z < -membraneObject.waterBox.z / 2.0) {
-                            double ztmp = (-membraneObject.waterBox.z / 2.0) - moleculeList[mp].tmpComCoord.z; // lipid COM is below box bottom
                             if (ztmp > zchg) {
                                 zchg = ztmp; // largest dip below membrane
                                 isBelowBottom = true;
@@ -238,9 +225,9 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
                 }
 
                 // update the temporary coordinates for both complexes
-                for (auto& mp : reactCom1.memberList)
+                for (auto& mp : proteinCom.memberList)
                     moleculeList[mp].update_association_coords(dtrans);
-                for (auto& mp : reactCom2.memberList)
+                for (auto& mp : lipidCom.memberList)
                     moleculeList[mp].update_association_coords(dtrans);
             }
         } //only correct orientations if both particles are not points.
@@ -256,14 +243,14 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
          * And here, it should be called based on the tmpCoords, not the full coordinates.
          * also requires updating the COM of this temporary new position
          * */
-        update_complex_tmp_com_crds(reactCom1, moleculeList);
-        reflect_traj_tmp_crds(params, moleculeList, reactCom1, traj, membraneObject, RS3D, false); // uses tmpCoords to calculate traj.
+        update_complex_tmp_com_crds(proteinCom, moleculeList);
+        reflect_traj_tmp_crds(params, moleculeList, proteinCom, traj, membraneObject, RS3D, false); // uses tmpCoords to calculate traj.
         if (std::abs(traj[0] + traj[1] + traj[2]) > 1E-50) {
             // update the temporary coordinates for both complexes
             Vec3D vtraj { traj[0], traj[1], traj[2] };
-            for (auto& mp : reactCom1.memberList)
+            for (auto& mp : proteinCom.memberList)
                 moleculeList[mp].update_association_coords(vtraj);
-            for (auto& mp : reactCom2.memberList)
+            for (auto& mp : lipidCom.memberList)
                 moleculeList[mp].update_association_coords(vtraj);
 
             // std::cout << "CRDS after reflecting off of the BOX by " << traj[0] << ' ' << traj[1] << ' ' << traj[2]
@@ -271,21 +258,21 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
         }
         /* CHECKS */
         bool cancelAssoc { false };
-        //check_for_structure_overlap(cancelAssoc, reactCom1, reactCom2, moleculeList, params, molTemplateList);
-        check_if_spans_box(cancelAssoc, params, reactCom1, reactCom2, moleculeList, membraneObject);
+        //check_for_structure_overlap(cancelAssoc, proteinCom, lipidCom, moleculeList, params, molTemplateList);
+        check_if_spans_box(cancelAssoc, params, proteinCom, lipidCom, moleculeList, membraneObject);
         if (cancelAssoc == true)
             counterArrays.nCancelSpanBox++;
 
-        run_association_rejection_checks(cancelAssoc, reactCom1, reactCom2, moleculeList, params,
+        run_association_rejection_checks(cancelAssoc, proteinCom, lipidCom, moleculeList, params,
             molTemplateList, complexList, forwardRxns, backRxns, isOnMembrane,
             transitionToSurface, counterArrays);
         //done deciding whether to reject move.
 
         if (cancelAssoc) {
             // std::cout << "Canceling association, returning complexes to original state.\n";
-            for (auto memMol : reactCom1.memberList)
+            for (auto memMol : proteinCom.memberList)
                 moleculeList[memMol].clear_tmp_association_coords();
-            for (auto memMol : reactCom2.memberList)
+            for (auto memMol : lipidCom.memberList)
                 moleculeList[memMol].clear_tmp_association_coords();
             return;
             //EXIT FROM THIS ROUTINE.
@@ -295,166 +282,10 @@ void associate_implicitlipid_box(long long int iter, int ifaceIndex1, int ifaceI
 
     counterArrays.nAssocSuccess++; //keep track of total number of successful association moves.
     /*Keep track of the sizes of complexes that associated*/
-    track_association_events(reactCom1, reactCom2, transitionToSurface, isOnMembrane, counterArrays);
+    track_association_events(proteinCom, lipidCom, transitionToSurface, isOnMembrane, counterArrays);
 
-    if (reactMol2.isImplicitLipid == true) {
-        // write temporary to real coords and clear temporary coordinates
-        for (auto memMol : reactCom1.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
-            moleculeList[memMol].trajStatus = TrajStatus::propagated;
-            moleculeList[memMol].need_to_send = true;
-        }
-        //add link to surface for the molecule
-        moleculeList[reactMol1.index].linksToSurface++;
-        // update complexes
-        reactCom1.iLipidIndex = reactMol2.index; //index in molecule list of the implicit lipid.
-        reactCom1.linksToSurface++;
-        reactCom1.update_properties(moleculeList, molTemplateList); // recalculate the properties of the first complex
-        reactCom1.OnSurface = true; // the complex is on membrane now.
-        reactCom1.D.z = 0;
-        /*Clear implicit lipid properties*/
-        moleculeList[reactMol2.index].clear_tmp_association_coords();
-        reactCom2.memberList.clear();
-        reactCom2.memberList.push_back(reactMol2.index);
-        // std::cout << " Size of IL's complex:" << reactCom2.memberList.size() << " Interfaces on IL: " << moleculeList[reactMol2.index].interfaceList.size() << std::endl;
-        reactCom2.update_properties(moleculeList, molTemplateList); // recalculate the properties of the second complex
-        //Enforce boundary conditions
-        reflect_complex_rad_rot(membraneObject, reactCom1, moleculeList, RS3D, false);
-        //------------------------START UPDATE MONOMERLIST-------------------------
-        // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer
-        // reactMol1
-        {
-            Molecule& oneMol { reactMol1 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                //remove from monomerList
-                std::vector<int>& oneList { oneTemp.monomerList };
-                std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-                if (result != std::end(oneList)) {
-                    oneList.erase(result);
-                }
-            }
-        }
-        //------------------------END UPDATE MONOMERLIST---------------------------
-        // update Molecule interface statuses
-        reactMol1.interfaceList[ifaceIndex1].interaction.partnerIndex = reactMol2.index;
-        reactMol1.interfaceList[ifaceIndex1].interaction.partnerIfaceIndex = ifaceIndex2;
-        if (currRxn.isReversible) {
-            reactMol1.interfaceList[ifaceIndex1].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
-        }
-        reactMol1.interfaceList[ifaceIndex1].isBound = true;
-        //**************************************************
-        //**************************************************
-        reactMol1.interfaceList[ifaceIndex1].index = currRxn.productListNew[0].absIfaceIndex;
-
-        // add to the list of bound interfaces and remove from the list of free interfaces
-        reactMol1.bndlist.push_back(ifaceIndex1);
-        reactMol1.bndpartner.push_back(reactMol2.index);
-        {
-            size_t tmpItr { 0 };
-            for (unsigned i { 0 }; i < reactMol1.freelist.size(); ++i) {
-                if (reactMol1.freelist[i] == ifaceIndex1)
-                    tmpItr = i;
-            }
-            reactMol1.freelist[tmpItr] = reactMol1.freelist.back();
-            reactMol1.freelist.pop_back();
-        }
-
-        // Set probability of this protein to zero in all reactions so it doesn't try to
-        // react again but the partners still will avoid overlapping.
-        zero_partner_probvec(reactMol1, moleculeList, true);
-
-        // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
-        reactCom1.ncross = -1;
-        reactMol1.crossings.clear();
-        //mol2 is the implicit lipid.
-    } else {
-        //Mol1 is implicit lipid.
-        // write temporary to real coords and clear temporary coordinates
-        for (auto memMol : reactCom2.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
-            moleculeList[memMol].trajStatus = TrajStatus::propagated;
-            moleculeList[memMol].need_to_send = true;
-        }
-        //add link to surface for the molecule
-        moleculeList[reactMol2.index].linksToSurface++;
-        // update complexes
-        reactCom2.iLipidIndex = reactMol1.index; //index in molecule list of the implicit lipid.
-        reactCom2.linksToSurface++;
-        reactCom2.update_properties(moleculeList, molTemplateList); // recalculate the properties of the first complex
-        reactCom2.OnSurface = true; // the complex is on membrane now.
-        reactCom2.D.z = 0;
-        /*Clear implicit lipid properties*/
-        moleculeList[reactMol1.index].clear_tmp_association_coords();
-        reactCom1.memberList.clear();
-        reactCom1.memberList.push_back(reactMol1.index);
-        // std::cout << " Size of IL's complex:" << reactCom1.memberList.size() << " Interfaces on IL: " << moleculeList[reactMol1.index].interfaceList.size() << std::endl;
-        reactCom1.update_properties(moleculeList, molTemplateList); // recalculate the properties of the second complex
-
-        //Enforce boundary conditions
-        reflect_complex_rad_rot(membraneObject, reactCom2, moleculeList, RS3D, false);
-        //------------------------START UPDATE MONOMERLIST-------------------------
-        // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer
-        // reactMol2
-        {
-            Molecule& oneMol { reactMol2 };
-            MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-            bool isMonomer { oneMol.bndpartner.empty() };
-            bool canDestroy { oneTemp.canDestroy };
-            if (isMonomer && canDestroy) {
-                //remove from monomerList
-                std::vector<int>& oneList { oneTemp.monomerList };
-                std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-                if (result != std::end(oneList)) {
-                    oneList.erase(result);
-                }
-            }
-        }
-        //------------------------END UPDATE MONOMERLIST---------------------------
-        // update Molecule interface statuses
-        reactMol2.interfaceList[ifaceIndex2].interaction.partnerIndex = reactMol1.index;
-        reactMol2.interfaceList[ifaceIndex2].interaction.partnerIfaceIndex = ifaceIndex1;
-        if (currRxn.isReversible) {
-            reactMol2.interfaceList[ifaceIndex2].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
-        }
-        reactMol2.interfaceList[ifaceIndex2].isBound = true;
-        //**************************************************
-        //**************************************************
-        reactMol2.interfaceList[ifaceIndex2].index = currRxn.productListNew[0].absIfaceIndex;
-        if (assocDissocFile.is_open()) {
-            assocDissocFile << "ITR:" << iter << "," << "BOND," 
-            << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << ifaceIndex1 << "," 
-            << molTemplateList[reactMol2.molTypeIndex].molName << "," << reactMol2.index << "," << ifaceIndex2 << std::endl;
-        }
-        // add to the list of bound interfaces and remove from the list of free interfaces
-        reactMol2.bndlist.push_back(ifaceIndex2);
-        reactMol2.bndpartner.push_back(reactMol1.index);
-        {
-            size_t tmpItr { 0 };
-            for (unsigned i { 0 }; i < reactMol2.freelist.size(); ++i) {
-                if (reactMol2.freelist[i] == ifaceIndex2)
-                    tmpItr = i;
-            }
-            reactMol2.freelist[tmpItr] = reactMol2.freelist.back();
-            reactMol2.freelist.pop_back();
-        }
-
-        // Set probability of this protein to zero in all reactions so it doesn't try to
-        // react again but the partners still will avoid overlapping.
-        zero_partner_probvec(reactMol2, moleculeList, true);
-
-        // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
-        reactCom2.ncross = -1;
-        reactMol2.crossings.clear();
-    } //reactmol1 is implicit lipid
+    finish_implicit_lipid_binding(iter, protein, lipid, proteinCom, lipidCom, proteinIface, lipidIface, currRxn,
+        RS3D, moleculeList, molTemplateList, membraneObject, assocDissocFile);
 
     //update the number of bound species
     update_Nboundpairs(reactMol1.molTypeIndex, reactMol2.molTypeIndex, 1, params, counterArrays);

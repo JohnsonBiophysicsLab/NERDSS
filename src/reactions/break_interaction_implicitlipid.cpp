@@ -49,18 +49,6 @@ void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_
     // bndlist and removes the matching pair, or does nothing.
     erase_bond(reactMol1, static_cast<int>(relIface1));
 
-    //------------------------START UPDATE MONOMERLIST-------------------------
-    // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer, add to monomerList if new monomer produced
-    // reactMol1
-    {
-        Molecule& oneMol { reactMol1 };
-        MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-        bool isMonomer { oneMol.bndpartner.empty() };
-        bool canDestroy { oneTemp.canDestroy };
-        if (isMonomer && canDestroy) {
-            //add to monomerList
-            oneTemp.monomerList.emplace_back(oneMol.index);
-        }
-    }
-    //------------------------END UPDATE MONOMERLIST---------------------------
+    // A product left without a partner rejoins its template's monomerList.
+    add_to_monomer_list(reactMol1, molTemplateList);
 }

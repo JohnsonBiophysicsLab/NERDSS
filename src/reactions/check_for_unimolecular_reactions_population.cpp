@@ -532,65 +532,8 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
 									  }
 
 									  if (oneRxn.coupledRxn.rxnType == ReactionType::uniMolStateChange) {
-										int stateChangeProIndex { -1 };
-										int relIndex { -1 };
-										const ForwardRxn& coupledRxn = forwardRxns[oneRxn.coupledRxn.relRxnIndex]; // which reaction is being performed.
-										// make sure the molecule iface have the same state with the uniMolStateChange reaction's reactant
-										for (auto& tmpIface : moleculeList[molIndexA].interfaceList) {
-										  if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
-											stateChangeProIndex = molIndexA; // Is it A or B?
-											relIndex = tmpIface.relIndex;
-										  }
-										}
-										for (auto& tmpIface : moleculeList[molIndexB].interfaceList) {
-										  //std::cout <<" mol: "<<molIndexB<<" ifaceIndex: "<<tmpIface.index<<"\t";
-										  if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
-											stateChangeProIndex = molIndexB; // Is it A or B?
-											relIndex = tmpIface.relIndex;
-										  }
-										}
-
-										if (stateChangeProIndex == -1) {
-										  std::cerr << "The products of the disscociation do not match the corresponding uniMolStateChange reactant." << std::endl;
-										  exit(1);
-										}
-
-										// std::cout << "Performing coupled uniMolStateChange reaction on protein: " << stateChangeProIndex << std::endl;
-
-										const auto& stateList = molTemplateList[moleculeList[stateChangeProIndex].molTypeIndex].interfaceList[relIndex].stateList;
-										const auto& newState = coupledRxn.productListNew[0];
-										int relStateIndex { -1 };
-										for (auto& state : stateList) {
-										  if (state.index == newState.absIfaceIndex) {
-											relStateIndex = static_cast<int>(&state - &stateList[0]);
-											break;
-										  }
-										}
-
-										// check observables
-										bool isObserved { false };
-										std::string observeLabel {};
-
-										isObserved = coupledRxn.isObserved;
-										observeLabel = coupledRxn.observeLabel;
-
-										if (isObserved) {
-										  auto observeItr = observablesList.find(observeLabel);
-										  if (observeItr == observablesList.end()) {
-											// std::cerr << "WARNING: Observable " << observeLabel << " not defined.\n";
-										  } else {
-											++observeItr->second;
-										  }
-										}
-
-										--counterArrays.copyNumSpecies[coupledRxn.reactantListNew[0].absIfaceIndex];
-										++counterArrays.copyNumSpecies[coupledRxn.productListNew[0].absIfaceIndex];
-
-										// Change the state happens here
-										moleculeList[stateChangeProIndex].interfaceList[relIndex].change_state(relStateIndex, newState.absIfaceIndex, newState.requiresState);
-
-										moleculeList[stateChangeProIndex].trajStatus = TrajStatus::propagated;
-										complexList[moleculeList[stateChangeProIndex].myComIndex].trajStatus = TrajStatus::propagated;
+										perform_coupled_state_change(forwardRxns[oneRxn.coupledRxn.relRxnIndex], molIndexA, molIndexB,
+										    moleculeList, complexList, molTemplateList, counterArrays, observablesList);
 									  }
                                     } //isCoupled happened: prob>rnum
 								  } // finished with IsCoupled?

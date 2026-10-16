@@ -29,6 +29,89 @@ void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     ++complexList[moleculeList[pro2].myComIndex].ncross;
 }
 
+void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList)
+{
+    MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
+    bool isMonomer { oneMol.bndpartner.empty() };
+    bool canDestroy { oneTemp.canDestroy };
+    if (isMonomer && canDestroy) {
+        std::vector<int>& oneList { oneTemp.monomerList };
+        std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
+        if (result != std::end(oneList)) {
+            oneList.erase(result);
+        }
+    }
+}
+
+void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList)
+{
+    MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
+    bool isMonomer { oneMol.bndpartner.empty() };
+    bool canDestroy { oneTemp.canDestroy };
+    if (isMonomer && canDestroy) {
+        oneTemp.monomerList.emplace_back(oneMol.index);
+    }
+}
+
+void perform_coupled_state_change(const ForwardRxn& coupledRxn, int pro1Index, int pro2Index,
+    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
+    const std::vector<MolTemplate>& molTemplateList, copyCounters& counterArrays,
+    std::map<std::string, int>& observablesList)
+{
+    int stateChangeProIndex { -1 };
+    int relIndex { -1 };
+    // make sure the molecule iface have the same state with the uniMolStateChange reaction's reactant
+    for (auto& tmpIface : moleculeList[pro1Index].interfaceList) {
+        if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
+            stateChangeProIndex = pro1Index; // Is it A or B?
+            relIndex = tmpIface.relIndex;
+        }
+    }
+    for (auto& tmpIface : moleculeList[pro2Index].interfaceList) {
+        if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
+            stateChangeProIndex = pro2Index; // Is it A or B?
+            relIndex = tmpIface.relIndex;
+        }
+    }
+
+    if (stateChangeProIndex == -1) {
+        std::cerr << "The products of the disscociation do not match the corresponding uniMolStateChange reactant." << std::endl;
+        exit(1);
+    }
+
+    const auto& stateList = molTemplateList[moleculeList[stateChangeProIndex].molTypeIndex].interfaceList[relIndex].stateList;
+    const auto& newState = coupledRxn.productListNew[0];
+    int relStateIndex { -1 };
+    for (auto& state : stateList) {
+        if (state.index == newState.absIfaceIndex) {
+            relStateIndex = static_cast<int>(&state - &stateList[0]);
+            break;
+        }
+    }
+
+    // check observables.  parse_reaction() enters every observeLabel it reads
+    // into observablesList, so the warning is for a label that arrived some
+    // other way; one of the three copies kept it, two had commented it out.
+    if (coupledRxn.isObserved) {
+        auto observeItr = observablesList.find(coupledRxn.observeLabel);
+        if (observeItr == observablesList.end()) {
+            std::cerr << "WARNING: Observable " << coupledRxn.observeLabel << " not defined.\n";
+        } else {
+            ++observeItr->second;
+        }
+    }
+
+    --counterArrays.copyNumSpecies[coupledRxn.reactantListNew[0].absIfaceIndex];
+    ++counterArrays.copyNumSpecies[coupledRxn.productListNew[0].absIfaceIndex];
+
+    // Change the state happens here
+    moleculeList[stateChangeProIndex].interfaceList[relIndex].change_state(
+        relStateIndex, newState.absIfaceIndex, newState.requiresState);
+
+    moleculeList[stateChangeProIndex].trajStatus = TrajStatus::propagated;
+    complexList[moleculeList[stateChangeProIndex].myComIndex].trajStatus = TrajStatus::propagated;
+}
+
 void zero_partner_probvec(
     const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners)
 {

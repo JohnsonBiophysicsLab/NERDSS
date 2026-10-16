@@ -47,12 +47,12 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
             }
         }
 
-        if (mol2IsImplicitLipid) {
-            reactIndex2 = 1;
-        }
-        if (mol1IsImplicitLipid) {
-            reactIndex1 = 1;
-        }
+        // The implicit lipid keeps the reactant position the loop above found
+        // for it.  It used to be forced to position 1 here, which is right only
+        // when the reaction lists the lipid second: for `IL(m) + B(b!*,m)` the
+        // protein is at position 1 as well, so both reactants were matched
+        // against the same requirement list, and the protein's bound-b
+        // requirement was looked for on the lipid's interfaces and never found.
 
         // REVERSE BIMOLECULAR STATE CHANGE
         //
