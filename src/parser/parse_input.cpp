@@ -170,6 +170,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
         exit(1);
     }
 
+    // read first, so the molFiles block may sit anywhere in the file
+    const std::map<std::string, std::string> molFilePaths { read_mol_file_paths(fileName) };
+
     std::vector<std::string> providedObs {};
     // the start and end blocks are hardcoded since regex has proved itself woefully non-portable,
     // especially with the Intel compiler (icpc)
@@ -268,8 +271,10 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             }
 
             // parse the .mol files for each molecule
+            warn_unused_mol_file_paths(molFilePaths, providedMols, fileName);
             for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
-                molTemplateList.emplace_back(parse_molFile(providedMols[providedMolIndex])); // do the actual parsing
+                molTemplateList.emplace_back(parse_molFile(
+                    locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
                 molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0];
                 molTemplateList.back().copies = providedNums[providedMolIndex];
                 molTemplateList.back().startingNumState = providedNumState[providedMolIndex];
@@ -462,6 +467,9 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
         exit(1);
     }
 
+    // read first, so the molFiles block may sit anywhere in the file
+    const std::map<std::string, std::string> molFilePaths { read_mol_file_paths(fileName) };
+
     std::vector<std::string> providedObs {};
     // the start and end blocks are hardcoded since regex has proved itself woefully non-portable,
     // especially with the Intel compiler (icpc)
@@ -561,8 +569,10 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
             }
 
             // parse the .mol files for each molecule
+            warn_unused_mol_file_paths(molFilePaths, providedMols, fileName);
             for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
-                molTemplateList.emplace_back(parse_molFile(providedMols[providedMolIndex])); // do the actual parsing
+                molTemplateList.emplace_back(parse_molFile(
+                    locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
                 molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0] + addMolTemplateListNum;
                 molTemplateList.back().copies = providedNums[providedMolIndex];
                 molTemplateList.back().startingNumState = providedNumState[providedMolIndex];

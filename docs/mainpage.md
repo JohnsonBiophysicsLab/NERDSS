@@ -28,7 +28,7 @@ See \ref changelog for a list of changes.
 \subsection run Running NERDSS
 
 - See \ref input for information on input file syntax and format.
-- All molecule files (mol files) must be in the same directory as the binary (need to change this)
+- Each molecule `X` in the `molecules` block is read from a mol file, by default `X.mol` in the working directory (see \ref molfiles for other places)
 - The parameters file can be in any directory, as long as you pass the path to the binary as a command line argument.
 - To run, simply type `./$BINARY -f $PARAMFILE`, where \$BINARY is the path to the binary and \$PARAMFILE is the path to the parameter file.
 
@@ -41,6 +41,8 @@ See \ref changelog for a list of changes.
   | `-r <filename>`, `--restart <filename>`     | declares the restart file (optional)                                      |
   | `-a <filename>`, `--add <filename>`         | declares an add file applied on restart (optional)                        |
   | `-c <filename>`, `--coordinate <filename>`  | declares a file of initial coordinates (optional)                         |
+  | `--mol-dir <dir>`                           | read `X.mol` from `<dir>` instead of the working directory (optional)     |
+  | `--mol-dir-recursive <dir>`                 | read `X.mol` from anywhere under `<dir>` (optional)                       |
   | `-v`, `--verbose`                           | more log output; `-vv` for the most (optional)                            |
   | `--debug-force-dissoc`                      | force dissociation to occur whenever possible (optional, for debug only)  |
   | `--debug-force-assoc`                       | force association to occur whenever possible (optional, for debug only)   |
@@ -48,6 +50,25 @@ See \ref changelog for a list of changes.
   | `-h`, `--help`                              | list the flags and exit                                                   |
 
 - Flags are read with `getopt_long`, so a long flag also takes its value after `=` (`--seed=12`) and short flags can be combined (`-vv`). An unknown flag, a flag missing its value, a seed that is not a whole number, or a stray argument stops the run with a message
+
+\subsection molfiles Where mol files are read from
+
+- For each molecule `X`, the first of these that applies gives its mol file:
+  1. An entry for `X` in a `molFiles` block of the input file (below)
+  2. `X.mol` in the `--mol-dir` directory, or the one file named `X.mol` anywhere under the `--mol-dir-recursive` directory
+  3. `X.mol` in the working directory
+- `--mol-dir-recursive` stops with an error if `X.mol` is in more than one place under the directory; name the one to use in a `molFiles` block. It skips hidden directories (`.git`) and does not follow symbolic links to directories. The two flags cannot be combined
+- A `molFiles` block maps molecule names to mol files, which may then have any name:
+
+      start molFiles
+          A = mols/clathrin_v2.mol      # relative to this input file
+          B = /shared/models/AP2.mol
+      end molFiles
+
+  - A relative path is relative to the directory of the file the block is in, not the working directory, so a model folder can be run from anywhere with `-f`
+  - One `name = path` per line; `#` starts a comment, so paths cannot contain `#`. Molecules without an entry are looked up as in steps 2 and 3
+  - Put the block before `start reactions` (the top of the file is simplest). Every NERDSS version before this one ignores the block, so such a file still runs on them, provided `X.mol` is also in the working directory. Placed after the reactions block, it is read as a reaction by every version, this one included
+  - An add file (`-a`) can have its own `molFiles` block for the molecules it adds; the flags apply to add files too. A restart without an add file reads no mol files
 
 \subsection hist The complex histogram
 
