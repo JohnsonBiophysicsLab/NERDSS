@@ -17,7 +17,8 @@ void create_survMatrix(gsl_matrix*& survMatrix, double bindRadius, double Dtot, 
     intParams.t = params.timeStep;
 
     gsl_set_error_handler_off();
-    gsl_integration_workspace* w = gsl_integration_workspace_alloc(1e6);
+    const size_t workspaceSize { 1000000 };
+    gsl_integration_workspace* w = gsl_integration_workspace_alloc(workspaceSize);
 
     double RIndex { intParams.a };
     while (RIndex <= comRMax + RStepSize) {
@@ -27,9 +28,7 @@ void create_survMatrix(gsl_matrix*& survMatrix, double bindRadius, double Dtot, 
         F.params = reinterpret_cast<void*>(&intParams);
 
         if (kr < 1.0 / 0.0) {
-            double result { integrator(
-                F, intParams, w, RIndex, bindRadius, Dtot, kr, params.timeStep, funcID, survival_function,
-                params.numerics.integration) };
+            double result { integrate_survival(intParams, w, workspaceSize, params.numerics.integration) };
             gsl_matrix_set(survMatrix, 1, ctr, result);
         } else {
             double result { integrator(
