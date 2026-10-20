@@ -355,6 +355,18 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
     const std::vector<MolTemplate>& molTemplateList);
 
 /*!
+ * \brief find_which_reaction() for a pair whose second interface is `currState.rxnPartners[partnerItr]`, and where
+ * neither molecule is the implicit lipid.
+ *
+ * Gives the same rxnIndex, rateIndex and isStateChangeBackRxn, and counts totMatches the same way.  The scans of the
+ * reactions' reactant and product lists depend only on the two interfaces, so their outcome is kept per
+ * (state, partner) in currState.rxnCandidatesByPartner, built on first use; only the rate states are tested per pair.
+ */
+void find_which_reaction_for_partner(int ifaceIndex1, std::size_t partnerItr, int& rxnIndex,
+    int& rateIndex, bool& isStateChangeBackRxn, const Interface::State& currState, const Molecule& reactMol1,
+    const Molecule& reactMol2, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns);
+
+/*!
  * \brief Determines which state change reaction to use based on the identity of the current Interface::State of the
  * target Interface.
  *

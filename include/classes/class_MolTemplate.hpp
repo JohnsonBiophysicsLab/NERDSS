@@ -63,6 +63,30 @@ struct Interface {
         std::vector<std::pair<int, int>> stateChangeRxns {};
         static int totalNumOfStates; //!< total number of states in the system (should be same as totalIfaceNum provided in Parameter file
 
+        /*! \brief One reaction find_which_reaction() would test a pair against.
+         *
+         * Which reactions it reaches, and the reactant positions it tests them
+         * with, depend only on the two interfaces, so they are worked out once
+         * per (state, partner interface); only the rate states, which read the
+         * molecules' other interfaces, are tested per pair.  See
+         * find_which_reaction_for_partner().
+         */
+        struct RxnCandidate {
+            unsigned rxnItr; //!< index into forwardRxns
+            int reactIndex1; //!< position of the first molecule's interface
+            int reactIndex2; //!< position of the second molecule's interface
+            bool backStateChange; //!< match against the conjugate BackRxn's rates, by product position
+            bool trySwap; //!< symmetric bimolecular reaction: retry the rates with the positions swapped
+            //! The rate index the rate test always returns, when no rate state in
+            //! the list asks anything of either molecule's other interfaces; -1
+            //! when the test has to be made per pair.
+            int fixedRateIndex;
+        };
+        //! Candidates per entry of rxnPartners, in the order find_which_reaction()
+        //! tries them; built on first use and not serialized.
+        mutable std::vector<std::vector<RxnCandidate>> rxnCandidatesByPartner {};
+        mutable bool rxnCandidatesBuilt { false };
+
         State() = default;
         explicit State(int index);
         State(char iden, int index)
