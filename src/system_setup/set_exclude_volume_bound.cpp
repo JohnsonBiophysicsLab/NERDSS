@@ -78,4 +78,8 @@ void set_exclude_volume_bound(std::vector<ForwardRxn>& forwardRxns,
       molTemplateList[react2MolIndex].excludeVolumeBound = true;
     }
   }
+
+  for (auto& oneTemplate : molTemplateList)
+    for (auto& oneIface : oneTemplate.interfaceList)
+      oneIface.build_excluded_ifaces();
 }

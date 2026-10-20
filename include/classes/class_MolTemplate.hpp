@@ -133,6 +133,41 @@ struct Interface {
     std::vector<int> excludeVolumeBoundReactList {}; //!< list of reaction index that this molecule interface exclude volume with when it is bound
     std::vector<double> excludeRadiusList {}; //!< list of the exclude bindRaius for each interface
 
+    /*! \brief One entry of the four exclusion lists above, read together. */
+    struct ExcludedIface {
+        int molTypeIndex; //!< excludeVolumeBoundList entry
+        int relIfaceIndex; //!< excludeVolumeBoundIfaceList entry
+        double radius; //!< excludeRadiusList entry
+        int rxnIndex; //!< excludeVolumeBoundReactList entry
+    };
+    /*! \brief The exclusion lists, stable-sorted by (molTypeIndex, relIfaceIndex).
+     *
+     * The volume-exclusion scan reports its hits ordered by the other
+     * molecule's interface index and, within one interface, in list order.
+     * Walking this list in order and keeping the entries of the other
+     * molecule's type yields exactly that sequence without visiting every
+     * interface of the other molecule.  Derived data: rebuilt by
+     * build_excluded_ifaces() whenever the lists change, and not serialized.
+     */
+    std::vector<ExcludedIface> excludedIfaces {};
+
+    /*! \brief Rebuilds excludedIfaces from the four exclusion lists. */
+    void build_excluded_ifaces();
+
+    /*! \brief Calls `onHit(relIfaceOther, radius, rxnIndex)` for every entry
+     * naming an interface of a molecule of type `otherMolType` that has
+     * `numIfaceOther` interfaces: by interface index, then in list order.
+     */
+    template <typename OnHit>
+    void for_each_excluded_iface(int otherMolType, int numIfaceOther, OnHit onHit) const
+    {
+        for (const ExcludedIface& excluded : excludedIfaces) {
+            if (excluded.molTypeIndex == otherMolType && excluded.relIfaceIndex >= 0
+                && excluded.relIfaceIndex < numIfaceOther)
+                onHit(excluded.relIfaceIndex, excluded.radius, excluded.rxnIndex);
+        }
+    }
+
     explicit Interface() = default;
     Interface(std::string name, const Vec3D& iCoord);
 
@@ -161,6 +196,7 @@ struct Interface {
         deserialize_primitive_vector<int>(excludeVolumeBoundIfaceList, arrayRank, nArrayRank);
         deserialize_primitive_vector<int>(excludeVolumeBoundReactList, arrayRank, nArrayRank);
         deserialize_primitive_vector<double>(excludeRadiusList, arrayRank, nArrayRank);
+        build_excluded_ifaces();
     }
 };
 

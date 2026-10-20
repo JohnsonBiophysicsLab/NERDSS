@@ -14,6 +14,7 @@
 #include "classes/class_MolTemplate.hpp"
 #include "parser/parser_functions.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include <iostream>
@@ -41,6 +42,20 @@ Interface::State::State(const std::string& ifaceAndStateName, int index)
     : ifaceAndStateName(ifaceAndStateName)
     , index(index)
 {
+}
+
+void Interface::build_excluded_ifaces()
+{
+    excludedIfaces.clear();
+    for (std::size_t i { 0 }; i < excludeVolumeBoundList.size(); ++i)
+        excludedIfaces.push_back(ExcludedIface { excludeVolumeBoundList[i], excludeVolumeBoundIfaceList[i],
+            excludeRadiusList[i], excludeVolumeBoundReactList[i] });
+    // Stable, so that entries naming the same interface keep their list order.
+    std::stable_sort(excludedIfaces.begin(), excludedIfaces.end(),
+        [](const ExcludedIface& a, const ExcludedIface& b) {
+            return a.molTypeIndex != b.molTypeIndex ? a.molTypeIndex < b.molTypeIndex
+                                                    : a.relIfaceIndex < b.relIfaceIndex;
+        });
 }
 
 /*******************/

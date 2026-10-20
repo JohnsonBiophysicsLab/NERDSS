@@ -123,6 +123,12 @@ void check_bound_exclusion_pair(int pro1Index, int pro2Index, int relIface1, int
  * interfaces in bndlist order, interfaces of `other` in index order, and the
  * template's exclusion entries in list order within those.  The crossings are
  * recorded in that order, so it is part of the contract.
+ *
+ * Interface::excludedIfaces holds those entries stable-sorted by (molType,
+ * interface), so walking it and keeping the entries for `other`'s type gives
+ * the same sequence.  This scan runs for every pair the cell list offers;
+ * walking every interface of `other` against the whole list instead was 37%
+ * of a 20-minute RefinedGagSphere/R65 run.
  */
 template <typename OnHit>
 void for_each_bound_exclusion(const Molecule& bound, const Molecule& other,
@@ -136,18 +142,13 @@ void for_each_bound_exclusion(const Molecule& bound, const Molecule& other,
     for (int relIfaceBound : bound.bndlist) {
         const Interface& boundIface { boundTemplate.interfaceList[relIfaceBound] };
         // make sure it's actually bound and need excludeVolumeBound
-        if (!bound.interfaceList[relIfaceBound].isBound || boundIface.excludeVolumeBoundList.empty())
+        if (!bound.interfaceList[relIfaceBound].isBound || boundIface.excludedIfaces.empty())
             continue;
 
-        for (int relIfaceOther { 0 }; relIfaceOther < static_cast<int>(other.interfaceList.size()); ++relIfaceOther) {
-            for (unsigned indexItr { 0 }; indexItr < boundIface.excludeVolumeBoundList.size(); ++indexItr) {
-                if (boundIface.excludeVolumeBoundList[indexItr] == other.molTypeIndex
-                    && boundIface.excludeVolumeBoundIfaceList[indexItr] == relIfaceOther) {
-                    onHit(relIfaceBound, relIfaceOther, boundIface.excludeRadiusList[indexItr],
-                        boundIface.excludeVolumeBoundReactList[indexItr]);
-                }
-            }
-        }
+        boundIface.for_each_excluded_iface(other.molTypeIndex, static_cast<int>(other.interfaceList.size()),
+            [&](int relIfaceOther, double bindRadius, int rxnIndex) {
+                onHit(relIfaceBound, relIfaceOther, bindRadius, rxnIndex);
+            });
     }
 }
 
