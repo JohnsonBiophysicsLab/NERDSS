@@ -58,7 +58,7 @@ To build parallel NERDSS, you need to checkout to the `mpi` branch:
 
 #### Run a quick trial with our server
 
-Go to the [NERDSS server](http://18.188.233.206:5000/).
+Go to the [NERDSS server](https://nerdssdemo.org/).
 
 #### Compile and run NERDSS on your local machine
 
