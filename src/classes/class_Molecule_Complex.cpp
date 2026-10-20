@@ -17,6 +17,7 @@
 #include "io/io.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
+#include "math/sincos.hpp"
 #include "parser/parser_functions.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 
@@ -899,12 +900,16 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
     // get the rotation angle: dangle
     double Rotangle = trajRot.x; // we select the rotation angle x as the angle
                                  // that the complex rotate on the sphere
+    // Every point turns by the same angle, so its sine and cosine are taken
+    // once rather than once per molecule and interface.
+    double sinRotangle, cosRotangle;
+    sin_cos(Rotangle, sinRotangle, cosRotangle);
     // update the member proteins
     for (auto mol : memberList) {
       Vec3D targmol = moleculeList[mol].comCoord;
       targmol = translate_on_sphere(targmol, COM, COMnew, Crdset, Crdsetnew);
       moleculeList[mol].comCoord =
-          rotate_on_sphere(targmol, COMnew, Crdsetnew, Rotangle);
+          rotate_on_sphere(targmol, COMnew, Crdsetnew, sinRotangle, cosRotangle);
       moleculeList[mol].trajStatus = TrajStatus::propagated;
       moleculeList[mol].need_to_send = true;
       // now update each interface of the molecule
@@ -912,7 +917,7 @@ void Complex::propagate(std::vector<Molecule> &moleculeList,
         Vec3D targiface = iface.coord;
         targiface =
             translate_on_sphere(targiface, COM, COMnew, Crdset, Crdsetnew);
-        iface.coord = rotate_on_sphere(targiface, COMnew, Crdsetnew, Rotangle);
+        iface.coord = rotate_on_sphere(targiface, COMnew, Crdsetnew, sinRotangle, cosRotangle);
       }
     }
     this->update_properties(moleculeList, molTemplateList);
