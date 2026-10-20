@@ -5,7 +5,6 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 
 
 void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolume& simulVolume,
@@ -14,7 +13,6 @@ void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolu
     std::vector<Complex>& complexList, const std::vector<BackRxn>& backRxns, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<CreateDestructRxn>& createDestructRxns, copyCounters& counterArrays, const Membrane& membraneObject, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     for (int relIface1Itr { 0 }; relIface1Itr < moleculeList[molItr].bndlist.size(); ++relIface1Itr) {
         if(moleculeList[molItr].isDissociated)
             break;
@@ -182,74 +180,8 @@ void check_dissociation(unsigned int simItr, const Parameters& params, SimulVolu
                             }
 
                             if (backRxns[mu].coupledRxn.rxnType == ReactionType::uniMolStateChange) {
-                                int stateChangeProIndex { -1 };
-                                int relIndex { -1 };
-                                const ForwardRxn& coupledRxn = forwardRxns[backRxns[mu].coupledRxn.relRxnIndex]; // which reaction is being performed.
-                                //std::cout <<" coupled reaction relIndex in forwardRxns: "<<backRxns[mu].coupledRxn.relRxnIndex<<"\t"<<" abs reactant index: "<<coupledRxn.reactantListNew[0].absIfaceIndex<<" abs product index "<<coupledRxn.productListNew[0].absIfaceIndex<<"\n";
-                                // make sure the molecule iface have the same state with the uniMolStateChange reaction's reactant
-                                for (auto& tmpIface : moleculeList[molItr].interfaceList) {
-                                    //  std::cout <<" mol: "<<molItr<<" ifaceIndex: "<<tmpIface.index<<"\t";
-                                    if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
-                                        stateChangeProIndex = molItr; // Is it A or B?
-                                        relIndex = tmpIface.relIndex;
-                                    }
-                                }
-                                for (auto& tmpIface : moleculeList[pro2Index].interfaceList) {
-                                    //std::cout <<" mol: "<<pro2Index<<" ifaceIndex: "<<tmpIface.index<<"\t";
-                                    if (tmpIface.index == coupledRxn.reactantListNew[0].absIfaceIndex) {
-                                        stateChangeProIndex = pro2Index; // Is it A or B?
-                                        relIndex = tmpIface.relIndex;
-                                    }
-                                }
-
-                                if (stateChangeProIndex == -1) {
-                                    std::cerr << "The products of the disscociation do not match the corresponding uniMolStateChange reactant." << std::endl;
-                                    exit(1);
-                                }
-
-                                std::cout << "Performing coupled uniMolStateChange reaction on protein: " << stateChangeProIndex << "\n";
-
-                                const auto& stateList = molTemplateList[moleculeList[stateChangeProIndex].molTypeIndex].interfaceList[relIndex].stateList;
-                                const auto& newState = coupledRxn.productListNew[0];
-                                int relStateIndex { -1 };
-                                for (auto& state : stateList) {
-                                    if (state.index == newState.absIfaceIndex) {
-                                        relStateIndex = static_cast<int>(&state - &stateList[0]); //what is this?
-                                        break;
-                                    }
-                                }
-                                /*				if(stateChangeProIndex== 84 || stateChangeProIndex == 27){
-								std::cout <<"changing state on pro: "<<stateChangeProIndex<<" from relIndex: "<< relIndex<<" from state: "<<moleculeList[stateChangeProIndex].interfaceList[relIndex].stateIndex<<" identity: "<<moleculeList[stateChangeProIndex].interfaceList[relIndex].stateIden<<" size of stateList: "<<stateList.size()<<" New absIfaceIndex: "<<newState.absIfaceIndex<<" relStateIndex: "<<relStateIndex<<std::endl;
-								}*/
-
-                                // check observables
-                                bool isObserved { false };
-                                std::string observeLabel {};
-
-                                isObserved = coupledRxn.isObserved;
-                                observeLabel = coupledRxn.observeLabel;
-
-                                if (isObserved) {
-                                    auto observeItr = observablesList.find(observeLabel);
-                                    if (observeItr == observablesList.end()) {
-                                        std::cerr << "WARNING: Observable " << observeLabel << " not defined.\n";
-                                    } else {
-                                        ++observeItr->second;
-                                    }
-                                }
-
-                                --counterArrays.copyNumSpecies[coupledRxn.reactantListNew[0].absIfaceIndex];
-                                ++counterArrays.copyNumSpecies[coupledRxn.productListNew[0].absIfaceIndex];
-
-                                /*Change the state happens here. */
-                                moleculeList[stateChangeProIndex].interfaceList[relIndex].change_state(
-                                    relStateIndex, newState.absIfaceIndex, newState.requiresState);
-
-                                /*if(stateChangeProIndex== 21 || stateChangeProIndex == 27){
-				      std::cout <<" after state change: stateIndex "<<relStateIndex<<" index: "<<newState.absIfaceIndex<<" stateIden: "<<newState.requiresState<<std::endl;
-				      }*/
-                                moleculeList[stateChangeProIndex].trajStatus = TrajStatus::propagated;
-                                complexList[moleculeList[stateChangeProIndex].myComIndex].trajStatus = TrajStatus::propagated;
+                                perform_coupled_state_change(forwardRxns[backRxns[mu].coupledRxn.relRxnIndex], molItr, pro2Index,
+                                    moleculeList, complexList, molTemplateList, counterArrays, observablesList);
                             }
                         } //isCoupled happened: prob>rnum
                     } // finished with IsCoupled?

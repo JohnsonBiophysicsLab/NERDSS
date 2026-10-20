@@ -30,9 +30,8 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 using namespace std;

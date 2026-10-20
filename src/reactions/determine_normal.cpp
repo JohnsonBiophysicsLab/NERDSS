@@ -1,9 +1,7 @@
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 Vec3D determine_normal(Vec3D normal, const MolTemplate& molTemplate, Molecule oneMol)
 {
-    // TRACE();
     if (oneMol.interfaceList.empty()) {
         // std::cout << "Molecule is a point, has no normal." << std::endl;
         return { 0, 0, 0 };

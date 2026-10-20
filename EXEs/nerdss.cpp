@@ -28,7 +28,6 @@
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "classes/class_ShellIndex.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 #include <chrono>
 #include <cstring>
@@ -40,9 +39,7 @@ gsl_rng *r; /* global generator */
 
 // easier to read timer
 using MDTimer = std::chrono::system_clock;
-using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
 /* INITIALIZE GLOBALS */
-long long randNum = 0;
 unsigned long totMatches = 0;
 
 int main(int argc, char *argv[]) {
@@ -77,7 +74,6 @@ int main(int argc, char *argv[]) {
   std::string paramFile{};
   // set up some output files
   // Creating a directory
-  mkdir("PDB", 0777);
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
 
@@ -219,53 +215,8 @@ int main(int argc, char *argv[]) {
     moleculeList.reserve(reservation);
     complexList.reserve(reservation);
 
-    // A boundaries block naming neither a waterBox nor a sphere leaves
-    // shape Unspecified, which every dispatch treats as a box - against a
-    // waterBox of all zeros.  Fail here instead.
-    membraneObject.require_boundary();
-
-    // create water box for sphere boundary
-    if (membraneObject.isSphere()) {
-      if (membraneObject.hasCompartment == true) {
-        std::cerr << "Compartment should not exist in a sphere system!"
-                  << std::endl;
-        exit(1);
-      }
-      membraneObject.create_water_box();
-      membraneObject.sphereVol =
-          (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-    }
-
-    // check the size of the compartment: make sure that the waterbox boundary
-    // to the compartment should be larger than the rMaxLimit
-    if (membraneObject.isSphere() == false &&
-        membraneObject.hasCompartment == true) {
-      bool tooSmallBox = false;
-      if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of x dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (membraneObject.waterBox.y / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of y dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (membraneObject.waterBox.z / 2.0 - membraneObject.compartmentR <
-          2.0 * params.rMaxLimit) {
-        std::cerr << "length of z dimension of the water box is too small "
-                     "compared with the radius of compartment!"
-                  << std::endl;
-        tooSmallBox = true;
-      }
-      if (tooSmallBox == true) {
-        exit(1);
-      }
-    }
+    membraneObject.finish_boundary();
+    membraneObject.require_compartment_fits(params.rMaxLimit);
 
     // generate the system coordinates, write out coordinate and topology files
     // modify generate coordinates to keep molecules out of compartment
@@ -290,11 +241,14 @@ int main(int argc, char *argv[]) {
                                       molTemplateList, membraneObject, simItr);
     simulVolume.display();
 
-    // write beginning of trajectory
-    std::ofstream trajFile{trajFileName};
-    write_traj(0, trajFile, params, moleculeList, molTemplateList,
-               membraneObject);
-    trajFile.close();
+    // write beginning of trajectory; trajWrite <= 0 writes no trajectory file
+    // at all, the initial frame included
+    if (params.trajWrite > 0) {
+      std::ofstream trajFile{trajFileName};
+      write_traj(0, trajFile, params, moleculeList, molTemplateList,
+                 membraneObject);
+      trajFile.close();
+    }
 
     // initialize transition matrix for each molType
     for (auto &molTemp : molTemplateList) {
@@ -463,53 +417,8 @@ int main(int argc, char *argv[]) {
                                    tempLastStateIndexBeforeAdd, numStateAdd,
                                    numDoubleBeforeAdd);
 
-      // A boundaries block naming neither a waterBox nor a sphere leaves
-      // shape Unspecified, which every dispatch treats as a box - against a
-      // waterBox of all zeros.  Fail here instead.
-      membraneObject.require_boundary();
-
-      // create water box for sphere boundary
-      if (membraneObject.isSphere()) {
-        if (membraneObject.hasCompartment == true) {
-          std::cerr << "Compartment should not exist in a sphere system!"
-                    << std::endl;
-          exit(1);
-        }
-        membraneObject.create_water_box();
-        membraneObject.sphereVol =
-            (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-      }
-
-      // check the size of the compartment: make sure that the waterbox boundary
-      // to the compartment should be larger than the rMaxLimit
-      if (membraneObject.isSphere() == false &&
-          membraneObject.hasCompartment == true) {
-        bool tooSmallBox = false;
-        if (membraneObject.waterBox.x / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of x dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (membraneObject.waterBox.y / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of y dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (membraneObject.waterBox.z / 2.0 - membraneObject.compartmentR <
-            2.0 * params.rMaxLimit) {
-          std::cerr << "length of z dimension of the water box is too small "
-                       "compared with the radius of compartment!"
-                    << std::endl;
-          tooSmallBox = true;
-        }
-        if (tooSmallBox == true) {
-          exit(1);
-        }
-      }
+      membraneObject.finish_boundary();
+      membraneObject.require_compartment_fits(params.rMaxLimit);
 
       // generate the coordinates, write out coordinate and topology files for
       // added molecules
@@ -528,17 +437,7 @@ int main(int argc, char *argv[]) {
       write_psf(params, moleculeList, molTemplateList);
     }
 
-    // A boundaries block naming neither a waterBox nor a sphere leaves
-    // shape Unspecified, which every dispatch treats as a box - against a
-    // waterBox of all zeros.  Fail here instead.
-    membraneObject.require_boundary();
-
-    // create water box for sphere boundary
-    if (membraneObject.isSphere()) {
-      membraneObject.create_water_box();
-      membraneObject.sphereVol =
-          (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-    }
+    membraneObject.finish_boundary();
 
     std::cout
         << " Total number of states (reactant and product)  in the system "
@@ -694,7 +593,14 @@ int main(int argc, char *argv[]) {
       print_complex_hist(complexList, assemblyfile, simItr, params,
                          molTemplateList, moleculeList, number_of_lipids);
 
-  // set some parameters
+  // Every write interval reads the same way: a positive value is a period in
+  // timesteps, and 0 or a negative value turns the periodic write off.  For
+  // pdbWrite and trajWrite, off also drops the frames at the start and the end
+  // of the run.
+  // checkPoint and transitionWrite keep their documented default of nItr / 10
+  // when they are left at the -1 the input parser starts from; a run shorter
+  // than ten steps makes that quotient 0, which then means off instead of a
+  // division by zero in the modulo below.
   if (params.checkPoint == -1) {
     params.checkPoint = params.nItr / 10;
   }
@@ -836,8 +742,13 @@ int main(int argc, char *argv[]) {
   // both the new-simulation and restart branches have final copy numbers here
   check_transition_matrix_size(molTemplateList, createDestructRxns);
 
-  write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-            membraneObject);
+  // pdbWrite <= 0 writes no PDB file at all, the initial one included, so the
+  // PDB directory is made only when there is something to put in it.
+  if (params.pdbWrite > 0) {
+    mkdir("PDB", 0777);
+    write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+              membraneObject);
+  }
   std::cout << "*************** BEGIN SIMULATION **************** "
             << std::endl;
   // begin the timer
@@ -1523,7 +1434,9 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    if (simItr % params.trajWrite == 0) {
+    // trajWrite <= 0 means no trajectory frames at all; the guard also keeps
+    // a 0 out of the modulo.
+    if (params.trajWrite > 0 && simItr % params.trajWrite == 0) {
       // std::cout << "Writing trajectory...\n";
       std::ofstream trajFile{trajFileName, std::ios::app}; // for append
       write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
@@ -1531,25 +1444,21 @@ int main(int argc, char *argv[]) {
       trajFile.close();
     }
 
-    if (params.pdbWrite != -1) {
-      if (simItr % params.pdbWrite == 0) {
-        // std::cout << "Writing PDB file for current frame...\n";
-        write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-                  membraneObject);
-      }
+    if (params.pdbWrite > 0 && simItr % params.pdbWrite == 0) {
+      // std::cout << "Writing PDB file for current frame...\n";
+      write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+                membraneObject);
     }
 
-    if (params.transitionWrite != -1) {
-      if (simItr % params.transitionWrite == 0) {
-        // std::cout << "Writing transition matrix...\n";
-        std::ofstream transitionFile{transitionFileName,
-                                     std::ios::app}; // for append
-        write_transition((simItr - params.itrRestartFrom) * params.timeStep *
-                                 Constants::usToSeconds +
-                             params.timeRestartFrom,
-                         transitionFile, molTemplateList);
-        transitionFile.close();
-      }
+    if (params.transitionWrite > 0 && simItr % params.transitionWrite == 0) {
+      // std::cout << "Writing transition matrix...\n";
+      std::ofstream transitionFile{transitionFileName,
+                                   std::ios::app}; // for append
+      write_transition((simItr - params.itrRestartFrom) * params.timeStep *
+                               Constants::usToSeconds +
+                           params.timeRestartFrom,
+                       transitionFile, molTemplateList);
+      transitionFile.close();
     }
 
     // remove the empty complexes
@@ -1739,8 +1648,9 @@ int main(int argc, char *argv[]) {
     //    } // done if empty
     //  }   // done over all complexes
 
-    // write restart
-    if (simItr % params.restartWrite == 0) {
+    // write restart (restartWrite <= 0 disables the periodic write; the final
+    // restart file below is still written)
+    if (params.restartWrite > 0 && simItr % params.restartWrite == 0) {
       auto endTime = MDTimer::now();
       auto endTimeFormat = MDTimer::to_time_t(endTime);
       std::ofstream restartFile{restartFileName,
@@ -1761,14 +1671,14 @@ int main(int argc, char *argv[]) {
     }
 
     // write bonded complex data
-    if ( (params.bondedComplexWrite >= 0) && (simItr % params.bondedComplexWrite == 0) )
+    if (params.bondedComplexWrite > 0 && simItr % params.bondedComplexWrite == 0)
     {
         std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
         write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
     }
 
-    // write check point
-    if (simItr % params.checkPoint == 0) {
+    // write check point (checkPoint <= 0 turns the periodic checkpoint off)
+    if (params.checkPoint > 0 && simItr % params.checkPoint == 0) {
       snprintf(fnameProXYZ, sizeof(fnameProXYZ), "RESTARTS/restart%lld%s", simItr, restartExtension.c_str());
       std::ofstream restartFile(fnameProXYZ);
       if (params.rngwrite == true) // only do this if you need a rng sequence for debugging
@@ -1783,7 +1693,9 @@ int main(int argc, char *argv[]) {
     using duration = std::chrono::duration<double>;
     durationList.erase(durationList.begin());
     durationList.emplace_back(MDTimer::now() - startStep);
-    if (simItr % params.timeWrite == 0) {
+    // timeWrite <= 0 turns the periodic statistics output off; the rows at the
+    // start and the end of the run are still written.
+    if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       double timeSimulated{(simItr - params.itrRestartFrom) * params.timeStep *
                                Constants::usToSeconds +
                            params.timeRestartFrom};
@@ -1848,9 +1760,6 @@ int main(int argc, char *argv[]) {
       write_all_species(currTime, speciesFile1, counterArrays);
       // speciesFile.close();
 
-      // write_single_molecule_rxn(currTime, smtRxnFile, moleculeList,
-      // snapshotMolecules, molTemplateList); snapshotMolecules = moleculeList;
-
       // Estimate time remaining
       duration avgTimeStepDuration =
           std::accumulate(durationList.begin(), durationList.end(),
@@ -1891,29 +1800,31 @@ int main(int argc, char *argv[]) {
     restartFile.close();
 
     // write bonded complex data
-    if (params.bondedComplexWrite >= 0)
+    if (params.bondedComplexWrite > 0)
     {
         std::string complex_json_filename = "DATA/COMPLEXES/" + std::to_string(simItr) + ".json";
         write_bonded_complex_json(complex_json_filename, moleculeList, complexList, molTemplateList, forwardRxns, backRxns, membraneObject);
     }
     
 
-    // std::cout << "Writing trajectory..." << '\n';
-    std::ofstream trajFile{trajFileName, std::ios::app}; // for append
-    write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
-               membraneObject);
-    trajFile.close();
+    if (params.trajWrite > 0) {
+      // std::cout << "Writing trajectory..." << '\n';
+      std::ofstream trajFile{trajFileName, std::ios::app}; // for append
+      write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
+                 membraneObject);
+      trajFile.close();
+    }
 
     // std::cout << "Writing final configuration...\n";
     write_xyz("DATA/final_coords.xyz", params, moleculeList, molTemplateList);
 
-    if (params.pdbWrite != -1) {
+    if (params.pdbWrite > 0) {
       // std::cout << "Writing PDB file for current frame.\n";
       write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
                 membraneObject);
     }
 
-    if (params.transitionWrite != -1) {
+    if (params.transitionWrite > 0) {
       // std::cout << "Writing transition matrix...\n";
       std::ofstream transitionFile{transitionFileName,
                                    std::ios::app}; // for append
@@ -1949,8 +1860,7 @@ int main(int argc, char *argv[]) {
                         Constants::usToSeconds +
                     params.timeRestartFrom};
     write_all_species(currTime, speciesFile1, counterArrays);
-    // write_single_molecule_rxn(currTime, smtRxnFile, moleculeList,
-    // snapshotMolecules, molTemplateList); Write out N bound pairs, histogram
+    // Write out N bound pairs, histogram
     // of complex compositions, and monomer/dimer counts.
     write_NboundPairs(counterArrays, pairOutfile, simItr, params, moleculeList);
     print_dimers(complexList, dimerfile, simItr, params, molTemplateList);

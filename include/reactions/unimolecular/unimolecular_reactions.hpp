@@ -13,7 +13,6 @@
 
 #pragma once
 
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
@@ -62,10 +61,6 @@ void check_for_unimolecular_reactions_population(long long int simItr, Parameter
     const std::vector<CreateDestructRxn>& createDestructRxns, std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays, Membrane& membraneObject, std::ofstream& assocDissocFile);
 
-void check_for_destruction(unsigned simItr, const Parameters& params, const std::vector<CreateDestructRxn>& createDestructRxns,
-    const std::vector<Molecule>& moleculeList, const std::vector<Complex>& complexList,
-    const std::vector<MolTemplate>& molTemplateList);
-
 
 bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
 // <<<<<<< HEAD
@@ -76,9 +71,6 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
     std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList, int ILindexMol, const ForwardRxn &conjForwardRxn, 
     bool &breakLinkComplex, double timeStep, std::ofstream& assocDissocFile);
 // >>>>>>> master
-
-bool determine_parent_complex(int pro1Index, int pro2Index, int newComIndex, std::vector<Molecule>& moleculeList,
-    std::vector<Complex>& complexList);
 
 bool determine_parent_complex_IL(int pro1Index, int pro2Index, int newComIndex, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, int ILindexMol);

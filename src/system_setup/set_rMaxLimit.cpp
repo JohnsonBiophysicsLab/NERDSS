@@ -1,5 +1,4 @@
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 
 void set_rMaxLimit(Parameters &params,
                    const std::vector<MolTemplate> &molTemplateList,
@@ -84,6 +83,20 @@ void set_rMaxLimit(Parameters &params,
 
       double RmaxDiff =
           3.0 * sqrt(6.0 * Dtot * params.timeStep) + oneRxn.bindRadius;
+      // A pair of fiber molecules (both templates promoters; pair_dim() gives
+      // Fiber1D for their complexes) is evaluated by the 1D rules, which reach
+      // 4 sqrt(2 (D1.x + D2.x) dt) + sigma along the fiber: with D.y = D.z = 0
+      // that is 4/3 of the three-axis estimate above.  The cell grid and the
+      // pre-cut in check_bimolecular_reactions() both rest on rMaxLimit being
+      // the longest reach, so take the larger of the two.  Reactions without
+      // promoters are untouched.
+      if (pro1Temp.isPromoter && pro2Temp.isPromoter) {
+        const double RmaxDiff1D =
+            4.0 * sqrt(2.0 * (pro1Temp.D.x + pro2Temp.D.x) * params.timeStep) +
+            oneRxn.bindRadius;
+        if (RmaxDiff1D > RmaxDiff)
+          RmaxDiff = RmaxDiff1D;
+      }
       rMaxTot = RmaxDiff + pro1R1 + pro2R1;
       if (rMaxTot > params.rMaxLimit) {
         params.rMaxLimit = rMaxTot;

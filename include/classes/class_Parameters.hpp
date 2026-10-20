@@ -75,7 +75,8 @@ enum class ParamKeyword : int {
     numericsAssociationRotationTolerance = 35,
     numericsAssociationEndpointSignTolerance = 36,
     numericsVec3DCoordinatePrecision = 37,
-    legacyRestartFormat = 38 //!< write restart files in the .dat format of builds before the JSON format
+    legacyRestartFormat = 38, //!< write restart files in the .dat format of builds before the JSON format
+    histogramMolStates = 39 //!< histogram_complexes_time.dat tells molecules of one type apart by their interface states
 };
 
 /*! \enum MolKeyword
@@ -175,7 +176,6 @@ struct Parameters {
     double timeStep { 0 }; //!< timestep, in microseconds.  used to be deltat
     double mass { 0 }; //!< total mass of the system (do we need this?)
     int max2DRxns { 10000 }; //!< maximum number of allowed unique 2D reactions
-    int maxUniqueSpecies { 1000 }; //!< maximum number of allowed unique species
     long long int itrRestartFrom { 0 }; //!< number of timesteps from when the simlation restart
     double timeRestartFrom { 0.0 }; //!< time from when the simulation restart (unit: s)
     double sphereR = 0;
@@ -202,6 +202,12 @@ struct Parameters {
     std::string trajFile { "trajectory.xyz" };
     std::string restartFile { "restart.dat" };
 
+    // where <name>.mol files are looked for (--mol-dir, --mol-dir-recursive).
+    // Empty is the working directory.  Only parsing reads these, so they are
+    // neither written to restart files nor sent between MPI ranks.
+    std::string molDir {};
+    bool molDirRecursive { false }; //!< search molDir's subdirectories as well
+
     // TODO: TEMPORARY
     bool isNonEQ { false };
 
@@ -212,19 +218,31 @@ struct Parameters {
     // IO information. Iterators need to be long long because they can exceed 2^32
     bool fromRestart { false }; //!< is this simulation initialized from a restart file. used to be int restart
     bool assocDissocWrite { false }; //!< is association and dissociation written to a file
-    long long int timeWrite { 10 }; //!< timestep interval to print timestep. used to be statwrite
-    long long int trajWrite { 10 }; //!< timestep interval to write coordinates file. used to be configwrite
-    long long int restartWrite { 10 }; //!< timestep interval to write a restart file
-    long long int pdbWrite { -1 }; //!< interval to write pdb
-    long long int checkPoint { -1 }; //!< interval to write checkpoint
-    long long int transitionWrite { -1 }; //!< timestep interval to write transition matrix
-    long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON file
+    /* Write intervals, in timesteps.  A positive value is a period; 0 or a
+     * negative value turns that periodic write off (the writes at the start
+     * and the end of the run do not depend on it).  checkPoint and
+     * transitionWrite are the exception for -1 only: left at -1 they take
+     * the documented default of nItr / 10 (EXEs/nerdss.cpp, nerdss_mpi.cpp),
+     * so write 0 to turn those two off. */
+    long long int timeWrite { 10 }; //!< timestep interval to print timestep information and the *_time.dat statistics. used to be statwrite
+    long long int trajWrite { 10 }; //!< timestep interval to append a frame to the trajectory file. used to be configwrite
+    long long int restartWrite { 10 }; //!< timestep interval to overwrite DATA/restart.*
+    long long int pdbWrite { -1 }; //!< timestep interval to write a PDB file; -1 (default) is off
+    long long int checkPoint { -1 }; //!< timestep interval to write RESTARTS/restart<step>.*; -1 (default) means nItr / 10, 0 is off
+    long long int transitionWrite { -1 }; //!< timestep interval to write the transition matrix; -1 (default) means nItr / 10, 0 is off
+    long long int bondedComplexWrite { -1 }; //!< timestep interval to write bonded complex data to JSON files; -1 (default) is off
     bool clusterOverlapCheck { false }; //!< is overlap checked by cluster 
     bool rngwrite { false }; //!< whether to write rng state along with restart files (checkpoints)
     //! Write restart files in the positional .dat format of builds before the JSON format instead of
     //! JSON.  A restart keeps the format of the file it read (read_restart() sets this) unless an add
     //! file sets it; the file names follow it (DATA/restart.dat, RESTARTS/restart<N>.dat).
     bool legacyRestartFormat { false };
+    //! Count molecules of one type separately in DATA/histogram_complexes_time.dat when their
+    //! interface states differ, so pip2(head~U) and pip2(head~P) are two species there and
+    //! (2 U, 1 P) and (1 U, 2 P) are two complexes.  Off, the histogram counts by molecule type
+    //! only, as it always did.  Carried in the JSON restart file when set; the .dat format
+    //! cannot carry it, so a .dat restart needs an add file to keep it.
+    bool histogramMolStates { false };
                             // Normally we do not need to restart with the same rng
                             // sequence, set this true to print the rng_state so
                             // that restarts can be identical
@@ -248,7 +266,6 @@ struct Parameters {
         PUSH(timeStep);
         PUSH(mass);
         PUSH(max2DRxns);
-        PUSH(maxUniqueSpecies);
         PUSH(itrRestartFrom);
         PUSH(timeRestartFrom);
         PUSH(dt);
@@ -293,6 +310,7 @@ struct Parameters {
         PUSH(clusterOverlapCheck);
         PUSH(rngwrite)
         PUSH(legacyRestartFormat);
+        PUSH(histogramMolStates);
         PUSH(checkUnimoleculeReactionPopulation);
         PUSH(hasRankCommunicationForLargeComplex);
     }
@@ -309,7 +327,6 @@ struct Parameters {
         POP(timeStep);
         POP(mass);
         POP(max2DRxns);
-        POP(maxUniqueSpecies);
         POP(itrRestartFrom);
         POP(timeRestartFrom);
         POP(dt);
@@ -354,6 +371,7 @@ struct Parameters {
         POP(clusterOverlapCheck);
         POP(rngwrite);
         POP(legacyRestartFormat);
+        POP(histogramMolStates);
         POP(checkUnimoleculeReactionPopulation);
         POP(hasRankCommunicationForLargeComplex);
         numerics.validate();

@@ -21,19 +21,25 @@
 \subsubsection simul Simulation Parameters
   | Keyword    | Description |
   |------------|-------------|
-  | NItr<sup>✝</sup> | requested number of iterations (timesteps) (integer) |
+  | NItr<sup>✝</sup> | requested number of iterations (timesteps) (integer<sup>2</sup>, must be positive; there is no default, so a zero, negative, fractional or unreadable value stops the run) |
   | deltat<sup>✝</sup> | timestep length (integer)|
-  | timeWrite | interval to write timestep information (integer, default: 10) |
-  | trajWrite | interval to write to coordinates file (integer, default: 10) |
-  | restartWrite<sup>1</sup> | interval to write to restart file (integer, default: trajWrite) |
-  | pdbWrite | interval to write individual pdb files (mainly for nonequilibrium simulations (integer, default: 0) |
+  | timeWrite<sup>2</sup> | interval in timesteps to print the running-time block to standard output and append a row to every `DATA/*_time.dat` statistics file; 0 or a negative value writes only the first and the last row (integer, default: 10) |
+  | trajWrite | interval in timesteps to append a frame to `DATA/trajectory.xyz`; a positive value also writes the first and the last step; 0 or a negative value writes no trajectory file at all, not even the initial frame (integer, default: 10) |
+  | restartWrite<sup>1</sup> | interval in timesteps to overwrite the restart file; 0 or a negative value turns the periodic write off, the restart file at the end of the run is still written (integer, default: 10) |
+  | pdbWrite | interval in timesteps to write a PDB file of the whole system to `PDB/<step>.pdb` (mainly for nonequilibrium simulations); a positive value also writes the first and the last step; 0 or a negative value writes no PDB file at all, not even the initial one (integer, default: -1, off) |
+  | checkPoint | interval in timesteps to write a checkpoint `RESTARTS/restart<step>.json` that a run can be restarted from; -1 (the default) means nItr / 10, and 0 or any other negative value turns checkpoints off (integer, default: -1 = nItr / 10) |
+  | transitionWrite | interval in timesteps to append the transition matrix to `DATA/transition_matrix_time.dat` (only meaningful with `countTransition`); -1 (the default) means nItr / 10, and 0 or any other negative value turns the periodic write off (integer, default: -1 = nItr / 10) |
+  | bondedComplexWrite | interval in timesteps to write every bonded complex to `DATA/COMPLEXES/<step>.json`; 0 or a negative value turns it off (integer, default: -1, off) |
   | fromRestart | Does the simulation start from a restart file. Not yet implemented (01/25/2019) (boolean, default: false) |
   | legacyRestartFormat | write restart files in the positional `.dat` format of builds before the JSON format, instead of JSON; a restart keeps the format of the file it read unless an add file sets this (boolean, default: false) |
+  | histogramMolStates | count molecules of one type separately in `DATA/histogram_complexes_time.dat` when their interface states differ, named as in `copy_numbers_time.dat`: `pip2(head~P): 2. pip2(head~U): 1.` and `pip2(head~P): 1. pip2(head~U): 2.` are then two complexes, where the default writes both as `pip2: 3.`. Only interfaces with more than one state are named, `A(tag~U,ser~P)` when there are two; an implicit lipid stays `name: n.`. Carried in the JSON restart file when set; a `.dat` restart needs an add file to keep it (boolean, default: false) |
   | waterBox<sup>✝</sup> | water box dimensions (array, [x, y, z]) |
 
 ✝ indicates a required keyword
 
-<sup>1</sup> Must be set such that restartWrite % trajWrite = 0
+<sup>1</sup> A positive restartWrite is rounded down to a multiple of timeWrite (and up to timeWrite itself when it is smaller), so set it such that restartWrite % timeWrite = 0
+
+<sup>2</sup> NItr and every write interval (timeWrite, trajWrite, restartWrite, pdbWrite, checkPoint, transitionWrite, bondedComplexWrite) are read as exact whole numbers, never through a floating-point value. `100000`, `1e5`, `5E5`, `2.5e6` and `1000000.0` are all accepted; a fractional value (`1000.5`), `nan`, `inf`, trailing characters or a value outside a 64-bit integer is not. An unreadable value is reported on stderr and replaced by the keyword's default; for NItr, which has none, the run stops. A write interval of 0 or below is taken as written and a note on stderr says what it means for that keyword.
 
 ---
 

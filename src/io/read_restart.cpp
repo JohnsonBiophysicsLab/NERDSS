@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <string>
@@ -429,6 +428,9 @@ void read_json_restart(long long int& simItr, std::ifstream& restartFile, Parame
     params.transitionWrite = jp.at("transitionWrite");
     params.clusterOverlapCheck = jp.at("clusterOverlapCheck");
     params.rngwrite = jp.at("rngwrite");
+    // Added with the parameter; a file from a build without it keeps the default.
+    if (jp.contains("histogramMolStates"))
+        params.histogramMolStates = jp.at("histogramMolStates");
     params.bondedComplexWrite = jp.at("bondedComplexWrite");
     Parameters::lastUpdateTransition = jp.at("lastUpdateTransition").get<std::vector<long long int>>();
 
@@ -775,7 +777,6 @@ void LEGACY_read_restart(long long int& simItr, std::ifstream& restartFile, Para
     std::vector<TransmissionRxn>& transmissionRxns,
     std::map<std::string, int>& observablesList, Membrane& membraneObject, copyCounters& counterArrays)
 {
-    // TRACE();
     try {
         // Read parameters
         std::cout << "READ IN PARMATERS from restart file" << std::endl;

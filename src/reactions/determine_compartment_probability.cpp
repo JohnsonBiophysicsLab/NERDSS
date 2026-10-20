@@ -11,7 +11,6 @@
 #include "reactions/bimolecular/2D_reaction_table_functions.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
-#include "tracing.hpp"
 
 namespace {
 
@@ -27,7 +26,6 @@ void determine_compartment_probability(CrossingDirection direction, double distT
     const std::vector<TransmissionRxn>& transmissionRxns, int rxnIndex, int pro1Index,
     std::vector<Molecule>& moleculeList, double Dtot, const Parameters& parameters, Membrane& membraneObject)
 {
-    // TRACE();
     /*3D reaction*/
 
     // This movestat check is if you allow just dissociated proteins to avoid overlap

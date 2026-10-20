@@ -1,0 +1,31 @@
+# 1D fiber: 50 A sites bind irreversibly to 50 of 200 B sites; the 150 free B keep sliding
+# and must be kept out of the bound A sites' exclusion zone (sigma) by the exclusion block.
+start parameters
+    nItr = 300000
+    timeStep = 1.0
+    timeWrite = 500
+    trajWrite = 20
+    restartWrite = 1000000
+    checkPoint = 1000000
+    pdbWrite = 1000000
+    overlapSepLimit = 0.5
+end parameters
+
+start boundaries
+    WaterBox = [2000,100,100]
+end boundaries
+
+start molecules
+    B : 200
+    A : 50
+end molecules
+
+start reactions
+    A(l) + B(r) -> A(l!1).B(r!1)
+    onRate3Dka = 10.0
+    sigma = 2.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan, nan, nan, nan, nan]
+    excludeVolumeBound = true
+end reactions

@@ -71,7 +71,6 @@ struct Interface {
         {
         }
         State(const std::string& ifaceAndStateName, int index);
-        State(const std::string& ifaceAndStateName, char iden, int index);
         ~State() = default;
 
         /*
@@ -133,11 +132,9 @@ struct Interface {
     std::vector<int> excludeVolumeBoundIfaceList {}; //!< list of interface rel index that this molecule interface exclude volume with when it is bound
     std::vector<int> excludeVolumeBoundReactList {}; //!< list of reaction index that this molecule interface exclude volume with when it is bound
     std::vector<double> excludeRadiusList {}; //!< list of the exclude bindRaius for each interface
-    void set_ifaceAndStateNames(); //!< sets the full name for each state (i.e. ifaceName~state). used only in parameter file parsing.
 
     explicit Interface() = default;
     Interface(std::string name, const Vec3D& iCoord);
-    Interface(std::string name, std::vector<State> states, Vec3D iCoord);
 
     /*
     Function serialize serializes the Interface into arrayRank of bytes.
@@ -252,7 +249,6 @@ struct MolTemplate {
     bool bindToSurface { false }; //For use with continuum membrane binding method. 0 (default) means no surface adsorption.
     // functions to display values
     void display() const;
-    void display(const std::string& name) const;
 
     static std::map<const std::string, MolKeyword> molKeywords; //!< keywords for file parsing see MolKeywords
     static std::vector<int> absToRelIface; //!< list of relative iface indices indexed by absolute indices
@@ -262,7 +258,6 @@ struct MolTemplate {
 
     // functions to find values
     int find_relIndex_from_absIndex(int targStateIndex) const;
-    int find_absIndex_from_relIndex(int relIndex, char state) const;
     void set_value(std::string& line, MolKeyword molKeyword);
 
     /*! \brief Refreshes invCbrtDr from the current Dr.
@@ -273,8 +268,6 @@ struct MolTemplate {
     void cache_diffusion_derivatives();
 
     MolTemplate() = default;
-    MolTemplate(Vec3D& comCoord, std::vector<Interface>& Interfaces);
-    MolTemplate(std::string molName, std::vector<Interface>& interfaceList);
 
     /*
     Function serialize serializes the MolTemplate into array of bytes.

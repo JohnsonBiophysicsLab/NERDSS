@@ -45,31 +45,6 @@ std::ostream& operator<<(std::ostream& os, const RxnIface& rxnIface)
     return os;
 }
 
-bool RxnIface::operator==(const Molecule::Iface& molIface) const
-{
-    //    return this->molTypeIndex == molIface.molTypeIndex && this->absIfaceIndex == molIface.index
-    //        && this->requiresState == molIface.stateIden && this->requiresInteraction == molIface.isBound;
-    // this can't check absIfaceIndex, since bound interfaces in the reactants can't have indexed bonds, yet
-
-    if (this->molTypeIndex != molIface.molTypeIndex) {
-        return false;
-    }
-    if (this->relIfaceIndex != molIface.relIndex) {
-        return false;
-    }
-    if (this->requiresInteraction != molIface.isBound) {
-        return false;
-    }
-    if (this->requiresState != molIface.stateIden) {
-        return false;
-    }
-
-    return true;
-
-    //return this->molTypeIndex == molIface.molTypeIndex && this->relIfaceIndex == molIface.relIndex
-    //    && this->requiresState == molIface.stateIden && this->requiresInteraction == molIface.isBound;
-}
-
 /* FORWARDRXN */
 ForwardRxn::ForwardRxn(ParsedRxn& parsedRxn, const std::vector<MolTemplate>& molTemplateList)
 {
@@ -228,21 +203,6 @@ void ForwardRxn::display() const
     }
 }
 
-void ForwardRxn::assoc_display(const std::vector<MolTemplate>& molTemplateList) const
-{
-    std::cout << "\nReaction data:\n";
-    // TODO: break this off into the constructor, and maybe put it onto RateState, because each conditional rate will
-    // have different otherIfaceList and/or stateChangeIface.
-    std::cout << "Product: ";
-    std::cout << molTemplateList[productListNew.front().molTypeIndex].molName << '(' << productListNew.front().ifaceName
-              << "!1)";
-    for (const auto& product : productListNew)
-        std::cout << '.' << molTemplateList[product.molTypeIndex].molName << '(' << product.ifaceName << "!1)";
-    std::cout << "\nAngles:\n";
-    assocAngles.display();
-    std::cout << std::endl;
-}
-
 void ForwardRxn::Angles::display() const
 {
     std::cout << "Association angles:\n";
@@ -251,16 +211,6 @@ void ForwardRxn::Angles::display() const
     std::cout << std::setw(10) << std::left << "Phi 1" << std::setw(7) << std::right << phi1 << '\n';
     std::cout << std::setw(10) << std::left << "Phi 2" << std::setw(7) << std::right << phi2 << '\n';
     std::cout << std::setw(10) << std::left << "Omega" << std::setw(7) << std::right << omega << '\n';
-}
-
-ForwardRxn ForwardRxn::bngl_copy_rxn()
-{
-    ForwardRxn tmp {};
-    tmp.intProductList = intProductList;
-    tmp.intReactantList = intReactantList;
-    tmp.rxnType = rxnType;
-
-    return tmp;
 }
 
 /* BACKRXN */

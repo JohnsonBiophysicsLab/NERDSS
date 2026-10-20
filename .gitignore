@@ -63,6 +63,8 @@ benchmarks/nerdss_optimized/**/*.overlaps.txt
 benchmarks/nerdss_optimized/**/*.summary.txt
 benchmarks/nerdss_optimized/**/*.manifest.sha256
 benchmarks/nerdss_optimized/reference*
+# fiber_b8_3 commits its run records (overlaps, counters) as evidence
+!benchmarks/nerdss_optimized/fiber_b8_3/**
 
 # local branching documentation
 docs/debranching_plan.md

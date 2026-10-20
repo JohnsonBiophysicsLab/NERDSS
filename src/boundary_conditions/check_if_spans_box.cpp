@@ -6,7 +6,6 @@
  */
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
-#include "tracing.hpp"
 
 #include <cmath>
 #include <iostream>
@@ -14,7 +13,6 @@
 void check_if_spans_box(bool& cancelAssoc, const Parameters& params, Complex& reactCom1, Complex& reactCom2,
     std::vector<Molecule>& moleculeList, const Membrane& membraneObject)
 {
-    // TRACE();
     // Associating proteins have been moved to contact. Before assigning them to the complexsame complex,
     // test to see if the complex is too big to fit in the box.
     // declare the six boundary sides of the system box;

@@ -13,7 +13,6 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 namespace {
@@ -39,7 +38,6 @@ ExtremePoint farthest_point(const Complex& targCom, const std::vector<Molecule>&
 
 void reflect_traj_check_span_sphere(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double radius, double RS3Dinput)
 {
-    // TRACE();
     bool needsRecheck { true };
     int maxItr { 50 };
     int checkItr { 0 };

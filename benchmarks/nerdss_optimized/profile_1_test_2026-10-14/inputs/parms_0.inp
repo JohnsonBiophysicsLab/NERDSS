@@ -1,0 +1,104 @@
+start parameters
+	nItr = 100000 # Total number of simulation iterations (500s default)
+	timeStep = 1 # Duration of each iteration (μs)
+	timeWrite = 1000 # Iteration interval to write _time.dat statistics files (0.1s default)
+	trajWrite = -1 # Iteration interval to write coordinates to trajectory.xyz (-1 disables)
+	restartWrite = 2000000 # Iteration interval to overwrite restart.dat (50s default)
+	checkPoint = -1 # Iteration interval to write separate restart_N.dat files (50s default)
+	pdbWrite = -1 # Iteration interval to write individual PDB files (1s default, -1 disables)
+end parameters
+
+start boundaries
+	WaterBox = [125.38708835174509, 125.38708835174509, 5470.630411496523] # Dimensions (nm) calculated based on DF
+end boundaries
+
+start molecules
+	# Initial counts calculated from dataset concentrations
+	lipid : 278 (head~U) 0 (head~P)
+	adaptor : 100
+	kinase : 296
+	phosphatase : 221
+end molecules
+
+start reactions
+	################################
+	### Kinase - Lipid Interaction ###
+	################################
+	# L + K <-> LK -> K + Lp
+	kinase(lbs) + lipid(head~U) <-> kinase(lbs!1).lipid(head~U!1)
+	onRate3DMacro = 0.001372759048392 # kfᴸᴷ nm³/μs
+	offRateMacro = 3.3110439692079328  # krᴸᴷ s⁻¹
+	kcat = 0.0894988213068965        # kcatᴸᴷ s⁻¹
+	norm1 = [0,0,1]
+	norm2 = [0,0,1]
+	assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+	sigma = 1.0
+	length3Dto2D = 1.0
+	coupledRxnLabel = PhosphorylationByKinase
+
+	# Catalytic Step Definition: LK -> K + Lp
+	lipid(head~U) -> lipid(head~P)
+	rate = 0.0 # Driven by coupling
+	rxnLabel = PhosphorylationByKinase
+
+	###################################
+	### Phosphatase - Lipid Interaction ###
+	###################################
+	# Lp + P <-> LpP -> P + L
+	phosphatase(lbs) + lipid(head~P) <-> phosphatase(lbs!1).lipid(head~P!1)
+	onRate3DMacro = 0.0691850657719013 # kfᴸᴾ nm³/μs
+	offRateMacro = 0.0044346376289582  # krᴸᴾ s⁻¹
+	kcat = 0.0276077398201305        # kcatᴸᴾ s⁻¹
+	norm1 = [0,0,1]
+	norm2 = [0,0,1]
+	assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+	sigma = 1.0
+	length3Dto2D = 1.0
+	coupledRxnLabel = DephosphorylationByPhosphatase
+
+	# Catalytic Step Definition: LpP -> P + L
+	lipid(head~P) -> lipid(head~U)
+	rate = 0.0 # Driven by coupling
+	rxnLabel = DephosphorylationByPhosphatase
+
+	#################################
+	### Adaptor - Lipid Interaction ###
+	#################################
+	# Lp + A <-> LpA
+	lipid(head~P) + adaptor(lbs) <-> lipid(head~P!1).adaptor(lbs!1)
+	onRate3DMacro = 1.1640251233854135 # kfᴸᴬ nm³/μs
+	offRateMacro = 0.086590620959632  # krᴸᴬ s⁻¹
+	norm1 = [0,0,1]
+	norm2 = [0,0,1]
+	assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]
+	length3Dto2D = 1.0
+	sigma = 1.0
+
+	############################################
+	### Adaptor - Enzyme Interactions (Membrane) ###
+	############################################
+	# LpA + K <-> LpAK
+	kinase(abs) + adaptor(ebs,lbs!*) <-> kinase(abs!1).adaptor(ebs!1,lbs!*)
+	onRate3DMacro = 5.49405662650407 # kfᴬᴷ nm³/μs
+	offRateMacro = 0.0061292519040184  # krᴬᴷ s⁻¹
+	norm1 = [0,0,1]
+	norm2 = [0,0,1]
+	assocAngles = [1.5707963, 2.35619, nan, M_PI, M_PI]
+	length3Dto2D = 1.0
+	sigma = 1.0
+
+	# LpA + P <-> LpAP
+	phosphatase(abs) + adaptor(ebs,lbs!*) <-> phosphatase(abs!1).adaptor(ebs!1,lbs!*)
+	onRate3DMacro = 0.153274756759788 # kfᴬᴾ nm³/μs
+	offRateMacro = 0.0010837781074308  # krᴬᴾ s⁻¹
+	norm1 = [0,0,1]
+	norm2 = [0,0,1]
+	assocAngles = [1.5707963, 2.35619, nan, M_PI, M_PI]
+	length3Dto2D = 1.0
+	sigma = 1.0
+
+end reactions
+
+
+
+

@@ -17,7 +17,6 @@ public:
     double bindrad;
     //int flagOverlap;
 
-    ClusterPair(void); //Constructor
     ClusterPair(int setp1, int setp2); //Constructor
 };
 

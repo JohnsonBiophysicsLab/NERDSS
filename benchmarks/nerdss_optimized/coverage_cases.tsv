@@ -44,9 +44,9 @@
 # transmits.  Its removal loop needs a denser model than any sample holds.
 compartment	compartment	clath_compartment.inp	30000
 
-# Unimolecular state change: count_unimolecular_observable, and the
-# check_for_unimolstatechange_reactions path around it.
-unimol_state_change	VALIDATE_SUITE/unimol_state_change_reversible	uni_state_rev.inp	20000
+# The unimolecular state change (count_unimolecular_observable and the
+# check_for_unimolstatechange_reactions path) used to be here, and is now in
+# cases.tsv so that the np>1 validation reaches it too.
 
 # Volume exclusion between bound partners: the `if (canExclude == true)` half of
 # check_bimolecular_reactions(), which no case in cases.tsv enters at all - line
@@ -70,3 +70,12 @@ cluster_mem_loc	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	2000
 # (the fallback sweep_separation_complex_rot_memtest_sphere needs ~20000, which
 # costs eleven minutes, so that one stays in known_uncovered.tsv).
 cluster_gagsphere	gagsphere	parms.inp	1000	clusterOverlapCheck = true
+
+# The complex histogram with interface states counted: complex_composition_string()
+# with byState set, which no stock model reaches because histogramMolStates is
+# off by default.  auto_phos is the smallest model with a state change that also
+# forms complexes, so both the monomer lines and the mixed-state dimer line
+# A(ser~P): 1. A(ser~U): 1. are written.  A build without the parameter ignores
+# the line with a warning, so against such a build this case differs in
+# histogram_complexes_time.dat and restart.json (which records the switch) only.
+hist_mol_states	auto_phos	autophos_D10.inp	20000	histogramMolStates = true

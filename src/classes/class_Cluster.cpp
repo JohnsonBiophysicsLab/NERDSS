@@ -4,11 +4,6 @@
 #include "trajectory_functions/trajectory_functions.hpp"
 
 //Definition of constructor
-ClusterPair::ClusterPair()
-{
-    p1 = -1;
-}
-
 ClusterPair::ClusterPair(int setp1, int setp2)
 {
     p1 = setp1;

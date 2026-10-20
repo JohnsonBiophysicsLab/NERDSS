@@ -1,5 +1,4 @@
 #include "math/Faddeeva.hpp"
-#include "tracing.hpp"
 
 double pirr_pfree_ratio_psF_1D(
     double rCurr, double r0, double tCurr, double Dtot, double bindrad, double ka, double ps_prev)

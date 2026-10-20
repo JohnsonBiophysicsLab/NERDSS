@@ -1,6 +1,5 @@
 #include "classes/class_Molecule_Complex.hpp"
 #include "reactions/association/association.hpp"
-#include "tracing.hpp"
 
 void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1, Molecule& reactMol2, double targAngle,
     Complex& reactCom1, Complex& reactCom2, std::vector<Molecule>& moleculeList,
@@ -9,7 +8,6 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
     const auto sameAngle = [&settings](double lhs, double rhs) {
         return areSameAngle(lhs, rhs, settings.sameAngle);
     };
-    // TRACE();
     Vec3D v1 { reactIface1 - reactMol1.tmpComCoord };
     Vec3D sigma { reactIface1 - reactIface2 };
     if (v1.length() < 1E-12) {
@@ -63,7 +61,6 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
 
         // if (reactMol1.index == 29 || reactMol2.index == 29) {
         //   std::cout << "before rotation for theta" << std::endl;
-        //   moleculeList[11].display_assoc_icoords("mol");
         //   std::cout << "rotQuatPos = " << rotQuatPos << std::endl;
         //   std::cout << "rotQuatNeg = " << rotQuatNeg << std::endl;
         // }
@@ -73,7 +70,6 @@ void theta_rotation(Vec3D& reactIface1, Vec3D& reactIface2, Molecule& reactMol1,
 
         // if (reactMol1.index == 29 || reactMol2.index == 29) {
         //   std::cout << "after rotation for theta" << std::endl;
-        //   moleculeList[11].display_assoc_icoords("mol");
         // }
 
         v1 = Vec3D { reactIface1 - reactMol1.tmpComCoord };

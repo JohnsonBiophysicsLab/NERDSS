@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -166,7 +165,6 @@ void write_json_restart(long long int simItr, std::ofstream& restartFile, const 
     const std::vector<TransmissionRxn>& transmissionRxns,
     const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
 {
-    // TRACE();
     json j;
 
     // parameters
@@ -221,6 +219,10 @@ void write_json_restart(long long int simItr, std::ofstream& restartFile, const 
         jp["transitionWrite"] = params.transitionWrite;
         jp["clusterOverlapCheck"] = params.clusterOverlapCheck;
         jp["rngwrite"] = params.rngwrite;
+        // Written only when set, so a run that leaves it off writes the file a build
+        // without the parameter wrote; read_json_restart() takes a missing key as off.
+        if (params.histogramMolStates)
+            jp["histogramMolStates"] = true;
         jp["bondedComplexWrite"] = params.bondedComplexWrite;
         jp["lastUpdateTransition"] = Parameters::lastUpdateTransition;
         jp["numerics"] = serialize_numerics(params.numerics);
@@ -607,7 +609,6 @@ void LEGACY_write_restart(long long int simItr, std::ofstream& restartFile, cons
     const std::vector<TransmissionRxn>& transmissionRxns,
     const std::map<std::string, int>& observablesList, const Membrane& membraneObject, const copyCounters& counterArrays)
 {
-    // TRACE();
     // Write parameters
     restartFile.precision(20);
     {

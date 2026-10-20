@@ -1,0 +1,18 @@
+case	nItr	bitwise_identical	b83_before_s	b83_fix_s	speedup
+clathrin	150000	yes	4.066	4.050	1.004
+closed_homoTrimer	6000	yes	8.092	8.094	1.000
+hetTrimer	8000	yes	8.111	8.087	1.003
+hexamer	25000	yes	7.068	7.079	0.998
+homoTrimer	6000	yes	8.106	8.090	1.002
+implicit_lipid	100000	yes	4.067	4.056	1.003
+mem_localization	2000	yes	2.034	2.040	0.997
+michaelis_menten	150000	yes	5.060	5.070	0.998
+rev_2D	200	yes	78.794	77.797	1.013
+rev_3D	20000	yes	6.062	6.062	1.000
+rev_3Dto2D	8000	yes	6.080	6.066	1.002
+sphere	40000	yes	11.126	11.129	1.000
+trimer	8000	yes	8.106	8.104	1.000
+
+total_b83_before_s (sum of medians)	156.772
+total_b83_fix_s (sum of medians)	155.724
+aggregate_speedup	1.007

@@ -1,12 +1,10 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
-#include "tracing.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 
 void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_t relIface2, Molecule& reactMol1, Molecule& reactMol2,
     const BackRxn& currRxn, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     /*Find the new absIface for mol1*/
     int absIface1 { -1 };
     int absIface2 { -1 };
@@ -51,18 +49,6 @@ void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_
     // bndlist and removes the matching pair, or does nothing.
     erase_bond(reactMol1, static_cast<int>(relIface1));
 
-    //------------------------START UPDATE MONOMERLIST-------------------------
-    // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer, add to monomerList if new monomer produced
-    // reactMol1
-    {
-        Molecule& oneMol { reactMol1 };
-        MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-        bool isMonomer { oneMol.bndpartner.empty() };
-        bool canDestroy { oneTemp.canDestroy };
-        if (isMonomer && canDestroy) {
-            //add to monomerList
-            oneTemp.monomerList.emplace_back(oneMol.index);
-        }
-    }
-    //------------------------END UPDATE MONOMERLIST---------------------------
+    // A product left without a partner rejoins its template's monomerList.
+    add_to_monomer_list(reactMol1, molTemplateList);
 }

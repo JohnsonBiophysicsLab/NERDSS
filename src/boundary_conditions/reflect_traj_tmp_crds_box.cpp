@@ -1,7 +1,6 @@
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
-#include "tracing.hpp"
 
 /*evaluates reflection out of box based on tmpCoords of all proteins. targCOM tmpCOM coords also must be consistent-updated.
  *Does not update molecule traj vectors, just updates the passed in vector traj, to collect for both complexes.
@@ -10,7 +9,6 @@
 void reflect_traj_tmp_crds_box(
     const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, std::array<double, 3>& traj, const Membrane& membraneObject, double RS3Dinput)
 {
-    // TRACE();
     /*This routine updated October 2019 to test if a large complex that spans the box could extend out in both directions
     if so, it attempts to correct for this by resampling the complex's translational and rotational updates.
     */

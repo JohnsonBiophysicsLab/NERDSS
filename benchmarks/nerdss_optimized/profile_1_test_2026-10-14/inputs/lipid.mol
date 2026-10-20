@@ -1,0 +1,22 @@
+##
+# lipid molecule information file
+##
+
+Name    = lipid
+isLipid = true
+checkOverlap = false
+
+# translational diffusion constants
+D = [1.0, 1.0, 0.0]
+
+# rotational diffusion constants
+Dr = [0, 0, 0]
+
+# Coordinates
+COM    0.0000    0.0000    0.0000
+head   0.0000    0.0000    1.0000
+
+bonds = 1
+com head
+
+state = head~U~P

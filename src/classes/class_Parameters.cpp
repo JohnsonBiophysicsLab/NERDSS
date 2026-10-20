@@ -53,7 +53,22 @@ std::map<const std::string, ParamKeyword> parmKeywords = {
     { "numericsassociationendpointsigntolerance", ParamKeyword::numericsAssociationEndpointSignTolerance },
     { "numericsvec3dcoordinateprecision", ParamKeyword::numericsVec3DCoordinatePrecision },
     { "legacyrestartformat", ParamKeyword::legacyRestartFormat },
+    { "histogrammolstates", ParamKeyword::histogramMolStates },
 };
+
+// Reads one step count of the parameters block under its rule.  Everything it has to say goes to
+// stderr: a warning for a value replaced by its default, a note for a write interval of 0 or below
+// (taken as written) saying what it means, and an error for a value with no default (nItr), which
+// ends the run.
+static long long read_step_count(const std::string& value, const StepCountRule& rule)
+{
+    const StepCountReading reading = resolve_step_count(value, rule);
+    if (!reading.message.empty())
+        std::cerr << reading.message << '\n';
+    if (reading.fatal)
+        exit(1);
+    return reading.value;
+}
 
 void Parameters::set_value(std::string value, ParamKeyword keywords)
 {
@@ -62,12 +77,11 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
      * @param value value of the parameter as a string
      * @param keywords the keyword parsed from the input file to match to the enumeration Keywords
      */
-    double temp, checkit, transitionit;
     try {
         auto key = static_cast<std::underlying_type<ParamKeyword>::type>(keywords);
         switch (key) {
 
-        // these should be read in as doubles then converted to long, otherwise scientific notation breaks
+        // Step counts go through read_step_count(): exact whole numbers, exponent forms included.
         case 0:
             this->numMolTypes = std::stoi(value);
             std::cout << "Read in numMolTypes: " << this->numMolTypes << std::endl;
@@ -77,8 +91,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in numTotalSpecies: " << this->numTotalSpecies << std::endl;
             break;
         case 2:
-            temp = std::stod(value);
-            this->nItr = static_cast<long long int>(temp);
+            this->nItr = read_step_count(value, StepCountRules::nItr);
             std::cout << "Read in nItr: " << this->nItr << " timeSteps" << std::endl;
             break;
         case 3:
@@ -86,13 +99,11 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in fromRestart: " << std::boolalpha << this->fromRestart << std::endl;
             break;
         case 4:
-            temp = std::stod(value);
-            this->timeWrite = static_cast<long long int>(temp);
+            this->timeWrite = read_step_count(value, StepCountRules::timeWrite);
             std::cout << "Read in timeWrite: " << this->timeWrite << " timeSteps" << std::endl;
             break;
         case 5:
-            temp = std::stod(value);
-            this->trajWrite = static_cast<long long int>(temp);
+            this->trajWrite = read_step_count(value, StepCountRules::trajWrite);
             std::cout << "Read in trajWrite: " << this->trajWrite << " timeSteps" << std::endl;
             break;
         case 6:
@@ -108,13 +119,11 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in mass: " << this->mass << std::endl;
             break;
         case 10:
-            temp = std::stod(value);
-            this->restartWrite = static_cast<long long int>(temp);
+            this->restartWrite = read_step_count(value, StepCountRules::restartWrite);
             std::cout << "Read in restartWrite: " << this->restartWrite << " timeSteps" << std::endl;
             break;
         case 11:
-            temp = std::stod(value);
-            this->pdbWrite = static_cast<long long int>(temp);
+            this->pdbWrite = read_step_count(value, StepCountRules::pdbWrite);
             std::cout << "Read in pdbWrite: " << this->pdbWrite << " timeSteps" << std::endl;
             break;
         case 12:
@@ -126,8 +135,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in name: " << value << std::endl;
             break;
         case 14:
-            temp = std::stod(value);
-            this->checkPoint = static_cast<long long int>(temp);
+            this->checkPoint = read_step_count(value, StepCountRules::checkPoint);
             std::cout << "Read in checkPoint: " << this->checkPoint << " timeSteps" << std::endl;
             break;
         case 15:
@@ -135,8 +143,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in scaleMaxDisplace: " << this->scaleMaxDisplace << std::endl;
             break;
         case 16:
-            temp = std::stod(value);
-            this->transitionWrite = static_cast<long long int>(temp);
+            this->transitionWrite = read_step_count(value, StepCountRules::transitionWrite);
             std::cout << "Read in transitionWrite: " << this->transitionWrite << " timeSteps" << std::endl;
             break;
         case 17:
@@ -152,7 +159,7 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
             std::cout << "Read in RNGwrite: " << std::boolalpha << this->rngwrite << std::endl;
             break;
         case 20:
-            this->bondedComplexWrite = std::stoll(value);
+            this->bondedComplexWrite = read_step_count(value, StepCountRules::bondedComplexWrite);
             std::cout << "Read in bondedComplexWrite: " << this->bondedComplexWrite << " timeSteps" << std::endl;
             break;
         case 21:
@@ -209,6 +216,10 @@ void Parameters::set_value(std::string value, ParamKeyword keywords)
         case 38:
             this->legacyRestartFormat = read_boolean(value);
             std::cout << "Read in legacyRestartFormat: " << std::boolalpha << this->legacyRestartFormat << std::endl;
+            break;
+        case 39:
+            this->histogramMolStates = read_boolean(value);
+            std::cout << "Read in histogramMolStates: " << std::boolalpha << this->histogramMolStates << std::endl;
             break;
         default:
             throw std::invalid_argument("Not a valid keyword.");
@@ -299,6 +310,8 @@ void Parameters::display()
     std::cout << "RNGwrite: " << rngwrite << "\n";
     std::cout << "bondedComplexWrite: " << bondedComplexWrite << "\n";
     std::cout << "Restart file format: " << (legacyRestartFormat ? "legacy .dat" : "JSON") << "\n";
+    std::cout << "Complex histogram counts molecule states (histogramMolStates): " << std::boolalpha
+              << histogramMolStates << std::noboolalpha << "\n";
 
     std::cout << "Numerical settings:\n";
     std::cout << "  2D table integration abs/rel error: " << numerics.integration.tableAbsoluteError << " / "

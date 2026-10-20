@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/nerdss_banner_export.svg" alt="Project banner" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/nerdss_banner_export_dark.svg">
+    <img src="docs/nerdss_banner_export.svg" alt="Project banner" width="100%">
+  </picture>
 </p>
 
 
@@ -64,19 +67,13 @@ ever see an undefined symbol mentioning *nerdss_build_mpi* or
 
 ### Run Simulations
 
-#### Run a quick trial with Google Colab
-
-Click the following link to make a copy of the iPython notebook in your Google Colab and following the instructions on the Notebook (Note currently the link is under NERDSS development repo. The link will need to be updated once synced to released repo)
-
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mjohn218/nerdss_development/blob/master/docs/Run_NERDSS_colab.ipynb?copy=true)
-
 #### Run a quick trial with our server
 
-Go to the [NERDSS server](http://18.188.233.206:5000/).
+Go to the [NERDSS server](https://nerdssdemo.org/).
 
 #### Compile and run NERDSS on your local machine
 
-1. Example input files are located in the subdirectories within the *sample_inputs* folder. They can also be generated using the [python GUI program](./gui.py), which is also included in the ioNERDSS tool.
+1. Example input files are located in the subdirectories within the *sample_inputs* folder. They can also be generated using the ioNERDSS tool.
 
 2. To start the serial simulation, use the command *./nerdss -f parms.inp*.
 

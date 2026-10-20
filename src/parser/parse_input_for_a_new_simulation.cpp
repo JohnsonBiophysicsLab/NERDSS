@@ -26,9 +26,8 @@
 #include "mpi/mpi_function.hpp"
 #include "parser/parser_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 /**
@@ -132,14 +131,7 @@ void parse_input_for_a_new_simulation(
   // lives at this site too; without it `bin/nerdss` would fail fast on a
   // boundary-less input while `bin/nerdss_mpi` silently ran box physics against
   // an all-zero WaterBox.
-  membraneObject.require_boundary();
-
-  // Create water box for sphere boundary
-  if (membraneObject.isSphere()) {
-    membraneObject.create_water_box();
-    membraneObject.sphereVol =
-        (4.0 * M_PI * pow(membraneObject.sphereR, 3.0)) / 3.0;
-  }
+  membraneObject.finish_boundary();
 
   // Generate the system coordinates, write out coordinate and topology files
   std::string coordinateFileName{""};
@@ -165,11 +157,14 @@ void parse_input_for_a_new_simulation(
                                     mpiContext);
   simulVolume.display();
 
-  // Write beginning of trajectory
-  std::ofstream trajFile{trajFileName};
-  write_traj(0, trajFile, params, moleculeList, molTemplateList,
-             membraneObject);
-  trajFile.close();
+  // Write beginning of trajectory; trajWrite <= 0 writes no trajectory file at
+  // all, the initial frame included
+  if (params.trajWrite > 0) {
+    std::ofstream trajFile{trajFileName};
+    write_traj(0, trajFile, params, moleculeList, molTemplateList,
+               membraneObject);
+    trajFile.close();
+  }
 
   // Initialize transition matrix for each molType
   check_transition_matrix_size(molTemplateList, createDestructRxns);

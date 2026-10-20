@@ -2,17 +2,17 @@
 
 #include <cstring>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "classes/class_Molecule_Complex.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
 #ifdef mpi_
 #include "mpi.h"
 #endif
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 using namespace std;
 
@@ -42,23 +42,21 @@ bool check_ownership_invariant(MpiContext &mpiContext,
                                const char *label);
 
 /*! \ingroup mpi_function
+ * \brief Set every molecule's isGhosted from its complex's ownerRank: a ghost
+ * is a member of a complex another rank owns.  Called after each receive and
+ * after each bimolecular pass, the two places where complex membership or
+ * ownership changes.  With skipUnclaimed, members of a complex nobody has
+ * claimed yet (ownerRank -1) keep their flag; see the definition.
+ */
+void derive_ghost_from_ownership(MpiContext &mpiContext,
+                                 vector<Molecule> &moleculeList,
+                                 vector<Complex> &complexList,
+                                 bool skipUnclaimed);
+
+/*! \ingroup mpi_function
  * \brief Search for the complex with the same ID within complexList
  */
 int find_complex(vector<Complex> &complexList, int id);
-
-/*! \ingroup mpi_function
- * \brief update the properties of molecule when it is in the shared zone
- */
-inline void in_shared_zone(Molecule &mol) {
-  // TODO: introduce shared complex if needed
-}
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it is not in the share zone
- */
-inline void not_in_shared_zone(Molecule &mol) {
-  // TODO: remove complex sharing if needed
-}
 
 /*! \ingroup mpi_function
  * \brief update the copycounters when complex enter ghosted zone
@@ -124,15 +122,37 @@ void serialize_molecules_partial(MpiContext &mpiContext, SimulVolume &simulVolum
     vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank, set<int> &complexesSet, int cellX);
 
 /*! \ingroup mpi_function
+ * \brief What a molecule looked like at one point of the step: which complex
+ * it was in and how many of its interfaces were bound.
+ *
+ * The second bimolecular pass is the only thing between the two exchanges of
+ * a step that changes a bond or moves a molecule between complexes, so a
+ * molecule whose entry differs from a snapshot taken before that pass was
+ * changed by it.  trajStatus cannot tell: the left region keeps "propagated"
+ * from the first half, and every flag is reset before the second send.
+ */
+struct MolSnapshot {
+  int comId{-1};   //!< id of the molecule's complex, -1 for none
+  int nBound{0};   //!< interfaces whose partnerIndex is set
+};
+
+/*! \ingroup mpi_function
+ * \brief Record every molecule's MolSnapshot, indexed like moleculeList
+ */
+void snapshot_molecules(const vector<Molecule> &moleculeList, const vector<Complex> &complexList, vector<MolSnapshot> &snapshot);
+
+/*! \ingroup mpi_function
  * \brief deserialize molecules
  */
 void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices, vector<int> &indicesEnteringMolecules,
-    vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank);
+    vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank, const vector<MolSnapshot> &sentLeft,
+    vector<char> &keptLocalCom, vector<char> &keptLocalMol);
 
 void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList,
     vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays, vector<int> &indices,
-    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank);
+    vector<int> &indicesEnteringMolecules, vector<int> &indicesExitingMolecules, unsigned char *arrayRank, int &nArrayRank,
+    const unordered_map<int, MolSnapshot> &sentRight, vector<char> &keptLocalCom, vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Serialize complexes from complexList with indices within complexesSet
@@ -143,14 +163,23 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membr
 /*! \ingroup mpi_function
  * \brief Deserialize complexes into complexList if they don't exist
  */
-void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
+void deserialize_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
+    const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
 
-void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank);
+void deserialize_complexes_right(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank,
+    const vector<char> &keptLocalCom, const vector<char> &keptLocalMol);
 
 /*! \ingroup mpi_function
  * \brief Map global unique id to local index
  */
 void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<int> &indices);
+
+/*! \ingroup mpi_function
+ * \brief verify molecule/complex/partner links agree in both directions
+ */
+bool check_structure_invariant(MpiContext &mpiContext, std::vector<Molecule> &moleculeList,
+                               std::vector<Complex> &complexList, long long simItr,
+                               const char *label, int mode = 0);
 
 /*! \ingroup mpi_function
  * \brief give an owner to every complex created since the last start-up seed
@@ -170,29 +199,39 @@ void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
 void disconnect_molecule_partners(unsigned &targMolIndex, Molecule &mol, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
+ * \brief The x bin at which this rank's columns split into the left region
+ * (bins below it, acted on in the first half of the step) and the right
+ * region (the rest, acted on in the second half).  One rule for the driver's
+ * two assignment loops.
+ */
+int region_mid_index(MpiContext &mpiContext);
+
+/*! \ingroup mpi_function
+ * \brief Drop every candidate reaction between a molecule and a partner in
+ * the right ghost column.  A pair across a column boundary is decided by the
+ * rank to the right of it, in its first half; see region_split.cpp.
+ */
+void drop_right_ghost_crossings(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
+
+/*! \ingroup mpi_function
  * \brief Delete all molecules that were in the shared zone before sending to
  * the neighbor rank, but were not received back:
  */
 void delete_disappeared_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<int> &region, vector<MolTemplate> &molTemplateList);
+    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<int> &region, vector<MolTemplate> &molTemplateList,
+    bool fromLeft);
 
 /*! \ingroup mpi_function
  * \brief Delete all complexes that were in the shared zone before sending to
  * the neighbor rank, but were not received back:
  */
-void delete_disappeared_complexes_partial(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList, bool left);
+void delete_disappeared_complexes_partial(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
 
 /*! \ingroup mpi_function
  * \brief Delete all complexes that were in the shared zone before sending to
  * the neighbor rank, but were not received back:
  */
 void delete_disappeared_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
-
-/*! \ingroup mpi_function
- * \brief Send data to neighbor rank
- */
-void send_data_to_neighboring_ranks(MpiContext &mpiContext, long long int simItr, Parameters &params, SimulVolume &simulVolume,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject);
 
 /*! \ingroup mpi_function
  * \brief Send data to left neighbor rank
@@ -204,15 +243,8 @@ void send_data_to_left_neighboring_ranks(MpiContext &mpiContext, long long int s
  * \brief Send data to right neighbor rank
  */
 void send_data_to_right_neighboring_ranks(MpiContext &mpiContext, long long int simItr, Parameters &params, SimulVolume &simulVolume, vector<int> &right,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject);
-
-/*! \ingroup mpi_function
- * \brief Receive shared zones from both left and right neighboring rank,
- * deserialize received molecules, update interfaces to match molecules on this
- * rank, and delete those molecules that were sent, but not received back
- */
-void receive_neighborhood_zones(MpiContext &mpiContext, long long int simItr, long long int startSimItr,long long int stopSimItr, SimulVolume &simulVolume,
-    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays);
+    vector<Molecule> &moleculeList, vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject,
+    unordered_map<int, MolSnapshot> &sentRight);
 
 /*! \ingroup mpi_function
  * \brief Receive shared zones from right neighboring rank, deserialize received
@@ -220,7 +252,8 @@ void receive_neighborhood_zones(MpiContext &mpiContext, long long int simItr, lo
  * those molecules that were sent, but not received back
  */
 void receive_right_neighborhood_zones(MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume, vector<int> &right, vector<Molecule> &moleculeList,
-    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays);
+    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays,
+    const unordered_map<int, MolSnapshot> &sentRight);
 
 /*! \ingroup mpi_function
  * \brief Receive shared zones from left neighboring rank, deserialize received
@@ -228,7 +261,8 @@ void receive_right_neighborhood_zones(MpiContext &mpiContext, long long int simI
  * those molecules that were sent, but not received back
  */
 void receive_left_neighborhood_zones(MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume, vector<int> &left, vector<Molecule> &moleculeList,
-    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays);
+    vector<Complex> &complexList, vector<MolTemplate> &molTemplateList, Membrane &membraneObject, copyCounters &counterArrays,
+    const vector<MolSnapshot> &sentLeft);
 
 /*! \ingroup mpi_function
  * \brief Prepare rank data

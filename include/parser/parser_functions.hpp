@@ -73,13 +73,12 @@
 #pragma once
 
 #include "classes/class_Membrane.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Quat.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_bngl_parser.hpp"
 #include "classes/class_copyCounters.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include <algorithm>
 
 /* MAIN */
@@ -102,9 +101,10 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
     std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject, int numDoubleBeforeAdd);
 
 /*!\ingroup Parser
- * \brief This function parses command line flag.
+ * \brief This function parses the command line flags with getopt_long.
  *
- * TODO: 
+ * Exits with status 1 on an unknown flag, a missing value, a bad seed or a
+ * stray argument, and with status 0 after printing --help.
  */
 void parse_command(int argc, char* argv[], Parameters& params, std::string& paramFileName, std::string& restartFileName, std::string& addFileName, std::string &coordinateFileName, unsigned int& seed);
 
@@ -163,9 +163,6 @@ void determine_bound_iface_index(int& totSpecies, ParsedMol::IfaceInfo& targIfac
     ParsedRxn& parsedRxn, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList);
 
-bool areCorrespondingMolecules(std::pair<std::string, ParsedMol::IfaceInfo>& prodMolIface,
-    std::pair<std::string, ParsedMol::IfaceInfo>& reactMolIface);
-
 /*! \ingroup Parser
  * \brief returns true if the two ifaces are identical but for their states
  */
@@ -218,6 +215,71 @@ void parse_reaction(std::ifstream& reactionFile, int& totSpecies, int& numProvid
 bool read_boolean(std::string fileLine);
 
 /*! \ingroup Parser
+ * \brief Outcome of reading a step count (nItr, timeWrite, ...) with parse_step_count()
+ */
+enum class StepCountStatus {
+    ok,
+    notANumber, //!< empty, "nan", "inf", trailing characters, a bare exponent
+    notWholeNumber, //!< 1000.5, 1.5, 1e-1
+    outOfRange //!< past what a long long holds, including 1e400
+};
+
+/*! \ingroup Parser
+ * \brief Reads `text` as an exact whole number without going through floating point
+ *
+ * Accepts an optional sign, digits with an optional decimal point, and an optional exponent, so
+ * 100000, 1e5, 5E5, 2.5e6 and 1000000.0 all read.  Digits behind the decimal point are allowed
+ * only when the exponent cancels them: 1000.5 is rejected, as are nan, inf, trailing characters
+ * and anything outside a long long.  `value` is set only when the result is StepCountStatus::ok.
+ */
+StepCountStatus parse_step_count(const std::string& text, long long& value);
+
+/*! \ingroup Parser
+ * \brief What one step-count keyword accepts and what replaces a value it cannot use
+ */
+struct StepCountRule {
+    const char* keyword;
+    long long fallback; //!< the documented default, used when the value cannot be read
+    bool fatal; //!< no default exists (nItr): an unusable value ends the run
+    const char* offMeaning; //!< what a value of 0 or below means, or nullptr when it is a mistake
+    const char* minusOneMeaning; //!< what -1 means when it differs from offMeaning (checkPoint, transitionWrite), else nullptr
+};
+
+/*! \ingroup Parser
+ * \brief The rules for the step counts of the parameters block, one per keyword
+ */
+namespace StepCountRules {
+extern const StepCountRule nItr;
+extern const StepCountRule timeWrite;
+extern const StepCountRule trajWrite;
+extern const StepCountRule restartWrite;
+extern const StepCountRule pdbWrite;
+extern const StepCountRule checkPoint;
+extern const StepCountRule transitionWrite;
+extern const StepCountRule bondedComplexWrite;
+}
+
+/*! \ingroup Parser
+ * \brief Result of resolve_step_count(): the value to store, whether the run must stop, and what to tell the user
+ */
+struct StepCountReading {
+    long long value;
+    bool fatal;
+    std::string message; //!< empty when the value was taken as written
+};
+
+/*! \ingroup Parser
+ * \brief Applies a StepCountRule to the text of a parameter value
+ *
+ * A whole number is taken as written.  Where the rule documents what 0 or below means (every
+ * write interval: off, with the periodic write guarded by `interval > 0` downstream), such a value
+ * is stored as given and the message is a note saying what it does; where it does not (nItr),
+ * the value is a mistake.  A decimal, nan, inf, overflow or non-numeric value falls back to the
+ * rule's default with a warning, or is fatal for a keyword without a default.
+ */
+StepCountReading resolve_step_count(const std::string& text, const StepCountRule& rule);
+
+/*! \ingroup Parser
  * \brief Reads a formatted block of internal coordinates starting with the center of mass coordinate
  *
  * Format:
@@ -237,10 +299,36 @@ std::string create_tmp_line(const std::string &line);
 /*!\ingroup Parser
  * \brief This function reads an unformatted (other than the internal coordinates) molecule information file.
  *
- * @param[in] mol molecule to whom the molecule information file belongs
+ * @param[in] molFileName path of the mol file, from locate_mol_file()
  * @param[out] completed MolTemplate
  */
-MolTemplate parse_molFile(std::string& mol);
+MolTemplate parse_molFile(const std::string& molFileName);
+
+/*!\ingroup Parser
+ * \brief Reads the optional `start molFiles` ... `end molFiles` block of an
+ * input file: one `molName = path` per line, a relative path being relative
+ * to the input file's directory.
+ *
+ * Parsers before this block existed skip it, as they skip any top-level line
+ * that is not a block they know.  Exits on a malformed or repeated entry.
+ */
+std::map<std::string, std::string> read_mol_file_paths(const std::string& inputFileName);
+
+/*!\ingroup Parser
+ * \brief Returns the path of the mol file for molecule molName: its entry in
+ * molFilePaths if it has one, otherwise <molName>.mol in params.molDir (in
+ * the working directory if that is empty), searched recursively when
+ * params.molDirRecursive is set.  Exits if the file is not found, or is found
+ * more than once in a recursive search.
+ */
+std::string locate_mol_file(const std::string& molName, const Parameters& params,
+    const std::map<std::string, std::string>& molFilePaths);
+
+/*!\ingroup Parser
+ * \brief Warns about molFilePaths entries that name no molecule in providedMols.
+ */
+void warn_unused_mol_file_paths(const std::map<std::string, std::string>& molFilePaths,
+    const std::vector<std::string>& providedMols, const std::string& inputFileName);
 
 /*! \ingroup Parser
  * \brief Reads the diffusion constant arrays from the parameters block
@@ -264,7 +352,6 @@ void read_bonds(int numBonds, std::ifstream& molFile, MolTemplate& molTemplate);
 /*************************/
 
 /* LIST POPULATION */
-size_t find_molTypeIndex_from_ifaceIndex(const int& targIfaceIndex, const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup Parser
  * \brief Just sets the conjugate reaction iterators to the iterator of the last element in forwardRxns
@@ -274,14 +361,15 @@ void create_conjugate_reaction_itrs(std::vector<ForwardRxn>& forwardRxns, std::v
 
 /*!\ingroup Parser
  * \brief This function populates the vectors of the Interface's pertinent reactions for each State
+ *
+ * \param[in] firstForwardRxn the first reaction to enter.  A new simulation
+ * enters every reaction; a restart with an add file has the restart file's
+ * reactions entered already and passes the number of them, so that only the
+ * add file's are entered.
  */
 void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
     const std::vector<CreateDestructRxn>& createDestructRxns,
-    std::vector<MolTemplate>& molTemplateList);
-/*******************/
-void populate_reaction_lists_for_add(const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<CreateDestructRxn>& createDestructRxns,
-    std::vector<MolTemplate>& molTemplateList, int addForwardRxnNum, int addBackRxnNum, int addCreateDestructRxnNum);
+    std::vector<MolTemplate>& molTemplateList, size_t firstForwardRxn = 0);
 
 /* DISPLAY */
 std::string write_mol_iface(std::string mol, std::string iface);

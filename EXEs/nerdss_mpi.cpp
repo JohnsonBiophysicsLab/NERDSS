@@ -26,6 +26,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "boundary_conditions/reflect_functions.hpp"
@@ -44,9 +45,8 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 #ifdef ENABLE_PROFILING
@@ -87,38 +87,10 @@ gsl_rng* r;
 using MDTimer = std::chrono::system_clock;
 
 /**
- * @typedef timeDuration
- * @brief Alias for std::chrono::duration used for timing.
- */
-using timeDuration = std::chrono::duration<double, std::chrono::seconds>;
-
-/**
- * @var randNum
- * @brief Global variable to store a random number.
- */
-long long randNum = 0;
-
-/**
  * @var totMatches
  * @brief Global variable to store the total number of matches.
  */
 unsigned long totMatches = 0;
-
-/**
- * @brief Prints the elements of a vector and an associated message.
- *
- * @tparam T Type of the vector elements.
- * @param vec Vec3D to print.
- * @param s Message to print before the vector.
- */
-template <typename T>
-void printVec(vector<T>& vec, string s) {
-  cout << s << ":" << endl;
-  for (auto elem : vec) {
-    cout << elem << "\t";
-  }
-  cout << endl;
-}
 
 /**
  * @brief Main function that serves as an entrypoint to the program.
@@ -151,10 +123,8 @@ int main(int argc, char* argv[]) {
   ProfilerStart(profileFileName.c_str());
 #endif
 
-  mkdir("PDB", 0777);
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
-  mkdir("mergePDB", 0777);
   mkdir("mergeOUT", 0777);
 
   if (DEBUG) {
@@ -361,7 +331,9 @@ int main(int argc, char* argv[]) {
   }
 
   // Set the interval to write checkpoint and transition matrix file if it is
-  // not specified
+  // not specified (-1): the documented default is nItr / 10.  Any other value
+  // of 0 or below, and a quotient of 0, turns the periodic write off; see the
+  // same block in EXEs/nerdss.cpp.
   if (params.checkPoint == -1) {
     params.checkPoint = params.nItr / 10;
   }
@@ -498,10 +470,18 @@ int main(int argc, char* argv[]) {
     LOC(4.2, " @ START SIMULATION_LOOP ", PROC_ALL);
   }
 
-  // write the pdb of the initial system
-  write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
-            membraneObject, mpiContext.rank, mpiContext, simulVolume);
+  // write the pdb of the initial system; pdbWrite <= 0 writes no PDB file at
+  // all, and then neither PDB directory is made
+  if (params.pdbWrite > 0) {
+    mkdir("PDB", 0777);
+    mkdir("mergePDB", 0777);
+    write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
+              membraneObject, mpiContext.rank, mpiContext, simulVolume);
+  }
 
+  // What this rank last handed its right neighbour, by molecule id: the copy
+  // that comes back at the next first exchange is compared against it.
+  std::unordered_map<int, MolSnapshot> sentRight;
   for (simItr += 1; simItr <= params.nItr; ++simItr) {
     if (1) {
       // if (mpiContext.rank == 0) {
@@ -573,6 +553,9 @@ int main(int argc, char* argv[]) {
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after first-order");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("4.5");
@@ -599,6 +582,12 @@ int main(int argc, char* argv[]) {
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
         tableIDs, DDTableIndex);
+    // A pair across the boundary with the right neighbour is that
+    // neighbour's to decide; see region_split.cpp.
+    drop_right_ghost_crossings(mpiContext, moleculeList, complexList);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after measure_separations");
 
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
@@ -623,27 +612,16 @@ int main(int argc, char* argv[]) {
     }
     std::vector<int> left{};
     std::vector<int> right{};
+    // One split for the whole step; see region_split.cpp.
+    const int midIndex = region_mid_index(mpiContext);
     for (int i = 0; i < moleculeList.size(); i++) {
       // reset the need_to_send flag to false
       moleculeList[i].need_to_send = false;
 
-      int x_bin = get_x_bin(mpiContext, moleculeList[i]);
-      if (mpiContext.rank == 0) {
-        if (x_bin < (simulVolume.numSubCells.x - 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else if (mpiContext.rank == mpiContext.nprocs - 1) {
-        if (x_bin < (simulVolume.numSubCells.x + 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else {
-        if (x_bin < (simulVolume.numSubCells.x) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      }
+      if (get_x_bin(mpiContext, moleculeList[i]) < midIndex)
+        left.push_back(i);
+      else
+        right.push_back(i);
     }
 
     if (DEBUG) {
@@ -659,6 +637,19 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, left);
+    // An association merges the partner's complex into the initiator's, or
+    // the other way round -- associate() keeps whichever complex the reaction
+    // lists first -- and the survivor keeps its ownerRank.  A ghost partner
+    // merged into a complex this rank owns, or an owned initiator merged into
+    // a complex the neighbour owns, therefore changes owner here and now, but
+    // isGhosted was only ever re-derived after a receive.  A rank with no
+    // neighbour on the receiving side (the last rank in this half-step, the
+    // first rank in the other) never received, so the flag stayed stale past
+    // the exchange and the molecule was owned by both ranks, or by neither.
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol left");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("6 (End decide whether to perform reactions 1)");
@@ -676,12 +667,18 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the left part...\n");
     }
-    if (CHECK_OWNERSHIP && simItr % CHECK_OWNERSHIP_EVERY == 0)
-      check_ownership_invariant(mpiContext, moleculeList, complexList, simItr,
-                                "after bimol#1");
+    // No ownership checkpoint here.  Between a bimolecular pass and its
+    // exchange only the reacting rank knows that an association moved a
+    // molecule into a complex the neighbour owns, or pulled a ghost into one
+    // of its own, so the ranks cannot agree on the owner until the exchange
+    // has carried the merged complex across.  The sound checkpoints are the
+    // ones after an exchange: "after left exchange" below and "step top".
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after overlap left");
 
     if (DEBUG) {
       LOC(8.0, " @ AFTER_PROPAGATE ", PROC_ALL, simItr);
@@ -757,6 +754,7 @@ int main(int argc, char* argv[]) {
     claim_unowned_complexes(mpiContext, moleculeList, complexList, simulVolume);
 
     // send to left
+    vector<MolSnapshot> sentLeftState;
     if (mpiContext.rank > 0) {
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d)...\n", mpiContext.rank,
@@ -765,12 +763,23 @@ int main(int argc, char* argv[]) {
       send_data_to_left_neighboring_ranks(
           mpiContext, simItr, params, simulVolume, left, moleculeList,
           complexList, molTemplateList, membraneObject);
+      // What every molecule's bonds and complex were when the left neighbour
+      // was given its copy.  The receive from the left compares against it to
+      // tell a molecule that changed here since -- by the receive from the
+      // right, or by the second bimolecular pass -- whose copy from the
+      // neighbour is stale, from one that did not.  trajStatus cannot tell:
+      // by then every flag has been reset, and the left region carried
+      // "propagated" all along anyway.
+      snapshot_molecules(moleculeList, complexList, sentLeftState);
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d) done.\n",
                mpiContext.rank, mpiContext.rank - 1);
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after send left");
     if (DEBUG) {
       check_complex_index(mpiContext, moleculeList, complexList);
     }
@@ -783,13 +792,16 @@ int main(int argc, char* argv[]) {
       }
       receive_right_neighborhood_zones(
           mpiContext, simItr, simulVolume, right, moleculeList, complexList,
-          molTemplateList, membraneObject, counterArrays);
+          molTemplateList, membraneObject, counterArrays, sentRight);
       if (VERBOSE) {
         printf("Receiving data from rank (%d) to rank (%d) done\n",
                mpiContext.rank + 1, mpiContext.rank);
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after receive right");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//after receive right");
@@ -814,23 +826,10 @@ int main(int argc, char* argv[]) {
       // reset the need_to_send flag to false
       moleculeList[i].need_to_send = false;
 
-      int x_bin = get_x_bin(mpiContext, moleculeList[i]);
-      if (mpiContext.rank == 0) {
-        if (x_bin < (simulVolume.numSubCells.x - 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else if (mpiContext.rank == mpiContext.nprocs - 1) {
-        if (x_bin < (simulVolume.numSubCells.x + 1) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      } else {
-        if (x_bin < (simulVolume.numSubCells.x) / 2)
-          left.push_back(i);
-        else
-          right.push_back(i);
-      }
+      if (get_x_bin(mpiContext, moleculeList[i]) < midIndex)
+        left.push_back(i);
+      else
+        right.push_back(i);
     }
 
     // do the right part, send to right and recieve from left
@@ -844,6 +843,11 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, right);
+    // Same as after the left pass: the flag follows the complex.
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after bimol right");
 
     if (DEBUG) {
       DEBUG_FIND_MOL("6 (End decide whether to perform reactions 2)");
@@ -864,6 +868,9 @@ int main(int argc, char* argv[]) {
     check_overlap(right, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after overlap right");
 
     if (DEBUG) {
       LOC(8.0, " @ AFTER_PROPAGATE ", PROC_ALL, simItr);
@@ -968,7 +975,7 @@ int main(int argc, char* argv[]) {
       }
       send_data_to_right_neighboring_ranks(
           mpiContext, simItr, params, simulVolume, right, moleculeList,
-          complexList, molTemplateList, membraneObject);
+          complexList, molTemplateList, membraneObject, sentRight);
       if (VERBOSE) {
         printf("Sending data from rank (%d) to rank (%d) done.\n",
                mpiContext.rank, mpiContext.rank + 1);
@@ -982,6 +989,9 @@ int main(int argc, char* argv[]) {
     if (DEBUG) {
       debug_firstEmptyIndex(mpiContext, "AFTER SEND");
     }
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after send right");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "// AFTER SEND");
@@ -995,13 +1005,16 @@ int main(int argc, char* argv[]) {
       }
       receive_left_neighborhood_zones(
           mpiContext, simItr, simulVolume, left, moleculeList, complexList,
-          molTemplateList, membraneObject, counterArrays);
+          molTemplateList, membraneObject, counterArrays, sentLeftState);
       if (VERBOSE) {
         printf("Receiving data from rank (%d) to rank (%d) done\n",
                mpiContext.rank - 1, mpiContext.rank);
       }
     }
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after receive left");
     if (1) {
       //  if (mpiContext.rank == 0) {
       end_communication_time = MPI_Wtime();
@@ -1027,6 +1040,9 @@ int main(int argc, char* argv[]) {
                        molTemplateList, observablesList, counterArrays,
                        membraneObject, mpiContext);
 
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after remove_empty_slots");
     if (DEBUG) {
       DEBUG_FIND_MOL("7: before 4.10");
       DEBUG_FIND_COMPLEX("7: before 4.10");
@@ -1053,7 +1069,7 @@ int main(int argc, char* argv[]) {
                  createDestructRxns, durationList, startStep, totalTimeStart,
                  observablesList, assemblyfile);
 
-    if (simItr % params.timeWrite == 0) {
+    if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       std::cout << "total computation time: " << total_computation_time
                 << " seconds\n";
       std::cout << "total communication time: " << total_communication_time
@@ -1088,9 +1104,15 @@ int main(int argc, char* argv[]) {
   std::cout << "total communication time: " << total_communication_time
             << " seconds\n";
 
-  // MERGE THE OUTPUTS FROM ALL THE PROCESSORS
+  // MERGE THE OUTPUTS FROM ALL THE PROCESSORS.  Every rank has flushed its
+  // last copy-number row, histogram block and PDB frame by the time it gets
+  // here, but rank 0 can get here first: the step loop only waits on the
+  // neighbours' messages, not on their writes.  So wait for every rank before
+  // reading the per-rank files, or the merged files lose their final rows.
+  MPI_Barrier(MPI_COMM_WORLD);
   if (mpiContext.rank == 0) {
-    merge_outputs(mpiContext.nprocs, molTemplateList.size());
+    merge_outputs(mpiContext.nprocs, molTemplateList.size(),
+                  params.pdbWrite > 0);
   }
 
   delete[] tableIDs;

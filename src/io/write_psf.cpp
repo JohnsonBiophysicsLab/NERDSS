@@ -1,5 +1,4 @@
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>

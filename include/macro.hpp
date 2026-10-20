@@ -2,17 +2,18 @@
 
 #define DEBUG false
 #define VERBOSE false
-#define PROFILE false
 #define COUNT_COMMUNICATIONS false
 // Verify that every molecule is owned by exactly one rank.  O(N) communication
 // per call, so it runs every CHECK_OWNERSHIP_EVERY steps when enabled.
 #define CHECK_OWNERSHIP false
 #define CHECK_OWNERSHIP_EVERY 250
+// Verify every molecule/complex/partner link in both directions after each
+// phase of the step.  O(N) per call, so off unless hunting a corruption.
+#define CHECK_STRUCTURE false
 #define RANK0_BUFFER_SIZE 100000000
 #define NEIGHBOR_BUFFER_SIZE 50000000
 
 #define TEST_SERIALIZATION_AND_DESERIALIZATION 0
-#define PRINT_REACTIONS_PROBABILITIES 0
 
 #ifndef INT_MAX
 #define INT_MAX 2147483647
@@ -33,8 +34,6 @@
   }
 
 // Tracking a complex
-#define DEBUG_COMPLEX(s) \
-  { debug_print_complex(mpiContext, complex, s); }
 #define DEBUG_FIND_COMPLEX(s)                      \
   {                                                \
     for (auto& complex : complexList)              \

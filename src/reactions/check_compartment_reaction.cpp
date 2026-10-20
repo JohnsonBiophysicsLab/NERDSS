@@ -3,7 +3,6 @@
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 
 // pro2Index is a lipid's index.

@@ -1,7 +1,6 @@
 #include "math/rand_gsl.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 #include <numeric>
 
 void draw_coords_after_transmission_reaction(Molecule& tmp, const MolTemplate& molTemplate,
@@ -63,7 +62,6 @@ void draw_coords_after_transmission_reaction(Molecule& tmp, const MolTemplate& m
 Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,
     MolTemplate& molTemplate, const TransmissionRxn& currRxn, const Vec3D& newPos, const bool plusRand, const Membrane& membraneObject)
 {
-    // TRACE();
     Molecule tmp {};
     tmp.molTypeIndex = molTemplate.molTypeIndex;
     tmp.mass = molTemplate.mass;

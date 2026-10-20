@@ -18,7 +18,6 @@
 
 gsl_rng* r; // defined in main() by the simulator; unused here
 unsigned long totMatches = 0;
-long long randNum = 0;
 
 namespace {
 

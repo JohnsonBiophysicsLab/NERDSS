@@ -153,12 +153,6 @@ struct Membrane {
 
     //    double RD2D = 0; // block-distance for 2D->2D reaction of implicit-lipid case
     double totalSA { 0 };
-    double Dx { 0 };
-    double Dy { 0 };
-    double Dz { 0 };
-    double Drx { 0 };
-    double Dry { 0 };
-    double Drz { 0 };
     double offset { 0 };
     double lipidLength { 0.0 };
     bool implicitLipid = false;
@@ -203,6 +197,16 @@ struct Membrane {
     //! \brief Abort unless the input named a boundary.  See parse_input.cpp.
     void require_boundary() const;
 
+    //! \brief require_boundary(), then give a sphere the bounding box and the
+    //! volume the rest of the code reads from it.  Every start-up path ends its
+    //! boundary parsing with this; see parse_input.cpp.
+    void finish_boundary();
+
+    //! \brief Abort when the compartment cannot fit: a sphere holds none, and a
+    //! box must keep 2 rMaxLimit between the compartment and each face.  See
+    //! parse_input.cpp.
+    void require_compartment_fits(double rMaxLimit) const;
+
     void set_value_BC(std::string value, BoundaryKeyword keywords);
     /*In here, we could also store coordinate vector
       for a single representative lipid
@@ -237,12 +241,6 @@ struct Membrane {
     //    double RD2D = 0; // block-distance for 2D->2D reaction of
     //    implicit-lipid case
     PUSH(totalSA);
-    PUSH(Dx);
-    PUSH(Dy);
-    PUSH(Dz);
-    PUSH(Drx);
-    PUSH(Dry);
-    PUSH(Drz);
     PUSH(offset);
     PUSH(lipidLength);
     PUSH(implicitLipid);
@@ -279,12 +277,6 @@ struct Membrane {
     //    double RD2D = 0; // block-distance for 2D->2D reaction of
     //    implicit-lipid case
     POP(totalSA);
-    POP(Dx);
-    POP(Dy);
-    POP(Dz);
-    POP(Drx);
-    POP(Dry);
-    POP(Drz);
     POP(offset);
     POP(lipidLength);
     POP(implicitLipid);

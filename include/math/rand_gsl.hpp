@@ -4,7 +4,6 @@
 #include <gsl/gsl_randist.h>
 
 extern gsl_rng* r;
-extern long long randNum;
 
 /*!
  * \brief Uses the previously initialized random number generator to return a random number
@@ -12,11 +11,6 @@ extern long long randNum;
  */
 double rand_gsl();
 double rand_gsl64();
-
-/*!
- * \brief Initializes the GSL random number generator.
- */
-void srand_gsl(int);
 
 /*!
  * \brief Wrapper for the internal GSL RNG state read function.

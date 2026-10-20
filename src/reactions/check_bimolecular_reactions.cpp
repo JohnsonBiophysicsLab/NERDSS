@@ -2,9 +2,156 @@
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 #include <vector>
+
+namespace {
+
+/*! \brief Tests one excluded interface pair for overlap and records a crossing
+ * when the two are within reach of each other this timestep.
+ *
+ * One of the two interfaces is bound and its template names the other as one
+ * it excludes; which one is which does not matter here.  The pair is read in
+ * the order check_bimolecular_reactions() received it, not in (bound, other)
+ * order, and both scans below call it that way.  Most of the geometry is
+ * symmetric in the two, but two steps are not in floating point:
+ * add_3D_rotational_diffusion() adds the partners' rotational terms into Dtot
+ * one after the other, and the sphere branch divides by r1 before r2.
+ * Swapping the pair can move either result by an ulp, and Dtot sets the
+ * admission radius, so keeping the caller's order is what keeps this
+ * bit-identical to the two hand-written blocks it replaces.
+ */
+void check_bound_exclusion_pair(int pro1Index, int pro2Index, int relIface1, int relIface2,
+    double bindRadius, int rxnIndex, const Parameters& params, std::vector<Molecule>& moleculeList,
+    std::vector<Complex>& complexList, const Membrane& membraneObject)
+{
+    const int absIface1 { moleculeList[pro1Index].interfaceList[relIface1].index };
+    const int absIface2 { moleculeList[pro2Index].interfaceList[relIface2].index };
+
+    // calculate the distance between the two infaces
+    Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
+        - complexList[moleculeList[pro1Index].myComIndex].comCoord };
+    Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
+        - complexList[moleculeList[pro2Index].myComIndex].comCoord };
+    double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
+        + ifaceVec.z * ifaceVec.z };
+    double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
+        + ifaceVec2.z * ifaceVec2.z };
+    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
+    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
+
+    if (pairDim == Dim::Fiber1D) {
+        // this is on 1D (a fiber)
+        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
+        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
+            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
+            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
+        }
+        double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
+        if (R1 < RMax) {
+            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+        }
+    }
+    // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
+    else if (pairDim == Dim::Surface2D) {
+        // both Complexes are on the membrane, evaluate as 2D reaction
+
+        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
+            absIface1, absIface2, Dtot, magMol1, magMol2 };
+        add_2D_rotational_diffusion(biMolData, complexList, params);
+        discretize_2D_Dtot(biMolData);
+
+        double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
+        double R1 { 0.0 };
+        if (membraneObject.isSphere() == true) {
+            Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
+            Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
+            double r1 = iface11.length();
+            double r2 = iface22.length();
+            double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
+            double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
+            R1 = r * theta;
+        } else {
+            double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
+            double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
+            double dz = 0;
+            R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        }
+        if (R1 < RMax * 10.0) {
+            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+        }
+    } else {
+        //3D reaction
+
+        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
+            absIface1, absIface2, Dtot, magMol1, magMol2 };
+        add_3D_rotational_diffusion(biMolData, complexList, params,
+            params.numerics.classification.explicitLipidFlatDiffusion);
+
+        double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
+        double R1 { 0.0 };
+        double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
+        double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
+        // double dz { (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z - 0) < 1E-10
+        //                 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z - 0) < 1E-10)
+        double dz { (complexList[moleculeList[pro1Index].myComIndex].OnSurface
+                        && complexList[moleculeList[pro2Index].myComIndex].OnSurface)
+                ? 0
+                : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
+        R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        if (R1 < RMax) {
+            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
+                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
+        }
+    } //end else 3D
+}
+
+/*! \brief Finds every interface of `other` that one of `bound`'s bound
+ * interfaces excludes volume with, and hands each pair to `onHit`.
+ *
+ * This is the half of the volume-exclusion test that is genuinely a role: it
+ * asks whose bound list is walked and whose template is consulted.
+ * check_bimolecular_reactions() used to carry two copies of it, one per role,
+ * and the copies drifted apart (B8.2, 07d2b8d5: the pro2 copy had lost its
+ * fiber branch), so it is now one scan called once per role.
+ *
+ * \param onHit called as `onHit(relIfaceBound, relIfaceOther, bindRadius,
+ * rxnIndex)`, in the order the hand-written loops produced the pairs: bound
+ * interfaces in bndlist order, interfaces of `other` in index order, and the
+ * template's exclusion entries in list order within those.  The crossings are
+ * recorded in that order, so it is part of the contract.
+ */
+template <typename OnHit>
+void for_each_bound_exclusion(const Molecule& bound, const Molecule& other,
+    const std::vector<MolTemplate>& molTemplateList, OnHit onHit)
+{
+    const MolTemplate& boundTemplate { molTemplateList[bound.molTypeIndex] };
+    if (!boundTemplate.excludeVolumeBound)
+        return;
+
+    // loop the bndlist to find the exclude partner of each interface
+    for (int relIfaceBound : bound.bndlist) {
+        const Interface& boundIface { boundTemplate.interfaceList[relIfaceBound] };
+        // make sure it's actually bound and need excludeVolumeBound
+        if (!bound.interfaceList[relIfaceBound].isBound || boundIface.excludeVolumeBoundList.empty())
+            continue;
+
+        for (int relIfaceOther { 0 }; relIfaceOther < static_cast<int>(other.interfaceList.size()); ++relIfaceOther) {
+            for (unsigned indexItr { 0 }; indexItr < boundIface.excludeVolumeBoundList.size(); ++indexItr) {
+                if (boundIface.excludeVolumeBoundList[indexItr] == other.molTypeIndex
+                    && boundIface.excludeVolumeBoundIfaceList[indexItr] == relIfaceOther) {
+                    onHit(relIfaceBound, relIfaceOther, boundIface.excludeRadiusList[indexItr],
+                        boundIface.excludeVolumeBoundReactList[indexItr]);
+                }
+            }
+        }
+    }
+}
+
+} // namespace
 
 void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, double* tableIDs, unsigned& DDTableIndex,
     const Parameters& params, std::vector<gsl_matrix*>& normMatrices, std::vector<gsl_matrix*>& survMatrices,
@@ -12,7 +159,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
     const std::vector<MolTemplate>& molTemplateList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, copyCounters& counterArrays, Membrane& membraneObject)
 {
-    // TRACE();
     //  int track1 = 143;
     //int track2= 182;
     int pro1MolType = moleculeList[pro1Index].molTypeIndex;
@@ -33,12 +179,6 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                 break;
             }
         }
-    }
-
-    bool canExclude { false };
-    if ((moleculeList[pro1Index].bndlist.size() > 0 && molTemplateList[moleculeList[pro1Index].molTypeIndex].excludeVolumeBound == true)
-        || (moleculeList[pro2Index].bndlist.size() > 0 && molTemplateList[moleculeList[pro2Index].molTypeIndex].excludeVolumeBound == true)) {
-        canExclude = true;
     }
 
     // If this pair of proteins are already bound together, don't test for binding OR overlap
@@ -84,10 +224,17 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
     // rMaxLimit yet still walk the whole freelist x rxnPartners x freelist
     // search and find_which_reaction() for every combination.
     //
-    // Two pairs are exempt.
+    // Three cases are exempt.
     //
     // The volume-exclusion path below is not gated at all: it carries its own
     // radii, and its 2D branch reaches to RMax * 10, far outside rMaxLimit.
+    //
+    // Pairs with both complexes on a fiber are not gated, because rMaxLimit
+    // is not a bound for them either.  set_rMaxLimit() estimates every reach
+    // as 3 sqrt(6 Dtot dt) with Dtot averaged over three axes, while the 1D
+    // reaction and exclusion rules reach 4 sqrt(2 (D1.x + D2.x) dt): with
+    // D.y = D.z = 0 that is 4/3 as far, so a fiber pair between the two
+    // radii was evaluated by master and dropped here (B8.3).
     //
     // Pairs with both complexes on the surface are not gated either, because
     // rMaxLimit is not a bound for them.  set_rMaxLimit() estimates a 2D
@@ -104,7 +251,9 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
             > params.rMaxLimit * params.rMaxLimit) {
             const bool bothOnSurface { complexList[moleculeList[pro1Index].myComIndex].OnSurface
                 && complexList[moleculeList[pro2Index].myComIndex].OnSurface };
-            if (!bothOnSurface)
+            const bool bothOnFiber { complexList[moleculeList[pro1Index].myComIndex].onFiber
+                && complexList[moleculeList[pro2Index].myComIndex].onFiber };
+            if (!bothOnSurface && !bothOnFiber)
                 canInteract = false;
         }
     }
@@ -234,219 +383,22 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
         }
     } // These protein partners interact
 
-    if (canExclude == true) {
-        // pro1 is bound
-        if (moleculeList[pro1Index].bndlist.size() > 0 && molTemplateList[moleculeList[pro1Index].molTypeIndex].excludeVolumeBound == true) {
-            // loop the bindlist to find the exclude partner of each interface
-            for (int relIface1Itr { 0 }; relIface1Itr < moleculeList[pro1Index].bndlist.size(); ++relIface1Itr) {
-                int relIface1 { moleculeList[pro1Index].bndlist[relIface1Itr] };
-                int absIface1 { moleculeList[pro1Index].interfaceList[relIface1].index };
-                if (moleculeList[pro1Index].interfaceList[relIface1].isBound && molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundList.empty() == false) { // make sure it's actually bound and need excludeVolumeBound
-                    // loop the interfaceList of pro2
-                    for (int relIface2Idx = 0; relIface2Idx < moleculeList[pro2Index].interfaceList.size(); ++relIface2Idx) {
-                        int relIface2 { relIface2Idx };
-                        int absIface2 { moleculeList[pro2Index].interfaceList[relIface2].index };
-                        int molTypeIndex2 { moleculeList[pro2Index].molTypeIndex };
-                        for (int indexItr { 0 }; indexItr < molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundList.size(); ++indexItr) {
-                            if (molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundList[indexItr] == molTypeIndex2) {
-                                double bindRadius { molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeRadiusList[indexItr] };
-                                int rxnIndex { molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundReactList[indexItr] };
-                                if (molTemplateList[moleculeList[pro1Index].molTypeIndex].interfaceList[relIface1].excludeVolumeBoundIfaceList[indexItr] == relIface2) {
-                                    // calculate the distance between the two infaces
-                                    Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
-                                        - complexList[moleculeList[pro1Index].myComIndex].comCoord };
-                                    Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
-                                        - complexList[moleculeList[pro2Index].myComIndex].comCoord };
-                                    double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
-                                        + ifaceVec.z * ifaceVec.z };
-                                    double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
-                                        + ifaceVec2.z * ifaceVec2.z };
-                                    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
-                                    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
-
-                                    if (pairDim == Dim::Fiber1D) {
-                                        // this is on 1D (a fiber)
-                                        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
-                                        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
-                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
-                                        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
-                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
-                                        }
-                                        double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
-                                        if (R1 < RMax) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    }
-                                    // else if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                    else if (pairDim == Dim::Surface2D) {
-                                        // both Complexes are on the membrane, evaluate as 2D reaction
-
-                                        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
-                                            absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_2D_rotational_diffusion(biMolData, complexList, params);
-                                        discretize_2D_Dtot(biMolData);
-
-                                        double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
-                                        double R1 { 0.0 };
-                                        if (membraneObject.isSphere() == true) {
-                                            Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
-                                            Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
-                                            double r1 = iface11.length();
-                                            double r2 = iface22.length();
-                                            double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
-                                            double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
-                                            R1 = r * theta;
-                                        } else {
-                                            double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
-                                            double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
-                                            double dz = 0;
-                                            R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
-                                        }
-                                        if (R1 < RMax * 10.0) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    } else {
-                                        //3D reaction
-
-                                        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
-                                            absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_3D_rotational_diffusion(biMolData, complexList, params,
-                                            params.numerics.classification.explicitLipidFlatDiffusion);
-
-                                        double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
-                                        double R1 { 0.0 };
-                                        double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
-                                        double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
-                                        // double dz { (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z - 0) < 1E-10
-                                        //                 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z - 0) < 1E-10)
-                                        double dz { (complexList[moleculeList[pro1Index].myComIndex].OnSurface &&
-                                                    complexList[moleculeList[pro2Index].myComIndex].OnSurface)
-                                                ? 0
-                                                : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
-                                        R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
-                                        if (R1 < RMax) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    } //end else 3D
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // pro2 is bound
-        if (moleculeList[pro2Index].bndlist.size() > 0 && molTemplateList[moleculeList[pro2Index].molTypeIndex].excludeVolumeBound == true) {
-            // loop the bindlist to find the exclude partner of each interface
-            for (int relIface1Itr { 0 }; relIface1Itr < moleculeList[pro2Index].bndlist.size(); ++relIface1Itr) {
-                int relIface2 { moleculeList[pro2Index].bndlist[relIface1Itr] };
-                int absIface2 { moleculeList[pro2Index].interfaceList[relIface2].index };
-                int molTypeIndex2 { moleculeList[pro2Index].molTypeIndex };
-                if (moleculeList[pro2Index].interfaceList[relIface2].isBound && molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundList.empty() == false) { // make sure it's actually bound and need excludeVolumeBound
-                    // loop the interfaceList of pro2
-                    for (int relIface2Idx = 0; relIface2Idx < moleculeList[pro1Index].interfaceList.size(); ++relIface2Idx) {
-                        int relIface1 { relIface2Idx };
-                        int absIface1 { moleculeList[pro1Index].interfaceList[relIface1].index };
-                        int molTypeIndex1 { moleculeList[pro1Index].molTypeIndex };
-                        for (int indexItr { 0 }; indexItr < molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundList.size(); ++indexItr) {
-                            if (molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundList[indexItr] == molTypeIndex1) {
-                                double bindRadius { molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeRadiusList[indexItr] };
-                                int rxnIndex { molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundReactList[indexItr] };
-                                if (molTemplateList[moleculeList[pro2Index].molTypeIndex].interfaceList[relIface2].excludeVolumeBoundIfaceList[indexItr] == relIface1) {
-                                    // calculate the distance between the two infaces
-                                    Vec3D ifaceVec { moleculeList[pro1Index].interfaceList[relIface1].coord
-                                        - complexList[moleculeList[pro1Index].myComIndex].comCoord };
-                                    Vec3D ifaceVec2 { moleculeList[pro2Index].interfaceList[relIface2].coord
-                                        - complexList[moleculeList[pro2Index].myComIndex].comCoord };
-                                    double magMol1 { ifaceVec.x * ifaceVec.x + ifaceVec.y * ifaceVec.y
-                                        + ifaceVec.z * ifaceVec.z };
-                                    double magMol2 { ifaceVec2.x * ifaceVec2.x + ifaceVec2.y * ifaceVec2.y
-                                        + ifaceVec2.z * ifaceVec2.z };
-                                    // if (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z) < 1E-16 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z) < 1E-16) {
-                                    const Dim pairDim { pair_dim(complexList[moleculeList[pro1Index].myComIndex], complexList[moleculeList[pro2Index].myComIndex]) };
-                                    const double Dtot { weighted_D_sum(complexList[moleculeList[pro1Index].myComIndex].D, complexList[moleculeList[pro2Index].myComIndex].D, pairDim) };
-
-                                    if (pairDim == Dim::Fiber1D) {
-                                        // this is on 1D (a fiber)
-                                        double RMax { 4.0 * sqrt(2.0 * Dtot * params.timeStep) + bindRadius };
-                                        if (moleculeList[pro1Index].isPromoter && !moleculeList[pro2Index].isPromoter){
-                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
-                                        } else if (!moleculeList[pro1Index].isPromoter && moleculeList[pro2Index].isPromoter){
-                                            RMax = 4.0 * sqrt(2.0 * Dtot * params.timeStep);
-                                        }
-                                        double R1 = abs(moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x);
-                                        if (R1 < RMax) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    }
-                                    else if (pairDim == Dim::Surface2D) {
-                                        // both Complexes are on the membrane, evaluate as 2D reaction
-
-                                        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
-                                            absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_2D_rotational_diffusion(biMolData, complexList, params);
-                                        discretize_2D_Dtot(biMolData);
-
-                                        double RMax { 3.5 * sqrt(4.0 * biMolData.Dtot * params.timeStep) + bindRadius };
-                                        double R1 { 0.0 };
-                                        if (membraneObject.isSphere() == true) {
-                                            Vec3D iface11 = moleculeList[pro1Index].interfaceList[relIface1].coord;
-                                            Vec3D iface22 = moleculeList[pro2Index].interfaceList[relIface2].coord;
-                                            double r1 = iface11.length();
-                                            double r2 = iface22.length();
-                                            double r = (r1 + r2) / 2.0; //membraneObject.sphereR; //
-                                            double theta = acos((iface11.x * iface22.x + iface11.y * iface22.y + iface11.z * iface22.z) / r1 / r2);
-                                            R1 = r * theta;
-                                        } else {
-                                            double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
-                                            double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
-                                            // double dz { (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z - 0) < 1E-10
-                                            //                 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z - 0) < 1E-10)
-                                            double dz { (complexList[moleculeList[pro1Index].myComIndex].OnSurface
-                                                            && complexList[moleculeList[pro2Index].myComIndex].OnSurface)
-                                                    ? 0
-                                                    : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
-                                            R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
-                                        }
-                                        if (R1 < RMax * 10.0) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    } else {
-                                        //3D reaction
-
-                                        BiMolData biMolData { pro1Index, pro2Index, moleculeList[pro1Index].myComIndex, moleculeList[pro2Index].myComIndex, relIface1, relIface2,
-                                            absIface1, absIface2, Dtot, magMol1, magMol2 };
-                                        add_3D_rotational_diffusion(biMolData, complexList, params,
-                                            params.numerics.classification.explicitLipidFlatDiffusion);
-
-                                        double RMax { 3.0 * sqrt(6.0 * biMolData.Dtot * params.timeStep) + bindRadius };
-                                        double R1 { 0.0 };
-                                        double dx = moleculeList[pro1Index].interfaceList[relIface1].coord.x - moleculeList[pro2Index].interfaceList[relIface2].coord.x;
-                                        double dy = moleculeList[pro1Index].interfaceList[relIface1].coord.y - moleculeList[pro2Index].interfaceList[relIface2].coord.y;
-                                        // double dz { (std::abs(complexList[moleculeList[pro1Index].myComIndex].D.z - 0) < 1E-10
-                                        //                 && std::abs(complexList[moleculeList[pro2Index].myComIndex].D.z - 0) < 1E-10)
-                                        double dz { (complexList[moleculeList[pro1Index].myComIndex].OnSurface
-                                                        && complexList[moleculeList[pro2Index].myComIndex].OnSurface)
-                                                ? 0
-                                                : moleculeList[pro1Index].interfaceList[relIface1].coord.z - moleculeList[pro2Index].interfaceList[relIface2].coord.z };
-                                        R1 = sqrt((dx * dx) + (dy * dy) + (dz * dz));
-                                        if (R1 < RMax) {
-                                            record_crossing_pair(pro1Index, pro2Index, relIface1, relIface2,
-                                                std::array<int, 3> { rxnIndex, 0, false }, moleculeList, complexList);
-                                        }
-                                    } //end else 3D
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Volume exclusion between a bound interface and the interfaces its
+    // template names on the other molecule.  Either molecule may be the bound
+    // one, so the scan runs once per role, with the roles swapped; a pair
+    // bound on both sides is scanned both ways, pro1's side first, as before.
+    // The second lambda's parameters arrive in (bound, other) order, which is
+    // (pro2, pro1) there: that swap is the only asymmetry left between the two
+    // roles, and the geometry is always tested with the pair in (pro1, pro2)
+    // order.  See check_bound_exclusion_pair() for why that order matters.
+    for_each_bound_exclusion(moleculeList[pro1Index], moleculeList[pro2Index], molTemplateList,
+        [&](int relIface1, int relIface2, double bindRadius, int rxnIndex) {
+            check_bound_exclusion_pair(pro1Index, pro2Index, relIface1, relIface2, bindRadius, rxnIndex,
+                params, moleculeList, complexList, membraneObject);
+        });
+    for_each_bound_exclusion(moleculeList[pro2Index], moleculeList[pro1Index], molTemplateList,
+        [&](int relIface2, int relIface1, double bindRadius, int rxnIndex) {
+            check_bound_exclusion_pair(pro1Index, pro2Index, relIface1, relIface2, bindRadius, rxnIndex,
+                params, moleculeList, complexList, membraneObject);
+        });
 }

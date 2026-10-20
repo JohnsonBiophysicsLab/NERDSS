@@ -121,6 +121,71 @@ void Membrane::require_boundary() const
     exit(1);
 }
 
+/*! \brief Finish the boundary once the input has been read.
+ *
+ * A sphere is simulated inside a bounding box of its own diameter, which
+ * create_water_box() fabricates, and `sphereVol` is read wherever a volume is
+ * needed.  Five start-up paths ended with this (the three in nerdss.cpp and
+ * the two the MPI main takes); require_boundary() goes first so that none of
+ * them runs against the all-zero box.
+ */
+void Membrane::finish_boundary()
+{
+    require_boundary();
+
+    // create water box for sphere boundary
+    if (isSphere()) {
+        create_water_box();
+        sphereVol = (4.0 * M_PI * pow(sphereR, 3.0)) / 3.0;
+    }
+}
+
+/*! \brief Abort when the compartment does not fit the boundary.
+ *
+ * Two checks, made after finish_boundary() by a new simulation and by a
+ * restart with an add file: a sphere cannot hold a compartment, and in a box
+ * the gap between the compartment and every face must be at least 2 rMaxLimit.
+ * A restart without an add file makes neither, as before: nerdss.cpp's third
+ * copy had only the sphere box, and at that site `rMaxLimit` holds the value
+ * the restart file restored, so a run that started under the check could fail
+ * it on restart.
+ *
+ * nerdss.cpp made the sphere check before fabricating the sphere's box; here
+ * it comes after, which changes nothing since the run ends on it.
+ */
+void Membrane::require_compartment_fits(double rMaxLimit) const
+{
+    if (!hasCompartment)
+        return;
+
+    if (isSphere()) {
+        std::cerr << "Compartment should not exist in a sphere system!" << std::endl;
+        exit(1);
+    }
+
+    // check the size of the compartment: make sure that the waterbox boundary
+    // to the compartment should be larger than the rMaxLimit
+    bool tooSmallBox = false;
+    if (waterBox.x / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of x dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (waterBox.y / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of y dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (waterBox.z / 2.0 - compartmentR < 2.0 * rMaxLimit) {
+        std::cerr << "length of z dimension of the water box is too small compared with the radius of compartment!"
+                  << std::endl;
+        tooSmallBox = true;
+    }
+    if (tooSmallBox == true) {
+        exit(1);
+    }
+}
+
 void Membrane::display()
 {
     std::cout << " isSphere? " << std::boolalpha << isSphere() << std::endl;
@@ -169,6 +234,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
         std::cerr << "Reaction file cannot be opened. Exiting..." << std::endl;
         exit(1);
     }
+
+    // read first, so the molFiles block may sit anywhere in the file
+    const std::map<std::string, std::string> molFilePaths { read_mol_file_paths(fileName) };
 
     std::vector<std::string> providedObs {};
     // the start and end blocks are hardcoded since regex has proved itself woefully non-portable,
@@ -268,8 +336,10 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             }
 
             // parse the .mol files for each molecule
+            warn_unused_mol_file_paths(molFilePaths, providedMols, fileName);
             for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
-                molTemplateList.emplace_back(parse_molFile(providedMols[providedMolIndex])); // do the actual parsing
+                molTemplateList.emplace_back(parse_molFile(
+                    locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
                 molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0];
                 molTemplateList.back().copies = providedNums[providedMolIndex];
                 molTemplateList.back().startingNumState = providedNumState[providedMolIndex];
@@ -292,9 +362,11 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             // TODO: Think about the size of buffer
             //            params.numTotalUnits += params.numTotalUnits / 100;
 
-            // Make sure the writing of restart file and timestep information is in unison
-            if (params.restartWrite % params.timeWrite != 0) {
-                int tmp = int(params.restartWrite / params.timeWrite);
+            // Make sure the writing of restart file and timestep information is in unison.
+            // A non-positive restartWrite turns the periodic restart write off and is left alone,
+            // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
+            if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
+                long long tmp = params.restartWrite / params.timeWrite;
                 if (tmp == 0)
                     tmp = 1;
                 params.restartWrite = tmp * params.timeWrite;
@@ -460,6 +532,9 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
         exit(1);
     }
 
+    // read first, so the molFiles block may sit anywhere in the file
+    const std::map<std::string, std::string> molFilePaths { read_mol_file_paths(fileName) };
+
     std::vector<std::string> providedObs {};
     // the start and end blocks are hardcoded since regex has proved itself woefully non-portable,
     // especially with the Intel compiler (icpc)
@@ -559,8 +634,10 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
             }
 
             // parse the .mol files for each molecule
+            warn_unused_mol_file_paths(molFilePaths, providedMols, fileName);
             for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
-                molTemplateList.emplace_back(parse_molFile(providedMols[providedMolIndex])); // do the actual parsing
+                molTemplateList.emplace_back(parse_molFile(
+                    locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
                 molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0] + addMolTemplateListNum;
                 molTemplateList.back().copies = providedNums[providedMolIndex];
                 molTemplateList.back().startingNumState = providedNumState[providedMolIndex];
@@ -595,9 +672,11 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
             // TODO: Think about the size of buffer
             //            params.numTotalUnits += params.numTotalUnits / 100;
 
-            // Make sure the writing of restart file and timestep information is in unison
-            if (params.restartWrite % params.timeWrite != 0) {
-                int tmp = int(params.restartWrite / params.timeWrite);
+            // Make sure the writing of restart file and timestep information is in unison.
+            // A non-positive restartWrite turns the periodic restart write off and is left alone,
+            // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
+            if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
+                long long tmp = params.restartWrite / params.timeWrite;
                 if (tmp == 0)
                     tmp = 1;
                 params.restartWrite = tmp * params.timeWrite;
@@ -709,8 +788,8 @@ void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std
         }
     }
 
-    //here wew need to add three new inputs for pop_react_lists
-    populate_reaction_lists_for_add(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum, addBackRxnNum, addCreateDestructRxnNum);
+    // only the add file's reactions: the restart file's are entered already
+    populate_reaction_lists(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum);
 
     for (auto& oneTemp : molTemplateList) {
         // here's where we remove duplicate reaction partners

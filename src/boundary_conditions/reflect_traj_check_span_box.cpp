@@ -2,12 +2,10 @@
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 void reflect_traj_check_span_box(const Parameters& params, Complex& targCom, std::vector<Molecule>& moleculeList, const Membrane& membraneObject, double RS3Dinput)
 {
-    // TRACE();
     bool needsRecheck { true };
     int maxItr { 50 };
     int checkItr { 0 };

@@ -1,6 +1,5 @@
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "tracing.hpp"
 #include <algorithm>
 #include <cstdint>
 
@@ -21,7 +20,6 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
     std::vector<Molecule>& moleculeList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
-    // TRACE();
     // get which box the Molecule belongs to
     int xItr { int((createdMol.comCoord.x + membraneObject.waterBox.x / 2) / simulVolume.subCellSize.x) };
     int yItr { int((createdMol.comCoord.y + membraneObject.waterBox.y / 2) / simulVolume.subCellSize.y) };
@@ -289,73 +287,4 @@ void create_molecule_and_complex_from_rxn(int parentMolIndex, int& newMolIndex, 
             oneTemp.monomerList.emplace_back(oneMol.index);
         }
     }
-}
-
-void MPI_create_molecule_and_complex_on_rank(
-    Molecule& mol, int& newMolIndex, int& newComIndex,
-    MolTemplate& createdMolTemp, SimulVolume& simulVolume,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
-    std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject) {
-  newMolIndex = 0;
-  newComIndex = 0;
-  if (Molecule::emptyMolList.size() > 0) {
-    // Check to make sure the object pointed to by the last element in the each
-    // list is actually empty If it isn't delete it from the list and move on
-    // until you find one that is
-    // TODO: OPTIMIZE AT THE END: no need to try-catch, but rather loop while
-    // there are elements, and after check wheter empty
-    try {
-      while (!moleculeList[Molecule::emptyMolList.back()].isEmpty)
-        Molecule::emptyMolList.pop_back();
-
-      // if there's an available empty Molecule spot, make the new Molecule in
-      // place
-      newMolIndex = Molecule::emptyMolList.back();
-      Molecule::emptyMolList
-          .pop_back();  // remove the empty Molecule spot index from the list
-    } catch (std::out_of_range& e) {
-      newMolIndex = moleculeList.size();
-      moleculeList.emplace_back();  // create new empty Molecule spot
-    }
-  } else {
-    newMolIndex = moleculeList.size();
-    moleculeList.emplace_back();  // create new empty Molecule spot
-  }
-
-  if (Complex::emptyComList.size() > 0) {
-    // Check to make sure the object pointed to by the last element in the each
-    // list is actually empty If it isn't delete it from the list and move on
-    // until you find one that is
-    // TODO: OPTIMIZE AT THE END: no need to try-catch, but rather loop while
-    // there are elements, and after check wheter empty
-    try {
-      while (!complexList[Complex::emptyComList.back()].isEmpty)
-        Complex::emptyComList.pop_back();
-      // if there's an available empty Complex spot, make the new Complex in
-      // place
-      newComIndex = Complex::emptyComList.back();
-      Complex::emptyComList
-          .pop_back();  // remove the empty Complex spot index from the list
-    } catch (std::out_of_range) {
-      newComIndex = complexList.size();
-      complexList.emplace_back();  // create new empty Complex spot
-    }
-
-  } else {
-    newComIndex = complexList.size();
-    complexList.emplace_back();  // create new empty Complex spot
-  }
-
-  moleculeList[newMolIndex].myComIndex = newComIndex;
-  moleculeList[newMolIndex].trajStatus = TrajStatus::propagated;
-
-  moleculeList[newMolIndex].isGhosted = false;
-  // moleculeList[newMolIndex].id = Molecule::maxID++;
-
-  complexList[newComIndex] =
-      Complex{newComIndex, moleculeList.at(newMolIndex), createdMolTemp};
-  complexList[newComIndex].trajStatus = TrajStatus::propagated;
-
-  moleculeList[newMolIndex].complexId = complexList[newComIndex].id;
-  ++Complex::numberOfComplexes;
 }

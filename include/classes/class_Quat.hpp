@@ -140,8 +140,6 @@ struct Quat {
      */
     void rotate(Vec3D& vec) const noexcept;
 
-    friend std::ostream& operator<<(std::ostream& os, const Quat& q);
-
     Quat() = default;
     Quat(double _w, double _x, double _y, double _z)
         : w(_w)

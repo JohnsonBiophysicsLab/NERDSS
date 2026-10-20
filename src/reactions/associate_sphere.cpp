@@ -4,7 +4,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
 #include "reactions/shared_reaction_functions.hpp"
-#include "tracing.hpp"
 #include <cmath>
 #include <iomanip>
 
@@ -17,7 +16,6 @@ void associate_sphere(long long int iter,
     Membrane& membraneObject, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<BackRxn>& backRxns, std::ofstream& assocDissocFile)
 {
-    // TRACE();
     if (reactCom1.index == reactCom2.index) {
         // skip to protein interation updates
         // std::cout << "Closing a loop, no rotations performed.\n";
@@ -133,8 +131,6 @@ void associate_sphere(long long int iter,
                 for (auto& mp : reactCom2.memberList)
                     moleculeList[mp].update_association_coords(transVec2);
                 // std::cout << "Position after pushed to sigma: " << std::endl;
-                // reactMol1.display_assoc_icoords("mol1");
-                // reactMol2.display_assoc_icoords("mol2");
             }
         } // Move protein to sigma
 
@@ -208,8 +204,6 @@ void associate_sphere(long long int iter,
         com_of_two_tmp_complexes(reactCom1, reactCom2, finalCOM, moleculeList); // com of c1+c2 (final (tmp) coordinates).
         // std::cout << "Pre-MEMBRANE ROT: COMPLEX PAIR COM: " << finalCOM.x << ' '
         //           << finalCOM.y << ' ' << finalCOM.z << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
 
         if (isOnMembrane == true || transitionToSurface == true) {
             //return orientation of normal back to starting position
@@ -324,8 +318,6 @@ void associate_sphere(long long int iter,
 
         // std::cout << " FINAL COORDS PRIOR TO OVERLAP CHECK  AND REFLECT OFF SPHERE: "
         //           << std::endl;
-        // reactMol1.display_assoc_icoords("mol1");
-        // reactMol2.display_assoc_icoords("mol2");
 
         /*Reflect off the sphere.*/
         std::array<double, 3> traj;
@@ -352,8 +344,6 @@ void associate_sphere(long long int iter,
 
             // std::cout << "CRDS after reflecting off of the SPHERE by " << traj[0] << ' '
             //           << traj[1] << ' ' << traj[2] << std::endl;
-            // reactMol1.display_assoc_icoords("mol1");
-            // reactMol2.display_assoc_icoords("mol2");
         }
         /*Calculate the angles swept out by the interface to COM vectors as a result of the displacement*/
         calc_angular_displacement(ifaceIndex1, ifaceIndex2, reactMol1, reactMol2, reactCom1, reactCom2, moleculeList);
@@ -470,39 +460,9 @@ void associate_sphere(long long int iter,
         reflect_complex_rad_rot(membraneObject, reactCom1, moleculeList, 0.0, false);
 
     } // end of if these molecules are closing a loop or not.
-    //------------------------START UPDATE MONOMERLIST-------------------------
-    // update oneTemp.monomerList when oneTemp.canDestroy is true and mol is monomer
-    // reactMol1
-    {
-        Molecule& oneMol { reactMol1 };
-        MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-        bool isMonomer { oneMol.bndpartner.empty() };
-        bool canDestroy { oneTemp.canDestroy };
-        if (isMonomer && canDestroy) {
-            //remove from monomerList
-            std::vector<int>& oneList { oneTemp.monomerList };
-            std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-            if (result != std::end(oneList)) {
-                oneList.erase(result);
-            }
-        }
-    }
-    // reactMol2
-    {
-        Molecule& oneMol { reactMol2 };
-        MolTemplate& oneTemp { molTemplateList[oneMol.molTypeIndex] };
-        bool isMonomer { oneMol.bndpartner.empty() };
-        bool canDestroy { oneTemp.canDestroy };
-        if (isMonomer && canDestroy) {
-            //remove from monomerList
-            std::vector<int>& oneList { oneTemp.monomerList };
-            std::vector<int>::iterator result { std::find(std::begin(oneList), std::end(oneList), oneMol.index) };
-            if (result != std::end(oneList)) {
-                oneList.erase(result);
-            }
-        }
-    }
-    //------------------------END UPDATE MONOMERLIST---------------------------
+    // Binding takes a destroyable monomer out of its template's monomerList.
+    remove_from_monomer_list(reactMol1, molTemplateList);
+    remove_from_monomer_list(reactMol2, molTemplateList);
     // update Molecule interface statuses
     reactMol1.interfaceList[ifaceIndex1].interaction.partnerIndex = reactMol2.index;
     reactMol2.interfaceList[ifaceIndex2].interaction.partnerIndex = reactMol1.index;

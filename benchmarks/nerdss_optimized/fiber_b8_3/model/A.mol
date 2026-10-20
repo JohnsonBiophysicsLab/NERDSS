@@ -1,0 +1,9 @@
+Name    = A
+isPromoter = true
+checkOverlap = true
+D       = [100.0, 0.0, 0.0]
+Dr      = [0.0, 0.0, 0.0]
+COM     0.0000    0.0000    0.0000
+l       0.0000    0.0000    0.0000
+bonds = 1
+com l

@@ -4,7 +4,6 @@
 #include "reactions/association/association.hpp"
 #include "reactions/bimolecular/bimolecular_reactions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
-#include "tracing.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 
 #include <cmath>
@@ -16,7 +15,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList, Membrane& membraneObject)
 {
-    // TRACE();
     const auto& stateList = molTemplateList[stateChangeMol.molTypeIndex].interfaceList[stateChangeIface].stateList;
     double bindRadius { 0 };
     bool isStateChangeBackRxn { static_cast<bool>(rxnItr[2]) };
@@ -98,7 +96,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     Vec3D& reactIface2 = stateChangeMol.tmpICoords[stateChangeIface];
     Vec3D sigma { reactIface1 - reactIface2 };
     //    std::cout <<" ORIGINAL CRDS: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
 
     /*Calculate COM of the two complexes pre-association. The COM of the new complex after should be close to this                              Here, we will force it back, as rotation can cause large displacements*/
     Vec3D startCOM; //=new double[3];
@@ -138,7 +135,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     }
 
     //    std::cout <<" CRDS TO SIGMA: "<<std::endl;
-    //write_xyz_assoc_cout( stateChangeCom, facilitatorCom, moleculeList);
     // TODO: do something else if only one is a point
     if (molTemplateList[facilitatorMol.molTypeIndex].isPoint) {
         /*If both molecules are points, no orientations to specify*/
@@ -162,12 +158,10 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         Vec3D pivot;
 
         if (slowPro == facilitatorMol.index) {
-            //	facilitatorMol.display_assoc_icoords("CURRORIENTATION_TOROTATE1");
             memRot = save_mem_orientation(memProtein, facilitatorMol, molTemplateList[facilitatorMol.molTypeIndex]);
             pivot = facilitatorMol.tmpComCoord;
 
         } else {
-            //stateChangeMol.display_assoc_icoords("CURRORIENTATION_TOROTATE2");
             memRot = save_mem_orientation(memProtein, stateChangeMol, molTemplateList[stateChangeMol.molTypeIndex]);
             pivot = stateChangeMol.tmpComCoord;
         }
@@ -182,8 +176,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
         rotate(pivot, memRot, facilitatorCom, moleculeList);
         rotate(pivot, memRot, stateChangeCom, moleculeList);
         // std::cout <<" AFTER ROTATION1: "<<std::endl;
-        //facilitatorMol.display_assoc_icoords("molecule 1");
-        //stateChangeMol.display_assoc_icoords("molecule 2");
 
         //	    std::cout <<"CRDS after forcing back to membrane bound orientation: \n";*/
     }
@@ -254,8 +246,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     } //is onMembrane
 
     // std::cout << " FINAL COORDS PRIOR TO OVERLAP CHECK " << std::endl;
-    // //write_xyz_assoc("final.xyz", facilitatorCom, stateChangeCom, moleculeList);
-    // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
 
     /*Reflect off the box.*/
     //Vec3D traj {};
@@ -282,7 +272,6 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
             moleculeList[mp].update_association_coords(vtraj);
 
         // std::cout << "CRDS after reflecting off of the BOX by " << traj[0] << ' ' << traj[1] << ' ' << traj[2] << std::endl;
-        // write_xyz_assoc_cout(facilitatorCom, stateChangeCom, moleculeList);
     }
     /* CHECKS */
     bool cancelAssoc { false };

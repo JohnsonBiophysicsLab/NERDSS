@@ -14,7 +14,6 @@
 #pragma once
 
 //#include "classes/class_mol_containers.hpp"
-#include "classes/class_Observable.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
@@ -23,17 +22,10 @@
  * \brief Functions for input/output of coordinates, parameters, trajectories, etc.
  */
 
-#if defined(__APPLE__) || defined(__linux__)
-std::ostream& bon(std::ostream& os);
-std::ostream& boff(std::ostream& os);
-#endif
-
 std::ostream& linebreak(std::ostream& os);
 std::ostream& llinebreak(std::ostream& os);
 void write_psf(const Parameters& params, const std::vector<Molecule>& moleculeList,
     const std::vector<MolTemplate>& molTemplateList);
-void write_crds(std::string name, const std::vector<Complex>& Complexlist, const std::vector<Molecule>& bases);
-void write_crds(const std::vector<Complex>& Complexlist, const std::vector<Molecule>& bases); // overloaded crd dump for errors
 
 /*!
  * \brief Writes the coordinates of all Molecules in the system to an XYZ coordinate file.
@@ -51,40 +43,6 @@ void write_traj(long long int iter, std::ofstream& trajFile, const Parameters& p
  * \brief Writes/appends the transition matrix in the system to the transition matrix file.
  */
 void write_transition(double iter, std::ofstream& transitionFile, const std::vector<MolTemplate>& molTemplateList);
-
-/*! \ingroup IO
- * \brief Debugging IO function to write an xyz file for a associating complexes.
- */
-void write_xyz_assoc(std::string filename, const Complex& reactCom1, const Complex& reactCom2,
-    const std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Debugging IO function to write an xyz file for a associating complexes to std cout.
- */
-void write_xyz_assoc_cout(const Complex& reactCom1, const Complex& reactCom2,
-    const std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Writes the coordinates of a complex to a file
- */
-void write_complex_crds(
-    std::string name, const Complex& complex1, const Complex& complex2, std::vector<Molecule>& moleculeList);
-
-/*! \ingroup IO
- * \brief Writes out timestep information, such as the different molecular types in the system.
- *
- * TODO: This description needs more information
- */
-void write_timestep_information(long long int simItr, std::ofstream& outFile, std::ofstream& molecTypesFile,
-    std::ofstream& textTimeStatFile, const Parameters& params, std::vector<std::vector<int>>& molecTypesList,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, std::vector<MolTemplate>& molTemplateList);
-
-/*! \ingroup IO
- * \brief Writes the number of each component Molecule in all complexes at the current timestep
- */
-void write_complex_components(long long int simItr, std::ofstream& complexFile, const Parameters& params,
-    std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
-    const std::vector<MolTemplate>& molTemplateList);
 
 /*! \ingroup IO
  * \brief Writes a restart file at intervals specified in the Parameters file.
@@ -204,7 +162,23 @@ void init_NboundPairs(
 void write_NboundPairs(copyCounters& counterArrays, std::ofstream& outfile, int it, const Parameters& params, std::vector<Molecule>& moleculeList);
 
 /*! \ingroup IO
+ * \brief The composition line of one complex for histogram_complexes_time.dat, without the count.
+ *
+ * Members are tallied by molecule type, in molTypeIndex order, as "name: n. " entries.  With
+ * `params.histogramMolStates` set, molecules of one type whose interface states differ are tallied
+ * apart, named like the species of copy_numbers_time.dat: "A(ser~P): 1. A(ser~U): 2. ", listing only
+ * the interfaces that have more than one state, and ordered within a type by those states.  An
+ * implicit lipid is always the plain "name: linksToSurface. " entry, since its links carry no state.
+ * Empty when the complex holds nothing to report (the implicit lipid's own complex).
+ */
+std::string complex_composition_string(const Complex& com, const std::vector<MolTemplate>& molTemplateList,
+    const std::vector<Molecule>& moleculeList, bool byState);
+
+/*! \ingroup IO
  * \brief print calculated histogram of distinct types of complexes, based on protein/lipid composition.
+ *
+ * Each frame lists one line per distinct composition, count first, built by complex_composition_string();
+ * `params.histogramMolStates` selects whether interface states tell members of one type apart.
  */
 double print_complex_hist(std::vector<Complex>& complexList, std::ofstream& outfile, int it, Parameters params,
     std::vector<MolTemplate>& molTemplateList, std::vector<Molecule>& moleculeList, int nImplicitLipids);
@@ -233,11 +207,6 @@ void write_all_species(double simTime, std::vector<Molecule>& moleculeList, std:
     const Membrane& membraneObject, MpiContext& mpiContext, SimulVolume& simulVolume); // for mpi version
 
 /*! \ingroup IO
- * \brief Find all molecules whose partners change in this time interval. 
- */
-void write_single_molecule_rxn(double simTime, std::ofstream &smtRxnFile, const std::vector<Molecule> &moleculeList, const std::vector<Molecule> &snapshot, const std::vector<MolTemplate> &molTemplateList);
-
-/*! \ingroup IO
  * \brief Prints out information about all species in the system (Molecules and Complexes)
  */
 void print_system_information(long long int simItr, std::ofstream& systemFile, const std::vector<Molecule>& moleculeList,
@@ -251,7 +220,7 @@ void write_output(long long int simItr, Parameters& params,std::string trajFileN
     std::vector<CreateDestructRxn>& createDestructRxns, std::vector<std::chrono::duration<double>>& durationList, MDTimer::time_point& startStep,
     MDTimer::time_point& totalTimeStart, std::map<std::string, int>& observablesList, std::ofstream& assemblyfile); // for mpi version
 
-void merge_outputs(int totalrank, int molTemplateNum); // for mpi version
+void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles); // for mpi version
 
 /*! \ingroup IO
  * \brief Outputs structural information on bonded complexes for ioNERDSS and

@@ -1,7 +1,6 @@
 #include "classes/class_Molecule_Complex.hpp"
 #include "classes/class_Rxns.hpp"
 #include "classes/class_copyCounters.hpp"
-#include "tracing.hpp"
 
 using namespace std;
 
@@ -9,7 +8,6 @@ using namespace std;
 int init_speciesFile(ofstream& speciesFile, copyCounters& counterArrays,
                      std::vector<MolTemplate>& molTemplateList,
                      std::vector<ForwardRxn>& forwardRxns, Parameters& params) {
-  // TRACE();
   int nSpecies = 0;
   speciesFile << "Time (s)";
   for (const auto& oneTemp : molTemplateList) {

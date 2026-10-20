@@ -30,9 +30,8 @@
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include "system_setup/system_setup.hpp"
-#include "tracing.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
 using MDTimer = std::chrono::system_clock;
@@ -60,7 +59,8 @@ void write_output(long long int simItr, Parameters& params,
   //   trajFile.close();
   // }
 
-  if (params.pdbWrite != -1) {
+  // pdbWrite <= 0 turns the periodic PDB write off (0 must not reach the modulo)
+  if (params.pdbWrite > 0) {
     if (simItr % params.pdbWrite == 0) {
       // std::cout << "Writing PDB file for current frame...\n";
       write_pdb(simItr, simItr, params, moleculeList, molTemplateList,
@@ -82,7 +82,8 @@ void write_output(long long int simItr, Parameters& params,
     restartFile.close();
   }
 
-  if (simItr % params.timeWrite == 0) {
+  // timeWrite <= 0 turns the periodic statistics output off
+  if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
     write_all_species((simItr - params.itrRestartFrom) * params.timeStep *
                               Constants::usToSeconds +
                           params.timeRestartFrom,
@@ -103,7 +104,7 @@ void write_output(long long int simItr, Parameters& params,
     using duration = std::chrono::duration<double>;
     durationList.erase(durationList.begin());
     durationList.emplace_back(MDTimer::now() - startStep);
-    if (simItr % params.timeWrite == 0) {
+    if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       double timeSimulated{(simItr - params.itrRestartFrom) * params.timeStep *
                                Constants::usToSeconds +
                            params.timeRestartFrom};

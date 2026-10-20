@@ -29,8 +29,3 @@ inline bool approximately_equal(double lhs, double rhs, const ComparisonToleranc
     const double bound { std::max(tolerance.absolute, tolerance.relative * scale) };
     return bound == 0.0 ? lhs == rhs : std::abs(lhs - rhs) < bound;
 }
-
-inline bool approximately_zero(double value, double absoluteTolerance)
-{
-    return value == 0.0 || std::abs(value) < absoluteTolerance;
-}

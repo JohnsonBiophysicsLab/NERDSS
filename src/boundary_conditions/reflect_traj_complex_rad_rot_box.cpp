@@ -1,11 +1,9 @@
 #include "boundary_conditions/complex_extent.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "math/matrix.hpp"
-#include "tracing.hpp"
 
 void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Molecule>& moleculeList, Complex& targCom, const Membrane& membraneObject, double RS3Dinput)
 {
-    // TRACE();
     // NOTE: it only works for a box system with the membrane surface located on the Z-bottom.
 
     // for implicit-lipid model, the boundary surface must consider the reflecting-surface RS3D

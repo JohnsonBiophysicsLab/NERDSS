@@ -5,7 +5,6 @@
  * ### Created on 2019-06-05 by Matthew Varga
  */
 #include "io/io.hpp"
-#include "tracing.hpp"
 #include "debug/debug.hpp"
 #include "mpi/mpi_function.hpp"
 

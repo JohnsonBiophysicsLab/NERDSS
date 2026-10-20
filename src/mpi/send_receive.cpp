@@ -7,16 +7,29 @@
 using namespace std;
 
 // Ghost status is derived, never decided independently: a molecule is a ghost
-// exactly when its complex is owned by somebody else.  This runs after the
-// complexes have been deserialized, because molecules arrive first and the
-// ownership stamp travels with the complex.
-static void derive_ghost_from_ownership(MpiContext &mpiContext,
-                                        vector<Molecule> &moleculeList,
-                                        vector<Complex> &complexList) {
+// exactly when its complex is owned by somebody else.  After a receive this
+// runs once the complexes have been deserialized, because molecules arrive
+// first and the ownership stamp travels with the complex; the bimolecular
+// passes call it too, because an association moves molecules between
+// complexes without touching the flag (see EXEs/nerdss_mpi.cpp).
+//
+// A complex with no owner yet (ownerRank -1) is one the step-top pass made
+// here, by dissociation or creation, and claim_unowned_complexes() or the
+// send loops settle it before it is handed to a neighbour.  Between the
+// bimolecular pass and that send its members keep the flag they have, which
+// is the one they inherited from the owned complex they came from, so the
+// post-pass call skips it.  The post-receive call keeps reading -1 as "not
+// mine": the only such complex left after a receive is a fragment lying
+// entirely in the far ghost stripe, which this rank does not integrate.
+void derive_ghost_from_ownership(MpiContext &mpiContext,
+                                 vector<Molecule> &moleculeList,
+                                 vector<Complex> &complexList,
+                                 bool skipUnclaimed) {
   for (auto &mol : moleculeList) {
     if (mol.isImplicitLipid || mol.isEmpty) continue;
     int ci = mol.myComIndex;
     if (ci < 0 || ci >= (int)complexList.size()) continue;
+    if (skipUnclaimed && complexList[ci].ownerRank == -1) continue;
     mol.isGhosted = (complexList[ci].ownerRank != mpiContext.rank);
   }
 }
@@ -118,8 +131,10 @@ void send_data_to_right_neighboring_ranks(
     MpiContext &mpiContext, long long int simItr, Parameters &params,
     SimulVolume &simulVolume, vector<int> &right,
     vector<Molecule> &moleculeList, vector<Complex> &complexList,
-    vector<MolTemplate> &molTemplateList, Membrane &membraneObject) {
+    vector<MolTemplate> &molTemplateList, Membrane &membraneObject,
+    unordered_map<int, MolSnapshot> &sentRight) {
   if (VERBOSE) cout << "send_data_to_right_neighboring_ranks begins" << endl;
+  sentRight.clear();
   // simulVolume.update_memberMolLists(params, moleculeList, complexList,
   //                                   molTemplateList, membraneObject, simItr,
   //                                   mpiContext);
@@ -171,6 +186,20 @@ void send_data_to_right_neighboring_ranks(
       }
     }
 
+    // What the right neighbour is given, by id: at the next first exchange
+    // its copy of these comes back, and a copy that still matches this is one
+    // the neighbour did not touch.
+    for (int molIdx : moleculesSet) {
+      const Molecule &mol = moleculeList[molIdx];
+      MolSnapshot s;
+      if (mol.myComIndex >= 0 &&
+          mol.myComIndex < static_cast<int>(complexList.size()))
+        s.comId = complexList[mol.myComIndex].id;
+      for (const auto &iface : mol.interfaceList)
+        if (iface.interaction.partnerIndex != -1) s.nBound++;
+      sentRight[mol.id] = s;
+    }
+
     mpiContext.nMPIArrayToRight = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToRight, mpiContext.nMPIArrayToRight,
@@ -206,7 +235,8 @@ void receive_right_neighborhood_zones(
     MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume,
     vector<int> &right, vector<Molecule> &moleculeList,
     vector<Complex> &complexList, vector<MolTemplate> &molTemplateList,
-    Membrane &membraneObject, copyCounters &counterArrays) {
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const unordered_map<int, MolSnapshot> &sentRight) {
   if (VERBOSE) cout << "receive_right_neighborhood_zones begins" << endl;
 
   if (DEBUG) {
@@ -240,6 +270,11 @@ void receive_right_neighborhood_zones(
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;
+    // Which complexes, and which of their molecules, kept their local copy
+    // because this rank changed them this step.  Decided once, before any
+    // molecule is overwritten, and applied to the complexes that follow.
+    vector<char> keptLocalCom;
+    vector<char> keptLocalMol;
     // Deserialize molecules and complexes from shared zone and update
     // interfaces, indices, myComIndex-es, etc. Updating molecules myComIndex-es
     // requires deserializating new complexes.
@@ -250,7 +285,10 @@ void receive_right_neighborhood_zones(
         mpiContext, simulVolume, moleculeList, complexList, molTemplateList,
         membraneObject, counterArrays, indices, indicesEnteringMolecules,
         indicesExitingMolecules, mpiContext.MPIArrayFromRight,
-        mpiContext.nMPIArrayFromRight);  // last parameter is ghostStripe
+        mpiContext.nMPIArrayFromRight, sentRight, keptLocalCom, keptLocalMol);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "R1 deserialize_molecules_right", 1);
 
     //        DEBUG_FIND_MOL("3");
     // Remove molecules that were not updated (received back from the neighbor
@@ -260,15 +298,22 @@ void receive_right_neighborhood_zones(
     }
     delete_disappeared_molecules(
         mpiContext, simulVolume, membraneObject, moleculeList, complexList,
-        right, molTemplateList);
+        right, molTemplateList, false);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "R2 delete_disappeared_molecules", 1);
     if (DEBUG) {
       DEBUG_FIND_MOL("1.4_ (after delete_disappeared_molecules)");
       DEBUG_FIND_COMPLEX("1.4_ (after delete_disappeared_molecules)");
     }
     deserialize_complexes_right(mpiContext, moleculeList, complexList,
                                 mpiContext.MPIArrayFromRight,
-                                mpiContext.nMPIArrayFromRight);
-    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
+                                mpiContext.nMPIArrayFromRight, keptLocalCom,
+                                keptLocalMol);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, false);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "R3 deserialize_complexes_right", 2);
     if (DEBUG) {
       DEBUG_FIND_MOL("1.5_ (after deserialize_complexes)");
       DEBUG_FIND_COMPLEX("1.5_ (after deserialize_complexes)");
@@ -294,8 +339,10 @@ void receive_right_neighborhood_zones(
   // Delete all complexes that were just in the shared zone before sending to
   // the neighbor rank, but were not received back: only process the right bound
   // of the rank
-  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
-                                       false);
+  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList);
+  if (CHECK_STRUCTURE)
+    check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                              "R4 delete_disappeared_complexes_partial");
 
   // Everything that names a molecule index now means what it says: the
   // received molecules have been remapped by IDs_to_indices() and the
@@ -325,7 +372,8 @@ void receive_left_neighborhood_zones(
     MpiContext &mpiContext, long long int simItr, SimulVolume &simulVolume,
     vector<int> &left, vector<Molecule> &moleculeList,
     vector<Complex> &complexList, vector<MolTemplate> &molTemplateList,
-    Membrane &membraneObject, copyCounters &counterArrays) {
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const vector<MolSnapshot> &sentLeft) {
   if (VERBOSE) cout << "receive_left_neighborhood_zones begins" << endl;
 
   // If not first rank, receive data from the left rank,
@@ -359,6 +407,12 @@ void receive_left_neighborhood_zones(
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;
+    // Which complexes, and which of their molecules, kept their local copy
+    // because the second bimolecular pass changed them here.  Decided once,
+    // against the snapshot taken before that pass, before any molecule is
+    // overwritten, and applied to the complexes that follow.
+    vector<char> keptLocalCom;
+    vector<char> keptLocalMol;
     // Deserialize molecules and complexes from shared zone and update
     // interfaces, indices, myComIndex-es, etc. Updating molecules myComIndex-es
     // requires deserializating new complexes.
@@ -369,7 +423,11 @@ void receive_left_neighborhood_zones(
                           molTemplateList, membraneObject, counterArrays,
                           indices, indicesEnteringMolecules,
                           indicesExitingMolecules, mpiContext.MPIArrayFromLeft,
-                          mpiContext.nMPIArrayFromLeft);
+                          mpiContext.nMPIArrayFromLeft, sentLeft,
+                          keptLocalCom, keptLocalMol);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "L1 deserialize_molecules", 1);
     // Remove molecules that were not updated (received back from the neighbor
     // rank): DEBUG_FIND_MOL("1 (after left deserialize_molecules)");
     if (DEBUG) {
@@ -377,7 +435,10 @@ void receive_left_neighborhood_zones(
     }
     delete_disappeared_molecules(mpiContext, simulVolume, membraneObject,
                                  moleculeList, complexList, left,
-                                 molTemplateList);
+                                 molTemplateList, true);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "L2 delete_disappeared_molecules", 1);
     // DEBUG_FIND_MOL("1.4 (after delete_disappeared_molecules)");
     if (DEBUG) {
       DEBUG_FIND_MOL("1.4 (after delete_disappeared_molecules)");
@@ -387,8 +448,12 @@ void receive_left_neighborhood_zones(
     }
     deserialize_complexes(mpiContext, moleculeList, complexList,
                           mpiContext.MPIArrayFromLeft,
-                          mpiContext.nMPIArrayFromLeft);
-    derive_ghost_from_ownership(mpiContext, moleculeList, complexList);
+                          mpiContext.nMPIArrayFromLeft, keptLocalCom,
+                          keptLocalMol);
+    derive_ghost_from_ownership(mpiContext, moleculeList, complexList, false);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "L3 deserialize_complexes", 2);
     if (DEBUG) {
       DEBUG_FIND_MOL("1.5 (after deserialize_complexes)");
       DEBUG_FIND_COMPLEX("1.5 (after deserialize_complexes)");
@@ -414,8 +479,10 @@ void receive_left_neighborhood_zones(
   // Delete all complexes that were just in the shared zone before sending to
   // the neighbor rank, but were not received back: only process the left bound
   // of the rank
-  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList,
-                                       true);
+  delete_disappeared_complexes_partial(mpiContext, moleculeList, complexList);
+  if (CHECK_STRUCTURE)
+    check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                              "L4 delete_disappeared_complexes_partial");
 
   // Everything that names a molecule index now means what it says: the
   // received molecules have been remapped by IDs_to_indices() and the
