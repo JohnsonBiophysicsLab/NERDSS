@@ -1,0 +1,19 @@
+child pid 79777
+      531.24 real       235.13 user       290.96 sys
+            16809984  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                3233  page reclaims
+                 169  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                2719  voluntary context switches
+              481160  involuntary context switches
+           311930182  instructions retired
+           185343411  cycles elapsed
+             8372632  peak memory footprint
