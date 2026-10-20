@@ -154,6 +154,20 @@ struct Interface {
     /*! \brief Rebuilds excludedIfaces from the four exclusion lists. */
     void build_excluded_ifaces();
 
+    /*! \brief Calls `onHit(relIfaceOther, radius, rxnIndex)` for every entry
+     * naming an interface of a molecule of type `otherMolType` that has
+     * `numIfaceOther` interfaces: by interface index, then in list order.
+     */
+    template <typename OnHit>
+    void for_each_excluded_iface(int otherMolType, int numIfaceOther, OnHit onHit) const
+    {
+        for (const ExcludedIface& excluded : excludedIfaces) {
+            if (excluded.molTypeIndex == otherMolType && excluded.relIfaceIndex >= 0
+                && excluded.relIfaceIndex < numIfaceOther)
+                onHit(excluded.relIfaceIndex, excluded.radius, excluded.rxnIndex);
+        }
+    }
+
     explicit Interface() = default;
     Interface(std::string name, const Vec3D& iCoord);
 

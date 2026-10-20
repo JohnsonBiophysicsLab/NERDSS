@@ -145,13 +145,10 @@ void for_each_bound_exclusion(const Molecule& bound, const Molecule& other,
         if (!bound.interfaceList[relIfaceBound].isBound || boundIface.excludedIfaces.empty())
             continue;
 
-        const int numIfaceOther { static_cast<int>(other.interfaceList.size()) };
-        for (const Interface::ExcludedIface& excluded : boundIface.excludedIfaces) {
-            if (excluded.molTypeIndex == other.molTypeIndex && excluded.relIfaceIndex >= 0
-                && excluded.relIfaceIndex < numIfaceOther) {
-                onHit(relIfaceBound, excluded.relIfaceIndex, excluded.radius, excluded.rxnIndex);
-            }
-        }
+        boundIface.for_each_excluded_iface(other.molTypeIndex, static_cast<int>(other.interfaceList.size()),
+            [&](int relIfaceOther, double bindRadius, int rxnIndex) {
+                onHit(relIfaceBound, relIfaceOther, bindRadius, rxnIndex);
+            });
     }
 }
 
