@@ -20,7 +20,7 @@
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 using namespace std;
 

@@ -21,7 +21,7 @@
 #include "classes/class_Molecule_Complex.hpp"
 #include "classes/class_Parameters.hpp"
 #include "classes/class_Membrane.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 /*! \ingroup SimulClasses
  * \brief Wrapper for arrays representing the simulation box
