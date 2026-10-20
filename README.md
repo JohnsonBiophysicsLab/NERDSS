@@ -62,7 +62,7 @@ Go to the [NERDSS server](https://nerdssdemo.org/).
 
 #### Compile and run NERDSS on your local machine
 
-1. Example input files are located in the subdirectories within the *sample_inputs* folder. They can also be generated using the [python GUI program](./gui.py), which is also included in the ioNERDSS tool.
+1. Example input files are located in the subdirectories within the *sample_inputs* folder. They can also be generated using the ioNERDSS tool.
 
 2. To start the serial simulation, use the command *./nerdss -f parms.inp*.
 
