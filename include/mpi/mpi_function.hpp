@@ -12,7 +12,7 @@
 #ifdef mpi_
 #include "mpi.h"
 #endif
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 using namespace std;
 

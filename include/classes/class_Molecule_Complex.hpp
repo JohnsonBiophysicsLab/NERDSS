@@ -29,7 +29,7 @@
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
 #include "classes/class_Vec3D.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 /*! \defgroup SimulClasses
  * \brief Classes actually used for simulation objects

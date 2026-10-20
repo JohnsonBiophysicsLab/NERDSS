@@ -137,7 +137,7 @@ endif
 # the same sources, but -Dmpi_ changes what those sources mean: it selects a
 # different subvolume grid in class_SimulVolume.cpp, a different free-protein
 # count in check_dissociation_implicitlipid.cpp, and -- the dangerous one --
-# adds MPI_Request/MPI_Status members to MpiContext in include/split.cpp.
+# adds MPI_Request/MPI_Status members to MpiContext in include/mpi_context.hpp.
 #
 # With a single shared obj/, the second build reused the first mode's objects,
 # because their .cpp files had not changed since those .o files were written.

@@ -16,7 +16,7 @@
 #include <cstring>
 
 #include "classes/class_Molecule_Complex.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 
 using namespace std;
 

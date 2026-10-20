@@ -78,7 +78,7 @@
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_bngl_parser.hpp"
 #include "classes/class_copyCounters.hpp"
-#include "split.cpp"
+#include "mpi_context.hpp"
 #include <algorithm>
 
 /* MAIN */
