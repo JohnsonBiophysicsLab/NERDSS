@@ -56,12 +56,6 @@ To build parallel NERDSS, you need to checkout to the `mpi` branch:
 
 ### Run Simulations
 
-#### Run a quick trial with Google Colab
-
-Click the following link to make a copy of the iPython notebook in your Google Colab and following the instructions on the Notebook (Note currently the link is under NERDSS development repo. The link will need to be updated once synced to released repo)
-
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mjohn218/nerdss_development/blob/master/docs/Run_NERDSS_colab.ipynb?copy=true)
-
 #### Run a quick trial with our server
 
 Go to the [NERDSS server](http://18.188.233.206:5000/).
