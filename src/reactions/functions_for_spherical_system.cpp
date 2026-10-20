@@ -19,7 +19,7 @@
  * they are not user-configurable for that reason -- unlike the tolerances in
  * numerics/numerical_settings.hpp, which decide when two *rates* or two
  * *angles* count as the same and are properties of the model rather than of the
- * arithmetic.  All three happen to be 1e-8; they are still written separately,
+ * arithmetic.  Both happen to be 1e-8; they are still written separately,
  * because they answer different questions and there is no reason a future
  * change to one should drag the others along.
  *
@@ -76,9 +76,8 @@ namespace {
 /*!
  * \brief Below this, two points are the same point.  See \ref sphere_tolerances.
  *
- * Guards the frame construction against a step of zero length and the
- * inner-coordinate solve against a target that coincides with the reference
- * point: in both cases the direction the formula needs is undefined.
+ * Guards the frame construction against a step of zero length, and the
+ * rotation against a target with no component to rotate.
  */
 const double sameCoordTolerance { 1E-8 };
 const double sameCoordToleranceSquared { sameCoordTolerance * sameCoordTolerance };
@@ -91,127 +90,6 @@ const double sameCoordToleranceSquared { sameCoordTolerance * sameCoordTolerance
  * into a basis vector.  `(-1, 0, 0)` is used instead.
  */
 const double onAxisTolerance { 1E-8 };
-
-/*!
- * \brief Below this, a projection counts as unit length.  See \ref sphere_tolerances.
- *
- * The second half of rotate_on_sphere()'s "nothing to rotate" test.  Compared
- * against 1 rather than 0, which is what the original wrote and is preserved
- * here: it is a length in nm being compared to unity, so it only ever fires for
- * a target one nanometre out along the rotation axis.
- */
-const double unitProjectionTolerance { 1E-8 };
-
-/*!
- * \brief Decomposes `target - com` onto the orthonormal frame `crdSet`.
- *
- * Returns the three coefficients (alpha, beta, gamma) with
- * `target - com == alpha*i + beta*j + gamma*k`, or all zeros when the target
- * coincides with `com`.  The branches ahead of the general solve pick off the
- * cases where the target is perpendicular to one or two of the basis vectors,
- * because the general formula divides by quantities that vanish there.
- *
- * File-local: translate_on_sphere() is the only caller and always has been.  It
- * was declared in the header, which meant it could not be inlined into that one
- * caller and had to take its frame by value.
- */
-std::array<double, 3> calculate_inner_coord_coefficients(
-    Vec3D target, Vec3D com, const std::array<double, 9>& crdSet)
-{
-    std::array<double, 3> coefficients {};
-
-    const Vec3D offset { target - com };
-    if (offset.length_squared() < sameCoordToleranceSquared) { // target is at com
-        return coefficients;
-    }
-
-    // get the inner_coords_set
-    const Vec3D i { crdSet[0], crdSet[1], crdSet[2] };
-    const Vec3D j { crdSet[3], crdSet[4], crdSet[5] };
-    const Vec3D k { crdSet[6], crdSet[7], crdSet[8] };
-
-    double alpha, beta, gamma;
-    // Whether the offset is perpendicular to a basis vector is asked of the
-    // *direction*, so that the answer does not depend on how far away the
-    // target is; the coefficients themselves are built from the unnormalized
-    // offset.  The three projections are taken once here rather than in each
-    // branch that reads them.
-    const Vec3D offsetDir { offset.normalized() };
-    const double dotI { offsetDir.dot(i) };
-    const double dotJ { offsetDir.dot(j) };
-    const double dotK { offsetDir.dot(k) };
-
-    if (std::abs(dotI) < sameCoordTolerance) { // offset is perpendicular to i
-        alpha = 0.0;
-        if (std::abs(dotJ) < sameCoordTolerance) { // and to j, so it is along k
-            beta = 0.0;
-            gamma = offset.length();
-            if (dotK < 0.0) {
-                gamma = -gamma;
-            }
-        } else if (std::abs(dotK) < sameCoordTolerance) { // and to k, so it is along j
-            gamma = 0.0;
-            beta = offset.length();
-            if (dotJ < 0.0) {
-                beta = -beta;
-            }
-        } else {
-            beta = (offset.x * k.y - offset.y * k.x) / (j.x * k.y - j.y * k.x);
-            gamma = (offset.x * j.y - offset.y * j.x) / (k.x * j.y - k.y * j.x);
-        }
-    } else if (std::abs(dotJ) < sameCoordTolerance) { // offset is perpendicular to j
-        beta = 0.0;
-        if (std::abs(dotI) < sameCoordTolerance) { // and to i, so it is along k
-            alpha = 0.0;
-            gamma = offset.length();
-            if (dotK < 0.0) {
-                gamma = -gamma;
-            }
-        } else if (std::abs(dotK) < sameCoordTolerance) { // and to k, so it is along i
-            gamma = 0.0;
-            alpha = offset.length();
-            if (dotI < 0.0) {
-                alpha = -alpha;
-            }
-        } else {
-            alpha = (offset.x * k.y - offset.y * k.x) / (i.x * k.y - i.y * k.x);
-            gamma = (offset.x * i.y - offset.y * i.x) / (k.x * i.y - k.y * i.x);
-        }
-    } else if (std::abs(dotK) < sameCoordTolerance) { // offset is perpendicular to k
-        gamma = 0.0;
-        if (std::abs(dotI) < sameCoordTolerance) { // and to i, so it is along j
-            alpha = 0.0;
-            beta = offset.length();
-            if (dotJ < 0.0) {
-                beta = -beta;
-            }
-        } else if (std::abs(dotJ) < sameCoordTolerance) { // and to j, so it is along i
-            beta = 0.0;
-            alpha = offset.length();
-            if (dotI < 0.0) {
-                alpha = -alpha;
-            }
-        } else {
-            alpha = (offset.x * j.y - offset.y * j.x) / (i.x * j.y - i.y * j.x);
-            beta = (offset.x * i.y - offset.y * i.x) / (j.x * i.y - j.y * i.x);
-        }
-    } else {
-        const double n1 { k.y * offset.x - k.x * offset.y };
-        const double n2 { i.x * k.y - i.y * k.x };
-        const double n3 { j.x * k.y - j.y * k.x };
-        const double n4 { k.z * offset.x - k.x * offset.z };
-        const double n5 { i.x * k.z - i.z * k.x };
-        const double n6 { j.x * k.z - j.z * k.x };
-        alpha = (n1 * n6 - n4 * n3) / (n2 * n6 - n5 * n3);
-        beta = (n1 * n6 - n2 * n6 * alpha) / (n3 * n6);
-        gamma = (offset.x - alpha * i.x - beta * j.x) / k.x;
-    }
-
-    coefficients[0] = alpha;
-    coefficients[1] = beta;
-    coefficients[2] = gamma;
-    return coefficients;
-}
 
 } // namespace
 
@@ -404,10 +282,14 @@ Vec3D translate_on_sphere(Vec3D targ, Vec3D com, Vec3D comNew,
         return targ;
     }
     // The point keeps its coefficients on the frame; it is the frame that moves.
-    const std::array<double, 3> coefficients { calculate_inner_coord_coefficients(targ, com, crdSet) };
-    const double alpha { coefficients[0] };
-    const double beta { coefficients[1] };
-    const double gamma { coefficients[2] };
+    // Both frames are orthonormal, so the coefficients are projections.  They
+    // used to come from a Cramer's-rule solve with nine special cases for an
+    // offset perpendicular to one or two basis vectors; that is the same
+    // solution in exact arithmetic and three times the work.
+    const Vec3D offset { targ - com };
+    const double alpha { offset.x * crdSet[0] + offset.y * crdSet[1] + offset.z * crdSet[2] };
+    const double beta { offset.x * crdSet[3] + offset.y * crdSet[4] + offset.z * crdSet[5] };
+    const double gamma { offset.x * crdSet[6] + offset.y * crdSet[7] + offset.z * crdSet[8] };
     const Vec3D i { crdSetNew[0], crdSetNew[1], crdSetNew[2] };
     const Vec3D j { crdSetNew[3], crdSetNew[4], crdSetNew[5] };
     const Vec3D k { crdSetNew[6], crdSetNew[7], crdSetNew[8] };
@@ -418,53 +300,37 @@ Vec3D translate_on_sphere(Vec3D targ, Vec3D com, Vec3D comNew,
 Vec3D rotate_on_sphere(
     Vec3D targ, Vec3D com, const std::array<double, 9>& crdSet, double dAngle)
 {
-    Vec3D targNew;
+    double sinAngle, cosAngle;
+    sin_cos(dAngle, sinAngle, cosAngle);
+    return rotate_on_sphere(targ, com, crdSet, sinAngle, cosAngle);
+}
 
-    // targ will rotate along O-COM line, i.e. i axis. so its projection along i is not change
+Vec3D rotate_on_sphere(Vec3D targ, Vec3D com, const std::array<double, 9>& crdSet, double sinAngle,
+    double cosAngle)
+{
+    // targ rotates about the O-COM line, the i axis, so its projection on i
+    // does not change and its component in the (j, k) plane turns from j
+    // towards k.  k = i x j, so that is Rodrigues' rotation,
+    //     offsetJK -> cos(a) offsetJK + sin(a) (i x offsetJK).
+    // It used to recover the in-plane angle with acos() and rebuild the
+    // component from cos/sin of the sum: the same rotation, with an acos() and
+    // a sincos() per point, and two defects.  acos() of a ratio that rounds
+    // past 1 gave NaN, and the NaN guard then returned targ unrotated; and a
+    // second "nothing to rotate" test compared |offsetI| in nm against 1, so
+    // any point exactly one nanometre from COM along i was not rotated either.
     const Vec3D i { crdSet[0], crdSet[1], crdSet[2] };
-    const Vec3D j { crdSet[3], crdSet[4], crdSet[5] };
-    const Vec3D k { crdSet[6], crdSet[7], crdSet[8] };
     const Vec3D offset { targ - com };
-
     const Vec3D offsetI { i * offset.dot(i) };
     const Vec3D offsetJK { offset - offsetI };
-    // Squared, and first in the || so that it short-circuits: a target lying
-    // straight out along the radius takes no square root at all on the way to
-    // returning unchanged.  A lipid's interface is placed radially from the
-    // centre of the sphere and a lone lipid's molecule COM is its complex's COM,
-    // so that is the path most membrane molecules take.
-    const double offsetJKLengthSquared { offsetJK.length_squared() };
-    // if targ is on the line of O-COM, then no need to rotate
-    if (offsetJKLengthSquared < sameCoordToleranceSquared
-        || std::abs(offsetI.length() - 1.0) < unitProjectionTolerance) {
-        targNew = targ;
-    } else {
-        const double offsetJKLength { std::sqrt(offsetJKLengthSquared) };
-        double phi { std::acos(offsetJK.dot(j) / offsetJKLength) };
-        if (offsetJK.dot(k) < 0.0) {
-            phi = 2.0 * M_PI - phi;
-        }
-        phi = phi + dAngle;
-        double sinPhi, cosPhi;
-        sin_cos(phi, sinPhi, cosPhi);
-        const Vec3D rotatedJK { j * (offsetJKLength * cosPhi) + k * (offsetJKLength * sinPhi) };
-        const Vec3D rotated { offsetI + rotatedJK };
-        targNew = Vec3D { rotated.x + com.x, rotated.y + com.y, rotated.z + com.z };
+    // A target straight out along the radius has nothing to rotate.  A lipid's
+    // interface is placed radially from the centre of the sphere and a lone
+    // lipid's molecule COM is its complex's COM, so that is the path most
+    // membrane molecules take.
+    if (offsetJK.length_squared() < sameCoordToleranceSquared) {
+        return targ;
     }
-    if (std::isnan(targNew.x)) {
-        /* Only the rotating branch above can produce a NaN here: a NaN anywhere
-         * in targ, com, crdSet or dAngle makes both tests on the way in false -
-         * every comparison against a NaN is - so the non-rotating branch is
-         * unreachable with a NaN result.
-         *
-         * The original re-tested the tangential component's cached magnitude at
-         * this point, and the reassignment inside that branch had reset the cache
-         * to zero, so this guard always fell through to returning targ unchanged.
-         * The `exit(1)` arm it also had was dead code.
-         */
-        targNew = targ;
-    }
-    return targNew;
+    const Vec3D rotated { offsetI + cosAngle * offsetJK + sinAngle * i.cross(offsetJK) };
+    return Vec3D { rotated.x + com.x, rotated.y + com.y, rotated.z + com.z };
 }
 
 double calc_bindRadius2D(double bindRadius, Vec3D iFace)

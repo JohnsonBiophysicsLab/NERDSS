@@ -149,6 +149,10 @@ NERDSS_NODISCARD Vec3D translate_on_sphere(Vec3D targ, Vec3D com, Vec3D comNew,
 NERDSS_NODISCARD Vec3D rotate_on_sphere(
     Vec3D targ, Vec3D com, const std::array<double, 9>& crdSet, double dAngle);
 
+//! \brief The same, given sin(dAngle) and cos(dAngle), for a caller rotating many points by one angle.
+NERDSS_NODISCARD Vec3D rotate_on_sphere(
+    Vec3D targ, Vec3D com, const std::array<double, 9>& crdSet, double sinAngle, double cosAngle);
+
 /*!
  * \brief The chord binding radius re-expressed as a geodesic distance.
  *
