@@ -1,0 +1,51 @@
+# Standalone MPI branch (mjohn218/nerdss_development 'mpi', f1dd0590, 2025-04-07) on 1_test
+# nItr = 10000, trajWrite = 1000000 (off), same .mol files; Apple M5, 2026-10-14
+# /usr/bin/time -l wraps mpirun, so 'instructions retired' is the launcher's, not the ranks'.
+
+=== serial: /private/tmp/claude-501/-Users-yue-Workspace-NERDSS/795ae25f-3942-4661-85be-f52029fde836/scratchpad/nerdss_opt_g -f parms_0.inp  (start 13:32:33)
+exit=0 (13:32:38)
+        4.40 real         4.18 user         0.14 sys
+            14663680  maximum resident set size
+         38374755701  instructions retired
+=== np1: mpirun -np 1 /private/tmp/claude-501/-Users-yue-Workspace-NERDSS/795ae25f-3942-4661-85be-f52029fde836/scratchpad/mpi_upstream/bin/nerdss_mpi -f parms_0.inp  (start 13:32:38)
+exit=0 (13:32:55)
+       17.73 real        16.05 user         0.16 sys
+            19398656  maximum resident set size
+           285802755  instructions retired
+=== np2: mpirun -np 2 /private/tmp/claude-501/-Users-yue-Workspace-NERDSS/795ae25f-3942-4661-85be-f52029fde836/scratchpad/mpi_upstream/bin/nerdss_mpi -f parms_0.inp  (start 13:32:55)
+exit=0 (13:34:07)
+       71.59 real       133.21 user         0.86 sys
+            19578880  maximum resident set size
+           277389157  instructions retired
+=== np4: mpirun -np 4 --oversubscribe /private/tmp/claude-501/-Users-yue-Workspace-NERDSS/795ae25f-3942-4661-85be-f52029fde836/scratchpad/mpi_upstream/bin/nerdss_mpi -f parms_0.inp  (start 13:34:07)
+exit=0 (13:36:08)
+      121.22 real       392.11 user         2.29 sys
+            20889600  maximum resident set size
+           298327154  instructions retired
+
+== np1: computation / communication (per rank, from output_*.txt)
+  output_0.txt: total computation time: 16 seconds ; total communication time: 0 seconds
+  merged copy numbers, last row: 0.01,278,0,100,100,296,296,221,221,0,0,0,0,0
+  per-rank last rows:
+    copy_numbers_time_0.dat: 0.01,278,0,100,100,296,296,221,221,0,0,0,0,0
+== np2: computation / communication (per rank, from output_*.txt)
+  output_0.txt: total computation time: 13 seconds ; total communication time: 58 seconds
+  output_1.txt: total computation time: 20 seconds ; total communication time: 51 seconds
+  merged copy numbers, last row: 0.01,278,0,100,100,296,296,221,221,0,0,0,0,0
+  per-rank last rows:
+    copy_numbers_time_0.dat: 0.01,0,0,0,0,0,0,0,0,0,0,0,0,0
+    copy_numbers_time_1.dat: 0.01,278,0,100,100,296,296,221,221,0,0,0,0,0
+== np4: computation / communication (per rank, from output_*.txt)
+  output_0.txt: total computation time: 18 seconds ; total communication time: 102 seconds
+  output_1.txt: total computation time: 21 seconds ; total communication time: 99 seconds
+  output_2.txt: total computation time: 8 seconds ; total communication time: 112 seconds
+  output_3.txt: total computation time: 8 seconds ; total communication time: 113 seconds
+  merged copy numbers, last row: 0.009,128,0,0,0,3,3,0,0,0,0,0,0,0
+  per-rank last rows:
+    copy_numbers_time_0.dat: 0.01,128,0,0,0,3,3,0,0,0,0,0,0,0
+    copy_numbers_time_1.dat: 0.01,0,0,0,0,0,0,0,0,0,0,0,0,0
+    copy_numbers_time_2.dat: 0.01,0,0,0,0,0,0,0,0,0,0,0,0,0
+    copy_numbers_time_3.dat: 0.01,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+== serial (nerdss-optimized 3505932d) last row: 0.009999,278,0,100,100,296,296,221,221,0,0,0,0,0
+== grid: Total sub-volumes: 396 Dimensions: [2, 2, 99] ; Rmaxlimit: 55.2036
