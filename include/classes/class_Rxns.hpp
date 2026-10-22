@@ -15,6 +15,7 @@
 #include "classes/class_Molecule_Complex.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -197,6 +198,72 @@ public:
         //!< reactants (enters duplicate as dummy)
 
     std::vector<RateState> rateList {}; //!< list of rates for the reaction
+
+    /*!
+     * \brief rateList's ancillary requirements, compiled for best_matching_rate().
+     *
+     * Each distinct requirement (reactant side, interface, required state and
+     * bound status) of all rate states becomes one bit, and each rate state the
+     * mask of the bits it needs.  A selection then reads every required
+     * interface once instead of once per rate state that names it.
+     *
+     * It is built on the first selection from this reaction and is derived data
+     * only: it is not serialized, and a copy starts empty and builds its own, so
+     * the reactions an MPI rank deserializes compile themselves.  rateList must
+     * not change once selection has begun (parsing and restart reading finish
+     * before the first step); a change of length is caught and rebuilt.
+     */
+    struct CompiledRates {
+        //! One interface read: tests [firstTest, endTest) are the requirements on it.
+        struct Probe {
+            int side { 0 }; //!< index into RateState::otherIfaceLists
+            int relIfaceIndex { 0 };
+            int firstTest { 0 };
+            int endTest { 0 };
+        };
+        //! One distinct requirement; its bit is its index in `tests`.
+        struct Test {
+            std::uint64_t key { 0 }; //!< molTypeIndex, requiresInteraction and requiresState, packed for one compare
+            int molTypeIndex { 0 };
+            int relIfaceIndex { 0 };
+            char requiresState { '\0' };
+            bool requiresInteraction { false };
+        };
+
+        bool built { false };
+        bool usable { false }; //!< false: more than 64 requirements, or a malformed list; scan instead
+        std::size_t stateCount { 0 };
+        std::vector<Probe> probes {};
+        std::vector<Test> tests {};
+        std::vector<std::uint64_t> stateMasks {}; //!< per rate state, in rateList order
+        std::vector<std::size_t> ancillaryCounts {}; //!< per rate state, the count the selection rule compares
+
+        CompiledRates() = default;
+        CompiledRates(const CompiledRates&) { }
+        CompiledRates(CompiledRates&&) noexcept { }
+        CompiledRates& operator=(const CompiledRates&)
+        {
+            reset();
+            return *this;
+        }
+        CompiledRates& operator=(CompiledRates&&) noexcept
+        {
+            reset();
+            return *this;
+        }
+        void reset()
+        {
+            built = false;
+            usable = false;
+            stateCount = 0;
+            probes.clear();
+            tests.clear();
+            stateMasks.clear();
+            ancillaryCounts.clear();
+        }
+    };
+    mutable CompiledRates compiledRates {};
+
     std::pair<RxnIface, RxnIface> stateChangeIface; //!< interfaces which don't change interaction but change state
     /**< Contains rates dependent on different parameters, e.g. bound interfaces, different states, etc.*/
 

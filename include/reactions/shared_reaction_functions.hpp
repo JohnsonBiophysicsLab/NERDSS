@@ -228,9 +228,13 @@ struct RateMatch {
  * once per candidate interface pair per timestep, so the vector cost a heap
  * allocation on a hot path to hold information that a running best already
  * carries.
+ *
+ * This is the reference form: best_matching_rate_compiled() below returns the
+ * same RateMatch from the reaction's compiled requirements, and falls back to
+ * this scan for the lists and reactant positions it does not compile.
  */
-inline RateMatch best_matching_rate(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2,
-    const Molecule& reactMol1, const Molecule& reactMol2)
+inline RateMatch best_matching_rate_scan(const std::vector<RxnBase::RateState>& rateList, int reactIndex1,
+    int reactIndex2, const Molecule& reactMol1, const Molecule& reactMol2)
 {
     RateMatch result {};
     for (std::size_t rateItr { 0 }; rateItr < rateList.size(); ++rateItr) {
@@ -247,6 +251,38 @@ inline RateMatch best_matching_rate(const std::vector<RxnBase::RateState>& rateL
     }
     return result;
 }
+
+/*!
+ * \brief best_matching_rate_scan() over rxn.rateList, from its compiled requirements.
+ *
+ * Returns exactly the RateMatch the scan returns -- the match count, the
+ * selected index and its ancillary count -- but reads each interface the rate
+ * states name once per call rather than once per rate state.  In the
+ * cooperative clathrin models a pair's list holds up to nine rate states that
+ * test the same few interfaces over and over, and the scan has to visit every
+ * state, because the most specific match wins.
+ */
+RateMatch best_matching_rate_compiled(const RxnBase& rxn, int reactIndex1, int reactIndex2,
+    const Molecule& reactMol1, const Molecule& reactMol2);
+
+/*!
+ * \brief The best matching rate state of rxn.rateList for this reactant pair.
+ *
+ * A list with a single rate state has nothing to select, and most reactions
+ * have one, so it keeps the inline scan; longer lists use the compiled form.
+ */
+inline RateMatch best_matching_rate(const RxnBase& rxn, int reactIndex1, int reactIndex2, const Molecule& reactMol1,
+    const Molecule& reactMol2)
+{
+    if (rxn.rateList.size() <= 1)
+        return best_matching_rate_scan(rxn.rateList, reactIndex1, reactIndex2, reactMol1, reactMol2);
+    return best_matching_rate_compiled(rxn, reactIndex1, reactIndex2, reactMol1, reactMol2);
+}
+
+/*!
+ * \brief Builds rxn.compiledRates from rxn.rateList; best_matching_rate_compiled() calls it on first use.
+ */
+void compile_rate_list(const RxnBase& rxn);
 
 /*!
  * \brief Probability that a first-order event of this rate occurs in one timestep.
