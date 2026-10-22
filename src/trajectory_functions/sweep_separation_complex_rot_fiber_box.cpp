@@ -66,7 +66,8 @@ void sweep_separation_complex_rot_fiber_box(
 
   // determine RS3Dinput
   double RS3Dinput{0.0};
-  Complex targCom{complexList[comIndex1]};
+  // Read-only, and used only for its member list just below: no copy.
+  const Complex& targCom = complexList[comIndex1];
   if (membraneObject.implicitLipid) {
     for (auto &molIndex : targCom.memberList) {
       for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {

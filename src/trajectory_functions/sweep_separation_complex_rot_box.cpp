@@ -84,7 +84,8 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
 
     // determine RS3Dinput
     double RS3Dinput { 0.0 };
-    Complex targCom { complexList[com1Index] };
+    // Read-only, and used only for its member list just below: no copy.
+    const Complex& targCom = complexList[com1Index];
     if (membraneObject.implicitLipid) {
         for (auto& molIndex : targCom.memberList) {
             for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {

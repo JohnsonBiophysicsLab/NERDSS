@@ -82,7 +82,8 @@ void sweep_separation_complex_rot_memtest_sphere(int simItr, int pro1Index, Para
 
     //determine RS3Dinput
     double RS3Dinput { 0.0 };
-    Complex targCom { complexList[comIndex1] };
+    // Read-only, and used only for its member list just below: no copy.
+    const Complex& targCom = complexList[comIndex1];
     if (membraneObject.hasRS3Dtable()) {
         for (auto& molIndex : targCom.memberList) {
             for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
