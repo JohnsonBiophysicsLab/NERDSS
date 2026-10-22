@@ -35,10 +35,11 @@ void cluster_one_complex(int k1, std::vector<Molecule>& moleculeList, std::vecto
                 rxn = rxnItr[0];
                 newPair.i1 = i1;
                 newPair.bindrad = forwardRxns[rxn].bindRadius;
-                // get the partner interface
-                newPair.i2 = (forwardRxns[rxn].reactantListNew[0].relIfaceIndex == i1)
+                // get the partner interface; the duplicate test below compares against it
+                i2 = (forwardRxns[rxn].reactantListNew[0].relIfaceIndex == i1)
                     ? forwardRxns[rxn].reactantListNew[1].relIfaceIndex
                     : forwardRxns[rxn].reactantListNew[0].relIfaceIndex;
+                newPair.i2 = i2;
 
                 flag = 0;
                 for (int j = 0; j < pairList.size(); j++) {
