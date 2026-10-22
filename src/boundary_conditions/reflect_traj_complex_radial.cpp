@@ -42,8 +42,8 @@ void reflect_traj_complex_radial(const Parameters& params, std::vector<Molecule>
     const double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
     const double boundaryR { radial_boundary(radius, RS3D, side) };
 
-    std::array<double, 9> M;
-    M = create_euler_rotation_matrix(targCom.trajRot);
+    // Only a complex that may cross the boundary is scanned, so the matrix is built on first use.
+    LazyEulerRotationMatrix M { targCom.trajRot };
 
     bool recheck = false;
 
@@ -66,8 +66,9 @@ void reflect_traj_complex_radial(const Parameters& params, std::vector<Molecule>
             // are not interchangeable.
             const double seed { radial_signed_boundary(boundaryR, side) };
             ExtremePoint escaped { Vec3D {}, seed };
+            const std::array<double, 9>& rotation { M.get() };
             for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
-                const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
+                const Vec3D rot { matrix_rotate(point - targCom.comCoord, rotation) };
                 const Vec3D curr { base + rot };
                 escaped.consider(curr, radial_signed_radius(curr, side));
             });
