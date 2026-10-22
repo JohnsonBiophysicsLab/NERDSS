@@ -845,6 +845,8 @@ int main(int argc, char *argv[]) {
     // molecule set the search is about to walk.
     shellIndex.rebin(moleculeList, complexList);
     const bool shellActive{shellIndex.active};
+    // Partner types for the type-mask tests below, without touching moleculeList.
+    const std::vector<int> &memberTypeIndex{simulVolume.memberTypeIndex};
     for (int cellItr : simulVolume.occupiedSubCells) {
       for (unsigned memItr{0};
            memItr < simulVolume.subCellList[cellItr].memberMolList.size();
@@ -895,7 +897,7 @@ int main(int argc, char *argv[]) {
               continue; // the shell index offers this pair
             if (useTypeMask &&
                 !(targMask &
-                  (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                  (uint64_t(1) << memberTypeIndex[partMolIndex])))
               continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -918,7 +920,7 @@ int main(int argc, char *argv[]) {
                 continue; // the shell index offers this pair
               if (useTypeMask &&
                   !(targMask &
-                    (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                    (uint64_t(1) << memberTypeIndex[partMolIndex])))
                 continue;
               check_bimolecular_reactions(
                   targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -956,7 +958,7 @@ int main(int argc, char *argv[]) {
             const int partMolIndex{shellMembers[memItr2]};
             if (useTypeMask &&
                 !(targMask &
-                  (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                  (uint64_t(1) << memberTypeIndex[partMolIndex])))
               continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -974,7 +976,7 @@ int main(int argc, char *argv[]) {
               const int partMolIndex{neighMembers[memItr2]};
               if (useTypeMask &&
                   !(targMask &
-                    (uint64_t(1) << moleculeList[partMolIndex].molTypeIndex)))
+                    (uint64_t(1) << memberTypeIndex[partMolIndex])))
                 continue;
               check_bimolecular_reactions(
                   targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
