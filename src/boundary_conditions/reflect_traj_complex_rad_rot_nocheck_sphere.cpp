@@ -8,7 +8,8 @@ void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Compl
 
     double sphereR = membraneObject.sphereR - RS3D;
 
-    std::array<double, 9> M = create_euler_rotation_matrix(targCom.trajRot);
+    // Only a complex that may reach the sphere is scanned, so the matrix is built on first use.
+    LazyEulerRotationMatrix M { targCom.trajRot };
 
     // if (targCom.D.z < 1E-14 || targCom.OnSurface) { // for the complex on the sphere surface
     if (targCom.OnSurface) {
@@ -25,8 +26,9 @@ void reflect_traj_complex_rad_rot_nocheck_sphere(const Parameters& params, Compl
     // for the outside sphere situation: find the furthest point from the sphere centre
     ExtremePoint farthest { Vec3D { 0, 0, sphereR },
         radial_signed_boundary(sphereR, RadialSide::Inside) };
+    const std::array<double, 9>& rotation { M.get() };
     for_each_complex_point(targCom, moleculeList, [&](const Vec3D& point) {
-        const Vec3D rot { matrix_rotate(point - targCom.comCoord, M) };
+        const Vec3D rot { matrix_rotate(point - targCom.comCoord, rotation) };
         const Vec3D curr { base + rot };
         farthest.consider(curr, radial_signed_radius(curr, RadialSide::Inside));
     });

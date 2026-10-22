@@ -17,6 +17,11 @@
 
 void sweep_separation_complex_rot_memtest_sphere(int simItr, int pro1Index, Parameters& params, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
+    // Pair after pair rotates an interface of the same complex, so each side keeps
+    // the matrix it built last and rebuilds it only when the angles change.
+    EulerRotationMatrixCache rotation1;
+    EulerRotationMatrixCache rotation2;
+
     /*
       In this version, complex comIndex1 is on the membrane.
       If both proteins are on the membrane (Dz==0), evaluate only xy displacement, not z.
@@ -77,7 +82,8 @@ void sweep_separation_complex_rot_memtest_sphere(int simItr, int pro1Index, Para
 
     //determine RS3Dinput
     double RS3Dinput { 0.0 };
-    Complex targCom { complexList[comIndex1] };
+    // Read-only, and used only for its member list just below: no copy.
+    const Complex& targCom = complexList[comIndex1];
     if (membraneObject.hasRS3Dtable()) {
         for (auto& molIndex : targCom.memberList) {
             for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
@@ -128,7 +134,7 @@ void sweep_separation_complex_rot_memtest_sphere(int simItr, int pro1Index, Para
                         dz1 = iface_final.z;
                     } else { // complex inside sphere
                         Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[relIface1].coord - complexList[comIndex1].comCoord };
-                        std::array<double, 9> M = create_euler_rotation_matrix(complexList[comIndex1].trajRot);
+                        const std::array<double, 9>& M = rotation1.get(complexList[comIndex1].trajRot);
                         iface1Vec = matrix_rotate(iface1Vec, M);
                         dx1 = complexList[comIndex1].comCoord.x + iface1Vec.x + complexList[comIndex1].trajTrans.x;
                         dy1 = complexList[comIndex1].comCoord.y + iface1Vec.y + complexList[comIndex1].trajTrans.y;
@@ -150,7 +156,7 @@ void sweep_separation_complex_rot_memtest_sphere(int simItr, int pro1Index, Para
                         dz2 = iface_final.z;
                     } else { // complex inside sphere
                         Vec3D iface2Vec { moleculeList[p2].interfaceList[relIface2].coord - complexList[comIndex2].comCoord };
-                        std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[comIndex2].trajRot);
+                        const std::array<double, 9>& M2 = rotation2.get(complexList[comIndex2].trajRot);
                         iface2Vec = matrix_rotate(iface2Vec, M2);
                         dx2 = complexList[comIndex2].comCoord.x + iface2Vec.x + complexList[comIndex2].trajTrans.x;
                         dy2 = complexList[comIndex2].comCoord.y + iface2Vec.y + complexList[comIndex2].trajTrans.y;
