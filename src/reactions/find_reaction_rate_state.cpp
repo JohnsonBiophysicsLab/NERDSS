@@ -38,7 +38,7 @@ int find_reaction_rate_state(int simItr, int relIfaceIndex1, int relIfaceIndex2,
     // match, the one with the most required ancillary interfaces wins.  Both
     // are handled by the single streaming scan, so no temporary match list is
     // built and rescanned.
-    const RateMatch match { best_matching_rate(backRxn.rateList, reactIndex1, reactIndex2, reactMol1, reactMol2) };
+    const RateMatch match { best_matching_rate(backRxn, reactIndex1, reactIndex2, reactMol1, reactMol2) };
     if (match.matches == 0)
         return -1;
 
