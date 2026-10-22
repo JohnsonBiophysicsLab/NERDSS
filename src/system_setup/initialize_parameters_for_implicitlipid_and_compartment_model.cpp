@@ -160,6 +160,7 @@ void initialize_paramters_for_implicitlipid_and_compartment_model(int& implicitl
             RS3Dindex += 1;
         } //only set up Compartment model if they exist.
     }
+    membraneObject.forget_RS3D_matches();
     // std::cout << "membraneObject.RS3Dvect[300]: " << std::setprecision(20) << membraneObject.RS3Dvect[300] << std::endl;
     // exit(1);
 }
@@ -352,6 +353,7 @@ void initialize_paramters_for_implicitlipid_model(
       }
     }
   }  // only set up IL model if they exist.
+  membraneObject.forget_RS3D_matches();
   // std::cout << "membraneObject.RS3Dvect[300]: " << std::setprecision(20) <<
   // membraneObject.RS3Dvect[300] << std::endl; exit(1);
 }
