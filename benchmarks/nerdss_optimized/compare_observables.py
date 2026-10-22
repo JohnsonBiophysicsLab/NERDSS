@@ -13,6 +13,12 @@ compared with a Welch z-score.
 |z| below about 2 means the two builds are statistically indistinguishable for
 that species at this number of seeds.  A change in the physics shows up as a
 |z| that grows with the number of seeds; a pure change of random stream does not.
+
+    compare_observables.py <root> [--window LO:HI]
+
+--window averages rows LO*n to HI*n of each trajectory instead (fractions,
+default 0.5:1).  An early window such as 0:0.1 compares the approach to steady
+state, which reaction probabilities move more directly than the plateau does.
 """
 
 import math
@@ -23,8 +29,8 @@ from pathlib import Path
 VARIANTS = ("baseline", "candidate")
 
 
-def read_plateau_means(path):
-    """Average each numeric column over the second half of the trajectory."""
+def read_plateau_means(path, window=(0.5, 1.0)):
+    """Average each numeric column over a window of the trajectory (the second half by default)."""
     with path.open() as handle:
         header = handle.readline().strip()
         rows = []
@@ -42,7 +48,9 @@ def read_plateau_means(path):
         return None, None
 
     names = [n.strip() for n in header.replace("\t", ",").split(",")]
-    half = rows[len(rows) // 2:]
+    lo = int(len(rows) * window[0])
+    hi = max(lo + 1, int(round(len(rows) * window[1])))
+    half = rows[lo:hi]
     width = min(len(r) for r in half)
     # Column 0 is time.
     means = [statistics.fmean(r[c] for r in half) for c in range(1, width)]
@@ -66,6 +74,11 @@ def summarize(values):
 
 def main():
     root = Path(sys.argv[1])
+    window = (0.5, 1.0)
+    if len(sys.argv) > 3 and sys.argv[2] == "--window":
+        lo, hi = sys.argv[3].split(":")
+        window = (float(lo), float(hi))
+        print(f"averaging rows {window[0]:g} to {window[1]:g} of each trajectory")
     worst = 0.0
     any_case = False
 
@@ -79,7 +92,7 @@ def main():
                 data = seed_dir / "DATA" / "copy_numbers_time.dat"
                 if not data.is_file():
                     continue
-                cols, means = read_plateau_means(data)
+                cols, means = read_plateau_means(data, window)
                 if means is None:
                     continue
                 labels = labels or cols

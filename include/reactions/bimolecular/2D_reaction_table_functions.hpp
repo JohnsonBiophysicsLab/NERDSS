@@ -59,14 +59,15 @@ void create_DDMatrices(gsl_matrix *& survMatrix, gsl_matrix *& normMatrix, gsl_m
 double survival_function(double x, void* p);
 
 /*! \ingroup 2DReactions
+ * \brief Closed-form integral of survival_function (finite ka) from X to infinity, for X in its
+ * large-argument regime.
+ */
+double survival_tail(const IntegrandParams& params, double X);
+
+/*! \ingroup 2DReactions
  * \brief Norm function for integration
  */
 double norm_function(double x, void* p);
-
-/*! \ingroup 2DReactions
- * \brief Pir function for integration
- */
-double pir_function(double x, void* p);
 
 /*! \ingroup 2DReactions
  * \brief 2D lookup table for pnorm
@@ -100,6 +101,12 @@ double calc_pirr(
  */
 double integrator(gsl_function F, IntegrandParams params, gsl_integration_workspace* w, double r0, double bindrad,
     double Dtot, double kr, double deltat, char* funcID, double (*f)(double, void*),
+    const NumericalSettings::Integration& settings);
+
+/*! \ingroup 2DReactions
+ * \brief Association probability for a finite ka: GK61 on [0, X] plus survival_tail().
+ */
+double integrate_survival(IntegrandParams params, gsl_integration_workspace* w, size_t limit,
     const NumericalSettings::Integration& settings);
 
 /* 2D MATRIX CREATION FUNCTIONS */
