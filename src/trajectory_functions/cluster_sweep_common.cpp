@@ -24,18 +24,80 @@
 #include "math/rand_gsl.hpp"
 #include "trajectory_functions/trajectory_functions.hpp"
 
-void collect_cluster_partners(int comIndex, const std::vector<Molecule>& moleculeList,
+#include <algorithm>
+
+namespace {
+
+/*! \brief A set of indices that is emptied in O(1) by starting a new generation.
+ *
+ * Kept from call to call so that the marks are not reallocated and cleared for
+ * every sweep.
+ */
+class GenerationMarks {
+public:
+    void start(std::size_t size)
+    {
+        if (marks_.size() < size)
+            marks_.resize(size, 0);
+        if (++generation_ == 0) {
+            std::fill(marks_.begin(), marks_.end(), 0u);
+            generation_ = 1;
+        }
+    }
+
+    //! \brief Marks `index`; false if it was already marked in this generation.
+    bool insert(int index)
+    {
+        if (marks_[index] == generation_)
+            return false;
+        marks_[index] = generation_;
+        return true;
+    }
+
+private:
+    std::vector<unsigned> marks_;
+    unsigned generation_ { 0 };
+};
+
+} // namespace
+
+void collect_cluster_partners(const std::vector<ClusterPair>& pairList, const std::vector<Molecule>& moleculeList,
     const std::vector<Complex>& complexList, std::vector<int>& partnerList,
     std::vector<TrajStatus>& movestatOrigPartnerList)
 {
-    for (unsigned memMolItr { 0 }; memMolItr < complexList[comIndex].memberList.size(); ++memMolItr) {
-        int pro1Index = complexList[comIndex].memberList[memMolItr];
-        for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossings.size(); ++crossMemItr) {
-            int pro2Index { moleculeList[pro1Index].crossings[crossMemItr].partner };
-            if (moleculeList[pro2Index].isImplicitLipid)
+    // This used to collect the partners of k1 and of k2 for every pair, so a
+    // complex that appears in many pairs had its partners appended once per
+    // pair: on the in vivo clathrin model about 1,550 entries a call, mostly
+    // repeats.  Only the first entry for a molecule ever did anything:
+    //   * nothing writes a trajStatus while the list is collected, so every
+    //     repeat carries the same saved status as the first entry;
+    //   * resample_partner_trajectories() resamples a complex once, at the
+    //     first entry that can move;
+    //   * the substep propagation skips a molecule already propagated, and
+    //     the restore and final loops write the same values again.
+    // So each molecule is kept at its first position, and a complex already
+    // collected is skipped, since its members' partners are all in the list.
+    static GenerationMarks collectedComplexes;
+    static GenerationMarks collectedMolecules;
+    collectedComplexes.start(complexList.size());
+    collectedMolecules.start(moleculeList.size());
+
+    for (const ClusterPair& pair : pairList) {
+        for (int comIndex : { pair.k1, pair.k2 }) {
+            if (!collectedComplexes.insert(comIndex))
                 continue;
-            partnerList.push_back(pro2Index);
-            movestatOrigPartnerList.push_back(moleculeList[pro2Index].trajStatus);
+            for (unsigned memMolItr { 0 }; memMolItr < complexList[comIndex].memberList.size(); ++memMolItr) {
+                int pro1Index = complexList[comIndex].memberList[memMolItr];
+                for (int crossMemItr { 0 }; crossMemItr < moleculeList[pro1Index].crossings.size(); ++crossMemItr) {
+                    int pro2Index { moleculeList[pro1Index].crossings[crossMemItr].partner };
+                    if (moleculeList[pro2Index].isImplicitLipid)
+                        continue;
+                    if (!collectedMolecules.insert(pro2Index))
+                        continue;
+                    partnerList.push_back(pro2Index);
+                    movestatOrigPartnerList.push_back(moleculeList[pro2Index].trajStatus);
+                }
+            }
         }
     }
 }

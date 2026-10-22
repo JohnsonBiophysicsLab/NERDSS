@@ -144,6 +144,26 @@ struct SimulVolume {
      */
     std::vector<int> occupiedSubCells {};
 
+    /*! \brief molTypeIndex of every Molecule add_member() has binned, by Molecule index.
+     *
+     * The pairwise search reads a candidate partner's type from here instead
+     * of from moleculeList.  On a membrane model nearly every candidate is a
+     * lipid the type mask rejects, and loading a whole Molecule just to read
+     * its type was most of the cost of the walk.  add_member() is handed the
+     * type by a caller that already holds the Molecule, so this costs no
+     * extra load.
+     *
+     * Valid for every Molecule in a member list: a serial run grows member
+     * lists only through add_member(), a Molecule's type never changes while
+     * it exists, and a slot that creation reuses goes through add_member()
+     * again.  Entries of destroyed Molecules go stale, which is harmless
+     * because those Molecules are removed from the member lists.  Not
+     * maintained by the MPI-only sites that push into memberMolList directly
+     * or that renumber it (remove_empty_slots()); the MPI search does not read
+     * it.  Derived, so it is not serialized.
+     */
+    std::vector<int> memberTypeIndex {};
+
     //! Index of the lowest set bit.  Only called on a non-zero word.
     static int lowest_set_bit(uint64_t word) {
 #if defined(__GNUC__) || defined(__clang__)
@@ -161,6 +181,9 @@ struct SimulVolume {
     void add_member(int cellIndex, int molIndex, int molTypeIndex) {
         SubVolume& cell = subCellList[cellIndex];
         cell.memberMolList.push_back(molIndex);
+        if (molIndex >= int(memberTypeIndex.size()))
+            memberTypeIndex.resize(molIndex + 1, -1);
+        memberTypeIndex[molIndex] = molTypeIndex;
         cell.typeMask |= (molTypeIndex >= 0 && molTypeIndex < 64)
             ? (uint64_t(1) << molTypeIndex)
             : ~uint64_t(0);

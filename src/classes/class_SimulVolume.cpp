@@ -435,16 +435,7 @@ void SimulVolume::update_memberMolLists(
         double RS3Dinput{0.0};
 
         if (membraneObject.implicitLipid == true) {
-          for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] -
-                         mol.molTypeIndex) < 1E-2) {
-              RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-              //   std::cout << mol.molTypeIndex << "\t" <<
-              //   membraneObject.RS3Dvect[RS3Dindex + 400] << "\t" << RS3Dindex
-              //   << "\n";
-              break;
-            }
-          }
+          RS3Dinput = membraneObject.RS3D_of_molType(mol.molTypeIndex, RS3Dinput);
         }
 
         if (mol.comCoord.z - 0.1 >
@@ -616,16 +607,7 @@ void SimulVolume::update_memberMolLists(
         double RS3Dinput{0.0};
 
         if (membraneObject.implicitLipid == true) {
-          for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] -
-                         mol.molTypeIndex) < 1E-2) {
-              RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-              //   std::cout << mol.molTypeIndex << "\t" <<
-              //   membraneObject.RS3Dvect[RS3Dindex + 400] << "\t" << RS3Dindex
-              //   << "\n";
-              break;
-            }
-          }
+          RS3Dinput = membraneObject.RS3D_of_molType(mol.molTypeIndex, RS3Dinput);
         }
 
         if (mol.comCoord.z - 0.1 >

@@ -10,8 +10,8 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
     // for explicit-lipid model, membraneObject.RS3D = 0. And, for those proteins that are bound on surface, they are not allowed to reflect along Z-axis
     double RS3D { reflecting_surface_offset(targCom, RS3Dinput) };
 
-    std::array<double, 9> M;
-    M = create_euler_rotation_matrix(targCom.trajRot);
+    // Only a complex near a wall is scanned, so the matrix is built on first use.
+    LazyEulerRotationMatrix M { targCom.trajRot };
 
     // declare the six boundary sides of the system box;
     const Vec3D posSide { membraneObject.waterBox.x / 2.0, membraneObject.waterBox.y / 2.0,
@@ -35,7 +35,7 @@ void reflect_traj_complex_rad_rot_box(const Parameters& params, std::vector<Mole
 
         // Now evaluate all interfaces distance from boundaries.
         const WallExtent extent { scan_axis_extent(
-            targCom, moleculeList, M, axis, base, WallExtent { negWallSide, posWallSide }) };
+            targCom, moleculeList, M.get(), axis, base, WallExtent { negWallSide, posWallSide }) };
 
         // Largest distance outside the positive side (marked +) and the negative side (marked -).
         const double posd { extent.overshoot(posWallSide) };

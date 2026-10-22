@@ -75,7 +75,7 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
         //   5. the zero-match case read element 0 of an empty match list.
         if (oneRxn.conjBackRxnIndex != -1) {
             if (oneRxn.rxnType == ReactionType::biMolStateChange && (reactIndex1 == -1 || reactIndex2 == -1)) {
-                const std::vector<RxnBase::RateState>& backRateList = backRxns[oneRxn.conjBackRxnIndex].rateList;
+                const BackRxn& backRxn = backRxns[oneRxn.conjBackRxnIndex];
                 bool noBackRateMatched { false };
 
                 /*Why is this allowed here, using the products?*/
@@ -88,7 +88,7 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
                     }
                     if (reactIndex1 != -1 && reactIndex2 != -1) {
                         const RateMatch match {
-                            best_matching_rate(backRateList, reactIndex1, reactIndex2, reactMol1, reactMol2)
+                            best_matching_rate(backRxn, reactIndex1, reactIndex2, reactMol1, reactMol2)
                         };
 
                         if (match.matches == 0) {
@@ -116,14 +116,14 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
 
         // ORDINARY FORWARD REACTION
         if (reactIndex1 != -1 && reactIndex2 != -1) {
-            RateMatch match { best_matching_rate(oneRxn.rateList, reactIndex1, reactIndex2, reactMol1, reactMol2) };
+            RateMatch match { best_matching_rate(oneRxn, reactIndex1, reactIndex2, reactMol1, reactMol2) };
 
             if (match.matches == 0) {
                 // if there are no matching rates and the reaction symmetric (i.e. interface 1 binding to interface 1,
                 // swap the reactants and check their ancillary interfaces
                 if (oneRxn.rxnType == ReactionType::bimolecular
                     && (oneRxn.intReactantList[0] == oneRxn.intReactantList[1])) {
-                    match = best_matching_rate(oneRxn.rateList, reactIndex2, reactIndex1, reactMol1, reactMol2);
+                    match = best_matching_rate(oneRxn, reactIndex2, reactIndex1, reactMol1, reactMol2);
                     if (match.matches == 0)
                         return;
                 } else {

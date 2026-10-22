@@ -6,19 +6,20 @@
 
 void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Index, Parameters& params, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
+    // Pair after pair rotates an interface of the same complex, so each side keeps
+    // the matrix it built last and rebuilds it only when the angles change.
+    EulerRotationMatrixCache rotation1;
+    EulerRotationMatrixCache rotation2;
+
     // try cluster sweep first
     int comIndex1 { moleculeList[pro1Index].myComIndex };
     //determine RS3Dinput
     double RS3Dinput { 0.0 };
-    Complex targCom { complexList[comIndex1] };
+    // Read-only, and used only for its member list just below: no copy.
+    const Complex& targCom = complexList[comIndex1];
     if (membraneObject.implicitLipid) {
     	for (auto& molIndex : targCom.memberList) {
-   	        for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-   	            if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
-   	                RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-   	                break;
-   	            }
-   	        }
+   	        RS3Dinput = membraneObject.RS3D_of_molType(moleculeList[molIndex].molTypeIndex, RS3Dinput);
    	    }
     }
     
@@ -74,14 +75,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
         resample_traj(currStop, pairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
 
         // find the partner of pairList'complex'member, this is for the propagate of these molecule continuely when there is subStep
-        for (i = 0; i < pairList.size(); i++) {
-            p1 = pairList[i].p1;
-            p2 = pairList[i].p2;
-            k1 = pairList[i].k1;
-            k2 = pairList[i].k2;
-            collect_cluster_partners(k1, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
-            collect_cluster_partners(k2, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
-        }
+        collect_cluster_partners(pairList, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
 
         // resample the traj in partnerOfPairList for the timeStep changed
         resample_partner_trajectories(partnerOfPairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
@@ -155,7 +149,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
                 dz1 = iface_final.z;
             } else {
                 Vec3D iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
-                std::array<double, 9> M = create_euler_rotation_matrix(complexList[k1].trajRot);
+                const std::array<double, 9>& M = rotation1.get(complexList[k1].trajRot);
                 iface1Vec = matrix_rotate(iface1Vec, M);
 
                 dx1 = complexList[k1].comCoord.x + iface1Vec.x + complexList[k1].trajTrans.x;
@@ -172,7 +166,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
                 dz2 = iface_final.z;
             } else {
                 Vec3D iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
-                std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[k2].trajRot);
+                const std::array<double, 9>& M2 = rotation2.get(complexList[k2].trajRot);
                 iface2Vec = matrix_rotate(iface2Vec, M2);
                 dx2 = complexList[k2].comCoord.x + iface2Vec.x + complexList[k2].trajTrans.x;
                 dy2 = complexList[k2].comCoord.y + iface2Vec.y + complexList[k2].trajTrans.y;

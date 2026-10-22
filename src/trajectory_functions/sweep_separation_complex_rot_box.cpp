@@ -38,6 +38,11 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject,
     bool ignoreZBetweenSurfacePartners)
 {
+    // Pair after pair rotates an interface of the same complex, so each side keeps
+    // the matrix it built last and rebuilds it only when the angles change.
+    EulerRotationMatrixCache rotation1;
+    EulerRotationMatrixCache rotation2;
+
     int com1Index { moleculeList[pro1Index].myComIndex };
     size_t com1Size { complexList[com1Index].memberList.size() };
 
@@ -79,15 +84,11 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
 
     // determine RS3Dinput
     double RS3Dinput { 0.0 };
-    Complex targCom { complexList[com1Index] };
+    // Read-only, and used only for its member list just below: no copy.
+    const Complex& targCom = complexList[com1Index];
     if (membraneObject.implicitLipid) {
         for (auto& molIndex : targCom.memberList) {
-            for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-                if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
-                    RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-                    break;
-                }
-            }
+            RS3Dinput = membraneObject.RS3D_of_molType(moleculeList[molIndex].molTypeIndex, RS3Dinput);
         }
     }
 
@@ -118,7 +119,7 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
                     int i2 { ifaceList[maxRows * memMolItr + crossMolItr] };
 
                     Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[i1].coord - complexList[com1Index].comCoord };
-                    std::array<double, 9> M = create_euler_rotation_matrix(complexList[com1Index].trajRot);
+                    const std::array<double, 9>& M = rotation1.get(complexList[com1Index].trajRot);
                     iface1Vec = matrix_rotate(iface1Vec, M);
 
                     double dx1 { complexList[com1Index].comCoord.x + iface1Vec.x + complexList[com1Index].trajTrans.x };
@@ -127,7 +128,7 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
 
                     /*Now complex 2*/
                     Vec3D iface2Vec { moleculeList[pro2Index].interfaceList[i2].coord - complexList[com2Index].comCoord };
-                    std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[com2Index].trajRot);
+                    const std::array<double, 9>& M2 = rotation2.get(complexList[com2Index].trajRot);
                     iface2Vec = matrix_rotate(iface2Vec, M2);
                     double dx2 { complexList[com2Index].comCoord.x + iface2Vec.x + complexList[com2Index].trajTrans.x };
                     double dy2 { complexList[com2Index].comCoord.y + iface2Vec.y + complexList[com2Index].trajTrans.y };

@@ -90,16 +90,19 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
     const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject);
 
+class ClusterPair;
+
 /*!
- * \brief Collects the reaction partners of one complex's members, with their
- *        current trajStatus, appending to `partnerList`.
+ * \brief Collects the reaction partners of the members of both complexes of
+ *        every pair, each partner once, with its current trajStatus, into
+ *        `partnerList`.
  *
  * The cluster sweeps use this when they split a timestep into substeps: the
  * complexes around the cluster have to keep moving alongside it, so they are
  * gathered once and then resampled and propagated at the shorter step.
  * Implicit lipids are skipped - they have no trajectory of their own.
  */
-void collect_cluster_partners(int comIndex, const std::vector<Molecule>& moleculeList,
+void collect_cluster_partners(const std::vector<ClusterPair>& pairList, const std::vector<Molecule>& moleculeList,
     const std::vector<Complex>& complexList, std::vector<int>& partnerList,
     std::vector<TrajStatus>& movestatOrigPartnerList);
 
