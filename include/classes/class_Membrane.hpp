@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -194,6 +195,31 @@ struct Membrane {
     //! up: the offset every reader wants is the 0.0 it already starts from.
     bool hasRS3Dtable() const { return !RS3Dvect.empty(); }
 
+    //! \brief The RS3D entry for a molecule type, or `fallback` when there is
+    //! none.
+    //!
+    //! This is RS3Dvect[300 + i] for the first i in [0, 100) whose
+    //! RS3Dvect[400 + i] lies within 1E-2 of `molTypeIndex`: the scan every
+    //! reader used to repeat for each molecule, in each sweep.  Which i matches
+    //! depends only on the type and the 400 column, so it is found once per
+    //! type and kept in `RS3DmatchByMolType`.  Callers must hold the table
+    //! (hasRS3Dtable()), and whatever writes RS3Dvect must call
+    //! forget_RS3D_matches() before the next lookup.
+    double RS3D_of_molType(int molTypeIndex, double fallback) const
+    {
+        if (molTypeIndex < 0)
+            return RS3D_entry(find_RS3D_match(molTypeIndex), fallback);
+        if (molTypeIndex >= static_cast<int>(RS3DmatchByMolType.size())) {
+            for (int type = RS3DmatchByMolType.size(); type <= molTypeIndex; ++type)
+                RS3DmatchByMolType.push_back(find_RS3D_match(type));
+        }
+        return RS3D_entry(RS3DmatchByMolType[molTypeIndex], fallback);
+    }
+
+    //! \brief Drop the matches RS3D_of_molType() has found, after RS3Dvect
+    //! changes.
+    void forget_RS3D_matches() { RS3DmatchByMolType.clear(); }
+
     //! \brief Abort unless the input named a boundary.  See parse_input.cpp.
     void require_boundary() const;
 
@@ -274,6 +300,7 @@ struct Membrane {
                                       nArrayRank);
     POP(implicitlipidIndex);
     deserialize_primitive_vector<double>(RS3Dvect, arrayRank, nArrayRank);
+    forget_RS3D_matches();
     //    double RD2D = 0; // block-distance for 2D->2D reaction of
     //    implicit-lipid case
     POP(totalSA);
@@ -289,4 +316,24 @@ struct Membrane {
     deserialize_string(yBCtype, arrayRank, nArrayRank);
     deserialize_string(zBCtype, arrayRank, nArrayRank);
   }
+
+private:
+    //! For each molecule type, the first i in [0, 100) whose
+    //! RS3Dvect[400 + i] matches it, or -1; filled by RS3D_of_molType() as
+    //! types are asked for.  Not serialized: deserialize() clears it.
+    mutable std::vector<int> RS3DmatchByMolType {};
+
+    int find_RS3D_match(int molTypeIndex) const
+    {
+        for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
+            if (std::abs(RS3Dvect[RS3Dindex + 400] - molTypeIndex) < 1E-2)
+                return RS3Dindex;
+        }
+        return -1;
+    }
+
+    double RS3D_entry(int match, double fallback) const
+    {
+        return match < 0 ? fallback : RS3Dvect[match + 300];
+    }
 };

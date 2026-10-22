@@ -88,12 +88,7 @@ void sweep_separation_box(int simItr, int pro1Index, Parameters& params, std::ve
     const Complex& targCom = complexList[com1Index];
     if (membraneObject.implicitLipid) {
         for (auto& molIndex : targCom.memberList) {
-            for (int RS3Dindex = 0; RS3Dindex < 100; RS3Dindex++) {
-                if (std::abs(membraneObject.RS3Dvect[RS3Dindex + 400] - moleculeList[molIndex].molTypeIndex) < 1E-2) {
-                    RS3Dinput = membraneObject.RS3Dvect[RS3Dindex + 300];
-                    break;
-                }
-            }
+            RS3Dinput = membraneObject.RS3D_of_molType(moleculeList[molIndex].molTypeIndex, RS3Dinput);
         }
     }
 
