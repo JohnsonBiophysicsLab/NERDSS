@@ -6,6 +6,11 @@
 
 void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Index, Parameters& params, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns, const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
+    // Pair after pair rotates an interface of the same complex, so each side keeps
+    // the matrix it built last and rebuilds it only when the angles change.
+    EulerRotationMatrixCache rotation1;
+    EulerRotationMatrixCache rotation2;
+
     // try cluster sweep first
     int comIndex1 { moleculeList[pro1Index].myComIndex };
     //determine RS3Dinput
@@ -155,7 +160,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
                 dz1 = iface_final.z;
             } else {
                 Vec3D iface1Vec { moleculeList[p1].interfaceList[i1].coord - complexList[k1].comCoord };
-                std::array<double, 9> M = create_euler_rotation_matrix(complexList[k1].trajRot);
+                const std::array<double, 9>& M = rotation1.get(complexList[k1].trajRot);
                 iface1Vec = matrix_rotate(iface1Vec, M);
 
                 dx1 = complexList[k1].comCoord.x + iface1Vec.x + complexList[k1].trajTrans.x;
@@ -172,7 +177,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
                 dz2 = iface_final.z;
             } else {
                 Vec3D iface2Vec { moleculeList[p2].interfaceList[i2].coord - complexList[k2].comCoord };
-                std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[k2].trajRot);
+                const std::array<double, 9>& M2 = rotation2.get(complexList[k2].trajRot);
                 iface2Vec = matrix_rotate(iface2Vec, M2);
                 dx2 = complexList[k2].comCoord.x + iface2Vec.x + complexList[k2].trajTrans.x;
                 dy2 = complexList[k2].comCoord.y + iface2Vec.y + complexList[k2].trajTrans.y;

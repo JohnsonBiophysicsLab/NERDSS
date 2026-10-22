@@ -11,6 +11,11 @@ void sweep_separation_complex_rot_fiber_box(
     const std::vector<ForwardRxn> &forwardRxns,
     const std::vector<MolTemplate> &molTemplateList,
     const Membrane &membraneObject) {
+  // Pair after pair rotates an interface of the same complex, so each side keeps
+  // the matrix it built last and rebuilds it only when the angles change.
+  EulerRotationMatrixCache rotation1;
+  EulerRotationMatrixCache rotation2;
+
   /*
     The molecule "selfIndex" is on Fiber
   */
@@ -117,7 +122,7 @@ void sweep_separation_complex_rot_fiber_box(
           Vec3D iface1Vec{
               moleculeList[pro1Index].interfaceList[relIface1].coord -
               complexList[comIndex1].comCoord};
-          std::array<double, 9> M = create_euler_rotation_matrix(complexList[comIndex1].trajRot);
+          const std::array<double, 9>& M = rotation1.get(complexList[comIndex1].trajRot);
           iface1Vec = matrix_rotate(iface1Vec, M);
 
           double dx1{complexList[comIndex1].comCoord.x + iface1Vec.x +
@@ -137,8 +142,7 @@ void sweep_separation_complex_rot_fiber_box(
           Vec3D iface2Vec{
               moleculeList[pro2Index].interfaceList[relIface2].coord -
               complexList[comIndex2].comCoord};
-          std::array<double, 9> M2 =
-              create_euler_rotation_matrix(complexList[comIndex2].trajRot);
+          const std::array<double, 9>& M2 = rotation2.get(complexList[comIndex2].trajRot);
           iface2Vec = matrix_rotate(iface2Vec, M2);
           double dx2{complexList[comIndex2].comCoord.x + iface2Vec.x +
                      complexList[comIndex2].trajTrans.x};

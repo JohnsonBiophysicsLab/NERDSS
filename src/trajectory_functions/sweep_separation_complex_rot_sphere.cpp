@@ -7,6 +7,11 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList, const std::vector<ForwardRxn>& forwardRxns,
     const std::vector<MolTemplate>& molTemplateList, const Membrane& membraneObject)
 {
+    // Pair after pair rotates an interface of the same complex, so each side keeps
+    // the matrix it built last and rebuilds it only when the angles change.
+    EulerRotationMatrixCache rotation1;
+    EulerRotationMatrixCache rotation2;
+
     /*
       In this version, complex com1Index is in the solution.
       In this _complex_ version, itr tests overlap not just for each protein, but for each complex, so all the proteins
@@ -101,7 +106,7 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
 
                     // complex1 inside sphere
                     Vec3D iface1Vec { moleculeList[pro1Index].interfaceList[i1].coord - complexList[com1Index].comCoord };
-                    std::array<double, 9> M = create_euler_rotation_matrix(complexList[com1Index].trajRot);
+                    const std::array<double, 9>& M = rotation1.get(complexList[com1Index].trajRot);
                     iface1Vec = matrix_rotate(iface1Vec, M);
                     dx1 = complexList[com1Index].comCoord.x + iface1Vec.x + complexList[com1Index].trajTrans.x;
                     dy1 = complexList[com1Index].comCoord.y + iface1Vec.y + complexList[com1Index].trajTrans.y;
@@ -122,7 +127,7 @@ void sweep_separation_complex_rot_sphere(int simItr, int pro1Index, Parameters& 
                         dz2 = iface_final.z;
                     } else { // complex inside sphere
                         Vec3D iface2Vec { moleculeList[pro2Index].interfaceList[i2].coord - complexList[com2Index].comCoord };
-                        std::array<double, 9> M2 = create_euler_rotation_matrix(complexList[com2Index].trajRot);
+                        const std::array<double, 9>& M2 = rotation2.get(complexList[com2Index].trajRot);
                         iface2Vec = matrix_rotate(iface2Vec, M2);
                         dx2 = complexList[com2Index].comCoord.x + iface2Vec.x + complexList[com2Index].trajTrans.x;
                         dy2 = complexList[com2Index].comCoord.y + iface2Vec.y + complexList[com2Index].trajTrans.y;
