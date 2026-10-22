@@ -80,14 +80,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
         resample_traj(currStop, pairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
 
         // find the partner of pairList'complex'member, this is for the propagate of these molecule continuely when there is subStep
-        for (i = 0; i < pairList.size(); i++) {
-            p1 = pairList[i].p1;
-            p2 = pairList[i].p2;
-            k1 = pairList[i].k1;
-            k2 = pairList[i].k2;
-            collect_cluster_partners(k1, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
-            collect_cluster_partners(k2, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
-        }
+        collect_cluster_partners(pairList, moleculeList, complexList, partnerOfPairList, movestatOrigPartnerOfPairList);
 
         // resample the traj in partnerOfPairList for the timeStep changed
         resample_partner_trajectories(partnerOfPairList, moleculeList, complexList, params, membraneObject, RS3Dinput);
