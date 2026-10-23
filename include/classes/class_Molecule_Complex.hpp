@@ -510,11 +510,12 @@ public:
     Vec3D D { 0, 0, 0 }; //!< Complex's translational diffusion constants
     Vec3D Dr { 0, 0, 0 }; //!< Complex's rotational diffusion constants
 
-    // Memo for add_3D_rotational_diffusion()'s cos(sqrt(k * Dr.z * timeStep)).
+    // Memo for cos(sqrt(k * Dr.z * timeStep)), read through flat_rotational_cf()
+    // (k = 2) and free_rotational_cf() (k = 4) by add_2D_rotational_diffusion(),
+    // add_3D_rotational_diffusion() and check_compartment_reaction().
     // That value depends on nothing but Dr.z and the timestep, so it is constant
     // for as long as the complex's composition is, but it was recomputed once
-    // per candidate pair per timestep -- the two remaining scalar cos() calls in
-    // the whole hot path.  Two slots because the caller picks k = 2 or k = 4
+    // per candidate pair per timestep.  Two slots because the 3D caller picks k = 2 or k = 4
     // from D.z and one complex can be asked for either.
     //
     // The key is the exact argument, compared bit-for-bit, so any change to Dr.z
@@ -523,8 +524,8 @@ public:
     // The NaN sentinel forces a miss on first use, because no comparison against
     // NaN is ever true, and no legitimate argument can alias it.
     //
-    // `mutable` because add_3D_rotational_diffusion() reads complexList through
-    // a const reference.  Not serialized, like deleteIfNotReceivedBack below:
+    // `mutable` because the rotational-diffusion helpers read complexList
+    // through a const reference.  Not serialized, like deleteIfNotReceivedBack below:
     // this is derived state, so a restart recomputes it on first use and the
     // restart-file format is unchanged.
     mutable double rotDiffArg2 { std::numeric_limits<double>::quiet_NaN() };

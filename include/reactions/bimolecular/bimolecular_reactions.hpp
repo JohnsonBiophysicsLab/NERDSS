@@ -47,15 +47,48 @@ struct BiMolData {
  * Before a candidate pair can be tested for reaction, the rotation each partner
  * undergoes during one timestep has to be folded into `BiMolData::Dtot`: an
  * interface swings about its complex COM, and that motion closes distance just
- * as translation does.  The two functions below are that step.
+ * as translation does.  add_2D_rotational_diffusion() and
+ * add_3D_rotational_diffusion() are that step; both take each partner's
+ * rotation cosine from the per-complex memo in flat_rotational_cf() and
+ * free_rotational_cf().
  *
- * Each was written out by hand at four call sites - twice inside
+ * Each add_* function was written out by hand at four call sites - twice inside
  * `check_bimolecular_reactions()`, which has its own copy of the 2D and the 3D
  * path, and once in each `determine_*_reaction_probability()`.  The arithmetic
  * here is character for character what those sites computed, in the same order,
  * so `Dtot` rounds and contracts exactly as it did.
  * @{
  */
+
+/*! \brief `cos(sqrt(2 Dr.z t))`, memoized on the complex.  See the cache fields
+ * on `Complex` for why this is safe to cache and why it is worth caching.
+ *
+ * The argument is built with the same operands in the same order as the
+ * expression this replaced, `2.0 * Dr.z * timeStep`, so a miss recomputes the
+ * identical double and a hit returns the one already computed from it.  Neither
+ * path can differ in the last bit.
+ */
+inline double flat_rotational_cf(const Complex& com, double timeStep)
+{
+    const double arg = 2.0 * com.Dr.z * timeStep;
+    if (!(com.rotDiffArg2 == arg)) {
+        com.rotDiffArg2 = arg;
+        com.rotDiffCos2 = cos(sqrt(arg));
+    }
+    return com.rotDiffCos2;
+}
+
+//! \brief `cos(sqrt(4 Dr.z t))`, memoized on the complex.  Companion to
+//! `flat_rotational_cf()` for a partner free to rotate about three axes.
+inline double free_rotational_cf(const Complex& com, double timeStep)
+{
+    const double arg = 4.0 * com.Dr.z * timeStep;
+    if (!(com.rotDiffArg4 == arg)) {
+        com.rotDiffArg4 = arg;
+        com.rotDiffCos4 = cos(sqrt(arg));
+    }
+    return com.rotDiffCos4;
+}
 
 /*! \brief Adds the rotational contribution to `Dtot` for a pair on the membrane.
  *
@@ -67,13 +100,13 @@ inline void add_2D_rotational_diffusion(
 {
     double Dr1 {};
     {
-        double cf { cos(sqrt(2.0 * complexList[biMolData.com1Index].Dr.z * params.timeStep)) };
+        double cf { flat_rotational_cf(complexList[biMolData.com1Index], params.timeStep) };
         Dr1 = 2.0 * biMolData.magMol1 * (1.0 - cf);
     }
 
     double Dr2 {};
     {
-        double cf = cos(sqrt(2.0 * complexList[biMolData.com2Index].Dr.z * params.timeStep));
+        double cf = flat_rotational_cf(complexList[biMolData.com2Index], params.timeStep);
         Dr2 = 2.0 * biMolData.magMol2 * (1.0 - cf);
     }
 
@@ -131,36 +164,6 @@ inline void discretize_2D_Dtot(BiMolData& biMolData)
  * `determine_3D_implicitlipid_reaction_probability` uses 1E-15.  Whether that
  * disagreement is deliberate is not recorded, so it is preserved.
  */
-/*! \brief `cos(sqrt(2 Dr.z t))`, memoized on the complex.  See the cache fields
- * on `Complex` for why this is safe to cache and why it is worth caching.
- *
- * The argument is built with the same operands in the same order as the
- * expression this replaced, `2.0 * Dr.z * timeStep`, so a miss recomputes the
- * identical double and a hit returns the one already computed from it.  Neither
- * path can differ in the last bit.
- */
-inline double flat_rotational_cf(const Complex& com, double timeStep)
-{
-    const double arg = 2.0 * com.Dr.z * timeStep;
-    if (!(com.rotDiffArg2 == arg)) {
-        com.rotDiffArg2 = arg;
-        com.rotDiffCos2 = cos(sqrt(arg));
-    }
-    return com.rotDiffCos2;
-}
-
-//! \brief `cos(sqrt(4 Dr.z t))`, memoized on the complex.  Companion to
-//! `flat_rotational_cf()` for a partner free to rotate about three axes.
-inline double free_rotational_cf(const Complex& com, double timeStep)
-{
-    const double arg = 4.0 * com.Dr.z * timeStep;
-    if (!(com.rotDiffArg4 == arg)) {
-        com.rotDiffArg4 = arg;
-        com.rotDiffCos4 = cos(sqrt(arg));
-    }
-    return com.rotDiffCos4;
-}
-
 inline void add_3D_rotational_diffusion(
     BiMolData& biMolData, const std::vector<Complex>& complexList, const Parameters& params, double flatCutoff)
 {
