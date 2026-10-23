@@ -1261,17 +1261,7 @@ int main(int argc, char *argv[]) {
           // Set probability of this protein to zero in all reactions so it
           // doesn't try to react again but the partners still will avoid
           // overlapping.
-          for (unsigned crossItr{0};
-               crossItr < moleculeList[molItr].crossings.size(); ++crossItr) {
-            int skipMol{moleculeList[molItr].crossings[crossItr].partner};
-            for (unsigned crossItr2{0};
-                 crossItr2 < moleculeList[skipMol].crossings.size();
-                 ++crossItr2) {
-              if (moleculeList[skipMol].crossings[crossItr2].partner ==
-                  moleculeList[molItr].index)
-                moleculeList[skipMol].crossings[crossItr2].prob = 0;
-            }
-          }
+          zero_reciprocal_crossings(moleculeList[molItr], moleculeList);
         }
 
       } else if (moleculeList[molItr].crossings.size() == 0) {
