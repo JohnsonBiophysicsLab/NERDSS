@@ -163,7 +163,12 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
         // rate is zero got a NaN ratio, which the draw below never exceeds, and
         // none of its loop dissociations were cancelled.  With no back
         // correction the ratio is the forward one, as before the port.
+#ifdef NERDSS_LEGACY_STREAM
+        double backCorrection { 1.0 };
+        (void)poisDissoc;
+#else
         double backCorrection { poisDissoc > 0 ? (1 - exp(-poisDissoc)) / poisDissoc : 1.0 };
+#endif
 	correctionRatio=correctionRatio/backCorrection;
 	    //std::cout <<"Correction Ratio: "<<correctionRatio<<std::endl;
 

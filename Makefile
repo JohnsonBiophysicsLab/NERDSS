@@ -25,6 +25,12 @@
 # o Use `make serial debug` to debug with gdb
 # o use `make serial profile` to profile
 #
+# Update 2026-10-23:
+# o Added "legacy": `make serial legacy` builds bin/nerdss_legacy, the same
+#   sources with -DNERDSS_LEGACY_STREAM, which follows master's random stream
+#   and cell grid so that its outputs can be compared with master byte for byte.
+#   See docs/nerdss_optimized.md, "The legacy-stream build".
+#
 
 BDIR   = bin
 ODIR   = obj
@@ -33,7 +39,7 @@ EDIR   = EXEs
 
 PROF   =
 
-.PHONY: any debug profile clean checks
+.PHONY: any debug profile legacy clean checks
 
 # ---------------- REQUIREMENTS: gsl and directories
 hasGSL = $(shell type gsl-config >/dev/null 2>&1; echo $$?)
@@ -77,6 +83,22 @@ ifneq (,$(filter profile,$(MAKECMDGOALS)))
 	ENABLE_PROFILING = true
 	ODIR := $(ODIR)-profile
 endif
+
+# legacy: the five changes that move the random stream or the cell grid away
+# from master's (the ziggurat Gaussian sampler, the Shoemake quaternion
+# sampler, the grid sized to the interaction range, the dissociation
+# back-correction, the spherical shell index) are switched back to master's
+# behaviour behind NERDSS_LEGACY_STREAM.  Everything else is as shipped, so a
+# model on which bin/nerdss_legacy reproduces master byte for byte shows that
+# none of the other changes moved its trajectory.  It gets its own object tree
+# and its own executable name so that it never replaces the default binary.
+ifneq (,$(filter legacy,$(MAKECMDGOALS)))
+	EXEC_SRC := $(_EXEC)
+	_EXEC := $(_EXEC)_legacy
+	ODIR := $(ODIR)-legacy
+	DEFS += -DNERDSS_LEGACY_STREAM
+endif
+EXEC_SRC ?= $(_EXEC)
 
 SRCS = $(foreach dir,$(INCLUDE_FOLDERS),$(wildcard $(SDIR)/$(dir)/*.cpp))
 EXEC = $(patsubst %,$(BDIR)/%,$(_EXEC))
@@ -152,7 +174,7 @@ OBJS = $(patsubst $(SDIR)/%.cpp,$(ODIR)/%.o,$(SRCS))
 # ---------------- RULES
 syntax:
 	@echo "------------------------------------"
-	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi [debug] [profile]"
+	@printf '\033[31m%s\033[0m\n' " USAGE: make serial|mpi [debug] [profile] [legacy]"
 	@echo "------------------------------------"
 	exit 0
 
@@ -167,9 +189,11 @@ $(MAKECMDGOALS): $(EXEC)
 # failure for a repository whose claims rest on measured timings.
 # DEPFLAGS is applied here too, for the same reason the object rule needs it:
 # the link step compiles a translation unit, and that unit includes headers.
-$(EXEC): $(OBJS) $(EDIR)/$(_EXEC).cpp
-	@echo "Compiling $(EDIR)/$(@F).cpp"
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -MF $(ODIR)/$(@F).d -o $@ $(EDIR)/$(@F).cpp $(OBJS) $(LIBS) $(PLANG) $(DEFS)
+# EXEC_SRC is the executable's source name; it differs from the binary's name
+# only for the legacy build (EXEs/nerdss.cpp -> bin/nerdss_legacy).
+$(EXEC): $(OBJS) $(EDIR)/$(EXEC_SRC).cpp
+	@echo "Compiling $(EDIR)/$(EXEC_SRC).cpp"
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCS) $(PROF) $(DEPFLAGS) -MF $(ODIR)/$(@F).d -o $@ $(EDIR)/$(EXEC_SRC).cpp $(OBJS) $(LIBS) $(PLANG) $(DEFS)
 	@echo "------------"
 
 $(ODIR)/%.o: $(SDIR)/%.cpp

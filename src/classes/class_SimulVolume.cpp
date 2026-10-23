@@ -42,6 +42,17 @@ SimulVolume::Dimensions::Dimensions(const Parameters &params,
   // covering it.  Pairs two SubBoxes apart in z were never offered to
   // check_bimolecular_reactions() at all -- 7.5% of the pairs within rMaxLimit
   // were lost in a 30 nm box against a 16.7 nm range, and 0.41% at 50 nm.
+#ifdef NERDSS_LEGACY_STREAM
+  {
+    double cellLength{params.rMaxLimit};
+    x = int(floor(membraneObject.waterBox.x / cellLength));
+    y = int(floor(membraneObject.waterBox.y / cellLength));
+    int scale{1};
+    z = std::max(4, int(floor(membraneObject.waterBox.z / cellLength)) / scale);
+    tot = x * y * z;
+    return;
+  }
+#endif
   const double cellLength{params.rMaxLimit};
   x = cells_along(membraneObject.waterBox.x, cellLength);
   y = cells_along(membraneObject.waterBox.y, cellLength);
@@ -53,6 +64,49 @@ SimulVolume::Dimensions::Dimensions(const Parameters &params,
 // Member Functions
 void SimulVolume::Dimensions::check_dimensions(const Parameters &params,
                                                const Membrane &membraneObject) {
+#ifdef NERDSS_LEGACY_STREAM
+  {
+    double cellLength{params.rMaxLimit};
+    if (membraneObject.waterBox.x / (x * 1.0) < cellLength)
+      x = std::max(4, int(floor(membraneObject.waterBox.x / cellLength)) / 2);
+    if (membraneObject.waterBox.y / (y * 1.0) < cellLength)
+      y = std::max(4, int(floor(membraneObject.waterBox.y / cellLength)) / 2);
+    if (membraneObject.waterBox.z / (z * 1.0) < cellLength) {
+      if (membraneObject.waterBox.z > 0)
+        z = std::max(4, int(floor(membraneObject.waterBox.z / cellLength)) / 2);
+      else
+        z = 1;
+    }
+    if (x > 30)
+      x = 30;
+    if (y > 30)
+      y = 30;
+    if (z > 30)
+      z = 30;
+    tot = x * y * z;
+    int totMol = Molecule::numberOfMolecules;
+    double maxPairsMols{0.5 * totMol * totMol};
+    double setLowerMax = 4000;
+    double maxPairs = std::max(setLowerMax, maxPairsMols);
+    int minCells{64};
+    double scale{2.0};
+    if (tot > maxPairs) {
+      while (tot > maxPairs && tot > minCells) {
+        std::cout << "CELL PAIR MAX EXCEEDED\n"
+                  << "\tCurrent number of cells: " << tot
+                  << "\n\tMax number of cells: " << maxPairs << '\n';
+        std::cout << "Scaling down number of cells.\n";
+        x = std::max(2, int(floor(membraneObject.waterBox.x / cellLength) / scale));
+        y = std::max(2, int(floor(membraneObject.waterBox.y / cellLength) / scale));
+        z = std::max(2, int(floor(membraneObject.waterBox.z / cellLength) / (2 * scale)));
+        tot = x * y * z;
+        scale += 1;
+      }
+    }
+    tot = x * y * z;
+    return;
+  }
+#endif
   // The "is any dimension too small" repair that used to open this function is
   // gone: Dimensions() now derives every count from floor(L / rMaxLimit), so
   // no edge can come in below rMaxLimit.  The repair could not have fixed one
@@ -207,10 +261,14 @@ void SimulVolume::create_simulation_volume(const Parameters &params,
       exit(1);
     }
   };
+#ifndef NERDSS_LEGACY_STREAM
   require_edge("x", subCellSize.x, numSubCells.x);
   require_edge("y", subCellSize.y, numSubCells.y);
   if (membraneObject.waterBox.z > 0)
     require_edge("z", subCellSize.z, numSubCells.z);
+#else
+  (void)require_edge;
+#endif
 
   // Create cell neighborlists.
   subCellList = std::vector<SubVolume>(numSubCells.tot);
