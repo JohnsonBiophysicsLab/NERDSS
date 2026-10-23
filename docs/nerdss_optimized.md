@@ -1491,3 +1491,42 @@ honours the trailing `timeWrite` too. A `testAdd/box/1` restart with an add file
 holding an observables block, or a second parameters block setting `nItr`,
 after its reactions writes the same 20 files as the tip's build run on the
 plain add file.
+
+### The legacy-stream build - `make serial legacy`
+
+Neither `nerdss-optimized` nor this branch can be compared with `master` byte
+for byte as shipped: the ziggurat Gaussian sampler (issue #12) and the
+Shoemake quaternion sampler (issue #10) change the random stream of every
+model, the cell grid sized to the interaction range changes the pair order on
+the models it affects, the dissociation back-correction (#45) changes the
+physics of loop closures, and the spherical shell index changes the pair order
+on large spheres. Every other change on the branch is meant to leave the
+trajectory alone, and the only way to show that it does is to switch those
+five off. The 2026-10-09 branch report did that with a patch
+(`benchmarks/nerdss_optimized/reference_2026-10-09/scripts/legacy_stream_patch.py`);
+the same source is now in the tree behind one macro, so the build is a goal:
+
+```bash
+make serial legacy        # bin/nerdss_legacy, objects under obj/serial-legacy
+```
+
+`NERDSS_LEGACY_STREAM` restores, verbatim from `master`:
+
+1. `GaussV()`: the Marsaglia polar sampler instead of `gsl_ran_gaussian_ziggurat` (`src/math/rand_gsl.cpp`);
+2. `rand_unit_quat()`: four U(-1,1) components normalized instead of Shoemake's algorithm (`src/classes/class_Quat.cpp`);
+3. the sub-volume grid of `master`: the floor of four cells along z, the 30-per-dimension cap and the max(4000, N^2/2) budget, and no edge assertion (`src/classes/class_SimulVolume.cpp`);
+4. no dissociation back-correction in `break_interaction()` (`src/reactions/break_interaction.cpp`);
+5. a spherical shell index that never activates (`src/classes/class_ShellIndex.cpp`).
+
+The goal has its own object tree and its own executable name, so it never
+replaces `bin/nerdss`, and the default build is unchanged: with the macro
+undefined every block compiles to nothing. What `bin/nerdss_legacy` is for: a
+model on which it reproduces `master` byte for byte (every `DATA/` and `PDB/`
+file; restart files never match, since the format and content differ) shows
+that none of the branch's other changes moved that trajectory, and a model on
+which it differs isolates the cause to a change outside the five switches.
+The three-way benchmark in
+`benchmarks/nerdss_optimized/CHANGE_NOTES_v1.3_2026-10-23.md` is built on it.
+It is a verification tool, not a release configuration: the five changes it
+reverts include two corrections (the orientation sampler and the dissociation
+correction), so `bin/nerdss_legacy` carries `master`'s defects there.

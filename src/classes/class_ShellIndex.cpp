@@ -187,7 +187,9 @@ void ShellIndex::build(double sphereR, double rMaxLimit, bool anyExplicitPairRea
         }
     }
 
+#ifndef NERDSS_LEGACY_STREAM
     active = true;
+#endif
 }
 
 int ShellIndex::cell_of(const Vec3D& com) const

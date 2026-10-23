@@ -12,6 +12,18 @@
 
 Quat rand_unit_quat()
 {
+#ifdef NERDSS_LEGACY_STREAM
+    // master: Quat rotQuat{rand_gsl()*2-1 x4}; rotQuat = rotQuat.unit();
+    // unit() = scale(1 / mag()), mag() = sqrt(w*w + x*x + y*y + z*z)
+    const double lw { rand_gsl() * 2 - 1 };
+    const double lx { rand_gsl() * 2 - 1 };
+    const double ly { rand_gsl() * 2 - 1 };
+    const double lz { rand_gsl() * 2 - 1 };
+    const double lnorm { lw * lw + lx * lx + ly * ly + lz * lz };
+    const double lmag { std::sqrt(lnorm) };
+    const double lscal { 1 / lmag };
+    return { lw * lscal, lx * lscal, ly * lscal, lz * lscal };
+#endif
     const double u1 { rand_gsl() };
     const double u2 { rand_gsl() };
     const double u3 { rand_gsl() };
