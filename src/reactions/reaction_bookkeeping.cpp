@@ -23,8 +23,15 @@ void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     // four lists were separate and only some callers seeded probvec here while
     // get_distance()'s caller pushed it afterwards.  One entry carries all four
     // values, so there is nothing left to keep in step and the flag is gone.
+    //
+    // Each entry also records where the other one sits, so that the decision
+    // loop can reach the partner's entry without searching for it.
+    int itr1 { static_cast<int>(moleculeList[pro1].crossings.size()) };
+    int itr2 { static_cast<int>(moleculeList[pro2].crossings.size()) };
     moleculeList[pro1].crossings.emplace_back(pro2, relIface1, crossRxn);
     moleculeList[pro2].crossings.emplace_back(pro1, relIface2, crossRxn);
+    moleculeList[pro1].crossings.back().partnerItr = itr2;
+    moleculeList[pro2].crossings.back().partnerItr = itr1;
     ++complexList[moleculeList[pro1].myComIndex].ncross;
     ++complexList[moleculeList[pro2].myComIndex].ncross;
 }
@@ -129,6 +136,22 @@ void zero_partner_probvec(
     }
 }
 
+void zero_reciprocal_crossings(const Molecule& mol, std::vector<Molecule>& moleculeList)
+{
+    // The same entries zero_partner_probvec() finds by scanning each partner's
+    // list: every entry naming `mol` was recorded in a pair with one of mol's
+    // own, duplicates from several interface pairs included.  A partner that
+    // has reacted has an empty list, and the bound skips it as the scan found
+    // nothing in it.
+    for (const auto& cross : mol.crossings) {
+        if (cross.partnerItr < 0)
+            continue;
+        auto& partnerCrossings { moleculeList[cross.partner].crossings };
+        if (cross.partnerItr < static_cast<int>(partnerCrossings.size()))
+            partnerCrossings[cross.partnerItr].prob = 0;
+    }
+}
+
 void remove_partner_crossings(
     const Molecule& mol, std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList)
 {
@@ -136,12 +159,28 @@ void remove_partner_crossings(
     // pairs, loses all of its entries for `mol` on the first visit and finds
     // none on the others.  The implicit lipid never lists anyone, so it loses
     // nothing.
+    //
+    // The compaction keeps the survivors in order, as std::remove_if did, and
+    // tells the entry on the other side of each moved one where it went, which
+    // is what keeps zero_reciprocal_crossings() exact after a transmission.
     for (unsigned crossItr { 0 }; crossItr < mol.crossings.size(); ++crossItr) {
         Molecule& partner { moleculeList[mol.crossings[crossItr].partner] };
-        auto removed = std::remove_if(partner.crossings.begin(), partner.crossings.end(),
-            [&mol](const Molecule::CrossEntry& partnerCross) { return partnerCross.partner == mol.index; });
-        complexList[partner.myComIndex].ncross -= static_cast<int>(partner.crossings.end() - removed);
-        partner.crossings.erase(removed, partner.crossings.end());
+        auto& list { partner.crossings };
+        unsigned kept { 0 };
+        for (unsigned k { 0 }; k < list.size(); ++k) {
+            if (list[k].partner == mol.index)
+                continue;
+            if (kept != k) {
+                list[kept] = list[k];
+                int j { list[kept].partnerItr };
+                auto& otherCrossings { moleculeList[list[kept].partner].crossings };
+                if (j >= 0 && j < static_cast<int>(otherCrossings.size()))
+                    otherCrossings[j].partnerItr = static_cast<int>(kept);
+            }
+            ++kept;
+        }
+        complexList[partner.myComIndex].ncross -= static_cast<int>(list.size() - kept);
+        list.resize(kept);
     }
 }
 

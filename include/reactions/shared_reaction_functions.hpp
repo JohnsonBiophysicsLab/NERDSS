@@ -145,6 +145,22 @@ void zero_partner_probvec(
     const Molecule& mol, std::vector<Molecule>& moleculeList, bool skipImplicitLipidPartners = false);
 
 /*!
+ * \brief Zeroes the same probabilities as `zero_partner_probvec()`, through
+ * each entry's `partnerItr` instead of a scan of the partner's list.
+ *
+ * For the serial decision loop, where a molecule that chooses no reaction
+ * zeroes its partners' entries for it: the scan cost the length of every
+ * partner's list for each of the molecule's own entries.
+ *
+ * Exact while every entry naming a molecule was recorded in a pair by
+ * `record_crossing_pair()` and the lists have only been cleared (a reaction)
+ * or compacted by `remove_partner_crossings()` (a transmission) since.  The
+ * MPI exchanges erase entries without keeping `partnerItr`, so the MPI loop
+ * keeps `zero_partner_probvec()`.
+ */
+void zero_reciprocal_crossings(const Molecule& mol, std::vector<Molecule>& moleculeList);
+
+/*!
  * \brief Takes `mol` off every partner's crossing list, and out of the partner
  * complex's `ncross`.
  *

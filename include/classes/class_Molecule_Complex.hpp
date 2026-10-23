@@ -306,6 +306,13 @@ struct Molecule {
         std::array<int, 3> rxn { { -1, -1, 0 } }; //!< was crossrxn: {rxnIndex, rateIndex, isStateChangeBackRxn}
         int partner { -1 }; //!< was crossbase: the encountered Molecule's index
         int myIface { -1 }; //!< was mycrossint: this Molecule's interface in the encounter
+        /*! The partner's entry for this same encounter: its index in
+         * `moleculeList[partner].crossings`, or -1 when only this side recorded
+         * one (an implicit lipid or a surface).  Set by `record_crossing_pair()`
+         * and kept by `remove_partner_crossings()` for the serial decision loop
+         * (see `zero_reciprocal_crossings()`); the MPI exchanges erase entries
+         * without it and never read it. */
+        int partnerItr { -1 };
 
         CrossEntry() = default;
         CrossEntry(int partner, int myIface, const std::array<int, 3>& rxn, double prob = 0)
