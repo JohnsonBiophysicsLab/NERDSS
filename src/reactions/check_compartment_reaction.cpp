@@ -51,7 +51,7 @@ void check_compartment_reaction(int pro1Index, int pro2Index, int simItr,
     double Dtot = 1.0 / 3.0 * (complexList[moleculeList[pro1Index].myComIndex].D.x +
                                complexList[moleculeList[pro1Index].myComIndex].D.y +
                                complexList[moleculeList[pro1Index].myComIndex].D.z);
-    double cf = cos(sqrt(4.0 * complexList[moleculeList[pro1Index].myComIndex].Dr.z * params.timeStep));
+    double cf = free_rotational_cf(complexList[moleculeList[pro1Index].myComIndex], params.timeStep);
     double Dr1;
     int relIface1 { transmissionRxns[rxnIndex].reactantListNew[0].relIfaceIndex };
     double relIfaceDistance = moleculeList[pro1Index].interfaceList[relIface1].coord.length();
