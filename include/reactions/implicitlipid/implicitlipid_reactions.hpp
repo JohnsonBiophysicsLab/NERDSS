@@ -81,7 +81,7 @@ bool get_distance_to_surface(int pro1, int pro2, int iface1, int iface2, int rxn
 // binding probabilities for 3D and 2D
 // h is the time-step dt; sigma is the bind_radius, rho is the lipid density on the surface.
 double pimplicitlipid_3D(double z, paramsIL& parameters3D);
-double pimplicitlipid_2D(paramsIL& parameters2D);
+double pimplicitlipid_2D(const paramsIL& parameters2D);
 double prob_entering_compartment(double dr, paramsIL& parameters);
 double prob_exiting_compartment(double dr, paramsIL& parameters);
 
@@ -111,7 +111,18 @@ void determine_exiting_compartment_probability(double distToCompartment, const s
 
 // some functions that helps calculate the 2D binding probability.
 double dissociate2D(paramsIL &parameters2D);
-double integrate_function2D(const paramsIL& parameters2D);
-double function2D(double u, void* parameter);
-void block_distance(paramsIL& parameters2D);
+
+/*! \brief I(sigma) and I(Rmax), the integral behind pimplicitlipid_2D() at
+ * the two ends of the blocking-distance range (see functions_implicitlipid.cpp).
+ */
+struct IL2DEndIntegrals {
+    double atSigma;
+    double atRmax;
+};
+IL2DEndIntegrals integrate_function2D_ends(const paramsIL& params);
+
+/*! \brief The integral of I's integrand term for limit s (R2D or rmax) from X
+ * to infinity, in closed form; X must be in the large-argument regime.
+ */
+double function2D_tail(const paramsIL& params, double s, double X);
 double dissociate3D(double dt, double Dtot, double sigma, double ka, double kb);
