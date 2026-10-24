@@ -37,6 +37,38 @@ static void reconcile_complex_membership(vector<Molecule> &moleculeList,
   }
 }
 
+// Both ranks changed the same complex in the same half-step: this rank by
+// the pass or the reactions it ran since it sent its copy, the neighbour by
+// what it did to the copy it was sent.  The exchange keeps one of the two
+// versions whole, so the other rank's reaction is lost -- and the partner it
+// bound on that rank keeps a bond to a molecule that no longer has it.  A
+// report, not a repair: the line is what run_mpi_suite.sh counts.
+//
+// keptLocalCom says which complexes this rank changed; neighbourChanged which
+// ones the neighbour's copy says it changed.  On a rank that owns one column
+// the first test includes a plain move, which the neighbour's bond replaces
+// just as it would a reaction.
+static void report_exchange_conflicts(MpiContext &mpiContext, const char *side,
+                                      const vector<Molecule> &moleculeList,
+                                      const vector<Complex> &complexList,
+                                      const vector<char> &keptLocalCom,
+                                      const vector<char> &neighbourChanged) {
+  for (size_t ci = 0; ci < complexList.size() && ci < neighbourChanged.size();
+       ci++) {
+    if (!neighbourChanged[ci] || ci >= keptLocalCom.size() || !keptLocalCom[ci])
+      continue;
+    const Complex &com = complexList[ci];
+    if (com.isEmpty) continue;
+    fprintf(stderr,
+            "EXCHANGE CONFLICT itr=%d rank=%d from=%s complex id=%d owner=%d "
+            "members=%zu first member id=%d\n",
+            mpiContext.simItr, mpiContext.rank, side, com.id, com.ownerRank,
+            com.memberList.size(),
+            com.memberList.empty() ? -1
+                                   : moleculeList[com.memberList[0]].id);
+  }
+}
+
 void snapshot_molecules(const vector<Molecule> &moleculeList,
                     const vector<Complex> &complexList,
                     vector<MolSnapshot> &snapshot) {
@@ -471,6 +503,39 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
   POP(nMols);  // deserialize from arrayRank
   if (VERBOSE)
     printf("deserializing (%d) molecules from the left rank...\n", nMols);
+  if (CHECK_STRUCTURE) {
+    // The molecules are read one at a time below, so peek at the message
+    // here for the conflict report and leave the read position alone.
+    int peek = nArrayRank;
+    vector<char> neighbourChanged(complexList.size(), 0);
+    for (int i = 0; i < nMols; i++) {
+      Molecule mol;
+      mol.deserialize(arrayRank, peek);
+      const int molIndex = find_molecule(moleculeList, mol.id);
+      if (molIndex == -1 || molIndex >= static_cast<int>(sentLeft.size()))
+        continue;
+      int nBound = 0;
+      for (const auto &iface : mol.interfaceList)
+        if (iface.interaction.partnerIndex != -1) nBound++;
+      // On the wire myComIndex carries the complex id.
+      if (mol.myComIndex == sentLeft[molIndex].comId &&
+          nBound == sentLeft[molIndex].nBound)
+        continue;
+      const int ci = moleculeList[molIndex].myComIndex;
+      if (ci >= 0 && ci < static_cast<int>(complexList.size()))
+        neighbourChanged[ci] = 1;
+    }
+    // keptLocalCom also holds the right neighbour's complexes by now, which
+    // this rank did not change; ask the second-half test alone.
+    vector<char> changedHere(complexList.size(), 0);
+    for (size_t ci = 0; ci < complexList.size(); ci++)
+      changedHere[ci] =
+          !complexList[ci].isEmpty &&
+          changed_in_second_half(complexList[ci], moleculeList, complexList,
+                                 sentLeft);
+    report_exchange_conflicts(mpiContext, "left", moleculeList, complexList,
+                              changedHere, neighbourChanged);
+  }
   // Deserialize received molecules and update structures:
   for (int iDeserialize = 0; iDeserialize < nMols; iDeserialize++) {
     // Deserialize each received molecule:
@@ -636,6 +701,9 @@ void deserialize_molecules_right(
     if (ci >= 0 && ci < static_cast<int>(complexList.size()))
       neighbourChanged[ci] = 1;
   }
+  if (CHECK_STRUCTURE)
+    report_exchange_conflicts(mpiContext, "right", moleculeList, complexList,
+                              keptLocalCom, neighbourChanged);
   for (size_t ci = 0; ci < complexList.size(); ci++)
     if (neighbourChanged[ci]) keptLocalCom[ci] = 0;
   // A complex the left neighbour owns is not the right neighbour's to
