@@ -70,6 +70,13 @@ most binding (8 bonds short of serial at np>1, p = 0.02; below).
 | 9 | Narrow ranks act, in the same half-step, on the column the right neighbour binds into: a middle rank owning 1 or 2 columns, rank 0 owning 2 | trimer np=3 at the tip: 1 exchange conflict; trimer with onRate 1000 / offRatekb 1e5 at np=3: 3 conflicts, then ids owned by nobody (itr 494, 848) | 29319315 |
 | 10 | Step-top first-order reactions (dissociation, state change, destruction) on a complex the right neighbour binds into during its first half, through a ghost copy that predates them | fast hetTrimer controls at np=4, after #9: 4 conflicts in 2 of 12 runs | 0363a361; 0 of 12, and 0 of 12 on the final build |
 
+### Restarts
+
+| # | defect | evidence | fix |
+|---|---|---|---|
+| 12 | `nerdss_mpi` wrote no restart file at all (`write_output()`'s restart block was `if (0)`), at any rank count | by reading | e447989c: `write_gathered_restart()`, below |
+| 13 | `nerdss_mpi -r <file>` opened `restart.dat<rank>` whatever the argument, by testing `Parameters::rank`, which nothing initializes (so which file either build opened depended on that int) | `nerdss_mpi -np 1 -r restart500.json`: "could not find restart file" | 5d5f0866: `-r` reads the file it names |
+
 ### Latent
 
 | # | defect | evidence | fix |
@@ -282,28 +289,70 @@ The two kinds of value that stand out were followed with more seeds:
 | GCC 15 clean copy | 196 serial sources and the MPI build with g++-15, no warnings; `make checks` passes |
 
 
+## Checkpoints from any rank count
+
+`write_gathered_restart()` (`src/io_mpi/write_gathered_restart.cpp`) writes
+the serial build's restart files, on its schedule and under its names:
+`DATA/restart.json` every `restartWrite` steps and at the end of the run,
+`RESTARTS/restart<step>.json` every `checkPoint` steps, the `.dat` format when
+`legacyRestartFormat` is set, and with `rngwrite` rank 0's generator state
+(`DATA/rng_state`, `RESTARTS/rng_state<step>`).  Every rank sends rank 0 what
+it owns, with every reference written as an id; rank 0 numbers the whole
+system once, maps the ids back, and writes it with `write_restart()`.  Per-rank
+tallies are summed (free lipid sites per state, counters, event histograms,
+transition matrices, each observable's change from the common start) and
+cluster lifetimes concatenated; what the split rescaled (water box bounds and
+volume, membrane area, sites) comes from the system as parsed; what depends on
+the numbering is rebuilt (`bndpartner` in `bndlist`'s order, `monomerList`,
+`numEachMolType`, `mySubVolIndex`, and `bindPairList` by `associate_box()`'s
+rule, which the serial population-based dissociation follows).  It reads
+state only: with it, np=2/3 runs write the same outputs byte for byte.
+
+Such a file restarts with serial `nerdss -r` or `nerdss_mpi -np 1 -r`
+(np>1 restarts stay refused; see below).  Verified:
+
+* every cases.tsv / coverage model at np=2, 3 and 4 (quarter-length runs,
+  checkpoint at mid-run; compartment and the too-narrow configurations are
+  refused): both continuations run with no checker report, and where the MPI
+  run wrote a row at the checkpoint step both start from exactly that row;
+  under ASan at np=3, no report in the writer or the np=1 restart;
+* exact continuation at np=1 (the gathered numbering is then rank 0's own):
+  all 14 models write the same copy-number rows from the checkpoint on as the
+  uninterrupted run;
+* homoTrimer at np=4 to step 2500, serial from the checkpoint to 6000, 24
+  seeds: bonds at step 5000 72.8 +- 1.8 against serial's 71.0 +- 0.8 (168
+  seeds), p = 0.39;
+* `bindPairList` as written equals, bond for bond, the list the serial build
+  keeps itself (checked on a serial checkpoint by the same rule);
+* implicit lipid: free sites plus bound interfaces equal nSites in every
+  checkpoint, with the whole box's area; the `.dat` format restarts too.
+
+`checkpoint_check.sh` repeats the np=1 exact continuation, the np>1 restart
+with both builds, and the `bindPairList` rule.  Not carried, as in the serial
+format: the reaction-candidate state of the step in progress (a checkpoint is
+taken between steps), and a model's `currSimTime` differs in its last digit
+after a restart (time arithmetic relative to the restart step).
+
 ## Still open
 
-* **Restarts and checkpoints at np>1.**  Not attempted.  `nerdss_mpi` still
-  writes no checkpoint (`write_output()`'s restart block is `if (0)`) and
-  refuses `-r` at np>1.  What it would take, from reading the code:
-  1. a writer that gathers every rank's owned molecules and complexes to rank 0
-     and renumbers them into one index space -- the restart format is
-     index-based (`partnerIndex`, `myComIndex`, `memberList`, `bndpartner`,
-     the reweighting history) and also carries each template's `monomerList`,
-     `Molecule::emptyMolList`, the bound-pair and event counters and the
-     implicit lipid's per-state free counts, all of which are per rank here
-     (and `copyNumSpecies` is a scratch buffer under MPI);
-  2. a split for a bonded system: `prepare_rank_data()` copies molecules
+* **Restarting at np>1.**  Checkpoints are written at any np (above) and
+  continue serially or at np=1, but `-r` is still refused at np>1.  What
+  reading them on several ranks would take:
+  1. a split for a bonded system: `prepare_rank_data()` copies molecules
      without remapping `partnerIndex`/`bndpartner`, trims each complex to the
-     members the rank sees, and seeds ownership by "has a member this rank
-     owns", which gives a straddling complex two owners -- a new run gets away
-     with all three only because nothing is bound at step 0;
-  3. per-rank RNG state (`read_rng_state(rank)` exists) and per-rank implicit
-     lipid free counts on a restart (`finish_rank_setup()` sets them to nSites
-     only for a new run).
-  1 alone, with the existing np=1 restart path, would let a long MPI run be
-  continued serially or at np=1; 2 and 3 are what np>1 continuation needs.
+     members the rank sees (a complex has to travel whole), and seeds
+     ownership by "has a member this rank owns", which gives a straddling
+     complex two owners -- a new run gets away with all three only because
+     nothing is bound at step 0;
+  2. the per-rank shares of what the writer sums: the implicit lipid's free
+     sites per state (`finish_rank_setup()` sets them to the rank's nSites
+     only for a new run), and per-rank RNG streams (seed + rank, as a new run
+     does, since a single saved state cannot be split).
+* **Fiber (promoter) molecules across ranks**: `Molecule::serialize()` does
+  not carry `isPromoter` nor `Complex::serialize()` `onFiber`, so a 1D fiber
+  molecule a neighbour sends back would arrive as an ordinary 3D one.  Found
+  while writing the checkpoint (which carries both itself); not yet measured
+  on a fiber model under MPI.
 * **Ghost-ghost pairs a rank should decide.**  A pair of two molecules that
   are both ghosts of the left neighbour's complexes but sit in columns this
   rank decides (bin 1, or bins 0 and 1) has no initiator anywhere: this rank
