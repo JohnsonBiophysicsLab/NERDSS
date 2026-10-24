@@ -543,6 +543,45 @@ struct BackRxn : public RxnBase {
     size_t conjForwardRxnIndex { 0 }; //!< the index of this reaction's ForwardRxn counterpart
     std::vector<RxnBase>::iterator conjForwardRxn; //!< iterator to this reaction's ForwardRxn (not implemented)
 
+    /*!
+     * \brief What find_reaction_rate_state() works out from the bond alone.
+     *
+     * The reactant positions of a bond's two interfaces depend only on their
+     * molecule types and interface indices, and when no rate state asks
+     * anything of either molecule's other interfaces at those positions, so
+     * does the rate state.  Each bond kind dissociating by this reaction gets
+     * one entry, made on first use.  Derived data, like compiledRates: not
+     * serialized, and a copy starts empty.
+     */
+    struct RatePositions {
+        int molType1 { -1 };
+        int relIface1 { -1 };
+        int molType2 { -1 };
+        int relIface2 { -1 };
+        int reactIndex1 { -1 };
+        int reactIndex2 { -1 };
+        int fixedRateIndex { -1 }; //!< the rate state every pair selects, or -1: test it per pair
+        std::size_t rateCount { 0 }; //!< rateList.size() when the entry was made
+    };
+    struct RatePositionCache {
+        std::vector<RatePositions> entries {};
+
+        RatePositionCache() = default;
+        RatePositionCache(const RatePositionCache&) { }
+        RatePositionCache(RatePositionCache&&) noexcept { }
+        RatePositionCache& operator=(const RatePositionCache&)
+        {
+            entries.clear();
+            return *this;
+        }
+        RatePositionCache& operator=(RatePositionCache&&) noexcept
+        {
+            entries.clear();
+            return *this;
+        }
+    };
+    mutable RatePositionCache ratePositions {};
+
     void display() const override;
 
     BackRxn() = default;

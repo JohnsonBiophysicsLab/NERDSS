@@ -305,6 +305,18 @@ inline RateMatch best_matching_rate(const RxnBase& rxn, int reactIndex1, int rea
 }
 
 /*!
+ * \brief best_matching_rate()'s bestRateIndex when it cannot depend on the molecules, else -1.
+ *
+ * hasIntangibles() reads a molecule only for the requirements listed under the
+ * pair's two reactant positions.  When those lists are empty for every rate
+ * state, every state matches, and best_matching_rate() keeps the first one
+ * with the most ancillary interfaces -- which it counts over both lists, so
+ * that count is still taken here.  An empty list returns -1, leaving the test
+ * to be made per pair.
+ */
+int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2);
+
+/*!
  * \brief Builds rxn.compiledRates from rxn.rateList; best_matching_rate_compiled() calls it on first use.
  */
 void compile_rate_list(const RxnBase& rxn);

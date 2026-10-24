@@ -141,16 +141,7 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
     }
 }
 
-namespace {
-
-/*! \brief best_matching_rate()'s answer when it cannot depend on the molecules, else -1.
- *
- * hasIntangibles() reads a molecule only for the requirements listed under the
- * pair's two reactant positions.  When those lists are empty for every rate
- * state, every state matches, and best_matching_rate() keeps the first one
- * with the most ancillary interfaces -- which it counts over both lists, so
- * that count is still taken here.
- */
+// Declared, with what it promises, in shared_reaction_functions.hpp; find_reaction_rate_state() uses it too.
 int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2)
 {
     if (rateList.empty())
@@ -171,6 +162,8 @@ int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactI
     }
     return best;
 }
+
+namespace {
 
 /*! \brief What find_which_reaction()'s reactant and product scans reach for one
  * (state, partner interface) pair, where the first molecule is not the
