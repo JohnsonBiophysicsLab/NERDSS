@@ -58,6 +58,7 @@ void finish_implicit_lipid_binding(long long int iter, Molecule& protein, Molecu
     }
     protein.interfaceList[proteinIface].isBound = true;
     protein.interfaceList[proteinIface].index = currRxn.productListNew[0].absIfaceIndex;
+    protein.refresh_iface_state_bits();
 
     // The record is (protein, lipid), the order break_interaction_implicitlipid()
     // writes the matching BREAK line in.

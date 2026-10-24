@@ -761,7 +761,15 @@ int main(int argc, char *argv[]) {
    * @brief simulation begins
    *
    */
+  // Rate selection reads interface states from per-molecule words; lay them
+  // out now that every template and molecule exists (iface_state_bits.hpp).
+  iface_state_bits::build_layouts(molTemplateList);
+  iface_state_bits::refresh_all(moleculeList);
+
   for (simItr += 1; simItr < params.nItr; ++simItr) {
+#ifdef NERDSS_CHECK_STATE_BITS
+    iface_state_bits::verify_all(moleculeList, "top of step");
+#endif
     // std::cout << "simItr: " << simItr << std::endl;
     propCalled = 0;
     MDTimer::time_point startStep = MDTimer::now();

@@ -282,6 +282,15 @@ RateMatch best_matching_rate_compiled(const RxnBase& rxn, int reactIndex1, int r
     const Molecule& reactMol1, const Molecule& reactMol2);
 
 /*!
+ * \brief best_matching_rate_compiled()'s answer from the two molecules'
+ * Molecule::ifaceStateBits alone, without reading their interfaces; false when
+ * the words cannot give it and the compiled form reads the interfaces instead.
+ * For the checks: the simulator calls best_matching_rate().
+ */
+bool best_matching_rate_from_state_bits(const RxnBase& rxn, int reactIndex1, int reactIndex2,
+    const Molecule& reactMol1, const Molecule& reactMol2, RateMatch& result);
+
+/*!
  * \brief The best matching rate state of rxn.rateList for this reactant pair.
  *
  * A list with a single rate state has nothing to select, and most reactions

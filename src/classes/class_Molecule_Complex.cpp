@@ -174,6 +174,7 @@ void Molecule::destroy() {
 
   // set to void
   isEmpty = true;
+  ifaceStateBits = iface_state_bits::invalid;
 }
 
 // MPI_remove_from_one_rank destroys the molecule from one of two ranks
@@ -228,6 +229,7 @@ void Molecule::MPI_remove_from_one_rank(std::vector<Molecule> &moleculeList, std
 
   // set to void
   isEmpty = true;
+  ifaceStateBits = iface_state_bits::invalid;
 }
 
 void Molecule::create_random_coords(const MolTemplate &molTemplate,
@@ -464,6 +466,7 @@ void Molecule::create_random_coords(const MolTemplate &molTemplate,
   // TODO: Commented out for testing
   if (outOfBox)
     this->create_random_coords(molTemplate, membraneObject);
+  refresh_iface_state_bits();
 }
 
 void Molecule::Interaction::clear() {
