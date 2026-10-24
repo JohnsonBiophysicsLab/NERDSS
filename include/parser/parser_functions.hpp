@@ -413,6 +413,7 @@ void check_transition_matrix_size(const std::vector<MolTemplate>& molTemplateLis
  * @param mpiContext MPI context.
  * @param trajFileName Name of the file to write trajectory data.
  * @param transitionFileName Name of the file to write transition matrix data.
+ * @param coordinateFileName The -c initial-coordinates file, or "" for none.
  */
 void parse_input_for_a_new_simulation(
     std::string paramFile, Parameters& params,
@@ -423,7 +424,8 @@ void parse_input_for_a_new_simulation(
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     SimulVolume& simulVolume, std::string observablesFileName,
     int implicitlipidIndex, long long int simItr, MpiContext& mpiContext,
-    std::string trajFileName, std::string transitionFileName);
+    std::string trajFileName, std::string transitionFileName,
+    std::string coordinateFileName);
 
 /**
  * Parses input files and initializes simulation parameters for a restart

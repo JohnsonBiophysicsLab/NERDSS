@@ -61,7 +61,8 @@ void parse_input_for_a_new_simulation(
     std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList,
     SimulVolume& simulVolume, std::string observablesFileName,
     int implicitlipidIndex, long long int simItr, MpiContext& mpiContext,
-    std::string trajFileName, std::string transitionFileName) {
+    std::string trajFileName, std::string transitionFileName,
+    std::string coordinateFileName) {
   std::cout << "This is a new simulation with input file: " << paramFile
             << '\n';
 
@@ -133,8 +134,10 @@ void parse_input_for_a_new_simulation(
   // an all-zero WaterBox.
   membraneObject.finish_boundary();
 
-  // Generate the system coordinates, write out coordinate and topology files
-  std::string coordinateFileName{""};
+  // Generate the system coordinates, write out coordinate and topology files.
+  // The -c file used to stop at a local "" here, so nerdss_mpi -c ran from
+  // generated coordinates without a word.  Every rank reads it, as every rank
+  // generates the coordinates, and rank 0's are the ones distributed.
   generate_coordinates(params, moleculeList, complexList, molTemplateList,
                        forwardRxns, membraneObject, coordinateFileName);
   write_psf(params, moleculeList, molTemplateList);

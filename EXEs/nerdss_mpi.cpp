@@ -259,7 +259,8 @@ int main(int argc, char* argv[]) {
         paramFile, params, observablesList, forwardRxns, backRxns,
         createDestructRxns, molTemplateList, membraneObject, moleculeList,
         complexList, simulVolume, observablesFileName, implicitlipidIndex,
-        simItr, mpiContext, trajFileName, transitionFileName);
+        simItr, mpiContext, trajFileName, transitionFileName,
+        coordinateFileName);
   } else if (params.fromRestart) {
     if (DEBUG) {
       LOC(2.3, " @ RESTART_INPUT ", PROC_0)
