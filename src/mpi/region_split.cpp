@@ -23,20 +23,32 @@
 // and put every molecule back where it started.  Of the two requirements the
 // first is the one no guard can make up for, so a single owned column goes
 // left: it is moved before the left neighbour sees it, and the left
-// neighbour's returned copy is current.  The right neighbour's first-half
-// bonds into it then meet a column this rank has already moved; that is the
-// same meeting as for the second column of a two-column rank whose first
-// column binds into it, and it is left to the first-exchange guard.
+// neighbour's returned copy is current.  That used to leave the right
+// neighbour's first-half bonds into the column meeting a column this rank
+// was acting on in the same half-step, and the exchange could keep only one
+// of the two; now only the last rank is ever given a single column
+// (MpiContext::column_share() gives a middle rank at least three), and it has
+// no right neighbour.
 //
 // Rank 0 never receives from the left, so its only constraint is the right
 // one, and its formula already puts a single owned column (bin 0) on the
 // right.  With one rank there is no exchange at all and the split is only an
 // order of evaluation, which the rank-0 formula keeps as it was.
+//
+// Rank 0 with two owned columns is the exception the other way: (n - 1) / 2
+// put bin 0 on the left, and a bin-0 initiator pairs with bin 1, which is
+// bin n-2 -- the column the right neighbour binds into during the same first
+// half.  Two ranks then bound one molecule at once.  With nothing on its left
+// to satisfy, rank 0 can leave the first half empty, as it already did with
+// one column.  Middle ranks cannot (their bin 1 must go first), so they are
+// given enough columns not to meet the problem; see
+// MpiContext::column_share().
 int region_mid_index(MpiContext &mpiContext) {
   const int n = mpiContext.simulVolume->numSubCells.x;
   int mid;
   if (mpiContext.rank == 0)
-    mid = (n - 1) / 2;
+    mid = (mpiContext.endCell - mpiContext.startCell + 1 <= 2) ? 0
+                                                              : (n - 1) / 2;
   else if (mpiContext.rank == mpiContext.nprocs - 1)
     mid = (n + 1) / 2;
   else
