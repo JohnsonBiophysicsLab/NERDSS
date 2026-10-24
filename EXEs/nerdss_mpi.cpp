@@ -370,6 +370,19 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Every rank was seeded with the same -s value above, so every rank drew the
+  // same sequence: the first molecule each rank moved at step 1 got the same
+  // displacement, and from then on the ranks' draws were overlapping windows
+  // of one stream, reused for unrelated molecules.  Set-up does need the
+  // common stream -- each rank parses the input, and only rank 0's placement
+  // is kept and distributed -- so the split comes after it.  Rank 0 keeps the
+  // stream it has, so an np=1 run is unchanged.
+  if (mpiContext.rank > 0 && !params.fromRestart) {
+    gsl_rng_set(r, seed + mpiContext.rank);
+    std::cout << "RNG Seed for rank " << mpiContext.rank << ": "
+              << seed + mpiContext.rank << std::endl;
+  }
+
   int meanComplexSize{0};
 
   totalSpeciesNum = init_speciesFile(speciesFile1, counterArrays,
