@@ -124,15 +124,9 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
       }
     }
 
-    // Map the reweighting history's partner IDs back to indices.
-    // find_molecule returns -1 for a molecule that is not on this rank; keep
-    // that as the sentinel and leave it alone on the way back out, rather than
-    // feeding it to moleculeList[-1] in indices_to_IDs.
-    for (auto &prevEntry : mol.prevReweight) {
-      prevEntry.partner = (prevEntry.partner < 0)
-                              ? -1
-                              : find_molecule(moleculeList, prevEntry.partner);
-    }
+    // The reweighting history is not mapped here: it is not on the wire, and
+    // a molecule received over a local copy keeps that copy's history, which
+    // already names local indices (deserialize_molecules*()).
   }
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
 }

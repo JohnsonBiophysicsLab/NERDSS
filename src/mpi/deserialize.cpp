@@ -614,6 +614,13 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       //   indicesExitingMolecules.push_back(molIndex);
       // }
 
+      // The reweighting history is not on the wire (Molecule::serialize()),
+      // and it is this rank's: the record of the pairs it evaluated, filed
+      // under its own indices.  Losing it at every exchange gave every pair
+      // with an edge molecule as its lower-index member a fresh history each
+      // step, i.e. no reweighting at all.
+      mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
+      mol.currReweight = std::move(moleculeList[molIndex].currReweight);
       moleculeList[molIndex] = mol;
 
       auto &newCellIndex = moleculeList[molIndex].mySubVolIndex;
@@ -800,6 +807,9 @@ void deserialize_molecules_right(
       // serial run, where associate() clears both reactants' lists.
       if (mol.trajStatus != TrajStatus::propagated)
         mol.crossings = std::move(moleculeList[molIndex].crossings);
+      // Nor is the reweighting history; see deserialize_molecules().
+      mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
+      mol.currReweight = std::move(moleculeList[molIndex].currReweight);
       moleculeList[molIndex] = mol;
 
       auto newCellIndex = moleculeList[molIndex].mySubVolIndex;

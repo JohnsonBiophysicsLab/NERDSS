@@ -215,5 +215,18 @@ void remove_empty_slots(
         mol.crossings[i].partner = remapped;
       }
     }
+    // The reweighting history names its partners by index too.  Left alone,
+    // an entry for a molecule that moved went on naming whoever now sits at
+    // the old index, and determine_*_bimolecular_reaction_probability()
+    // matches on (partner, myFace, partnerFace) -- so a pair either lost its
+    // history or picked up another pair's.
+    for (auto* history : {&mol.prevReweight, &mol.currReweight}) {
+      for (auto& entry : *history) entry.partner = mapped(entry.partner);
+      history->erase(std::remove_if(history->begin(), history->end(),
+                                    [](const Molecule::ReweightEntry& entry) {
+                                      return entry.partner == -1;
+                                    }),
+                     history->end());
+    }
   }
 }

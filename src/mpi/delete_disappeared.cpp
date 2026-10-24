@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 
 #include "debug/debug.hpp"
@@ -283,6 +284,14 @@ void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
           mol.myComIndex < static_cast<int>(complexList.size()))
         --complexList[mol.myComIndex].ncross;
     }
+    // A history entry for a departed partner names a slot that a later
+    // arrival can take.
+    for (auto *history : {&mol.prevReweight, &mol.currReweight})
+      history->erase(std::remove_if(history->begin(), history->end(),
+                                    [&absent](const Molecule::ReweightEntry &e) {
+                                      return absent(e.partner);
+                                    }),
+                     history->end());
   }
 }
 

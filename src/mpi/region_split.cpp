@@ -1,3 +1,5 @@
+#include <array>
+
 #include "debug/debug.hpp"
 #include "mpi/mpi_function.hpp"
 
@@ -146,5 +148,41 @@ long long count_candidate_pairs(MpiContext &mpiContext,
   }
   long long total = 0;
   MPI_Reduce(&local, &total, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+  return total;
+}
+
+// How often a pair evaluated this step found last step's reweighting history
+// (determine_*_bimolecular_reaction_probability() looks it up in the lower
+// index's prevReweight by partner and faces), split by where the molecule
+// holding it sits: an edge column (0, 1, n-2, n-1), whose copies the
+// exchanges overwrite, or the interior.  Without per-rank bias the two hit
+// rates agree.  Accumulated over the run; returns the four sums over ranks
+// on rank 0 as {edge hits, edge pairs, interior hits, interior pairs}.  A
+// diagnostic for CHECK_STRUCTURE builds; collective.
+std::array<long long, 4> reweight_history_hits(MpiContext &mpiContext,
+                                               vector<Molecule> &moleculeList) {
+  static std::array<long long, 4> local{0, 0, 0, 0};
+  const int n = mpiContext.simulVolume->numSubCells.x;
+  for (const auto &mol : moleculeList) {
+    if (mol.isEmpty || mol.isImplicitLipid || mol.isGhosted) continue;
+    const int bin = get_x_bin(mpiContext, const_cast<Molecule &>(mol));
+    const bool edge = (mpiContext.rank > 0 && (bin == 0 || bin == 1)) ||
+                      (mpiContext.rank < mpiContext.nprocs - 1 &&
+                       (bin == n - 2 || bin == n - 1));
+    for (const auto &curr : mol.currReweight) {
+      bool hit = false;
+      for (const auto &prev : mol.prevReweight)
+        if (prev.partner == curr.partner && prev.myFace == curr.myFace &&
+            prev.partnerFace == curr.partnerFace) {
+          hit = true;
+          break;
+        }
+      local[edge ? 0 : 2] += hit;
+      local[edge ? 1 : 3] += 1;
+    }
+  }
+  std::array<long long, 4> total{0, 0, 0, 0};
+  MPI_Reduce(local.data(), total.data(), 4, MPI_LONG_LONG, MPI_SUM, 0,
+             MPI_COMM_WORLD);
   return total;
 }

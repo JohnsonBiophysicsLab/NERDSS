@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstring>
 #include <set>
 #include <unordered_map>
@@ -248,6 +249,12 @@ void drop_crossings_decided_elsewhere(MpiContext &mpiContext, vector<Molecule> &
  * \brief candidate pairs this rank can act on, summed over ranks on rank 0
  */
 long long count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
+
+/*! \ingroup mpi_function
+ * \brief reweighting-history hit counts, edge columns vs interior, summed
+ * over ranks on rank 0
+ */
+std::array<long long, 4> reweight_history_hits(MpiContext &mpiContext, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
  * \brief Delete all molecules that were in the shared zone before sending to

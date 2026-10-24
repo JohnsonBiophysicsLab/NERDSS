@@ -640,6 +640,14 @@ int main(int argc, char* argv[]) {
       if (mpiContext.rank == 0)
         fprintf(stderr, "CANDIDATE PAIRS itr=1 total=%lld\n", pairs);
     }
+    if (CHECK_STRUCTURE) {
+      // counted every step, reported every 1000
+      const auto hits = reweight_history_hits(mpiContext, moleculeList);
+      if (mpiContext.rank == 0 && simItr % 1000 == 0)
+        fprintf(stderr,
+                "REWEIGHT HISTORY itr=%lld edge=%lld/%lld interior=%lld/%lld\n",
+                simItr, hits[0], hits[1], hits[2], hits[3]);
+    }
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after measure_separations");
