@@ -586,11 +586,21 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Check and perform 0th and 1st order reactions...\n");
     }
+    // The complexes the right neighbour can bind into this half-step take
+    // their first-order reactions after the first exchange instead; see
+    // src/mpi/defer_edge_reactions.cpp.
+    vector<int> heldBack;
+    hold_back_right_edge_first_order(mpiContext, moleculeList, complexList,
+                                     heldBack);
     check_perform_zeroth_first_order_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
         ILTableIDs, mpiContext);
+    release_held_back(moleculeList, heldBack);
+    vector<int> heldBackIds;
+    heldBackIds.reserve(heldBack.size());
+    for (int m : heldBack) heldBackIds.push_back(moleculeList[m].id);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after first-order");
@@ -840,6 +850,15 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after receive right");
+
+    perform_held_back_first_order(
+        simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
+        backRxns, createDestructRxns, molTemplateList, observablesList,
+        counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
+        ILTableIDs, mpiContext, heldBackIds);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after held-back first-order");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//after receive right");

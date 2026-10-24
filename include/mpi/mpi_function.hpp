@@ -188,6 +188,37 @@ void claim_unowned_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeL
                              vector<Complex> &complexList, SimulVolume &simulVolume);
 
 /*! \ingroup mpi_function
+ * \brief hold the complexes the right neighbour can bind into back from the
+ * top-of-step first-order pass (marks their members ghosts; see
+ * defer_edge_reactions.cpp)
+ */
+void hold_back_right_edge_first_order(MpiContext &mpiContext,
+                                      vector<Molecule> &moleculeList,
+                                      vector<Complex> &complexList,
+                                      vector<int> &heldBack);
+
+/*! \ingroup mpi_function
+ * \brief undo hold_back_right_edge_first_order()'s ghost marks
+ */
+void release_held_back(vector<Molecule> &moleculeList,
+                       const vector<int> &heldBack);
+
+/*! \ingroup mpi_function
+ * \brief the first-order pass for the held-back complexes, after the first
+ * exchange
+ */
+void perform_held_back_first_order(
+    long long simItr, Parameters &params, vector<Molecule> &moleculeList,
+    vector<Complex> &complexList, SimulVolume &simulVolume,
+    vector<ForwardRxn> &forwardRxns, vector<BackRxn> &backRxns,
+    vector<CreateDestructRxn> &createDestructRxns,
+    vector<MolTemplate> &molTemplateList,
+    std::map<std::string, int> &observablesList, copyCounters &counterArrays,
+    Membrane &membraneObject, vector<double> &IL2DbindingVec,
+    vector<double> &IL2DUnbindingVec, vector<double> &ILTableIDs,
+    MpiContext &mpiContext, const vector<int> &heldBackIds);
+
+/*! \ingroup mpi_function
  * \brief drop every stored reference to a molecule that has left this rank
  */
 void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,

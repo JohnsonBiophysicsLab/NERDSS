@@ -101,6 +101,10 @@ void check_perform_zeroth_first_order_reactions(
           params.implicitLipid == false ||
           moleculeList[molItr].isGhosted == true)
         continue;
+#ifdef mpi_
+      // held back to a later pass in this step; see src/mpi/defer_edge_reactions.cpp
+      if (moleculeList[molItr].firstOrderHeld) continue;
+#endif
       check_dissociation_implicitlipid(
           simItr, params, simulVolume, molTemplateList, observablesList, molItr,
           moleculeList, complexList, backRxns, forwardRxns, createDestructRxns,

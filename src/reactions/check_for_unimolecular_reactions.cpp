@@ -35,6 +35,9 @@ void check_for_unimolecular_reactions(
     // only do checks if the Molecule exists
     if (moleculeList[molItr].isEmpty || moleculeList[molItr].isGhosted)
       continue;
+#ifdef mpi_
+    if (moleculeList[molItr].firstOrderHeld) continue;
+#endif
 
     // now check for unimolecular creation and destruction
     // TODO: this is currently constrained to only consider a Molecule and only
