@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstring>
+#include <map>
+#include <string>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -218,6 +220,23 @@ void perform_held_back_first_order(
     Membrane &membraneObject, vector<double> &IL2DbindingVec,
     vector<double> &IL2DUnbindingVec, vector<double> &ILTableIDs,
     MpiContext &mpiContext, const vector<int> &heldBackIds);
+
+/*! \ingroup mpi_function
+ * \brief write the whole system's state as one restart file from rank 0, in
+ * the serial format (src/io_mpi/write_gathered_restart.cpp); collective.
+ * rngWrite: 0 no RNG state, 1 DATA/rng_state, 2 RESTARTS/rng_state<simItr>
+ */
+void write_gathered_restart(
+    long long int simItr, const std::string &fileName, int rngWrite,
+    Parameters &params, std::vector<Molecule> &moleculeList,
+    std::vector<Complex> &complexList, std::vector<MolTemplate> &molTemplateList,
+    std::vector<ForwardRxn> &forwardRxns, std::vector<BackRxn> &backRxns,
+    std::vector<CreateDestructRxn> &createDestructRxns,
+    const std::map<std::string, int> &observablesList,
+    const std::map<std::string, int> &observablesAtStart,
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
+    MpiContext &mpiContext);
 
 /*! \ingroup mpi_function
  * \brief drop every stored reference to a molecule that has left this rank

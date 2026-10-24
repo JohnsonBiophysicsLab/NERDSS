@@ -68,19 +68,9 @@ void write_output(long long int simItr, Parameters& params,
     }
   }
 
-  // if (simItr % params.restartWrite) { // turn off the restart now
-  if (0) {
-    std::ofstream restartFile{restartFileName,
-                              std::ios::out};  // to show different from append
-    write_rng_state(mpiContext.rank);          // write the current RNG state
-    std::vector<TransmissionRxn> transmissionRxns{};
-    write_restart(simItr, restartFile, params, simulVolume, moleculeList,
-                  complexList, molTemplateList, forwardRxns, backRxns,
-                  createDestructRxns,transmissionRxns, observablesList, membraneObject,
-                  counterArrays);
-
-    restartFile.close();
-  }
+  // Restart files are written from the main loop by write_gathered_restart(),
+  // which assembles the whole system on rank 0; one rank's lists alone are
+  // not a restart file.
 
   // timeWrite <= 0 turns the periodic statistics output off
   if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {

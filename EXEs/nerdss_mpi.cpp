@@ -380,6 +380,16 @@ int main(int argc, char* argv[]) {
     LOC(3.0, " @ PARALLEL_PARTITION ", PROC_0);
   }
 
+  // The whole system as parsed, before the ranks split it: a checkpoint
+  // written by write_gathered_restart() restores the water box, membrane area
+  // and site counts the split rescaled, and needs the whole grid and each
+  // observable's starting value (every rank starts from the whole system's).
+  const Membrane membraneWhole = membraneObject;
+  const SimulVolume simulVolumeWhole = simulVolume;
+  const std::map<std::string, int> observablesAtStart = observablesList;
+  const std::string restartExtension{params.legacyRestartFormat ? ".dat"
+                                                                 : ".json"};
+
   if (mpiContext.nprocs) {  // if parallel execution
     if (!params.fromRestart) {
       prepare_data_structures_for_parallel_execution(
@@ -1115,6 +1125,25 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after remove_empty_slots");
+
+    // The serial build's restart files, on the serial build's schedule and
+    // under its names, holding the whole system; see
+    // src/io_mpi/write_gathered_restart.cpp.  Collective.
+    if (params.restartWrite > 0 && simItr % params.restartWrite == 0)
+      write_gathered_restart(
+          simItr, "DATA/restart" + restartExtension, params.rngwrite ? 1 : 0,
+          params, moleculeList, complexList, molTemplateList, forwardRxns,
+          backRxns, createDestructRxns, observablesList, observablesAtStart,
+          membraneObject, counterArrays, membraneWhole, simulVolumeWhole,
+          mpiContext);
+    if (params.checkPoint > 0 && simItr % params.checkPoint == 0)
+      write_gathered_restart(
+          simItr,
+          "RESTARTS/restart" + std::to_string(simItr) + restartExtension,
+          params.rngwrite ? 2 : 0, params, moleculeList, complexList,
+          molTemplateList, forwardRxns, backRxns, createDestructRxns,
+          observablesList, observablesAtStart, membraneObject, counterArrays,
+          membraneWhole, simulVolumeWhole, mpiContext);
     if (DEBUG) {
       DEBUG_FIND_MOL("7: before 4.10");
       DEBUG_FIND_COMPLEX("7: before 4.10");
@@ -1158,6 +1187,14 @@ int main(int argc, char* argv[]) {
       DEBUG_FIND_COMPLEX("8: end iterating over time steps");
     }
   }  // end iterating over time steps
+
+  // The restart file at the last step, as the serial build writes it.
+  write_gathered_restart(
+      simItr - 1, "DATA/restart" + restartExtension, params.rngwrite ? 1 : 0,
+      params, moleculeList, complexList, molTemplateList, forwardRxns,
+      backRxns, createDestructRxns, observablesList, observablesAtStart,
+      membraneObject, counterArrays, membraneWhole, simulVolumeWhole,
+      mpiContext);
 
   // Write out final result
   std::cout << llinebreak << "End simulation\n";
