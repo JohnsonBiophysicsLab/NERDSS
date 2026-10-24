@@ -197,6 +197,23 @@ void prepare_data_structures_for_parallel_execution(
           "**************** rank:"
        << mpiContext.rank << endl;
 
+  // init_x_domain_and_offset() hands out whole x columns, so with more ranks
+  // than columns the last ranks get none: startCell > endCell, a negative
+  // share of the box, and a sub-volume grid made of ghost columns only.  On
+  // trimer (3 columns) at np=4 that rank still received a copy of its
+  // neighbour's edge, claimed nothing, and 84 molecules were owned by nobody
+  // from step 1.  Every rank parsed the input, so every rank sees the same
+  // count and leaves together.
+  if (mpiContext.nprocs > static_cast<int>(simulVolume.numSubCells.x)) {
+    error(mpiContext,
+          "nerdss_mpi divides the box along x into whole sub-volume columns, "
+          "and this system has " +
+              to_string(simulVolume.numSubCells.x) + " of them, fewer than the " +
+              to_string(mpiContext.nprocs) +
+              " ranks requested; run with mpirun -np " +
+              to_string(simulVolume.numSubCells.x) + " or fewer");
+  }
+
   // Reserve memory for an array for serialized data to be sent from rank 0 to
   // others
   unsigned char *arrayRank =
