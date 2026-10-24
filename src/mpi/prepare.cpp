@@ -46,6 +46,15 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
     membraneObject.waterBox.xRight =
         mpiContext.xRight * (membraneObject.waterBox.x) -
         (membraneObject.waterBox.x / 2.0);
+  } else {
+    // nSites is split by the rank's share of the x columns below, and the
+    // implicit lipid's density is numberOfFreeLipidsEachState / totalSA, so the
+    // area has to be split the same way or every rank sees 1/np of the
+    // density.  It can be: the sphere's water box is 2 sphereR wide, and the
+    // area of a sphere between two parallel planes is 2 pi R times their
+    // distance (Archimedes), so a rank's slab of columns holds exactly its
+    // column fraction of the surface.
+    membraneObject.totalSA *= ratio;
   }
 
   if (membraneObject.implicitLipid == true) {
