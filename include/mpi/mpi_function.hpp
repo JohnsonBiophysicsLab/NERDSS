@@ -242,7 +242,12 @@ int region_mid_index(MpiContext &mpiContext);
  * the right ghost column.  A pair across a column boundary is decided by the
  * rank to the right of it, in its first half; see region_split.cpp.
  */
-void drop_right_ghost_crossings(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
+void drop_crossings_decided_elsewhere(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
+
+/*! \ingroup mpi_function
+ * \brief candidate pairs this rank can act on, summed over ranks on rank 0
+ */
+long long count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
  * \brief Delete all molecules that were in the shared zone before sending to

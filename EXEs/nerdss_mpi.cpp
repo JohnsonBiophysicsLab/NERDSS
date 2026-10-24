@@ -632,8 +632,14 @@ int main(int argc, char* argv[]) {
         ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
         tableIDs, DDTableIndex);
     // A pair across the boundary with the right neighbour is that
-    // neighbour's to decide; see region_split.cpp.
-    drop_right_ghost_crossings(mpiContext, moleculeList, complexList);
+    // neighbour's to decide, and one inside the left ghost column the left
+    // neighbour's; see region_split.cpp.
+    drop_crossings_decided_elsewhere(mpiContext, moleculeList, complexList);
+    if (CHECK_STRUCTURE && simItr == 1) {
+      const long long pairs = count_candidate_pairs(mpiContext, moleculeList);
+      if (mpiContext.rank == 0)
+        fprintf(stderr, "CANDIDATE PAIRS itr=1 total=%lld\n", pairs);
+    }
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after measure_separations");

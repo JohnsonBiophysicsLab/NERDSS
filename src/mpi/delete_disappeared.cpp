@@ -50,7 +50,7 @@ using namespace std;
 // neighbour.  Nothing else about the step changes: the dissociation has
 // already displaced the product and marked it propagated, and a pair across
 // the right boundary is the neighbour's to decide
-// (drop_right_ghost_crossings()), so an owned product does nothing more in
+// (drop_crossings_decided_elsewhere()), so an owned product does nothing more in
 // that half-step than an unowned one did.  What the claim restores is the
 // invariant everything else reads -- one owner for every complex at every
 // checkpoint -- for the tallies, for the far-neighbour rules keyed on

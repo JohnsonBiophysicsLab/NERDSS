@@ -73,16 +73,31 @@ int region_mid_index(MpiContext &mpiContext) {
 // left to draw from in the second half.  A rank that owns one column does
 // its first half before that exchange, so its candidates against the right
 // ghost column were live, and the rule has to be explicit.
-void drop_right_ghost_crossings(MpiContext &mpiContext,
-                                vector<Molecule> &moleculeList,
-                                vector<Complex> &complexList) {
-  if (mpiContext.rank == mpiContext.nprocs - 1) return;
+//
+// The left ghost column has the mirror rule.  A pair with both members in it
+// lies inside the left neighbour's last owned column and is the left
+// neighbour's, which lists it as its own and keeps it.  measure_separations()
+// lists such a pair here too whenever one member is owned here -- a member of
+// a complex straddling the boundary -- and since it pairs ghosts with owned
+// molecules (it used to skip ghosts altogether, and with them most pairs
+// across the boundary) it can list more; drop them, or both ranks draw.
+void drop_crossings_decided_elsewhere(MpiContext &mpiContext,
+                                      vector<Molecule> &moleculeList,
+                                      vector<Complex> &complexList) {
+  const bool hasRight = mpiContext.rank < mpiContext.nprocs - 1;
+  const bool hasLeft = mpiContext.rank > 0;
+  if (!hasRight && !hasLeft) return;
   const int rightGhost = mpiContext.simulVolume->numSubCells.x - 1;
-  vector<char> inRightGhost(moleculeList.size(), 0);
+  // 1: in the right ghost column, 2: in the left ghost column
+  vector<char> where(moleculeList.size(), 0);
   for (size_t i = 0; i < moleculeList.size(); i++) {
     Molecule &mol = moleculeList[i];
     if (mol.isEmpty || mol.isImplicitLipid) continue;
-    inRightGhost[i] = get_x_bin(mpiContext, mol) == rightGhost;
+    const int bin = get_x_bin(mpiContext, mol);
+    if (hasRight && bin == rightGhost)
+      where[i] = 1;
+    else if (hasLeft && bin == 0)
+      where[i] = 2;
   }
   for (size_t i = 0; i < moleculeList.size(); i++) {
     Molecule &mol = moleculeList[i];
@@ -90,10 +105,12 @@ void drop_right_ghost_crossings(MpiContext &mpiContext,
     int dropped = 0;
     for (int k = static_cast<int>(mol.crossings.size()) - 1; k >= 0; --k) {
       const int p = mol.crossings[k].partner;
-      const bool partnerInGhost = p >= 0 &&
-                                  p < static_cast<int>(moleculeList.size()) &&
-                                  inRightGhost[p];
-      if (!inRightGhost[i] && !partnerInGhost) continue;
+      const int pw = (p >= 0 && p < static_cast<int>(moleculeList.size()))
+                         ? where[p]
+                         : 0;
+      const bool rightsPair = where[i] == 1 || pw == 1;
+      const bool leftsPair = where[i] == 2 && pw == 2;
+      if (!rightsPair && !leftsPair) continue;
       mol.crossings.erase(mol.crossings.begin() + k);
       dropped++;
     }
@@ -104,4 +121,30 @@ void drop_right_ghost_crossings(MpiContext &mpiContext,
         mol.myComIndex < static_cast<int>(complexList.size()))
       complexList[mol.myComIndex].ncross -= dropped;
   }
+}
+
+// How many candidate interface pairs this rank holds that it can act on --
+// listed after drop_crossings_decided_elsewhere(), with at least one member
+// that is not a ghost -- summed over the ranks on rank 0.  At step 1 nothing
+// has moved and every decomposition starts from rank 0's coordinates, so the
+// total has to be the np=1 count: each pair listed by exactly one rank.  A
+// diagnostic for CHECK_STRUCTURE builds; collective.
+long long count_candidate_pairs(MpiContext &mpiContext,
+                                vector<Molecule> &moleculeList) {
+  long long local = 0;
+  for (const auto &mol : moleculeList) {
+    if (mol.isEmpty || mol.isImplicitLipid) continue;
+    for (const auto &cross : mol.crossings) {
+      const int p = cross.partner;
+      if (p < 0 || p >= static_cast<int>(moleculeList.size())) continue;
+      const Molecule &partner = moleculeList[p];
+      if (partner.isImplicitLipid) continue;
+      if (mol.isGhosted && partner.isGhosted) continue;
+      // each pair sits in both lists; count it from the lower id's
+      if (mol.id < partner.id) local++;
+    }
+  }
+  long long total = 0;
+  MPI_Reduce(&local, &total, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+  return total;
 }

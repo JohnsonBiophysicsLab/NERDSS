@@ -55,7 +55,17 @@ void measure_separations_to_identify_possible_reactions(
          ++memItr) {
       int targMolIndex{simulVolume.subCellList[cellItr].memberMolList[memItr]};
       if (moleculeList[targMolIndex].isImplicitLipid) continue;
-      if (moleculeList[targMolIndex].isGhosted) continue;
+      // A ghost is still a partner.  The walk below is a half shell -- the
+      // same cell's later members and 13 forward neighbour cells -- so each
+      // pair is met from one side only, and for a pair of a ghost in the left
+      // ghost column and an owned molecule in the first owned column that
+      // side is usually the ghost's: (x+1, *, *) is forward, (x-1, *, *) only
+      // with y+1 or z+1.  Skipping ghosts here therefore lost most pairs
+      // across every rank boundary -- the left neighbour drops them as its
+      // right ghost's (drop_crossings_decided_elsewhere()), so nobody drew
+      // them -- and assembly near the boundaries ran slow.  What a ghost
+      // must not do is pair with another ghost: neither can initiate here.
+      const bool targGhost{moleculeList[targMolIndex].isGhosted};
 
       // Test bimolecular reactions, and binding to implicit-lipids
       if (moleculeList[targMolIndex].freelist.size() > 0 ||
@@ -63,7 +73,7 @@ void measure_separations_to_identify_possible_reactions(
                   .excludeVolumeBound == true) {
         // first, check for implicit-lipid binding
         int protype = moleculeList[targMolIndex].molTypeIndex;
-        if (molTemplateList[protype].bindToSurface == true) {
+        if (!targGhost && molTemplateList[protype].bindToSurface == true) {
           check_implicit_reactions(
               targMolIndex, implicitlipidIndex, simItr, params, moleculeList,
               complexList, molTemplateList, forwardRxns, backRxns,
@@ -77,6 +87,7 @@ void measure_separations_to_identify_possible_reactions(
              ++memItr2) {
           int partMolIndex{
               simulVolume.subCellList[cellItr].memberMolList[memItr2]};
+          if (targGhost && moleculeList[partMolIndex].isGhosted) continue;
 
           check_bimolecular_reactions(
               targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -100,6 +111,7 @@ void measure_separations_to_identify_possible_reactions(
                 simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
             if (DEBUG && (partMolIndex > moleculeList.size()))
               error("partMolIndex is higher than moleculeList size!");
+            if (targGhost && moleculeList[partMolIndex].isGhosted) continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                 params, normMatrices, survMatrices, pirMatrices, moleculeList,
