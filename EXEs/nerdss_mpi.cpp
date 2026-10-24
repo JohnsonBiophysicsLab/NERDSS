@@ -277,6 +277,31 @@ int main(int argc, char* argv[]) {
         "is : ./nerdss -f parameterfile.inp or ./nerdss -r restartfile.dat \n");
   }
 
+  // Two kinds of system this executable would run, and get wrong, without a
+  // word.  A compartment is parsed, but Membrane::serialize() does not carry
+  // hasCompartment or compartmentR, so every rank -- rank 0 included, which
+  // deserializes its own share -- comes up without one, and this loop has no
+  // transmission step anyway: molecules cross the compartment wall freely.
+  // A creation reaction in a sphere draws over the whole sphere with the
+  // whole sphereVol on every rank, so at np ranks the rate is np times the
+  // serial one and most products land in other ranks' slabs.
+  if (membraneObject.hasCompartment) {
+    error(mpiContext,
+          "nerdss_mpi does not simulate compartments (no transmission "
+          "reactions, and the compartment is not passed to the ranks); run "
+          "this model with the serial nerdss");
+  }
+  if (mpiContext.nprocs > 1 && membraneObject.isSphere()) {
+    for (const auto& oneReaction : createDestructRxns) {
+      if (oneReaction.rxnType == ReactionType::zerothOrderCreation) {
+        error(mpiContext,
+              "nerdss_mpi cannot divide a creation reaction in a sphere "
+              "between ranks; run this model with mpirun -np 1 or with the "
+              "serial nerdss");
+      }
+    }
+  }
+
   // Restart files are JSON unless legacyRestartFormat asks for the .dat format
   // of earlier builds; see EXEs/nerdss.cpp.
   restartFileName = "DATA/restart_" + std::to_string(mpiContext.rank) +
