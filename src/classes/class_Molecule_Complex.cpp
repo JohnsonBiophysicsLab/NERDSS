@@ -769,6 +769,12 @@ void Complex::destroy(std::vector<Molecule> &moleculeList,
   isEmpty = true;
   id = -1;
   receivedFromNeighborRank = true;
+  // The slot goes on emptyComList, and break_interaction() and the creation
+  // routines build their new complex in it field by field, so whatever is not
+  // reset here is inherited.  An inherited ownerRank names the rank that
+  // owned the destroyed complex; claim_unowned_complexes() only claims -1, so
+  // the product kept that owner whoever made it.
+  ownerRank = -1;
 
   // iterate down the number of complexes in the system.
   trajStatus = TrajStatus::none;
