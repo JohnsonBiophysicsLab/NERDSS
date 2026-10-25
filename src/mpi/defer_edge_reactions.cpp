@@ -86,7 +86,8 @@ void perform_held_back_first_order(
     std::map<std::string, int> &observablesList, copyCounters &counterArrays,
     Membrane &membraneObject, vector<double> &IL2DbindingVec,
     vector<double> &IL2DUnbindingVec, vector<double> &ILTableIDs,
-    MpiContext &mpiContext, const vector<int> &heldBackIds) {
+    MpiContext &mpiContext, const vector<int> &heldBackIds,
+    std::ofstream &assocDissocFile) {
   if (heldBackIds.empty()) return;
   std::unordered_set<int> ids(heldBackIds.begin(), heldBackIds.end());
 
@@ -115,9 +116,6 @@ void perform_held_back_first_order(
     if (!isLate) mol.firstOrderHeld = true;
   }
 
-  char fnameProXYZ[256];
-  snprintf(fnameProXYZ, sizeof(fnameProXYZ), "DATA/assoc_dissoc_time.dat");
-  std::ofstream assocDissocFile(fnameProXYZ);
   check_for_unimolecular_reactions(
       simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
       backRxns, createDestructRxns, molTemplateList, observablesList,

@@ -219,7 +219,8 @@ void perform_held_back_first_order(
     std::map<std::string, int> &observablesList, copyCounters &counterArrays,
     Membrane &membraneObject, vector<double> &IL2DbindingVec,
     vector<double> &IL2DUnbindingVec, vector<double> &ILTableIDs,
-    MpiContext &mpiContext, const vector<int> &heldBackIds);
+    MpiContext &mpiContext, const vector<int> &heldBackIds,
+    std::ofstream &assocDissocFile);
 
 /*! \ingroup mpi_function
  * \brief write the whole system's state as one restart file from rank 0, in

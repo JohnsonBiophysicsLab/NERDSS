@@ -350,6 +350,10 @@ int main(int argc, char* argv[]) {
   std::ofstream pairOutfile{fileName};
   fileName = "DATA/copy_numbers_time_" + std::to_string(mpiContext.rank) + ".dat";
   std::ofstream speciesFile1{fileName};
+  // This rank's associations and dissociations, molecules named by id (see
+  // assoc_dissoc_label()).  The reaction passes used to open a shared
+  // DATA/assoc_dissoc_time.dat each on their own, truncating it every pass on
+  // every rank whatever assocDissocWrite said, and this file stayed empty.
   fileName = "DATA/assoc_dissoc_time_" + std::to_string(mpiContext.rank) + ".dat";
   std::ofstream assocDissocFile(fileName);
   if (params.assocDissocWrite == false) {
@@ -615,7 +619,7 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
-        ILTableIDs, mpiContext);
+        ILTableIDs, mpiContext, assocDissocFile);
     release_held_back(moleculeList, heldBack);
     vector<int> heldBackIds;
     heldBackIds.reserve(heldBack.size());
@@ -717,7 +721,7 @@ int main(int argc, char* argv[]) {
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
-        counterArrays, membraneObject, left);
+        counterArrays, membraneObject, left, assocDissocFile);
     // An association merges the partner's complex into the initiator's, or
     // the other way round -- associate() keeps whichever complex the reaction
     // lists first -- and the survivor keeps its ownerRank.  A ghost partner
@@ -888,7 +892,7 @@ int main(int argc, char* argv[]) {
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
-        ILTableIDs, mpiContext, heldBackIds);
+        ILTableIDs, mpiContext, heldBackIds, assocDissocFile);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after held-back first-order");
@@ -932,7 +936,7 @@ int main(int argc, char* argv[]) {
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
-        counterArrays, membraneObject, right);
+        counterArrays, membraneObject, right, assocDissocFile);
     // Same as after the left pass: the flag follows the complex.
     derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
     if (CHECK_STRUCTURE)

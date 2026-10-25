@@ -22,6 +22,20 @@
  * \brief Functions for input/output of coordinates, parameters, trajectories, etc.
  */
 
+/*! \ingroup IO
+ * \brief The number assoc_dissoc_time.dat names a molecule by.  The serial
+ * build writes its slot index, which is that file's format; under MPI a slot is
+ * rank-local and remove_empty_slots() renumbers it every step, so the id.
+ */
+inline int assoc_dissoc_label(const Molecule& mol)
+{
+#ifdef mpi_
+    return mol.id;
+#else
+    return mol.index;
+#endif
+}
+
 std::ostream& linebreak(std::ostream& os);
 std::ostream& llinebreak(std::ostream& os);
 void write_psf(const Parameters& params, const std::vector<Molecule>& moleculeList,

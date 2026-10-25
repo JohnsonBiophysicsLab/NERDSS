@@ -9,6 +9,7 @@
  * or a list edit, so the two roles differ only in which of the pair is the
  * protein and which the lipid.  This is the one copy, written in that order.
  */
+#include "io/io.hpp"
 #include "boundary_conditions/reflect_functions.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
@@ -63,8 +64,8 @@ void finish_implicit_lipid_binding(long long int iter, Molecule& protein, Molecu
     // writes the matching BREAK line in.
     if (assocDissocFile.is_open()) {
         assocDissocFile << "ITR:" << iter << "," << "BOND,"
-                        << molTemplateList[protein.molTypeIndex].molName << "," << protein.index << "," << proteinIface << ","
-                        << molTemplateList[lipid.molTypeIndex].molName << "," << lipid.index << "," << lipidIface << std::endl;
+                        << molTemplateList[protein.molTypeIndex].molName << "," << assoc_dissoc_label(protein) << "," << proteinIface << ","
+                        << molTemplateList[lipid.molTypeIndex].molName << "," << assoc_dissoc_label(lipid) << "," << lipidIface << std::endl;
     }
 
     // add to the list of bound interfaces and remove from the list of free interfaces

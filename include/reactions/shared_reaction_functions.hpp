@@ -429,7 +429,7 @@ void check_perform_zeroth_first_order_reactions(
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
     Membrane& membraneObject, std::vector<double>& IL2DbindingVec,
     std::vector<double>& IL2DUnbindingVec, std::vector<double>& ILTableIDs,
-    MpiContext& mpiContext);
+    MpiContext& mpiContext, std::ofstream& assocDissocFile);
 
 void measure_separations_to_identify_possible_reactions(
     unsigned simItr, Parameters& params, std::vector<Molecule>& moleculeList,
@@ -452,7 +452,8 @@ void perform_bimolecular_reactions(
     std::vector<CreateDestructRxn>& createDestructRxns,
     std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
-    Membrane& membraneObject, std::vector<int>& region);
+    Membrane& membraneObject, std::vector<int>& region,
+    std::ofstream& assocDissocFile);
 
 void check_overlap(std::vector<int>& region, unsigned simItr,
                    Parameters& params, std::vector<Molecule>& moleculeList,

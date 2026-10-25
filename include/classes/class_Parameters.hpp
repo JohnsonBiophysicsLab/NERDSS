@@ -307,6 +307,10 @@ struct Parameters {
         PUSH(pdbWrite);
         PUSH(checkPoint);
         PUSH(transitionWrite);
+        // Output switches: the ranks take params from this copy, and an MPI
+        // run used to see the defaults whatever the input said.
+        PUSH(assocDissocWrite);
+        PUSH(bondedComplexWrite);
         PUSH(clusterOverlapCheck);
         PUSH(rngwrite)
         PUSH(legacyRestartFormat);
@@ -368,6 +372,8 @@ struct Parameters {
         POP(pdbWrite);
         POP(checkPoint);
         POP(transitionWrite);
+        POP(assocDissocWrite);
+        POP(bondedComplexWrite);
         POP(clusterOverlapCheck);
         POP(rngwrite);
         POP(legacyRestartFormat);
