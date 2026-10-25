@@ -11,13 +11,14 @@
 // interfaces.  The model written here does: a lipid with three states; B, whose
 // rate depends on whether its a is bound (two rate states, so the compiled
 // selection); C, whose only rate state needs a bound, so a free a matches
-// nothing; and K, which changes the lipid from U to P.  The pair check never
-// tests K against IL~P, so the back state change path, kept as
-// find_which_reaction() has it, is unreachable for lipid pairs: the parser
-// lists a state change's product partner on the facilitator's state only when
-// the facilitator's own state changes too, and a reaction that changed both K's
-// state and the lipid's would not parse as one state change.  It is counted,
-// not required.
+// nothing; and K, which changes the lipid from U to P and back.  The back
+// state change starts from K and IL~P, so K's state must list IL~P as a
+// partner and the lookup must return the reaction as a back state change.
+// The parser used to file that partner only when the facilitator's own state
+// changed too, which no reaction that parses as one state change does, so
+// the pair check never tested K against IL~P and the lipid never went from P
+// back to U.  The check fails unless some lookup returns a back state change
+// (only K's can), with the lipid in the forward product's state.
 //
 // find_which_reaction() used to match the lipid by molecule type, not by
 // state, so a protein was handed its first reaction with the lipid whatever
@@ -500,8 +501,10 @@ int main()
         totals.testedFound, totals.backSkipped);
     // Every path must have been taken, or the check proves less than it says.
     // A's m meets the three lipid states through three reactions; the
-    // type-matched lookup found only the first.
+    // type-matched lookup found only the first.  K's k meets IL~P only through
+    // the back state change.
     if (totals.mismatches != 0 || totals.wrongLipidState != 0 || totals.mostLipidRxns < 3
+        || totals.backStateChange == 0
         || totals.foundWithOffset == 0 || totals.none == 0 || totals.found == 0
         || totals.lipidOffset == 0 || totals.fixedRate == 0 || totals.testedRate == 0 || totals.testedFound == 0
         || totals.testedFound == totals.testedRate) {

@@ -185,13 +185,16 @@ void check_implicit_reactions(
                                ifaceVec2.y * ifaceVec2.y +
                                ifaceVec2.z * ifaceVec2.z};
 
-                // find the state of IL
+                // find the state of IL: the one the reaction consumes, which
+                // for a back state change is the forward product's.
                 int forwardRxnIndex{rxnIndex};
                 const ForwardRxn &currRxn = forwardRxns[forwardRxnIndex];
                 int relStateIndex{implicit_lipid_state_index(
                     implicit_lipid_state_list(moleculeList, molTemplateList,
                                               membraneObject),
-                    implicit_lipid_iface(currRxn.reactantListNew,
+                    implicit_lipid_iface(isStateChangeBackRxn
+                                             ? currRxn.productListNew
+                                             : currRxn.reactantListNew,
                                          molTemplateList))};
 
                 // binding with implicit-lipid model

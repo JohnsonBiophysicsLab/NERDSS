@@ -46,6 +46,15 @@ bool determine_if_reaction_occurs(int& crossIndex1, int& crossIndex2, const doub
                     crossIndex2 = crossMolItr2;
                     bool isStateChangeBackRxn { mol.crossings[crossIndex1].rxn[2] == 1 };
                     int rxnItr { mol.crossings[crossIndex1].rxn[0] };
+                    // A back state change starts from the forward products, so
+                    // the pair is matched against those.  Matching it against
+                    // the reactants failed whenever mol was the facilitator: the
+                    // partner is in the product state.  Nothing was chosen, mol
+                    // then zeroed the pair's probability on its partners, and a
+                    // back state change ran only when the changing molecule came
+                    // first in this loop.
+                    const std::vector<RxnIface>& sides { isStateChangeBackRxn ? forwardRxns[rxnItr].productListNew
+                                                                              : forwardRxns[rxnItr].reactantListNew };
                     bool rxnMatches { false };
                     // check to make sure the reactant interfaces match the reaction. this is necessary if two reactions
                     // have the exact same probability (rare, but possible)
@@ -57,13 +66,13 @@ bool determine_if_reaction_occurs(int& crossIndex1, int& crossIndex2, const doub
                             // corssIndex2 may be not desired if two interfaces have same reaction and same probability, for example cd1 + cd2
 
                             // determine mol is reactant1 or reactant2
-                            if (mol.interfaceList[mol.crossings[crossIndex1].myIface].index == forwardRxns[rxnItr].reactantListNew[0].absIfaceIndex) {
+                            if (mol.interfaceList[mol.crossings[crossIndex1].myIface].index == sides[0].absIfaceIndex) {
                                 //mol is reactant1
-                                if (moleculeList[mol2Index].interfaceList[moleculeList[mol2Index].crossings[crossIndex2].myIface].index == forwardRxns[rxnItr].reactantListNew[1].absIfaceIndex)
+                                if (moleculeList[mol2Index].interfaceList[moleculeList[mol2Index].crossings[crossIndex2].myIface].index == sides[1].absIfaceIndex)
                                     rxnMatches = true;
                             } else {
                                 //mol is reactant2
-                                if (moleculeList[mol2Index].interfaceList[moleculeList[mol2Index].crossings[crossIndex2].myIface].index == forwardRxns[rxnItr].reactantListNew[0].absIfaceIndex)
+                                if (moleculeList[mol2Index].interfaceList[moleculeList[mol2Index].crossings[crossIndex2].myIface].index == sides[0].absIfaceIndex)
                                     rxnMatches = true;
                             }
 
