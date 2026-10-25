@@ -191,12 +191,21 @@ void delete_disappeared_molecules(
   // rank with one owned column, that column is mirrored by both neighbours,
   // and a complex the right neighbour owns can have a member in it -- is not
   // in this message because the sender never had it, not because it is gone.
+  //
+  // The first and the last rank have no far neighbour.  On rank 0 rank - 1 is
+  // -1, which is also the ownerRank of a complex nobody has claimed, and at
+  // step 1 that is every ghost complex (prepare_rank_data() seeds owners only
+  // for owned ones).  A ghost the right neighbour had moved out of the
+  // mirrored column before sending -- a 1D association pulls a molecule tens
+  // of nm -- then survived here unbound, came back in the second exchange and
+  // overwrote the neighbour's bound copy: half a bond, at np >= 2.
   const int farNeighbour = fromLeft ? mpiContext.rank + 1 : mpiContext.rank - 1;
+  const bool hasFarNeighbour = farNeighbour >= 0 && farNeighbour < mpiContext.nprocs;
   for (auto &molIndex : region) {
     Molecule &mol = moleculeList[molIndex];
     if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true)
       continue;  // no checking for deleted molecules, implicit lipid
-    if (mol.myComIndex >= 0 &&
+    if (hasFarNeighbour && mol.myComIndex >= 0 &&
         mol.myComIndex < static_cast<int>(complexList.size()) &&
         complexList[mol.myComIndex].ownerRank == farNeighbour)
       continue;
