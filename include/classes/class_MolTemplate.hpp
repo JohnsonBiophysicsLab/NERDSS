@@ -69,8 +69,7 @@ struct Interface {
          * with, depend only on the two interfaces, so they are worked out once
          * per (state, partner interface); only the rate states, which read the
          * molecules' other interfaces, are tested per pair.  See
-         * find_which_reaction_for_partner() and
-         * find_which_reaction_for_lipid_partner().
+         * find_which_reaction_for_partner().
          */
         struct RxnCandidate {
             unsigned rxnItr; //!< index into forwardRxns
@@ -87,10 +86,6 @@ struct Interface {
         //! tries them; built on first use and not serialized.
         mutable std::vector<std::vector<RxnCandidate>> rxnCandidatesByPartner {};
         mutable bool rxnCandidatesBuilt { false };
-        //! The same per entry of rxnPartners when the partner is a state of the
-        //! implicit lipid, which find_which_reaction() matches by molecule type.
-        mutable std::vector<std::vector<RxnCandidate>> lipidRxnCandidatesByPartner {};
-        mutable bool lipidRxnCandidatesBuilt { false };
 
         State() = default;
         explicit State(int index);

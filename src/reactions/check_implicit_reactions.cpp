@@ -29,8 +29,7 @@ void check_lipid_lookup(int relIface1, int relIface2, int lipidState,
                         const Interface::State &state, const Molecule &pro1,
                         const Molecule &lipid,
                         const std::vector<ForwardRxn> &forwardRxns,
-                        const std::vector<BackRxn> &backRxns,
-                        const std::vector<MolTemplate> &molTemplateList) {
+                        const std::vector<BackRxn> &backRxns) {
   int oldRxn{-1};
   int oldRate{-1};
   bool oldBack{false};
@@ -38,7 +37,7 @@ void check_lipid_lookup(int relIface1, int relIface2, int lipidState,
   Molecule &bumped{const_cast<Molecule &>(lipid)};
   bumped.interfaceList[relIface2].index += lipidState;
   find_which_reaction(relIface1, relIface2, oldRxn, oldRate, oldBack, state,
-                      pro1, lipid, forwardRxns, backRxns, molTemplateList);
+                      pro1, lipid, forwardRxns, backRxns);
   bumped.interfaceList[relIface2].index -= lipidState;
   const unsigned long oldCount{totMatches - before};
   totMatches = before;
@@ -143,11 +142,10 @@ void check_implicit_reactions(
 #ifdef NERDSS_CHECK_LIPID_LOOKUP
               const unsigned long matchesBefore{totMatches};
 #endif
-              find_which_reaction_for_lipid_partner(
+              find_which_reaction_for_partner(
                   relIface1, partnerItr, rxnIndex, rateIndex,
                   isStateChangeBackRxn, state, moleculeList[pro1Index],
-                  moleculeList[pro2Index], forwardRxns, backRxns,
-                  molTemplateList);
+                  moleculeList[pro2Index], forwardRxns, backRxns);
 #ifdef NERDSS_CHECK_LIPID_LOOKUP
               check_lipid_lookup(relIface1, relIface2,
                                  tmpImplicitLipidStateIndex,
@@ -155,7 +153,7 @@ void check_implicit_reactions(
                                  rateIndex, isStateChangeBackRxn, state,
                                  moleculeList[pro1Index],
                                  moleculeList[pro2Index], forwardRxns,
-                                 backRxns, molTemplateList);
+                                 backRxns);
 #endif
             } else {
               moleculeList[pro2Index].interfaceList[relIface2].index +=
@@ -164,7 +162,7 @@ void check_implicit_reactions(
                                   isStateChangeBackRxn, state,
                                   moleculeList[pro1Index],
                                   moleculeList[pro2Index], forwardRxns,
-                                  backRxns, molTemplateList);
+                                  backRxns);
               moleculeList[pro2Index].interfaceList[relIface2].index -=
                   tmpImplicitLipidStateIndex;
             }

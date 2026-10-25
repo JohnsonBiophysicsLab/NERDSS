@@ -2,13 +2,16 @@
 
 void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& rateIndex, bool& isStateChangeBackRxn,
     const Interface::State& currState, const Molecule& reactMol1, const Molecule& reactMol2,
-    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<MolTemplate>& molTemplateList)
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns)
 {
-    // Both flags are properties of the Molecules, not of the reaction, so they
-    // are read once instead of once per candidate reaction.
-    const bool mol1IsImplicitLipid { reactMol1.isImplicitLipid };
-    const bool mol2IsImplicitLipid { reactMol2.isImplicitLipid };
+    // The implicit lipid is matched by its interface index like any other
+    // molecule, so it matches on state too: a caller testing one lipid state
+    // moves the lipid's index to that state's (find_which_reaction_for_partner()
+    // takes the state from the partner instead).  It used to be matched by
+    // molecule type, so with a multi-state lipid every lipid state resolved to
+    // the protein's first reaction with the lipid, and a reaction such as
+    // A(m) + IL(m~P) was never selected.  With one lipid state the two tests
+    // agree.
     const int absIface1 { reactMol1.interfaceList[ifaceIndex1].index };
     const int absIface2 { reactMol2.interfaceList[ifaceIndex2].index };
 
@@ -19,30 +22,16 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
         int reactIndex2 { -1 };
         for (std::size_t reactItr { 0 }; reactItr < oneRxn.reactantListNew.size(); ++reactItr) {
             const RxnIface& oneReactant = oneRxn.reactantListNew[reactItr];
-            if (mol1IsImplicitLipid && molTemplateList[oneReactant.molTypeIndex].isImplicitLipid) {
+            if (absIface1 == oneReactant.absIfaceIndex) {
                 if (reactIndex1 == -1) {
                     reactIndex1 = static_cast<int>(reactItr);
                     continue;
                 }
-            } else {
-                if (absIface1 == oneReactant.absIfaceIndex) {
-                    if (reactIndex1 == -1) {
-                        reactIndex1 = static_cast<int>(reactItr);
-                        continue;
-                    }
-                }
             }
-            if (mol2IsImplicitLipid && molTemplateList[oneReactant.molTypeIndex].isImplicitLipid) {
+            if (absIface2 == oneReactant.absIfaceIndex) {
                 if (reactIndex2 == -1) {
                     reactIndex2 = static_cast<int>(reactItr);
                     continue;
-                }
-            } else {
-                if (absIface2 == oneReactant.absIfaceIndex) {
-                    if (reactIndex2 == -1) {
-                        reactIndex2 = static_cast<int>(reactItr);
-                        continue;
-                    }
                 }
             }
         }
@@ -166,10 +155,9 @@ int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactI
 namespace {
 
 /*! \brief What find_which_reaction()'s reactant and product scans reach for one
- * (state, partner interface) pair, where the first molecule is not the
- * implicit lipid.  With lipidIsSecond the second one is, and is matched as
- * find_which_reaction() matches it, by molecule type (molTemplateList is read
- * only then).
+ * (state, partner interface) pair.  When the partner is a state of the
+ * implicit lipid, the lipid is matched by that state's index, as
+ * find_which_reaction() matches it.
  *
  * The same loops as above, with the rate tests taken out: a reaction whose
  * reactants or products the pair matches becomes a candidate with the
@@ -179,8 +167,7 @@ namespace {
  * so nothing after it is ever reached and the scan stops there.
  */
 std::vector<Interface::State::RxnCandidate> scan_rxn_candidates(const Interface::State& currState, int absIface1,
-    int absIface2, bool lipidIsSecond, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<MolTemplate>* molTemplateList)
+    int absIface2, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns)
 {
     std::vector<Interface::State::RxnCandidate> candidates;
     for (auto rxnItr : currState.myForwardRxns) {
@@ -195,12 +182,7 @@ std::vector<Interface::State::RxnCandidate> scan_rxn_candidates(const Interface:
                     continue;
                 }
             }
-            if (lipidIsSecond && (*molTemplateList)[oneReactant.molTypeIndex].isImplicitLipid) {
-                if (reactIndex2 == -1) {
-                    reactIndex2 = static_cast<int>(reactItr);
-                    continue;
-                }
-            } else if (absIface2 == oneReactant.absIfaceIndex) {
+            if (absIface2 == oneReactant.absIfaceIndex) {
                 if (reactIndex2 == -1) {
                     reactIndex2 = static_cast<int>(reactItr);
                     continue;
@@ -296,30 +278,10 @@ void find_which_reaction_for_partner(int ifaceIndex1, std::size_t partnerItr, in
         currState.rxnCandidatesByPartner.clear();
         for (auto partner : currState.rxnPartners)
             currState.rxnCandidatesByPartner.push_back(scan_rxn_candidates(
-                currState, absIface1, static_cast<int>(partner), false, forwardRxns, backRxns, nullptr));
+                currState, absIface1, static_cast<int>(partner), forwardRxns, backRxns));
         currState.rxnCandidatesBuilt = true;
     }
 
     test_rxn_candidates(currState.rxnCandidatesByPartner[partnerItr], rxnIndex, rateIndex, isStateChangeBackRxn,
         reactMol1, reactMol2, forwardRxns, backRxns);
-}
-
-void find_which_reaction_for_lipid_partner(int ifaceIndex1, std::size_t partnerItr, int& rxnIndex, int& rateIndex,
-    bool& isStateChangeBackRxn, const Interface::State& currState, const Molecule& reactMol1, const Molecule& lipid,
-    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<MolTemplate>& molTemplateList)
-{
-    if (!currState.lipidRxnCandidatesBuilt) {
-        // The lipid's interface index is the partner itself: that is what the
-        // state offset made it.
-        const int absIface1 { reactMol1.interfaceList[ifaceIndex1].index };
-        currState.lipidRxnCandidatesByPartner.clear();
-        for (auto partner : currState.rxnPartners)
-            currState.lipidRxnCandidatesByPartner.push_back(scan_rxn_candidates(
-                currState, absIface1, static_cast<int>(partner), true, forwardRxns, backRxns, &molTemplateList));
-        currState.lipidRxnCandidatesBuilt = true;
-    }
-
-    test_rxn_candidates(currState.lipidRxnCandidatesByPartner[partnerItr], rxnIndex, rateIndex,
-        isStateChangeBackRxn, reactMol1, lipid, forwardRxns, backRxns);
 }

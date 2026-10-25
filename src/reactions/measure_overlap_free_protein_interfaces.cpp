@@ -58,7 +58,7 @@ void measure_overlap_free_protein_interfaces(Molecule base1, Molecule baseTmp, b
                         bool isStateChangeBackRxn { false };
 
                         find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex, isStateChangeBackRxn, state,
-                            base1, baseTmp, forwardRxns, backRxns, molTemplateList);
+                            base1, baseTmp, forwardRxns, backRxns);
 
                         if (rxnIndex != -1 && rateIndex != -1) {
 
