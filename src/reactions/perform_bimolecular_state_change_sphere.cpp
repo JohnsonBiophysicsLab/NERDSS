@@ -385,7 +385,11 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
     }
 
     // change the state
-    int oldStateIndex { stateChangeMol.interfaceList[stateChangeIface].stateIndex };
+    // copyNumSpecies is indexed by absolute interface (state) index.  stateIndex
+    // is the state's position within its own interface, so it used to move the
+    // counts of whichever species happen to have absolute index 0 and 1 (in
+    // regression/bimol_state_change, K(k) and K(kd)) and never the changed ones.
+    int oldStateIndex { stateChangeMol.interfaceList[stateChangeIface].index };
     stateChangeMol.interfaceList[stateChangeIface].change_state(
         relStateIndex, newState.absIfaceIndex, newState.requiresState);
     stateChangeMol.refresh_iface_state_bits();
@@ -424,7 +428,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
 
     /*Update species copy numbers*/
     counterArrays.copyNumSpecies[oldStateIndex]--; // decrement ifaceIndex1
-    counterArrays.copyNumSpecies[stateChangeMol.interfaceList[stateChangeIface].stateIndex]++; // increment product state
+    counterArrays.copyNumSpecies[stateChangeMol.interfaceList[stateChangeIface].index]++; // increment product state
 
     // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
     stateChangeCom.ncross = -1;
