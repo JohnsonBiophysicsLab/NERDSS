@@ -113,7 +113,12 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     if (isOnMembrane == false) {
         transitionToSurface = true;
     }
-    Molecule memProtein;
+    // The orientation the pair is rotated back to: the lipid's, since slowPro
+    // below is always the lipid.  This was a default Molecule with no
+    // interfaces, so save_mem_orientation() read past an empty list and the
+    // first lipid state change in a box crashed.  associate_ImplicitLipid_box()
+    // starts from the lipid the same way.
+    Molecule memProtein = stateChangeMol;
 
     int slowPro = stateChangeMol.index;
 
