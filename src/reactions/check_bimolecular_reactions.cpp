@@ -276,7 +276,8 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
             };
             //if(pro1Index == track1 || pro1Index ==track2)
             //std::cout <<"reliface, abs, stateindex, npartners: "<<relIface1<<' '<<absIface1<<' '<<stateIndex1<<' '<<state.rxnPartners.size()<<std::endl;
-            for (auto statePartner : state.rxnPartners) {
+            for (std::size_t partnerItr { 0 }; partnerItr < state.rxnPartners.size(); ++partnerItr) {
+                const unsigned statePartner { state.rxnPartners[partnerItr] };
                 //if(pro1Index == track1 || pro1Index ==track2)
                 //  std::cout <<"statePertner: "<<statePartner<<std::endl;
                 for (int relIface2Idx = 0; relIface2Idx < moleculeList[pro2Index].freelist.size(); ++relIface2Idx) {
@@ -302,8 +303,15 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                         int rateIndex { -1 };
                         bool isStateChangeBackRxn { false };
 
-                        find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex, isStateChangeBackRxn, state,
-                            moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns, backRxns, molTemplateList);
+                        // pro2 is never the implicit lipid here (see canInteract); the
+                        // per-partner lookup covers every pair where pro1 is not either.
+                        if (moleculeList[pro1Index].isImplicitLipid)
+                            find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex, isStateChangeBackRxn, state,
+                                moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns, backRxns, molTemplateList);
+                        else
+                            find_which_reaction_for_partner(relIface1, partnerItr, rxnIndex, rateIndex,
+                                isStateChangeBackRxn, state, moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns,
+                                backRxns);
                         if (rxnIndex != -1 && rateIndex != -1) {
                             // Read each molecule's complex index once.  Nothing
                             // below changes it, and it was previously reloaded

@@ -144,6 +144,7 @@ void check_for_unimolstatechange_reactions(unsigned simItr, Parameters& params, 
                                     /*State change happens here.*/
                                     moleculeList[molItr].interfaceList[relIndex].change_state(
                                         draw.relStateIndex, draw.product->absIfaceIndex, draw.product->requiresState);
+                                    moleculeList[molItr].refresh_iface_state_bits();
 
                                     moleculeList[molItr].trajStatus = TrajStatus::propagated;
                                     complexList[moleculeList[molItr].myComIndex].trajStatus = TrajStatus::propagated;

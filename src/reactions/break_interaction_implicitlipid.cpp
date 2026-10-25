@@ -35,6 +35,7 @@ void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_
     reactMol1.interfaceList[relIface1].interaction.clear();
     reactMol1.interfaceList[relIface1].isBound = false;
     reactMol1.interfaceList[relIface1].index = absIface1;
+    reactMol1.refresh_iface_state_bits();
     if (assocDissocFile.is_open()) {
         assocDissocFile << "ITR:" << iter << "," << "BREAK," 
         << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << relIface1 << "," 

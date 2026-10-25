@@ -482,6 +482,8 @@ void associate_sphere(long long int iter,
     reactMol1.interfaceList[ifaceIndex1].index = currRxn.productListNew[0].absIfaceIndex;
     reactMol2.interfaceList[ifaceIndex2].isBound = true;
     reactMol2.interfaceList[ifaceIndex2].index = currRxn.productListNew[0].absIfaceIndex;
+    reactMol1.refresh_iface_state_bits();
+    reactMol2.refresh_iface_state_bits();
 
     // add to the list of bound interfaces and remove from the list of free interfaces
     reactMol1.bndlist.push_back(ifaceIndex1);

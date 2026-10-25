@@ -302,6 +302,7 @@ void perform_bimolecular_state_change_box(int stateChangeIface, int facilitatorI
     int oldStateIndex { stateChangeMol.interfaceList[stateChangeIface].stateIndex };
     stateChangeMol.interfaceList[stateChangeIface].change_state(
         relStateIndex, newState.absIfaceIndex, newState.requiresState);
+    stateChangeMol.refresh_iface_state_bits();
 
     // write temporary to real coords and clear temporary coordinates
     for (auto memMol : facilitatorCom.memberList) {

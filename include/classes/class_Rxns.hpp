@@ -230,6 +230,13 @@ public:
             bool requiresInteraction { false };
         };
 
+        /*! One rate state's requirements on Molecule::ifaceStateBits: it holds
+         * when ((word[side] ^ value[side]) & mask[side]) == 0 for both sides. */
+        struct BitState {
+            std::uint64_t mask[2] { 0, 0 };
+            std::uint64_t value[2] { 0, 0 };
+        };
+
         bool built { false };
         bool usable { false }; //!< false: more than 64 requirements, or a malformed list; scan instead
         std::size_t stateCount { 0 };
@@ -237,6 +244,13 @@ public:
         std::vector<Test> tests {};
         std::vector<std::uint64_t> stateMasks {}; //!< per rate state, in rateList order
         std::vector<std::size_t> ancillaryCounts {}; //!< per rate state, the count the selection rule compares
+
+        //! false: some requirement cannot be told from the words; read the interfaces
+        bool bitsUsable { false };
+        unsigned bitsGeneration { 0 }; //!< iface_state_bits::generation() the masks were built under
+        //! the molecule type every requirement on a side names, -1 when the side has none
+        int sideMolType[2] { -1, -1 };
+        std::vector<BitState> bitStates {}; //!< per rate state, in rateList order
 
         CompiledRates() = default;
         CompiledRates(const CompiledRates&) { }
@@ -260,6 +274,11 @@ public:
             tests.clear();
             stateMasks.clear();
             ancillaryCounts.clear();
+            bitsUsable = false;
+            bitsGeneration = 0;
+            sideMolType[0] = -1;
+            sideMolType[1] = -1;
+            bitStates.clear();
         }
     };
     mutable CompiledRates compiledRates {};

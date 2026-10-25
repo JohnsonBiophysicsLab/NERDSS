@@ -261,10 +261,12 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
         reactMol1.interfaceList[relIface1].index = absIface1;
         reactMol1.interfaceList[relIface1].interaction.clear();
         reactMol1.interfaceList[relIface1].isBound = false;
+        reactMol1.refresh_iface_state_bits();
         if (reactMol2.isImplicitLipid == false) {
             reactMol2.interfaceList[relIface2].index = absIface2;
             reactMol2.interfaceList[relIface2].interaction.clear();
             reactMol2.interfaceList[relIface2].isBound = false;
+            reactMol2.refresh_iface_state_bits();
         }
         if (assocDissocFile.is_open()) {
             assocDissocFile << "ITR:" << iter << "," << "BREAK," 

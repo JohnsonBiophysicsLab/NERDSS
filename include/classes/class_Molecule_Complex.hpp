@@ -28,6 +28,7 @@
 
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
+#include "classes/iface_state_bits.hpp"
 #include "classes/class_Vec3D.hpp"
 #include "mpi_context.hpp"
 
@@ -248,6 +249,8 @@ struct Molecule {
     bool justBoundThisStep{false};  //!< true if the molecule just bound this step
     bool justUnboundThisStep{false};  //!< true if the molecule just unbound this step
     bool enforceCompartmentBC {false}; //Boundary conditions for the compartment
+    //! isBound and stateIden of every interface, packed for rate selection; see iface_state_bits.hpp
+    std::uint64_t ifaceStateBits { iface_state_bits::invalid };
     /*Vectors for possible association reactions*/
     std::vector<int> freelist; // legacy, may be replaced
     // std::vector<int> assoclist. // These species are capable of binding.
@@ -393,6 +396,8 @@ struct Molecule {
     // other reaction member functions
     void create_random_coords(const MolTemplate& molTemplate, const Membrane& membraneObject);
     void destroy();
+    /*! \brief Recomputes ifaceStateBits; call after changing any interface's isBound or stateIden. */
+    void refresh_iface_state_bits();
     void MPI_remove_from_one_rank(std::vector<Molecule>& moleculeList, std::vector<Complex>& complexList);
 
     void display(const MolTemplate& molTemplate) const;
@@ -490,6 +495,7 @@ struct Molecule {
         // std::cout << "id=" << id << ", nArrayRank=" << nArrayRank << std::endl;
         POP(id);
         POP(complexId);
+        refresh_iface_state_bits();
     }
 };
 
