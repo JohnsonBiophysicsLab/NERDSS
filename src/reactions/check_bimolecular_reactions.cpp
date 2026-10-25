@@ -307,7 +307,7 @@ void check_bimolecular_reactions(int pro1Index, int pro2Index, int simItr, doubl
                         // per-partner lookup covers every pair where pro1 is not either.
                         if (moleculeList[pro1Index].isImplicitLipid)
                             find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex, isStateChangeBackRxn, state,
-                                moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns, backRxns, molTemplateList);
+                                moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns, backRxns);
                         else
                             find_which_reaction_for_partner(relIface1, partnerItr, rxnIndex, rateIndex,
                                 isStateChangeBackRxn, state, moleculeList[pro1Index], moleculeList[pro2Index], forwardRxns,

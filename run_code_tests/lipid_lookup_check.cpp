@@ -1,26 +1,30 @@
-// Proves find_which_reaction_for_lipid_partner() returns what
-// check_implicit_reactions() used to get from find_which_reaction() with the
-// lipid's interface index moved by the lipid state's offset, and counts
-// totMatches the same way, for every (state, implicit-lipid partner) pair a
-// model offers, over random states of every other interface of the protein and
-// of the lipid.
+// Proves find_which_reaction_for_partner(), called with the implicit lipid as
+// the second molecule, returns what check_implicit_reactions() used to get from
+// find_which_reaction() with the lipid's interface index moved by the lipid
+// state's offset, and counts totMatches the same way, for every (state,
+// implicit-lipid partner) pair a model offers, over random states of every
+// other interface of the protein and of the lipid.  It also proves the reaction
+// found is one with the lipid in the state the pair check is testing.
 //
 // No sample model gives the lipid more than one state, so the lipid offset is
 // always 0 there, and no sample has a rate list that reads the protein's other
 // interfaces.  The model written here does: a lipid with three states; B, whose
 // rate depends on whether its a is bound (two rate states, so the compiled
 // selection); C, whose only rate state needs a bound, so a free a matches
-// nothing; and K, a protein state change against the lipid.
+// nothing; and K, which changes the lipid from U to P.  The pair check never
+// tests K against IL~P, so the back state change path, kept as
+// find_which_reaction() has it, is unreachable for lipid pairs: the parser
+// lists a state change's product partner on the facilitator's state only when
+// the facilitator's own state changes too, and a reaction that changed both K's
+// state and the lipid's would not parse as one state change.  It is counted,
+// not required.
 //
-// find_which_reaction() matches the lipid by molecule type, not by state, so a
-// protein is always handed its first reaction with the lipid whatever lipid
-// state the pair check is testing: A(m) + IL(m~P) and A(m,a!*) + IL(m~Q) below
-// are never selected, and A binds every lipid state with the rates of
-// A(m) + IL(m~U).  The lookup keeps that, as it must to change no trajectory;
-// the model shows it.  For the same reason the back state change path, kept as
-// find_which_reaction() has it, is unreachable for lipid pairs (the pair always
-// matches the reactants, and the parser files a state change only under its
-// reactant states), so it is counted, not required.
+// find_which_reaction() used to match the lipid by molecule type, not by
+// state, so a protein was handed its first reaction with the lipid whatever
+// lipid state the pair check was testing: A(m) + IL(m~P) and A(m,a!*) +
+// IL(m~Q) below were never selected, and A bound every lipid state with the
+// rates of A(m) + IL(m~U).  The state check below fails on that lookup: A's m
+// must reach the lipid through three different reactions, one per state.
 #include "classes/class_Membrane.hpp"
 #include "classes/class_MolTemplate.hpp"
 #include "classes/class_Molecule_Complex.hpp"
@@ -28,12 +32,14 @@
 #include "classes/class_Rxns.hpp"
 #include "parser/parser_functions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
 #include <fstream>
 #include <map>
 #include <random>
+#include <set>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -138,7 +144,7 @@ start reactions
     norm2 = [0,0,1]
     assocAngles = [nan,nan,nan,nan,nan]
 
-    K(k~X,c!*) + IL(m~U) <-> K(k~Y,c!*) + IL(m~Q)
+    K(k~X,c!*) + IL(m~U) <-> K(k~X,c!*) + IL(m~P)
     onRate3Dka = 1.0
     offRatekb = 1.0
     sigma = 1.0
@@ -250,7 +256,9 @@ void set_state(Molecule& mol, const MolTemplate& tmpl, int relIface, int stateIn
 
 struct Totals {
     long long partners { 0 }, lookups { 0 }, mismatches { 0 }, found { 0 }, none { 0 }, backStateChange { 0 },
-        lipidOffset { 0 };
+        lipidOffset { 0 }, wrongLipidState { 0 }, foundWithOffset { 0 };
+    // The most reactions one protein interface reaches the lipid through.
+    std::size_t mostLipidRxns { 0 };
     // Which path the lipid lookup took, read back from its candidate list.
     long long fixedRate { 0 }, testedRate { 0 }, testedFound { 0 }, backSkipped { 0 };
 
@@ -263,6 +271,9 @@ struct Totals {
         none += o.none;
         backStateChange += o.backStateChange;
         lipidOffset += o.lipidOffset;
+        wrongLipidState += o.wrongLipidState;
+        foundWithOffset += o.foundWithOffset;
+        mostLipidRxns = std::max(mostLipidRxns, o.mostLipidRxns);
         fixedRate += o.fixedRate;
         testedRate += o.testedRate;
         testedFound += o.testedFound;
@@ -270,7 +281,7 @@ struct Totals {
     }
 };
 
-// Walks the candidates the way find_which_reaction_for_lipid_partner() does,
+// Walks the candidates the way find_which_reaction_for_partner() does,
 // to tell which of its paths produced the answer.  Only for the tally above;
 // true when the answer came from a rate test.
 bool classify(const std::vector<Interface::State::RxnCandidate>& candidates, const Molecule& m1, const Molecule& m2,
@@ -342,6 +353,8 @@ void check_model(const std::string& root, const Model& model, std::mt19937_64& r
         if (templates[t1].isImplicitLipid)
             continue;
         for (std::size_t i1 = 0; i1 < templates[t1].interfaceList.size(); ++i1) {
+            // Reactions found per lipid state, over all of this interface's states.
+            std::map<unsigned, std::set<int>> lipidRxns;
             for (std::size_t s1 = 0; s1 < templates[t1].interfaceList[i1].stateList.size(); ++s1) {
                 const Interface::State& state { templates[t1].interfaceList[i1].stateList[s1] };
                 for (std::size_t p = 0; p < state.rxnPartners.size(); ++p) {
@@ -361,11 +374,11 @@ void check_model(const std::string& root, const Model& model, std::mt19937_64& r
                         const unsigned long before { totMatches };
                         lipid.interfaceList[0].index += static_cast<int>(offset);
                         find_which_reaction(static_cast<int>(i1), 0, rxnA, rateA, scA, state, m1, lipid, forwardRxns,
-                            backRxns, templates);
+                            backRxns);
                         lipid.interfaceList[0].index -= static_cast<int>(offset);
                         const unsigned long countA { totMatches - before };
-                        find_which_reaction_for_lipid_partner(static_cast<int>(i1), p, rxnB, rateB, scB, state, m1,
-                            lipid, forwardRxns, backRxns, templates);
+                        find_which_reaction_for_partner(static_cast<int>(i1), p, rxnB, rateB, scB, state, m1,
+                            lipid, forwardRxns, backRxns);
                         const unsigned long countB { totMatches - before - countA };
 
                         ++here.lookups;
@@ -377,26 +390,59 @@ void check_model(const std::string& root, const Model& model, std::mt19937_64& r
                                 std::printf("  mismatch in %s: old (%d, %d, %d, %lu), new (%d, %d, %d, %lu)\n",
                                     model.dir.c_str(), rxnA, rateA, scA, countA, rxnB, rateB, scB, countB);
                         }
-                        if (rxnA != -1 && rateA != -1)
+                        if (rxnA != -1 && rateA != -1) {
                             ++here.found;
-                        else
+                            if (offset != 0)
+                                ++here.foundWithOffset;
+                            lipidRxns[offset].insert(rxnA);
+                            // The lipid state the reaction consumes: the
+                            // forward reactant, or for a back state change the
+                            // forward product, must be the state tested.
+                            const std::vector<RxnIface>& sides { scA ? forwardRxns[rxnA].productListNew
+                                                                     : forwardRxns[rxnA].reactantListNew };
+                            const RxnIface& lipidSide { templates[sides[1].molTypeIndex].isImplicitLipid ? sides[1]
+                                                                                                         : sides[0] };
+                            if (lipidSide.absIfaceIndex != static_cast<int>(state.rxnPartners[p])) {
+                                if (++here.wrongLipidState < 4)
+                                    std::printf("  %s: %s state %zu meets lipid state %u through rxn %d, whose lipid "
+                                                "is index %d, not %u\n",
+                                        model.dir.c_str(), templates[t1].molName.c_str(), s1, offset, rxnA,
+                                        lipidSide.absIfaceIndex, state.rxnPartners[p]);
+                            }
+                        } else
                             ++here.none;
                         if (scA)
                             ++here.backStateChange;
-                        if (classify(state.lipidRxnCandidatesByPartner[p], m1, lipid, forwardRxns, backRxns, here)
+                        if (classify(state.rxnCandidatesByPartner[p], m1, lipid, forwardRxns, backRxns, here)
                             && rxnA != -1 && rateA != -1)
                             ++here.testedFound;
                     }
                 }
             }
+            std::set<int> allRxns;
+            for (const auto& entry : lipidRxns)
+                allRxns.insert(entry.second.begin(), entry.second.end());
+            here.mostLipidRxns = std::max(here.mostLipidRxns, allRxns.size());
+            if (nStates > 1 && !lipidRxns.empty()) {
+                std::printf("  %s(%s) meets", templates[t1].molName.c_str(),
+                    templates[t1].interfaceList[i1].name.c_str());
+                for (const auto& entry : lipidRxns) {
+                    std::printf(" IL~%c through rxn", lipidTemplate.interfaceList[0].stateList[entry.first].iden);
+                    for (int rxn : entry.second)
+                        std::printf(" %d", rxn);
+                    std::printf(";");
+                }
+                std::printf("\n");
+            }
         }
     }
 
-    std::printf("  %-48s %3lld partners %7lld lookups: %lld found (%lld back state change), %lld none, "
-                "%lld with a lipid offset, %lld mismatches\n"
+    std::printf("  %-48s %3lld partners %7lld lookups: %lld found (%lld back state change, %lld with a lipid "
+                "offset), %lld none, %lld with a lipid offset, %lld mismatches, %lld in the wrong lipid state\n"
                 "  %-48s paths: fixed rate %lld, tested rate %lld (%lld found), back state change skipped %lld\n",
-        model.dir.c_str(), here.partners, here.lookups, here.found, here.backStateChange, here.none, here.lipidOffset,
-        here.mismatches, "", here.fixedRate, here.testedRate, here.testedFound, here.backSkipped);
+        model.dir.c_str(), here.partners, here.lookups, here.found, here.backStateChange, here.foundWithOffset,
+        here.none, here.lipidOffset, here.mismatches, here.wrongLipidState, "", here.fixedRate, here.testedRate,
+        here.testedFound, here.backSkipped);
     totals.add(here);
 }
 
@@ -446,12 +492,17 @@ int main()
     gsl_rng_free(r);
 
     std::printf("lipid_lookup_check: %lld partners, %lld lookups: %lld found (%lld back state change), %lld none, "
-                "%lld with a lipid offset, %lld mismatches\n"
+                "%lld with a lipid offset, %lld mismatches, %lld in the wrong lipid state, at most %zu reactions "
+                "with the lipid per protein interface\n"
                 "lipid_lookup_check: paths: fixed rate %lld, tested rate %lld (%lld found), back state change skipped %lld\n",
         totals.partners, totals.lookups, totals.found, totals.backStateChange, totals.none, totals.lipidOffset,
-        totals.mismatches, totals.fixedRate, totals.testedRate, totals.testedFound, totals.backSkipped);
+        totals.mismatches, totals.wrongLipidState, totals.mostLipidRxns, totals.fixedRate, totals.testedRate,
+        totals.testedFound, totals.backSkipped);
     // Every path must have been taken, or the check proves less than it says.
-    if (totals.mismatches != 0 || totals.none == 0 || totals.found == 0
+    // A's m meets the three lipid states through three reactions; the
+    // type-matched lookup found only the first.
+    if (totals.mismatches != 0 || totals.wrongLipidState != 0 || totals.mostLipidRxns < 3
+        || totals.foundWithOffset == 0 || totals.none == 0 || totals.found == 0
         || totals.lipidOffset == 0 || totals.fixedRate == 0 || totals.testedRate == 0 || totals.testedFound == 0
         || totals.testedFound == totals.testedRate) {
         std::printf("lipid_lookup_check: FAILED\n");

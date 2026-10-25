@@ -315,7 +315,7 @@ void check_model(const std::string& root, const Model& model, std::mt19937_64& r
                         bool scA { false }, scB { false };
                         const unsigned long before { totMatches };
                         find_which_reaction(static_cast<int>(i1), i2, rxnA, rateA, scA, state, m1, m2, forwardRxns,
-                            backRxns, templates);
+                            backRxns);
                         const unsigned long countA { totMatches - before };
                         find_which_reaction_for_partner(
                             static_cast<int>(i1), p, rxnB, rateB, scB, state, m1, m2, forwardRxns, backRxns);
