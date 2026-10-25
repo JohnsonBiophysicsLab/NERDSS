@@ -305,6 +305,18 @@ inline RateMatch best_matching_rate(const RxnBase& rxn, int reactIndex1, int rea
 }
 
 /*!
+ * \brief best_matching_rate()'s bestRateIndex when it cannot depend on the molecules, else -1.
+ *
+ * hasIntangibles() reads a molecule only for the requirements listed under the
+ * pair's two reactant positions.  When those lists are empty for every rate
+ * state, every state matches, and best_matching_rate() keeps the first one
+ * with the most ancillary interfaces -- which it counts over both lists, so
+ * that count is still taken here.  An empty list returns -1, leaving the test
+ * to be made per pair.
+ */
+int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2);
+
+/*!
  * \brief Builds rxn.compiledRates from rxn.rateList; best_matching_rate_compiled() calls it on first use.
  */
 void compile_rate_list(const RxnBase& rxn);
@@ -374,6 +386,22 @@ void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& r
 void find_which_reaction_for_partner(int ifaceIndex1, std::size_t partnerItr, int& rxnIndex,
     int& rateIndex, bool& isStateChangeBackRxn, const Interface::State& currState, const Molecule& reactMol1,
     const Molecule& reactMol2, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns);
+
+/*!
+ * \brief find_which_reaction() for a protein interface in `currState` and the implicit lipid in the state
+ * `currState.rxnPartners[partnerItr]`.
+ *
+ * check_implicit_reactions() used to get this by adding the lipid state's offset to the lipid's interface index,
+ * calling find_which_reaction(), and taking it off again.  This gives the same rxnIndex, rateIndex and
+ * isStateChangeBackRxn, and counts totMatches the same way, without touching the lipid: the scans of the reactions'
+ * reactant and product lists depend only on the protein's state and the partner, so their outcome is kept per
+ * (state, partner) in currState.lipidRxnCandidatesByPartner, built on first use; only the rate states are tested per
+ * pair.  reactMol1 must not be the implicit lipid, and lipid must be.
+ */
+void find_which_reaction_for_lipid_partner(int ifaceIndex1, std::size_t partnerItr, int& rxnIndex, int& rateIndex,
+    bool& isStateChangeBackRxn, const Interface::State& currState, const Molecule& reactMol1, const Molecule& lipid,
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
+    const std::vector<MolTemplate>& molTemplateList);
 
 /*!
  * \brief Determines which state change reaction to use based on the identity of the current Interface::State of the

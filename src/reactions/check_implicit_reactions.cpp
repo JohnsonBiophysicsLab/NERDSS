@@ -7,6 +7,56 @@
 
 // pro2Index is a lipid's index.
 
+#ifdef NERDSS_CHECK_LIPID_LOOKUP
+#include <cstdlib>
+#include <iostream>
+namespace {
+// How many lookups the both-ways build compared, reported at exit.
+struct LookupTally {
+  unsigned long long checked{0};
+  ~LookupTally() {
+    std::cerr << "NERDSS_CHECK_LIPID_LOOKUP: " << checked
+              << " lookups agree\n";
+  }
+} lookupTally;
+
+// Both-ways build: repeats the lookup the old way -- the lipid's interface
+// index moved by the state offset, find_which_reaction(), moved back -- and
+// stops at the first difference, including in the totMatches count.
+void check_lipid_lookup(int relIface1, int relIface2, int lipidState,
+                        unsigned long newCount, int rxnIndex, int rateIndex,
+                        bool isStateChangeBackRxn,
+                        const Interface::State &state, const Molecule &pro1,
+                        const Molecule &lipid,
+                        const std::vector<ForwardRxn> &forwardRxns,
+                        const std::vector<BackRxn> &backRxns,
+                        const std::vector<MolTemplate> &molTemplateList) {
+  int oldRxn{-1};
+  int oldRate{-1};
+  bool oldBack{false};
+  const unsigned long before{totMatches};
+  Molecule &bumped{const_cast<Molecule &>(lipid)};
+  bumped.interfaceList[relIface2].index += lipidState;
+  find_which_reaction(relIface1, relIface2, oldRxn, oldRate, oldBack, state,
+                      pro1, lipid, forwardRxns, backRxns, molTemplateList);
+  bumped.interfaceList[relIface2].index -= lipidState;
+  const unsigned long oldCount{totMatches - before};
+  totMatches = before;
+  if (oldRxn != rxnIndex || oldRate != rateIndex ||
+      oldBack != isStateChangeBackRxn || oldCount != newCount) {
+    std::cerr << "NERDSS_CHECK_LIPID_LOOKUP: mismatch after "
+              << lookupTally.checked
+              << " lookups: old (" << oldRxn << ", " << oldRate << ", "
+              << oldBack << ", " << oldCount << "), new (" << rxnIndex << ", "
+              << rateIndex << ", " << isStateChangeBackRxn << ", " << newCount
+              << ")\n";
+    std::abort();
+  }
+  ++lookupTally.checked;
+}
+} // namespace
+#endif
+
 void check_implicit_reactions(
     int pro1Index, int pro2Index, int simItr, const Parameters &params,
     std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
@@ -63,150 +113,158 @@ void check_implicit_reactions(
                                         .interfaceList[relIface1]
                                         .stateList[stateIndex1]};
 
-      for (auto statePartner : state.rxnPartners) {
+      for (std::size_t partnerItr{0}; partnerItr < state.rxnPartners.size();
+           ++partnerItr) {
+        const unsigned statePartner{state.rxnPartners[partnerItr]};
         for (int relIface2Idx = 0;
              relIface2Idx < moleculeList[pro2Index].freelist.size();
              ++relIface2Idx) {
           int relIface2{moleculeList[pro2Index].freelist[relIface2Idx]};
           int absIface2{moleculeList[pro2Index].interfaceList[relIface2].index};
-          for (int tmpImplicitLipidStateIndex = 0;
-               tmpImplicitLipidStateIndex < membraneObject.nStates;
-               tmpImplicitLipidStateIndex++) {
-            // std::cout << "debug_information: "
-            //           << "absIface2: " << absIface2 << "statePartner -
-            //           tmpImplicitLipidStateIndex: " << statePartner -
-            //           tmpImplicitLipidStateIndex <<
-            //           "membraneObject.numberOfFreeLipidsEachState[tmpImplicitLipidStateIndex]:
-            //           " <<
-            //           membraneObject.numberOfFreeLipidsEachState[tmpImplicitLipidStateIndex]
-            //           << std::endl;
-            if ((absIface2 == statePartner - tmpImplicitLipidStateIndex) &&
-                membraneObject.numberOfFreeLipidsEachState
-                        [tmpImplicitLipidStateIndex] >=
-                    0) { // both binding interfaces are available!
-              int rxnIndex{-1};
-              int rateIndex{-1};
-              bool isStateChangeBackRxn{false};
+          // The lipid states used to be tried one by one, each passing when
+          // absIface2 == statePartner - state in unsigned arithmetic.  Only
+          // state == statePartner - absIface2 can, so that one is tested alone.
+          const unsigned lipidState{statePartner -
+                                    static_cast<unsigned>(absIface2)};
+          if (membraneObject.nStates <= 0 ||
+              lipidState >= static_cast<unsigned>(membraneObject.nStates))
+            continue;
+          const int tmpImplicitLipidStateIndex{static_cast<int>(lipidState)};
+          if (membraneObject.numberOfFreeLipidsEachState
+                  [tmpImplicitLipidStateIndex] >=
+              0) { // both binding interfaces are available!
+            int rxnIndex{-1};
+            int rateIndex{-1};
+            bool isStateChangeBackRxn{false};
 
-              // relIface2 += tmpImplicitLipidStateIndex;
+            if (!moleculeList[pro1Index].isImplicitLipid) {
+              // What find_which_reaction() returns with the lipid's
+              // interface index moved to statePartner.
+#ifdef NERDSS_CHECK_LIPID_LOOKUP
+              const unsigned long matchesBefore{totMatches};
+#endif
+              find_which_reaction_for_lipid_partner(
+                  relIface1, partnerItr, rxnIndex, rateIndex,
+                  isStateChangeBackRxn, state, moleculeList[pro1Index],
+                  moleculeList[pro2Index], forwardRxns, backRxns,
+                  molTemplateList);
+#ifdef NERDSS_CHECK_LIPID_LOOKUP
+              check_lipid_lookup(relIface1, relIface2,
+                                 tmpImplicitLipidStateIndex,
+                                 totMatches - matchesBefore, rxnIndex,
+                                 rateIndex, isStateChangeBackRxn, state,
+                                 moleculeList[pro1Index],
+                                 moleculeList[pro2Index], forwardRxns,
+                                 backRxns, molTemplateList);
+#endif
+            } else {
               moleculeList[pro2Index].interfaceList[relIface2].index +=
                   tmpImplicitLipidStateIndex;
-
               find_which_reaction(relIface1, relIface2, rxnIndex, rateIndex,
                                   isStateChangeBackRxn, state,
                                   moleculeList[pro1Index],
                                   moleculeList[pro2Index], forwardRxns,
                                   backRxns, molTemplateList);
-
-              // std::cout << "debug_information: " << std::endl
-              //           << "mol1: " <<
-              //           molTemplateList[moleculeList[pro1Index].molTypeIndex].molName
-              //           << " mol2: " <<
-              //           molTemplateList[moleculeList[pro2Index].molTypeIndex].molName
-              //           << "rxnIndex: " << rxnIndex << "rateIndex: " <<
-              //           rateIndex << std::endl;
-
-              // relIface2 -= tmpImplicitLipidStateIndex;
               moleculeList[pro2Index].interfaceList[relIface2].index -=
                   tmpImplicitLipidStateIndex;
+            }
 
-              if (rxnIndex != -1 && rateIndex != -1) {
-                // int com1Index { moleculeList[pro1Index].myComIndex };
-                // int com2Index { moleculeList[pro2Index].myComIndex };
+            if (rxnIndex != -1 && rateIndex != -1) {
+              // int com1Index { moleculeList[pro1Index].myComIndex };
+              // int com2Index { moleculeList[pro2Index].myComIndex };
 
-                {
-                  Vec3D ifaceVec{
-                      moleculeList[pro1Index].interfaceList[relIface1].coord -
-                      complexList[moleculeList[pro1Index].myComIndex].comCoord};
-                  Vec3D ifaceVec2{
-                      moleculeList[pro2Index].interfaceList[relIface2].coord -
-                      complexList[moleculeList[pro2Index].myComIndex].comCoord};
-                  double magMol1{ifaceVec.x * ifaceVec.x +
-                                 ifaceVec.y * ifaceVec.y +
-                                 ifaceVec.z * ifaceVec.z};
-                  double magMol2{ifaceVec2.x * ifaceVec2.x +
-                                 ifaceVec2.y * ifaceVec2.y +
-                                 ifaceVec2.z * ifaceVec2.z};
+              {
+                Vec3D ifaceVec{
+                    moleculeList[pro1Index].interfaceList[relIface1].coord -
+                    complexList[moleculeList[pro1Index].myComIndex].comCoord};
+                Vec3D ifaceVec2{
+                    moleculeList[pro2Index].interfaceList[relIface2].coord -
+                    complexList[moleculeList[pro2Index].myComIndex].comCoord};
+                double magMol1{ifaceVec.x * ifaceVec.x +
+                               ifaceVec.y * ifaceVec.y +
+                               ifaceVec.z * ifaceVec.z};
+                double magMol2{ifaceVec2.x * ifaceVec2.x +
+                               ifaceVec2.y * ifaceVec2.y +
+                               ifaceVec2.z * ifaceVec2.z};
 
-                  // find the state of IL
-                  int forwardRxnIndex{rxnIndex};
-                  const ForwardRxn &currRxn = forwardRxns[forwardRxnIndex];
-                  int relStateIndex{implicit_lipid_state_index(
-                      implicit_lipid_state_list(moleculeList, molTemplateList,
-                                                membraneObject),
-                      implicit_lipid_iface(currRxn.reactantListNew,
-                                           molTemplateList))};
+                // find the state of IL
+                int forwardRxnIndex{rxnIndex};
+                const ForwardRxn &currRxn = forwardRxns[forwardRxnIndex];
+                int relStateIndex{implicit_lipid_state_index(
+                    implicit_lipid_state_list(moleculeList, molTemplateList,
+                                              membraneObject),
+                    implicit_lipid_iface(currRxn.reactantListNew,
+                                         molTemplateList))};
 
-                  // binding with implicit-lipid model
-                  if (std::abs(
-                          complexList[moleculeList[pro1Index].myComIndex].D.z) <
-                      1E-10) {
-                    // both Complexes are on the membrane, evaluate as 2D
-                    // reaction
-                    double Dtot =
-                        1.0 / 2.0 *
-                            (complexList[moleculeList[pro1Index].myComIndex]
-                                 .D.x +
-                             complexList[moleculeList[pro2Index].myComIndex]
-                                 .D.x) +
-                        1.0 / 2.0 *
-                            (complexList[moleculeList[pro1Index].myComIndex]
-                                 .D.y +
-                             complexList[moleculeList[pro2Index].myComIndex]
-                                 .D.y);
+                // binding with implicit-lipid model
+                if (std::abs(
+                        complexList[moleculeList[pro1Index].myComIndex].D.z) <
+                    1E-10) {
+                  // both Complexes are on the membrane, evaluate as 2D
+                  // reaction
+                  double Dtot =
+                      1.0 / 2.0 *
+                          (complexList[moleculeList[pro1Index].myComIndex]
+                               .D.x +
+                           complexList[moleculeList[pro2Index].myComIndex]
+                               .D.x) +
+                      1.0 / 2.0 *
+                          (complexList[moleculeList[pro1Index].myComIndex]
+                               .D.y +
+                           complexList[moleculeList[pro2Index].myComIndex]
+                               .D.y);
 
-                    BiMolData biMolData{pro1Index,
-                                        pro2Index,
-                                        moleculeList[pro1Index].myComIndex,
-                                        moleculeList[pro2Index].myComIndex,
-                                        relIface1,
-                                        relIface2,
-                                        absIface1,
-                                        absIface2,
-                                        Dtot,
-                                        magMol1,
-                                        magMol2};
-                    determine_2D_implicitlipid_reaction_probability(
-                        simItr, rxnIndex, rateIndex, isStateChangeBackRxn,
-                        ILTableIDs, biMolData, params, moleculeList,
-                        complexList, forwardRxns, backRxns, IL2DbindingVec,
-                        IL2DUnbindingVec, membraneObject, relStateIndex);
-                  } else {
-                    // 3D->2D reaction
-                    double Dtot =
-                        1.0 / 3.0 *
-                            (complexList[moleculeList[pro1Index].myComIndex]
-                                 .D.x +
-                             complexList[moleculeList[pro2Index].myComIndex]
-                                 .D.x) +
-                        1.0 / 3.0 *
-                            (complexList[moleculeList[pro1Index].myComIndex]
-                                 .D.y +
-                             complexList[moleculeList[pro2Index].myComIndex]
-                                 .D.y) +
-                        1.0 / 3.0 *
-                            (complexList[moleculeList[pro1Index].myComIndex]
-                                 .D.z +
-                             complexList[moleculeList[pro2Index].myComIndex]
-                                 .D.z);
+                  BiMolData biMolData{pro1Index,
+                                      pro2Index,
+                                      moleculeList[pro1Index].myComIndex,
+                                      moleculeList[pro2Index].myComIndex,
+                                      relIface1,
+                                      relIface2,
+                                      absIface1,
+                                      absIface2,
+                                      Dtot,
+                                      magMol1,
+                                      magMol2};
+                  determine_2D_implicitlipid_reaction_probability(
+                      simItr, rxnIndex, rateIndex, isStateChangeBackRxn,
+                      ILTableIDs, biMolData, params, moleculeList,
+                      complexList, forwardRxns, backRxns, IL2DbindingVec,
+                      IL2DUnbindingVec, membraneObject, relStateIndex);
+                } else {
+                  // 3D->2D reaction
+                  double Dtot =
+                      1.0 / 3.0 *
+                          (complexList[moleculeList[pro1Index].myComIndex]
+                               .D.x +
+                           complexList[moleculeList[pro2Index].myComIndex]
+                               .D.x) +
+                      1.0 / 3.0 *
+                          (complexList[moleculeList[pro1Index].myComIndex]
+                               .D.y +
+                           complexList[moleculeList[pro2Index].myComIndex]
+                               .D.y) +
+                      1.0 / 3.0 *
+                          (complexList[moleculeList[pro1Index].myComIndex]
+                               .D.z +
+                           complexList[moleculeList[pro2Index].myComIndex]
+                               .D.z);
 
-                    BiMolData biMolData{pro1Index,
-                                        pro2Index,
-                                        moleculeList[pro1Index].myComIndex,
-                                        moleculeList[pro2Index].myComIndex,
-                                        relIface1,
-                                        relIface2,
-                                        absIface1,
-                                        absIface2,
-                                        Dtot,
-                                        magMol1,
-                                        magMol2};
+                  BiMolData biMolData{pro1Index,
+                                      pro2Index,
+                                      moleculeList[pro1Index].myComIndex,
+                                      moleculeList[pro2Index].myComIndex,
+                                      relIface1,
+                                      relIface2,
+                                      absIface1,
+                                      absIface2,
+                                      Dtot,
+                                      magMol1,
+                                      magMol2};
 
-                    determine_3D_implicitlipid_reaction_probability(
-                        simItr, rxnIndex, rateIndex, isStateChangeBackRxn,
-                        biMolData, params, moleculeList, complexList,
-                        forwardRxns, backRxns, membraneObject, relStateIndex);
-                  }
+                  determine_3D_implicitlipid_reaction_probability(
+                      simItr, rxnIndex, rateIndex, isStateChangeBackRxn,
+                      biMolData, params, moleculeList, complexList,
+                      forwardRxns, backRxns, membraneObject, relStateIndex);
                 }
               }
             }
