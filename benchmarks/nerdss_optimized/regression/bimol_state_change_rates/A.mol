@@ -1,0 +1,19 @@
+##
+# Substrate whose interface state K switches.  Every interface sits on the COM,
+# so the molecule is a point and a state change applies no rotation (see the
+# README for why that matters).
+##
+
+Name    = A
+
+# translational diffusion constants
+D       = [25.0,25.0,25.0]
+
+# rotational diffusion constants
+Dr      = [0.01,0.01,0.01]
+
+COM     0.0000    0.0000    0.0000
+a       0.0000    0.0000    0.0000
+
+#State definitions
+state = a~X~Y
