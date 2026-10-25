@@ -72,10 +72,23 @@ def cn_means(path, half=2):
         return None, None
     if len(lines) < 3: return None, None
     head = lines[0].split(',')[1:]
-    rows = []
+    timed = []
     for l in lines[1:]:
-        try: rows.append([float(v) for v in l.split(',')[1:]])
+        try: timed.append([float(v) for v in l.split(',')])
         except ValueError: pass
+    # Keep the timeWrite rows only, so that serial and MPI average the same
+    # times.  When nItr is not a multiple of timeWrite the serial build adds a
+    # row at the end of the run (after repeating the last regular one) and
+    # nerdss_mpi does not; hexamer's "second half" was then {10, 12.5 ms} for
+    # serial and {10 ms} for MPI, 11% more bonds for serial.  Times are printed
+    # with few digits (rev_2D's last regular row is 1.99e-05 for 2e-05), so a
+    # row is regular when it lands within 5% of a step of where one is due.
+    timed = [r for k, r in enumerate(timed) if k == 0 or r[0] != timed[k - 1][0]]
+    if len(timed) >= 3:
+        step = timed[1][0] - timed[0][0]
+        if abs(timed[-1][0] - timed[-2][0] - step) > 0.05 * step:
+            timed.pop()
+    rows = [r[1:] for r in timed]
     # half 2: the second half of the rows (equilibrium); half 1: the first
     # half after the time-0 row (relaxation, where a rate error shows)
     rows = rows[len(rows) // 2:] if half == 2 else rows[1:len(rows) // 2]
