@@ -406,6 +406,14 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // serial main() sets this from the membrane too.  It is not in
+  // Parameters::serialize(), and the set-up above replaces params with rank
+  // 0's serialized copy, so it has to come after.  It was 0 under MPI, and
+  // create_complex_propagation_vectors_on_sphere() divides by it: every
+  // surface complex an overlap sent back for a new move got NaN coordinates
+  // (cluster_gagsphere at np=1: 12 of 200 gag by step 100, 64 by step 1000).
+  params.sphereR = membraneObject.sphereR;
+
   // Every rank was seeded with the same -s value above, so every rank drew the
   // same sequence: the first molecule each rank moved at step 1 got the same
   // displacement, and from then on the ranks' draws were overlapping windows
