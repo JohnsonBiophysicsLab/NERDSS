@@ -11,9 +11,9 @@
  * version when the facilitator alone is.
  *
  * The `associate_*` routines run the same five rotations with the two molecules
- * in the other roles and with theta guarded by `isnan`; they are not folded in
- * here, because making one function serve both would take more parameters than
- * the duplication costs.
+ * in the other roles; every angle here is skipped when it is nan, as
+ * `associate_box` does.  They are not folded in here, because making one
+ * function serve both would take more parameters than the duplication costs.
  */
 #include "reactions/association/association.hpp"
 
@@ -23,11 +23,15 @@ void apply_state_change_rotations(Vec3D& reactIface1, Vec3D& reactIface2, int st
     const std::vector<MolTemplate>& molTemplateList, const NumericalSettings::AssociationAngles& settings)
 {
     /* THETA */
-    theta_rotation(reactIface1, reactIface2, facilitatorMol, stateChangeMol, assocAngles.theta1, facilitatorCom,
-        stateChangeCom, moleculeList, settings);
+    // An unspecified theta (nan) is skipped, as in associate_box: theta_rotation would turn the pair's
+    // coordinates into NaN.
+    if (!std::isnan(assocAngles.theta1))
+        theta_rotation(reactIface1, reactIface2, facilitatorMol, stateChangeMol, assocAngles.theta1, facilitatorCom,
+            stateChangeCom, moleculeList, settings);
 
-    theta_rotation(reactIface2, reactIface1, stateChangeMol, facilitatorMol, assocAngles.theta2, stateChangeCom,
-        facilitatorCom, moleculeList, settings);
+    if (!std::isnan(assocAngles.theta2))
+        theta_rotation(reactIface2, reactIface1, stateChangeMol, facilitatorMol, assocAngles.theta2, stateChangeCom,
+            facilitatorCom, moleculeList, settings);
 
     /* OMEGA */
     // if protein has theta M_PI, uses protein norm instead of com_iface vector.
