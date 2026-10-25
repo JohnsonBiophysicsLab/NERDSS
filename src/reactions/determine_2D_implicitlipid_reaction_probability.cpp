@@ -33,17 +33,21 @@ void determine_2D_implicitlipid_reaction_probability(int simItr, int rxnIndex, i
 
     if (!moleculeList[biMolData.pro1Index].isDissociated) {
         // This movestat check is if you allow just dissociated proteins to avoid overlap
-        if (forwardRxns[rxnIndex].rateList[rateIndex].rate > 0) {
+        const double rate { selected_rate(forwardRxns[rxnIndex], rateIndex, isStateChangeBackRxn, backRxns) };
+        if (rate > 0) {
             bool probValExists { false };
             int probMatrixIndex { 0 };
 
             // declare intrinsic binding rate of 2D->2D case.
-            double ktemp { forwardRxns[rxnIndex].rateList[rateIndex].rate / forwardRxns[rxnIndex].length3Dto2D };
+            double ktemp { rate / forwardRxns[rxnIndex].length3Dto2D };
             //int backIndex = forwardRxns[rxnIndex].conjBackRxnIndex;
             double kb { 0 };
 
+            // kb is the rate of the opposite direction: the BackRxn's for a
+            // reversible reaction, and so the ForwardRxn's for a back state
+            // change, whose own rate is the BackRxn's.
             if (forwardRxns[rxnIndex].isReversible == true) {
-                kb = backRxns[forwardRxns[rxnIndex].conjBackRxnIndex].rateList[rateIndex].rate;
+                kb = selected_rate(forwardRxns[rxnIndex], rateIndex, !isStateChangeBackRxn, backRxns);
             }
 
             for (int l = 0; l < IL2DbindingVec.size(); ++l) {

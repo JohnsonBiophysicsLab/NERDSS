@@ -42,6 +42,22 @@ struct BiMolData {
     }
 };
 
+/*! \brief The rate of the rate state find_which_reaction() chose for a pair.
+ *
+ * For a reverse bimolecular state change (`isStateChangeBackRxn`) the lookup
+ * hands back the forward reaction's index together with a `rateIndex` into the
+ * conjugate BackRxn's rate list, so that is where the rate is read.  The
+ * probability functions used to read `rxn.rateList[rateIndex]` regardless,
+ * which ran the reverse direction at the forward rate (and would read past the
+ * forward list if the back list were ever the longer one).
+ */
+inline double selected_rate(
+    const ForwardRxn& rxn, int rateIndex, bool isStateChangeBackRxn, const std::vector<BackRxn>& backRxns)
+{
+    return isStateChangeBackRxn ? backRxns[rxn.conjBackRxnIndex].rateList[rateIndex].rate
+                                : rxn.rateList[rateIndex].rate;
+}
+
 /*! \defgroup RotationalDiffusion Rotational contribution to the pair diffusion constant
  *
  * Before a candidate pair can be tested for reaction, the rotation each partner

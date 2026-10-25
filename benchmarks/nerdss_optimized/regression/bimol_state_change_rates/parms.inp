@@ -1,0 +1,49 @@
+# Equilibrium of a reversible bimolecular state change whose two directions
+# have different rates.  See README.md and check.sh.
+#
+# K(k) + A(a~X) <-> K(k) + A(a~Y) with ka (X -> Y) = 10 and kb (Y -> X) = 50
+# nm^3/us.  Both directions are bimolecular and K is unchanged, so at
+# equilibrium Y/X is the ratio of the two rates, 0.2 (a fraction of 1/6 in Y),
+# whatever [K] is.  A build that runs Y -> X at the forward rate settles at
+# Y/X = 1 instead.
+#
+# Relaxation rate (ka + kb)[K] = 60 x 1e-4 = 6e-3 /us, so 167 us; the run is
+# 10 ms and check.sh averages from 2 ms on.
+
+start parameters
+    nItr = 100000
+    timeStep = 0.1
+
+    timeWrite = 1000
+    trajWrite = 100000000
+    restartWrite = 100000000
+    pdbWrite = 100000000
+end parameters
+
+start boundaries
+    WaterBox = [100.0,100.0,100.0] #nm
+end boundaries
+
+start molecules
+    K : 100
+    A : 200 (a~X)
+end molecules
+
+start reactions
+    K(k) + A(a~X) <-> K(k) + A(a~Y)
+    onRate3Dka = 10.0
+    offRatekb = 50.0
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+
+    # Scaffolding for set_rMaxLimit() (see K.mol); rate 0, never fires.
+    K(kd) + K(kd) <-> K(kd!1).K(kd!1)
+    onRate3Dka = 0.0
+    offRatekb = 1.0
+    sigma = 1.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+end reactions
