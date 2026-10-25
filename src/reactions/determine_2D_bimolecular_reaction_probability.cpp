@@ -23,13 +23,14 @@ void determine_2D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
     /*This movestat check is if you allow just dissociated proteins to avoid
          * overlap*/
-        if (withinRmax && forwardRxns[rxnIndex].rateList[rateIndex].rate > 0) {
+        const double rate { selected_rate(forwardRxns[rxnIndex], rateIndex, isStateChangeBackRxn, backRxns) };
+        if (withinRmax && rate > 0) {
             bool probValExists { false };
             int probMatrixIndex { 0 };
             // get_distance, because ncross is > 0 iff R1 < RMax
             /*Evaluate probability of reaction, with reweighting*/
             // Generate 2D tables unless they were not before
-            double ktemp { forwardRxns[rxnIndex].rateList[rateIndex].rate / forwardRxns[rxnIndex].length3Dto2D };
+            double ktemp { rate / forwardRxns[rxnIndex].length3Dto2D };
             if (forwardRxns[rxnIndex].isSymmetric == true)
                 ktemp *= 2.0; // for A(a)+A(a)->A(a!).A(a!) case
 

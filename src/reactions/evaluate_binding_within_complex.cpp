@@ -13,7 +13,8 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
   double probvec1;
     if (moleculeList[pro1Index].isDissociated != true
         && moleculeList[pro2Index].isDissociated != true) {
-        if (oneRxn.rateList[rateIndex].rate > 0) {
+        const double rate { selected_rate(oneRxn, rateIndex, isBiMolStateChange, backRxns) };
+        if (rate > 0) {
 
             /*Don't use Rmax, because it is based on diffusion*/
 
@@ -44,8 +45,8 @@ void evaluate_binding_within_complex(int pro1Index, int pro2Index, int iface1Ind
             if (withinRmax) {
 			  //int backIndex = oneRxn.conjBackRxnIndex;
 			  
-			  double ka = oneRxn.rateList[rateIndex].rate; // units of nm^3/us
-			  // this uses the rate corresponding to the same forward reaction rate.
+			  double ka = rate; // units of nm^3/us
+			  // the chosen rate state's rate: the BackRxn's for a back state change.
                 
                 // for 1d reactions, ka is 1/2
                 if (complexList[moleculeList[pro1Index].myComIndex].onFiber &&
