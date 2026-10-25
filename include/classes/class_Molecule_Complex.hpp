@@ -429,6 +429,11 @@ struct Molecule {
         PUSH(index);
         PUSH(mass);
         PUSH(isLipid);
+        // Set from the template when a molecule is made and read by the 1D
+        // fiber rules; without it every molecule an MPI rank received -- all
+        // of them, since rank 0 hands the start-up system out this way --
+        // left the fiber.
+        PUSH(isPromoter);
         // Serialize comCoord starting from arrayRank, nArrayRank byte
         // and increase nArrayRank by the number of serialized bytes:
         comCoord.serialize(arrayRank, nArrayRank);
@@ -471,6 +476,7 @@ struct Molecule {
         POP(index);
         POP(mass);
         POP(isLipid);
+        POP(isPromoter);
         // std::cout << "isLipid=" << isLipid << ", nArrayRank=" << nArrayRank <<
         // std::endl;
 
@@ -645,6 +651,7 @@ public:
         Dr.serialize(arrayRank, nArrayRank);
         PUSH(isEmpty);
         PUSH(OnSurface);
+        PUSH(onFiber);  // see Molecule::serialize(), isPromoter
         PUSH(tmpOnSurface);
         PUSH(numberOfComplexes);
         // serialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);
@@ -673,6 +680,7 @@ public:
         Dr.deserialize(arrayRank, nArrayRank);
         POP(isEmpty);
         POP(OnSurface);
+        POP(onFiber);
         POP(tmpOnSurface);
         POP(numberOfComplexes);
         // deserialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);

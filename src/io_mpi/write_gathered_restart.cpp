@@ -187,7 +187,6 @@ void write_gathered_restart(
     indices_to_IDs(copy, moleculeList, complexList);
     push_object(copy, mine, molecule_room(copy));
     // not in Molecule::serialize()
-    push_value(copy.isPromoter, mine);
     push_value(copy.enforceCompartmentBC, mine);
     push_reweight(copy.prevReweight, mine);
   }
@@ -199,7 +198,6 @@ void write_gathered_restart(
                    ? moleculeList[member].id
                    : -1;
     push_object(copy, mine, complex_room(copy));
-    push_value(copy.onFiber, mine);
   }
 
   // ---- gather the shares onto rank 0
@@ -266,8 +264,6 @@ void write_gathered_restart(
     // ---- one numbering for the whole system
     std::vector<Molecule> mols;
     std::vector<Complex> coms;
-    std::vector<char> molFiber;  // isPromoter per new molecule
-    std::vector<char> comFiber;
     if (hasIL) {
       Molecule lipid = moleculeList[ilMol];
       lipid.index = 0;
@@ -286,7 +282,6 @@ void write_gathered_restart(
       for (int i = 0; i < nMols; i++) {
         Molecule mol;
         mol.deserialize(const_cast<unsigned char *>(data), at);
-        mol.isPromoter = pop_value<bool>(data, at);
         mol.enforceCompartmentBC = pop_value<bool>(data, at);
         mol.prevReweight = pop_reweight(data, at);
         mol.index = static_cast<int>(mols.size());
@@ -300,7 +295,6 @@ void write_gathered_restart(
       for (int i = 0; i < nComs; i++) {
         Complex com;
         com.deserialize(const_cast<unsigned char *>(data), at);
-        com.onFiber = pop_value<bool>(data, at);
         com.index = static_cast<int>(coms.size());
         if (!comIndexOfId.emplace(com.id, com.index).second)
           fprintf(stderr, "write_gathered_restart: complex id %d is owned by "
