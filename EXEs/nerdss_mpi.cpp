@@ -1200,6 +1200,27 @@ int main(int argc, char* argv[]) {
     }
   }  // end iterating over time steps
 
+  // The copy-number row and histogram block at the last step, which the
+  // serial build writes whatever timeWrite is; write_output() writes them on
+  // timeWrite steps only, so a run whose last step is not one ended on the
+  // previous row (gagsphere, timeWrite 5000 over 1000 steps: time 0 alone).
+  {
+    const long long lastItr = simItr - 1;
+    if (!(params.timeWrite > 0 && lastItr % params.timeWrite == 0)) {
+      write_all_species((lastItr - params.itrRestartFrom) * params.timeStep *
+                                Constants::usToSeconds +
+                            params.timeRestartFrom,
+                        moleculeList, speciesFile1, counterArrays,
+                        membraneObject, mpiContext, simulVolume);
+      int number_of_lipids = 0;  // sum of all states of IL
+      for (int n : membraneObject.numberOfFreeLipidsEachState)
+        number_of_lipids += n;
+      print_complex_hist(complexList, assemblyfile, lastItr, params,
+                         molTemplateList, moleculeList, number_of_lipids,
+                         mpiContext, simulVolume);
+    }
+  }
+
   // The restart file at the last step, as the serial build writes it.
   write_gathered_restart(
       simItr - 1, "DATA/restart" + restartExtension, params.rngwrite ? 1 : 0,
