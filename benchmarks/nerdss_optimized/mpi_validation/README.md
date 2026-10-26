@@ -115,6 +115,15 @@ and 4 (300 steps): no report.  A fiber checkpoint written at np=2 restarts with 
 np=1 from the run's row, with `isPromoter` on all 250 molecules.
 `fiber_check.sh` is the regression test.
 
+### Outputs and step count
+
+| # | defect | evidence | fix |
+|---|---|---|---|
+| 18 | `Parameters::sphereR` was 0 on every rank: serial `main()` copies it from the membrane, `nerdss_mpi` did not, and `Parameters::serialize()` does not carry it.  `create_complex_propagation_vectors_on_sphere()`, the new move of a surface complex after an overlap on a sphere, divides by it | cluster_gagsphere (gag on a 70 nm sphere, clusterOverlapCheck) at np=1: 12 of 200 gag at NaN coordinates by step 100, 64 by step 1000, no checker report (the checkers test links, not positions) | 29105ed7; after: no NaN at np=1/2, copy numbers against serial with 12 seeds largest \|t\| 1.0 over all columns (`sphere_surface_check.sh`) |
+| 19 | The association/dissociation log: the three MPI reaction passes each opened a shared `DATA/assoc_dissoc_time.dat` themselves, truncating, every pass on every rank, whatever `assocDissocWrite` said, and the per-rank file stayed empty | hetTrimer with `assocDissocWrite = true`: serial 1525 bytes, np=1 nothing | 966545ac: the passes write the rank's `assoc_dissoc_time_<rank>.dat`, molecules named by id (a rank's slot index is renumbered every step; serial keeps its index format, byte-identical); `assocDissocWrite`/`bondedComplexWrite` serialized (`assoc_dissoc_check.sh`: the per-rank logs replay to the final restart's bonds) |
+| 20 | No end-of-run copy-number row or histogram block: serial writes them at its last step whatever `timeWrite` is, `nerdss_mpi` only on `timeWrite` steps | gagsphere (timeWrite 5000 over 1000 steps): time 0 alone | a4ae5a4c |
+| 21 | `nerdss_mpi` ran steps 1 to nItr, the serial build 1 to nItr - 1 (`simItr < nItr`) | the same checkpoint continued serially stopped one step before `nerdss_mpi -np 1 -r`; every MPI run's last row stood one step past serial's | d32b0114: MPI follows serial, by decision, which keeps serial byte-identical to the reference.  `pair_count_check.sh` now runs nItr = 2 (one step), `fiber_check.sh` nItr = 31 |
+
 Tooling: 20fc7303 (checker macros from the compiler line, suite timeout,
 ASan column), e2135edb (EXCHANGE CONFLICT report, exchange_conflicts
 column), b699efe2 and 825a8c3a (CANDIDATE PAIRS and REWEIGHT HISTORY
@@ -169,8 +178,8 @@ free proteins by it.)
 
 ## Audit results
 
-Tip = `bf0eccd4` with the conflict report; branch = `7d6e6d3e` (all fixes
-here, the fiber ones included; the first round was `825a8c3a`).  Runs per
+Tip = `bf0eccd4` with the conflict report; branch = `d32b0114` (every fix
+here, #1-#21; the first round was `825a8c3a`).  Runs per
 case and np: checker seeds 1-3, `-O3` seed 4, ASan seed 1 (short tables);
 coverage cases: checker seed 1 and ASan seed 1 on the branch, seeds 1-3 and
 ASan on the tip.
@@ -274,14 +283,14 @@ refused.  Spherical cases are not run.
 | implicit_lipid | 3 | 0.41 (0.69) / 1.24 | 0.38 (0.71) / 0.00 |
 | implicit_lipid | 4 | 2.32 (0.065) / 0.40 | 0.33 (0.75) / 0.11 |
 | mem_localization | 2 | 2.57 (0.057) / - | 0.92 (0.41) / - |
-| mem_localization | 3 | 1.64 (0.17) / - | 1.08 (0.35) / - |
+| mem_localization | 3 | 1.64 (0.17) / - | 0.89 (0.43) / - |
 | mem_localization | 4 | 0.92 (0.38) / - | 0.69 (0.52) / - |
 | michaelis_menten | 2 | 0.45 (0.67) / 0.67 | 1.43 (0.18) / 1.52 |
 | michaelis_menten | 3 | 1.44 (0.18) / 1.53 | - |
 | michaelis_menten | 4 | 0.73 (0.49) / 1.53 | - |
-| rev_2D | 2 | 0.19 (0.86) / 0.19 | 1.06 (0.35) / 0.06 |
-| rev_2D | 3 | 0.35 (0.75) / 0.79 | 2.48 (0.055) / 1.49 |
-| rev_2D | 4 | 0.19 (0.85) / 1.16 | 0.97 (0.37) / 0.11 |
+| rev_2D | 2 | 0.19 (0.86) / 0.19 | 1.03 (0.36) / 0.06 |
+| rev_2D | 3 | 0.35 (0.75) / 0.79 | 2.45 (0.056) / 1.49 |
+| rev_2D | 4 | 0.19 (0.85) / 1.16 | 0.88 (0.42) / 0.11 |
 | rev_3D | 2 | 1.90 (0.095) / 0.10 | 0.70 (0.52) / 1.41 |
 | rev_3D | 3 | 0.79 (0.46) / 0.60 | 0.53 (0.61) / 0.06 |
 | rev_3D | 4 | 1.38 (0.22) / 1.60 | 0.18 (0.87) / 0.09 |
@@ -296,14 +305,15 @@ refused.  Spherical cases are not run.
 
 The copy numbers are compared over the `timeWrite` rows only.  When nItr is
 not a multiple of `timeWrite` the serial build writes an extra row at the end
-of the run and `nerdss_mpi` does not, so until `analyze_audit.py` dropped it
-the two "second halves" of homoTrimer, closed_homoTrimer, hetTrimer and
+of the run and `nerdss_mpi` did not (#20), so until `analyze_audit.py` dropped
+it the two "second halves" of homoTrimer, closed_homoTrimer, hetTrimer and
 hexamer covered different times.  Hexamer then showed 11% fewer bonds under
 MPI at every np (|t| up to 4.9 with 24 seeds), and the 1.4 tip and np=1
 showed the same.  At the same time (10 ms) the bonds agree: serial 55.4
 (32 seeds); np=1 55.4, np=2 55.2, np=3 59.0, np=4 55.6 on the branch; np=2
 54.5 at the tip; every p > 0.09.  The table above uses the corrected
-comparison.
+comparison.  Since #20 and #21 both builds write rows at the same times in
+every case (compartment aside, refused under MPI).
 
 The values that stand out were followed with more seeds:
 
@@ -330,10 +340,13 @@ The values that stand out were followed with more seeds:
 | `reweight_history_check.sh` | history found for 76.7% of edge pairs, 77.8% interior |
 | `coordinate_file_check.sh` | rank 0 1000 A, rank 1 0 at time 0 |
 | `conflict_control.sh` | het_fast np=3 and np=4, het_faster np=4, seeds 1-4 each: 0 conflicts, 0 structure, 0 ownership |
-| `fiber_check.sh` | model_kin, 48 seeds: np=1/2/4 within 4 SE of serial (38.54/38.48/38.31 vs 38.86), A and B conserved |
+| `fiber_check.sh` | model_kin, 48 seeds: np=1/2/4 within 4 SE of serial (38.54/38.48/38.31 vs 38.86), A and B conserved; 12 seeds on d32b0114 |
+| `sphere_surface_check.sh` | no non-finite coordinate at np=1/2 (before #18: 20 and 22 of 200) |
+| `assoc_dissoc_check.sh` | hetTrimer np=1/2/3, implicit_lipid np=1/2: the per-rank logs replay to the final restart's bond count, no bond made twice or broken before it was made |
+| `checkpoint_check.sh` | np=1 exact continuation, np=2 checkpoint continued serially and at np=1 (both end on step 999 since #21), `bindPairList` rule |
 | `run_code_tests` (`make checks`) | all pass, including complex_destroy_reset_check and mpi_column_split_check |
 | serial byte identity | `run_suite.sh` on cases.tsv and coverage_cases.tsv: all 273 + 92 output hashes equal to the tip's, after every commit that touches a file the serial build compiles |
-| GCC 15 clean copy | 196 serial sources and the MPI build with g++-15, no warnings; `make checks` passes |
+| GCC 15 clean copy | 196 serial sources and the MPI build (216) with g++-15, no warnings; `make checks` passes (d32b0114) |
 
 
 ## Checkpoints from any rank count
@@ -396,13 +409,9 @@ after a restart (time arithmetic relative to the restart step).
      only for a new run), and per-rank RNG streams (seed + rank, as a new run
      does, since a single saved state cannot be split).
 * **Fields the exchange still drops.**  A member-by-member read of every
-  `serialize()` after #15 and #16 left these: `Parameters::sphereR`, which
-  serial copies from the membrane in `main()` and `nerdss_mpi` never sets, so
-  under MPI `create_complex_propagation_vectors_on_sphere()` projects onto a
-  sphere of radius 0 (found by reading; spheres are outside the validation
-  set); `Parameters::assocDissocWrite` and `bondedComplexWrite`, which no MPI
-  code reads (see output merging below); the compartment fields (#4).  The
-  rest are rebuilt on arrival or derived.
+  `serialize()` after #15 and #16 left `Parameters::sphereR` (#18),
+  `assocDissocWrite` and `bondedComplexWrite` (#19), and the compartment
+  fields (#4).  The rest are rebuilt on arrival or derived.
 * **Ghost-ghost pairs a rank should decide.**  A pair of two molecules that
   are both ghosts of the left neighbour's complexes but sit in columns this
   rank decides (bin 1, or bins 0 and 1) has no initiator anywhere: this rank
@@ -418,11 +427,9 @@ after a restart (time arithmetic relative to the restart step).
   sphere's decomposition was checked.
 * **Output merging** covers copy numbers, the complex histogram and PDB/CIF
   frames only; bound-pair, mono/dimer, event-counter, observable and
-  transition-matrix files stay per rank, as partial tallies to be summed.
-  `assoc_dissoc_time` is not written at all: `nerdss_mpi` opens the file
-  and nothing writes to it (hetTrimer with `assocDissocWrite = true`: serial
-  1525 bytes, np=1 empty).  Nor does it write the end-of-run copy-number row
-  that serial adds when nItr is not a multiple of `timeWrite` (above).
+  transition-matrix files stay per rank, as partial tallies to be summed;
+  so does `assoc_dissoc_time` (#19).  `bondedComplexWrite` has no MPI writer
+  (`DATA/COMPLEXES` is serial-only).
 * **`-c` itself** expects coordinates in the centred frame (-L/2..L/2) while
   NERDSS writes PDB frames in 0..L, so a NERDSS PDB frame is not accepted as
   it is by either build (serial exits 1).  Not MPI-specific.
