@@ -17,6 +17,7 @@
 #include "io/io.hpp"
 #include "math/matrix.hpp"
 #include "math/rand_gsl.hpp"
+#include "math/round_to_int.hpp"
 #include "math/sincos.hpp"
 #include "parser/parser_functions.hpp"
 #include "reactions/association/functions_for_spherical_system.hpp"
@@ -701,7 +702,7 @@ void Complex::update_properties(
       dtmp = D.x * 100;
 
     /*Keep only one sig fig for <0.1, 2 for 0.1<d<10, 3 for 10<d<100, etc*/
-    int d_ones = int(round(dtmp));
+    int d_ones = round_to_int(dtmp);
     //        std::cout << "FORCED. D._2D. to fewer sig-figs, starting value:
     //        "
     //        << D.x << " final value: ";

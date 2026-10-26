@@ -9,6 +9,7 @@
 #include "classes/class_Rxns.hpp"
 #include <classes/class_copyCounters.hpp>
 #include <cmath>
+#include "math/round_to_int.hpp"
 #include <gsl/gsl_matrix.h>
 
 struct BiMolData {
@@ -150,7 +151,7 @@ inline void discretize_2D_Dtot(BiMolData& biMolData)
     else
         dtmp = biMolData.Dtot * 100;
 
-    int d_ones = int(round(dtmp));
+    int d_ones = round_to_int(dtmp);
 
     if (biMolData.Dtot < 0.0001)
         biMolData.Dtot = d_ones * 0.00001;
