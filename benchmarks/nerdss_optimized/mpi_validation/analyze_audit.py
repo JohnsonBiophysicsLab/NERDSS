@@ -77,12 +77,16 @@ def cn_means(path, half=2):
         try: timed.append([float(v) for v in l.split(',')])
         except ValueError: pass
     # Keep the timeWrite rows only, so that serial and MPI average the same
-    # times.  When nItr is not a multiple of timeWrite the serial build adds a
-    # row at the end of the run (after repeating the last regular one) and
-    # nerdss_mpi does not; hexamer's "second half" was then {10, 12.5 ms} for
-    # serial and {10 ms} for MPI, 11% more bonds for serial.  Times are printed
-    # with few digits (rev_2D's last regular row is 1.99e-05 for 2e-05), so a
-    # row is regular when it lands within 5% of a step of where one is due.
+    # times.  The serial build runs steps 1 to nItr - 1 and writes a row at its
+    # last step whatever timeWrite is; nerdss_mpi runs to nItr and writes the
+    # timeWrite rows only.  When nItr is not a multiple of timeWrite that row
+    # is extra: hexamer's "second half" was {10, 12.5 ms} for serial and
+    # {10 ms} for MPI, 11% more bonds for serial.  When it is, serial's last
+    # row stands one step short of MPI's (rev_2D: step 199, 1.99e-05, against
+    # 200), which is the same row for this purpose, so a row is regular when
+    # it lands within 5% of a step of where one is due.  The duplicate filter
+    # is for nItr - 1 itself a multiple of timeWrite, where serial writes the
+    # row twice.
     timed = [r for k, r in enumerate(timed) if k == 0 or r[0] != timed[k - 1][0]]
     if len(timed) >= 3:
         step = timed[1][0] - timed[0][0]

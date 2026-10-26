@@ -6,7 +6,7 @@
 # the complex got NaN coordinates.  cluster_gagsphere (gag on a 70 nm sphere,
 # clusterOverlapCheck on) at np=1 had 12 of its 200 gag at NaN by step 100.
 #
-# Runs that model for 200 steps at np=1 and np=2 and reads the restart file
+# Runs that model with nItr = 200 at np=1 and np=2 and reads the restart file
 # the run writes at its end (NaN is written to JSON as null).
 #
 # Usage: sphere_surface_check.sh <nerdss_mpi> [work-dir]
@@ -46,7 +46,7 @@ def crds(m):
 bad = sum(1 for m in mols if not m.get('isImplicitLipid') and
           any(v is None or not math.isfinite(v) for v in crds(m)))
 n = sum(1 for m in mols if not m.get('isImplicitLipid'))
-print(f"np={np}: {bad} of {n} molecules with non-finite coordinates at step 200"
+print(f"np={np}: {bad} of {n} molecules with non-finite coordinates at the end"
       f"{'' if bad == 0 and status == 0 else ' FAIL'}")
 sys.exit(1 if bad or status else 0)
 EOF

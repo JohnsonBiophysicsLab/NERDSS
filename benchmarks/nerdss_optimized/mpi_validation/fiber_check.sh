@@ -36,7 +36,8 @@ for run in serial 1 2 4; do
         d=$WORK/$run/s$s
         mkdir -p "$d"
         cp "$MODEL"/model/*.mol "$d/"
-        awk '/^[[:space:]]*nItr[[:space:]]*=/ { print "    nItr = 30"; next } { print }' \
+        # nItr = 31 is steps 1-30 in both builds (they run 1 to nItr - 1).
+        awk '/^[[:space:]]*nItr[[:space:]]*=/ { print "    nItr = 31"; next } { print }' \
             "$MODEL/model_kin/parms.inp" > "$d/parms.inp"
         if [[ $run == serial ]]; then
             (cd "$d" && "$SERIAL_BIN" -f parms.inp -s "$s" > stdout.log 2> stderr.log < /dev/null)
@@ -61,6 +62,8 @@ def per_seed(run):
         f = f'{work}/{run}/s{s}/' + ('DATA' if run == 'serial' else 'mergeOUT') + '/copy_numbers_time.dat'
         try:
             rows = [[float(x) for x in l.split(',')] for l in open(f).read().split('\n')[1:] if l]
+            # serial writes its last row twice when that step is a timeWrite one
+            rows = [r for k, r in enumerate(rows) if k == 0 or r[0] != rows[k - 1][0]]
         except OSError:
             return None
         if len(rows) < 31 or any(r[1] + r[3] != 200 or r[2] + r[3] != 50 for r in rows):

@@ -28,7 +28,8 @@ while IFS=$'\t' read -r id dir parm most; do
         rm -rf "$d"
         mkdir -p "$d"
         cp "$ROOT_DIR/sample_inputs/$dir"/*.mol "$d/"
-        awk '/^[[:space:]]*nItr[[:space:]]*=/ { print "    nItr = 1"; next } { print }' \
+        # nItr = 2 is one step: both builds run steps 1 to nItr - 1.
+        awk '/^[[:space:]]*nItr[[:space:]]*=/ { print "    nItr = 2"; next } { print }' \
             "$ROOT_DIR/sample_inputs/$dir/$parm" > "$d/$parm"
         (cd "$d" && mpirun --oversubscribe -np "$np" "$BINARY" -f "$parm" -s 1 \
             > stdout.log 2> stderr.log < /dev/null) || true

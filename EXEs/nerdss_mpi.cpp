@@ -543,7 +543,11 @@ int main(int argc, char* argv[]) {
   // What this rank last handed its right neighbour, by molecule id: the copy
   // that comes back at the next first exchange is compared against it.
   std::unordered_map<int, MolSnapshot> sentRight;
-  for (simItr += 1; simItr <= params.nItr; ++simItr) {
+  // Steps 1 to nItr - 1, as in the serial build (EXEs/nerdss.cpp), so that
+  // the two run the same steps and end on the same row and restart.  This
+  // loop went to nItr: one step more than serial, and a restart continued
+  // with nerdss_mpi one step further than the same file continued serially.
+  for (simItr += 1; simItr < params.nItr; ++simItr) {
     if (1) {
       // if (mpiContext.rank == 0) {
       start_computation_time = MPI_Wtime();
