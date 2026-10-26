@@ -47,7 +47,7 @@ void write_output(long long int simItr, Parameters& params,
                   std::vector<ForwardRxn>& forwardRxns,
                   std::vector<BackRxn>& backRxns,
                   std::vector<CreateDestructRxn>& createDestructRxns,
-                  std::vector<std::chrono::duration<double>>& durationList,
+                  StepDurationWindow& durationList,
                   MDTimer::time_point& startStep,
                   MDTimer::time_point& totalTimeStart,
                   std::map<std::string, int>& observablesList,
@@ -102,8 +102,7 @@ void write_output(long long int simItr, Parameters& params,
     char charTime[24];
 
     using duration = std::chrono::duration<double>;
-    durationList.erase(durationList.begin());
-    durationList.emplace_back(MDTimer::now() - startStep);
+    durationList.push(MDTimer::now() - startStep);
     if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       double timeSimulated{(simItr - params.itrRestartFrom) * params.timeStep *
                                Constants::usToSeconds +
@@ -141,8 +140,7 @@ void write_output(long long int simItr, Parameters& params,
 
       // Estimate time remaining
       duration avgTimeStepDuration =
-          std::accumulate(durationList.begin(), durationList.end(),
-                          duration{0}) /
+          durationList.sum() /
           numSavedDurations;
       duration timeLeft = (params.nItr - simItr) * avgTimeStepDuration;
       auto timeLeftMinutes = 1.0 * elapsedTime /

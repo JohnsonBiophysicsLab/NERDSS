@@ -717,9 +717,9 @@ int main(int argc, char *argv[]) {
   // begin the timer
   MDTimer::time_point simulTimeStart = MDTimer::now();
   int numSavedDurations{1000};
-  std::vector<std::chrono::duration<double>> durationList(numSavedDurations);
-  std::fill(durationList.begin(), durationList.end(),
-            std::chrono::duration<double>(simulTimeStart - totalTimeStart));
+  StepDurationWindow durationList(
+      numSavedDurations,
+      std::chrono::duration<double>(simulTimeStart - totalTimeStart));
 
   unsigned DDTableIndex{0};
   /*Vectors to store binding probabilities for implicit lipids in 2D.  The
@@ -1654,8 +1654,7 @@ int main(int argc, char *argv[]) {
     }
 
     using duration = std::chrono::duration<double>;
-    durationList.erase(durationList.begin());
-    durationList.emplace_back(MDTimer::now() - startStep);
+    durationList.push(MDTimer::now() - startStep);
     // timeWrite <= 0 turns the periodic statistics output off; the rows at the
     // start and the end of the run are still written.
     if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
@@ -1725,8 +1724,7 @@ int main(int argc, char *argv[]) {
 
       // Estimate time remaining
       duration avgTimeStepDuration =
-          std::accumulate(durationList.begin(), durationList.end(),
-                          duration{0}) /
+          durationList.sum() /
           numSavedDurations;
       duration timeLeft = (params.nItr - simItr) * avgTimeStepDuration;
       std::cout

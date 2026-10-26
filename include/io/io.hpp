@@ -17,6 +17,7 @@
 #include "classes/class_Rxns.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
+#include "io/step_duration_window.hpp"
 
 /*! \defgroup IO
  * \brief Functions for input/output of coordinates, parameters, trajectories, etc.
@@ -217,7 +218,7 @@ void write_output(long long int simItr, Parameters& params,std::string trajFileN
     std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject, MpiContext& mpiContext, std::string transitionFileName, 
     copyCounters& counterArrays, std::ofstream& speciesFile1, std::ofstream& debugFile, std::string debugFileName, std::string restartFileName,
     std::vector<Complex>& complexList, SimulVolume& simulVolume, std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
-    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<std::chrono::duration<double>>& durationList, MDTimer::time_point& startStep,
+    std::vector<CreateDestructRxn>& createDestructRxns, StepDurationWindow& durationList, MDTimer::time_point& startStep,
     MDTimer::time_point& totalTimeStart, std::map<std::string, int>& observablesList, std::ofstream& assemblyfile); // for mpi version
 
 void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles); // for mpi version
