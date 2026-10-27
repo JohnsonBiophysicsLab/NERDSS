@@ -173,17 +173,19 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
             if (params.debugParams.forceDissoc)
                 prob = 1.0;
 
-            const ForwardRxn& currRxn = forwardRxns[kfIndex];
-            double RS3D { -1.0 };
-            for (int RS3Di = 0; RS3Di < 100; RS3Di++) {
-                if ((std::abs(membraneObject.RS3Dvect[RS3Di] - currRxn.bindRadius) < 1E-15) && (std::abs(membraneObject.RS3Dvect[RS3Di + 100] - currRxn.rateList[0].rate) < 1E-15) && std::abs(membraneObject.RS3Dvect[RS3Di + 200] - (1.0 / 3.0 * (molTemplateList[currRxn.reactantListNew[0].molTypeIndex].D.x + molTemplateList[currRxn.reactantListNew[1].molTypeIndex].D.x) + 1.0 / 3.0 * (molTemplateList[currRxn.reactantListNew[0].molTypeIndex].D.y + molTemplateList[currRxn.reactantListNew[1].molTypeIndex].D.y) + 1.0 / 3.0 * (molTemplateList[currRxn.reactantListNew[0].molTypeIndex].D.z + molTemplateList[currRxn.reactantListNew[1].molTypeIndex].D.z))) < 1E-15) {
-                    RS3D = membraneObject.RS3Dvect[RS3Di + 300];
-                    break;
-                }
-            }
-
             double rnum { rand_gsl() };
             if (prob > rnum) {
+                // Only a dissociation needs the reflecting surface, so the
+                // table is searched here rather than for every bond tested.
+                const ForwardRxn& kfRxn = forwardRxns[kfIndex];
+                double RS3D { -1.0 };
+                for (int RS3Di = 0; RS3Di < 100; RS3Di++) {
+                    if ((std::abs(membraneObject.RS3Dvect[RS3Di] - kfRxn.bindRadius) < 1E-15) && (std::abs(membraneObject.RS3Dvect[RS3Di + 100] - kfRxn.rateList[0].rate) < 1E-15) && std::abs(membraneObject.RS3Dvect[RS3Di + 200] - (1.0 / 3.0 * (molTemplateList[kfRxn.reactantListNew[0].molTypeIndex].D.x + molTemplateList[kfRxn.reactantListNew[1].molTypeIndex].D.x) + 1.0 / 3.0 * (molTemplateList[kfRxn.reactantListNew[0].molTypeIndex].D.y + molTemplateList[kfRxn.reactantListNew[1].molTypeIndex].D.y) + 1.0 / 3.0 * (molTemplateList[kfRxn.reactantListNew[0].molTypeIndex].D.z + molTemplateList[kfRxn.reactantListNew[1].molTypeIndex].D.z))) < 1E-15) {
+                        RS3D = membraneObject.RS3Dvect[RS3Di + 300];
+                        break;
+                    }
+                }
+
 
                 // std::cout << "Dissociation at iteration: " << simItr << " protein: " << molItr
                 //           << " from the membrane, with probability: " << prob << '\n';

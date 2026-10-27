@@ -102,13 +102,14 @@ void determine_1D_bimolecular_reaction_probability(
       moleculeList[biMolData.pro2Index].isDissociated != true) {
     /*This movestat check is if you allow just dissociated proteins to avoid
      * overlap*/
-    if (withinRmax && forwardRxns[rxnIndex].rateList[rateIndex].rate > 0) {
+    const double rate{selected_rate(forwardRxns[rxnIndex], rateIndex, isStateChangeBackRxn, backRxns)};
+    if (withinRmax && rate > 0) {
       // int probMatrixIndex{0};
       /*Evaluate probability of reaction, with reweighting*/
       // double ratio = forwardRxns[rxnIndex].bindRadius / R1;
 
       // declare intrinsic binding rate of 1D->1D case.
-      double kact{forwardRxns[rxnIndex].rateList[rateIndex].rate / forwardRxns[rxnIndex].area3Dto1D};
+      double kact{rate / forwardRxns[rxnIndex].area3Dto1D};
       // if (forwardRxns[rxnIndex].isSymmetric == false)
       //   kact /= 2.0; 
       // Our model is excact for 1D semi-infinite associations

@@ -37,6 +37,7 @@ void draw_coords_after_zeroth_reaction(
 {
     mol.create_random_coords(molTemplate, membraneObject);
     set_product_iface_states(mol, molTemplate, currRxn);
+    mol.refresh_iface_state_bits();
 }
 
 void draw_coords_after_uni_reaction(
@@ -65,6 +66,7 @@ void draw_coords_after_uni_reaction(
 
     // set the interface states to the states defined in the reaction
     set_product_iface_states(mol, molTemplate, currRxn);
+    mol.refresh_iface_state_bits();
 }
 
 Molecule initialize_molecule_after_zeroth_reaction(

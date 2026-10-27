@@ -77,6 +77,18 @@ void populate_reaction_lists(const std::vector<ForwardRxn>& forwardRxns, const s
                     oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);
                     oneState.rxnPartners.emplace_back(forwardRxn.reactantListNew[1].absIfaceIndex);
+                    // The facilitator keeps its state, so this state also meets
+                    // the changed molecule in its product state, which is where
+                    // the back state change starts.  The else branch below never
+                    // filed it: productListNew[0] is this same index.  Without
+                    // it a pair with the facilitator as pro1 never ran the back
+                    // direction, and the implicit lipid, never pro1, never ran it
+                    // at all.
+                    if (forwardRxn.isReversible
+                        && forwardRxn.productListNew[0].absIfaceIndex == oneState.index
+                        && forwardRxn.productListNew[1].absIfaceIndex
+                            != forwardRxn.reactantListNew[1].absIfaceIndex)
+                        oneState.rxnPartners.emplace_back(forwardRxn.productListNew[1].absIfaceIndex);
                 } else if (forwardRxn.isReversible && oneState.index == forwardRxn.productListNew[0].absIfaceIndex) {
                     oneState.stateChangeRxns.emplace_back(forwardRxn.relRxnIndex, forwardRxn.conjBackRxnIndex);
                     oneState.myForwardRxns.emplace_back(forwardRxn.relRxnIndex);

@@ -113,7 +113,12 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     if (isOnMembrane == false) {
         transitionToSurface = true;
     }
-    Molecule memProtein;
+    // The orientation the pair is rotated back to: the lipid's, since slowPro
+    // below is always the lipid.  This was a default Molecule with no
+    // interfaces, so save_mem_orientation() read past an empty list and the
+    // first lipid state change in a box crashed.  associate_ImplicitLipid_box()
+    // starts from the lipid the same way.
+    Molecule memProtein = stateChangeMol;
 
     int slowPro = stateChangeMol.index;
 
@@ -296,10 +301,17 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     //    stateChangeMol.interfaceList[stateChangeIface].change_state(
     //        relStateIndex, newState.absIfaceIndex, newState.requiresState);
 
-    counterArrays.copyNumSpecies[currRxn.reactantListNew[0].absIfaceIndex] -= 1;
-    counterArrays.copyNumSpecies[currRxn.reactantListNew[1].absIfaceIndex] -= 1;
-    counterArrays.copyNumSpecies[currRxn.productListNew[0].absIfaceIndex] += 1;
-    counterArrays.copyNumSpecies[currRxn.productListNew[1].absIfaceIndex] += 1;
+    // A back state change runs currRxn from its products to its reactants, so
+    // it consumes the forward products and releases the forward reactants.
+    // Both used to follow the forward reaction whichever way it ran.
+    const std::vector<RxnIface>& consumedSide { isStateChangeBackRxn ? currRxn.productListNew
+                                                                     : currRxn.reactantListNew };
+    const std::vector<RxnIface>& releasedSide { isStateChangeBackRxn ? currRxn.reactantListNew
+                                                                     : currRxn.productListNew };
+    counterArrays.copyNumSpecies[consumedSide[0].absIfaceIndex] -= 1;
+    counterArrays.copyNumSpecies[consumedSide[1].absIfaceIndex] -= 1;
+    counterArrays.copyNumSpecies[releasedSide[0].absIfaceIndex] += 1;
+    counterArrays.copyNumSpecies[releasedSide[1].absIfaceIndex] += 1;
 
     //Update free number of lipids of IL for each state
     // The state list here is the changing molecule's own interface, not the
@@ -309,13 +321,13 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
     // These two lookups keep the previous relStateIndex when the state is absent,
     // as they always have; only the first lookup in this function resets it.
     int consumed { implicit_lipid_state_index(
-        implicitLipidStateList, implicit_lipid_iface(currRxn.reactantListNew, molTemplateList)) };
+        implicitLipidStateList, implicit_lipid_iface(consumedSide, molTemplateList)) };
     if (consumed != -1)
         relStateIndex = consumed;
     membraneObject.numberOfFreeLipidsEachState[relStateIndex] -= 1;
 
     int released { implicit_lipid_state_index(
-        implicitLipidStateList, implicit_lipid_iface(currRxn.productListNew, molTemplateList)) };
+        implicitLipidStateList, implicit_lipid_iface(releasedSide, molTemplateList)) };
     if (released != -1)
         relStateIndex = released;
     membraneObject.numberOfFreeLipidsEachState[relStateIndex] += 1;

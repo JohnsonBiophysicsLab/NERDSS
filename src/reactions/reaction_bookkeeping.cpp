@@ -114,6 +114,7 @@ void perform_coupled_state_change(const ForwardRxn& coupledRxn, int pro1Index, i
     // Change the state happens here
     moleculeList[stateChangeProIndex].interfaceList[relIndex].change_state(
         relStateIndex, newState.absIfaceIndex, newState.requiresState);
+    moleculeList[stateChangeProIndex].refresh_iface_state_bits();
 
     moleculeList[stateChangeProIndex].trajStatus = TrajStatus::propagated;
     complexList[moleculeList[stateChangeProIndex].myComIndex].trajStatus = TrajStatus::propagated;

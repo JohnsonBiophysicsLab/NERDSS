@@ -543,11 +543,21 @@ int main(int argc, char* argv[]) {
   // What this rank last handed its right neighbour, by molecule id: the copy
   // that comes back at the next first exchange is compared against it.
   std::unordered_map<int, MolSnapshot> sentRight;
+
+  // Rate selection reads interface states from per-molecule words; lay them
+  // out now that every template and molecule exists (iface_state_bits.hpp).
+  // Molecule::deserialize() recomputes the word of every molecule received.
+  iface_state_bits::build_layouts(molTemplateList);
+  iface_state_bits::refresh_all(moleculeList);
+
   // Steps 1 to nItr - 1, as in the serial build (EXEs/nerdss.cpp), so that
   // the two run the same steps and end on the same row and restart.  This
   // loop went to nItr: one step more than serial, and a restart continued
   // with nerdss_mpi one step further than the same file continued serially.
   for (simItr += 1; simItr < params.nItr; ++simItr) {
+#ifdef NERDSS_CHECK_STATE_BITS
+    iface_state_bits::verify_all(moleculeList, "top of step");
+#endif
     if (1) {
       // if (mpiContext.rank == 0) {
       start_computation_time = MPI_Wtime();

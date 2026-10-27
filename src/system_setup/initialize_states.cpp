@@ -155,6 +155,7 @@ void initialize_states(std::vector<Molecule>& moleculeList, std::vector<MolTempl
                         moleculeList[molItr].interfaceList[ifaceItr].relIndex = ifaceItr;
                         moleculeList[molItr].interfaceList[ifaceItr].stateIden = tmpMol.interfaceList[ifaceItr].stateList[stateItr].iden;
                         moleculeList[molItr].interfaceList[ifaceItr].stateIndex = stateItr;
+                        moleculeList[molItr].refresh_iface_state_bits();
                     }
                 }
             }

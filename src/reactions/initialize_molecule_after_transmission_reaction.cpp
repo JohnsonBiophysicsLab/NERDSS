@@ -57,6 +57,7 @@ void draw_coords_after_transmission_reaction(Molecule& tmp, const MolTemplate& m
             }
         }
     }
+    tmp.refresh_iface_state_bits();
 }
 
 Molecule initialize_molecule_after_transmission_reaction(int index, const Molecule& parentMol, Parameters& params,

@@ -230,6 +230,13 @@ public:
             bool requiresInteraction { false };
         };
 
+        /*! One rate state's requirements on Molecule::ifaceStateBits: it holds
+         * when ((word[side] ^ value[side]) & mask[side]) == 0 for both sides. */
+        struct BitState {
+            std::uint64_t mask[2] { 0, 0 };
+            std::uint64_t value[2] { 0, 0 };
+        };
+
         bool built { false };
         bool usable { false }; //!< false: more than 64 requirements, or a malformed list; scan instead
         std::size_t stateCount { 0 };
@@ -237,6 +244,13 @@ public:
         std::vector<Test> tests {};
         std::vector<std::uint64_t> stateMasks {}; //!< per rate state, in rateList order
         std::vector<std::size_t> ancillaryCounts {}; //!< per rate state, the count the selection rule compares
+
+        //! false: some requirement cannot be told from the words; read the interfaces
+        bool bitsUsable { false };
+        unsigned bitsGeneration { 0 }; //!< iface_state_bits::generation() the masks were built under
+        //! the molecule type every requirement on a side names, -1 when the side has none
+        int sideMolType[2] { -1, -1 };
+        std::vector<BitState> bitStates {}; //!< per rate state, in rateList order
 
         CompiledRates() = default;
         CompiledRates(const CompiledRates&) { }
@@ -260,6 +274,11 @@ public:
             tests.clear();
             stateMasks.clear();
             ancillaryCounts.clear();
+            bitsUsable = false;
+            bitsGeneration = 0;
+            sideMolType[0] = -1;
+            sideMolType[1] = -1;
+            bitStates.clear();
         }
     };
     mutable CompiledRates compiledRates {};
@@ -527,6 +546,45 @@ struct BackRxn : public RxnBase {
 
     size_t conjForwardRxnIndex { 0 }; //!< the index of this reaction's ForwardRxn counterpart
     std::vector<RxnBase>::iterator conjForwardRxn; //!< iterator to this reaction's ForwardRxn (not implemented)
+
+    /*!
+     * \brief What find_reaction_rate_state() works out from the bond alone.
+     *
+     * The reactant positions of a bond's two interfaces depend only on their
+     * molecule types and interface indices, and when no rate state asks
+     * anything of either molecule's other interfaces at those positions, so
+     * does the rate state.  Each bond kind dissociating by this reaction gets
+     * one entry, made on first use.  Derived data, like compiledRates: not
+     * serialized, and a copy starts empty.
+     */
+    struct RatePositions {
+        int molType1 { -1 };
+        int relIface1 { -1 };
+        int molType2 { -1 };
+        int relIface2 { -1 };
+        int reactIndex1 { -1 };
+        int reactIndex2 { -1 };
+        int fixedRateIndex { -1 }; //!< the rate state every pair selects, or -1: test it per pair
+        std::size_t rateCount { 0 }; //!< rateList.size() when the entry was made
+    };
+    struct RatePositionCache {
+        std::vector<RatePositions> entries {};
+
+        RatePositionCache() = default;
+        RatePositionCache(const RatePositionCache&) { }
+        RatePositionCache(RatePositionCache&&) noexcept { }
+        RatePositionCache& operator=(const RatePositionCache&)
+        {
+            entries.clear();
+            return *this;
+        }
+        RatePositionCache& operator=(RatePositionCache&&) noexcept
+        {
+            entries.clear();
+            return *this;
+        }
+    };
+    mutable RatePositionCache ratePositions {};
 
     void display() const override;
 

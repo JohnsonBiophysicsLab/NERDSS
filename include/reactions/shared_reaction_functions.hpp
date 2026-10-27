@@ -282,6 +282,15 @@ RateMatch best_matching_rate_compiled(const RxnBase& rxn, int reactIndex1, int r
     const Molecule& reactMol1, const Molecule& reactMol2);
 
 /*!
+ * \brief best_matching_rate_compiled()'s answer from the two molecules'
+ * Molecule::ifaceStateBits alone, without reading their interfaces; false when
+ * the words cannot give it and the compiled form reads the interfaces instead.
+ * For the checks: the simulator calls best_matching_rate().
+ */
+bool best_matching_rate_from_state_bits(const RxnBase& rxn, int reactIndex1, int reactIndex2,
+    const Molecule& reactMol1, const Molecule& reactMol2, RateMatch& result);
+
+/*!
  * \brief The best matching rate state of rxn.rateList for this reactant pair.
  *
  * A list with a single rate state has nothing to select, and most reactions
@@ -294,6 +303,18 @@ inline RateMatch best_matching_rate(const RxnBase& rxn, int reactIndex1, int rea
         return best_matching_rate_scan(rxn.rateList, reactIndex1, reactIndex2, reactMol1, reactMol2);
     return best_matching_rate_compiled(rxn, reactIndex1, reactIndex2, reactMol1, reactMol2);
 }
+
+/*!
+ * \brief best_matching_rate()'s bestRateIndex when it cannot depend on the molecules, else -1.
+ *
+ * hasIntangibles() reads a molecule only for the requirements listed under the
+ * pair's two reactant positions.  When those lists are empty for every rate
+ * state, every state matches, and best_matching_rate() keeps the first one
+ * with the most ancillary interfaces -- which it counts over both lists, so
+ * that count is still taken here.  An empty list returns -1, leaving the test
+ * to be made per pair.
+ */
+int fixed_rate_index(const std::vector<RxnBase::RateState>& rateList, int reactIndex1, int reactIndex2);
 
 /*!
  * \brief Builds rxn.compiledRates from rxn.rateList; best_matching_rate_compiled() calls it on first use.
@@ -351,8 +372,21 @@ size_t find_reaction_rate_state(const Molecule& reactMol1, const Molecule& react
  */
 void find_which_reaction(int ifaceIndex1, int ifaceIndex2, int& rxnIndex, int& rateIndex, bool& isStateChangeBackRxn,
     const Interface::State& currState, const Molecule& reactMol1, const Molecule& reactMol2,
-    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
-    const std::vector<MolTemplate>& molTemplateList);
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns);
+
+/*!
+ * \brief find_which_reaction() for a pair whose second interface is `currState.rxnPartners[partnerItr]`.
+ *
+ * Gives the same rxnIndex, rateIndex and isStateChangeBackRxn, and counts totMatches the same way.  The scans of the
+ * reactions' reactant and product lists depend only on the two interfaces, so their outcome is kept per
+ * (state, partner) in currState.rxnCandidatesByPartner, built on first use; only the rate states are tested per pair.
+ * When reactMol2 is the implicit lipid, the partner is the lipid state being tested: check_implicit_reactions() used
+ * to add that state's offset to the lipid's interface index around a find_which_reaction() call, and this gives the
+ * same result without touching the lipid.
+ */
+void find_which_reaction_for_partner(int ifaceIndex1, std::size_t partnerItr, int& rxnIndex,
+    int& rateIndex, bool& isStateChangeBackRxn, const Interface::State& currState, const Molecule& reactMol1,
+    const Molecule& reactMol2, const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns);
 
 /*!
  * \brief Determines which state change reaction to use based on the identity of the current Interface::State of the

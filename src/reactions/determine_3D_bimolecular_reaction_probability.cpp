@@ -36,7 +36,8 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
         && moleculeList[biMolData.pro2Index].isDissociated != true) {
         /*This movestat check is if you allow just dissociated proteins to avoid
          * overlap*/
-        if (withinRmax && forwardRxns[rxnIndex].rateList[rateIndex].rate > 0) {
+        const double rate { selected_rate(forwardRxns[rxnIndex], rateIndex, isStateChangeBackRxn, backRxns) };
+        if (withinRmax && rate > 0) {
             /*Evaluate probability of reaction, with reweighting*/
             double ratio { forwardRxns[rxnIndex].bindRadius / R1 };
             if (sep < 0) {
@@ -69,7 +70,7 @@ void determine_3D_bimolecular_reaction_probability(int simItr, int rxnIndex, int
             is half due to flux across only top half of particle.
             */
             double kdiff { 4 * M_PI * biMolData.Dtot * forwardRxns[rxnIndex].bindRadius };
-            double kact { forwardRxns[rxnIndex].rateList[rateIndex].rate };
+            double kact { rate };
 
             // if (std::abs(complexList[biMolData.com1Index].D.z - 0) < 1E-10 || std::abs(complexList[biMolData.com2Index].D.z - 0) < 1E-10) {
             if (complexList[biMolData.com1Index].OnSurface || complexList[biMolData.com2Index].OnSurface) {
