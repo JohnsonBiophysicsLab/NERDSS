@@ -240,6 +240,20 @@ void write_gathered_restart(
     MpiContext &mpiContext);
 
 /*! \ingroup mpi_function
+ * \brief write the bonded complexes of the whole system as the serial build's
+ * DATA/COMPLEXES/<step>.json, from rank 0 (src/io_mpi/write_gathered_restart.cpp);
+ * collective
+ */
+void write_gathered_bonded_complexes(
+    long long int simItr, const std::string &fileName,
+    std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
+    const std::vector<MolTemplate> &molTemplateList,
+    const std::vector<ForwardRxn> &forwardRxns,
+    const std::vector<BackRxn> &backRxns, const Membrane &membraneObject,
+    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
+    MpiContext &mpiContext);
+
+/*! \ingroup mpi_function
  * \brief drop every stored reference to a molecule that has left this rank
  */
 void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,

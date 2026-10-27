@@ -43,6 +43,9 @@
  * a density every rank shares.
  *
  * Collective: every rank must call it, at the same step.
+ *
+ * write_gathered_bonded_complexes() gathers the system the same way and hands
+ * it to the serial build's write_bonded_complex_json().
  */
 
 namespace {
@@ -150,20 +153,16 @@ std::vector<double> gather_concatenated(const std::vector<double> &mine,
   return all;
 }
 
-}  // namespace
-
-void write_gathered_restart(
-    long long int simItr, const std::string &fileName, int rngWrite,
-    Parameters &params,
-    std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
-    std::vector<MolTemplate> &molTemplateList,
-    std::vector<ForwardRxn> &forwardRxns, std::vector<BackRxn> &backRxns,
-    std::vector<CreateDestructRxn> &createDestructRxns,
-    const std::map<std::string, int> &observablesList,
-    const std::map<std::string, int> &observablesAtStart,
-    Membrane &membraneObject, copyCounters &counterArrays,
-    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
-    MpiContext &mpiContext) {
+// Every rank's share of the system -- the molecules it owns and their
+// complexes, every reference written as an id -- numbered once on rank 0:
+// mols and coms are filled there and left empty elsewhere.  The implicit lipid
+// and its complex come first, from rank 0's copy.  Collective.
+void gather_system(long long int simItr, const char *who,
+                   std::vector<Molecule> &moleculeList,
+                   std::vector<Complex> &complexList,
+                   const Membrane &membraneObject, const Membrane &membraneWhole,
+                   const SimulVolume &simulVolumeWhole, MpiContext &mpiContext,
+                   std::vector<Molecule> &mols, std::vector<Complex> &coms) {
   const bool hasIL = membraneObject.implicitLipid;
   const int ilMol = hasIL ? membraneObject.implicitlipidIndex : -1;
   const int ilCom =
@@ -217,43 +216,6 @@ void write_gathered_restart(
   MPI_Gatherv(mine.data(), myBytes, MPI_CHAR, all.data(), bytes.data(),
               displs.data(), MPI_CHAR, 0, MPI_COMM_WORLD);
 
-  // ---- tallies kept per rank
-  std::vector<int> freeLipids = membraneObject.numberOfFreeLipidsEachState;
-  reduce_sum(freeLipids, MPI_INT);
-  std::vector<long long> counts{
-      counterArrays.nLoops,           counterArrays.nCancelOverlapPartner,
-      counterArrays.nCancelOverlapSystem, counterArrays.nCancelDisplace2D,
-      counterArrays.nCancelDisplace3D, counterArrays.nCancelDisplace3Dto2D,
-      counterArrays.nCancelSpanBox,   counterArrays.nAssocSuccess};
-  reduce_sum(counts, MPI_LONG_LONG);
-  std::vector<int> events3D = counterArrays.events3D;
-  std::vector<int> events2D = counterArrays.events2D;
-  std::vector<int> events3Dto2D = counterArrays.events3Dto2D;
-  reduce_sum(events3D, MPI_INT);
-  reduce_sum(events2D, MPI_INT);
-  reduce_sum(events3Dto2D, MPI_INT);
-  std::vector<int> observed;
-  for (const auto &observable : observablesList)
-    observed.push_back(observable.second);
-  reduce_sum(observed, MPI_INT);
-  std::vector<long long> transitions;
-  for (const auto &oneTemp : molTemplateList) {
-    if (!oneTemp.countTransition) continue;
-    for (const auto &row : oneTemp.transitionMatrix)
-      transitions.insert(transitions.end(), row.begin(), row.end());
-  }
-  reduce_sum(transitions, MPI_LONG_LONG);
-  // lifeTime is not a tally but a list per cluster size, appended to as
-  // clusters change size, so each rank's is as long as its own history: the
-  // system's lists are the ranks' laid end to end.
-  std::vector<std::vector<std::vector<double>>> lifeTimes;
-  for (const auto &oneTemp : molTemplateList) {
-    if (!oneTemp.countTransition) continue;
-    lifeTimes.emplace_back();
-    for (const auto &row : oneTemp.lifeTime)
-      lifeTimes.back().push_back(gather_concatenated(row, mpiContext));
-  }
-
   if (mpiContext.rank == 0) {
     // Molecule::deserialize() and Complex::deserialize() pop the sender's
     // numberOfMolecules and numberOfComplexes into the statics; keep this
@@ -262,8 +224,8 @@ void write_gathered_restart(
     const int rankComplexes = Complex::numberOfComplexes;
 
     // ---- one numbering for the whole system
-    std::vector<Molecule> mols;
-    std::vector<Complex> coms;
+    mols.clear();
+    coms.clear();
     if (hasIL) {
       Molecule lipid = moleculeList[ilMol];
       lipid.index = 0;
@@ -286,9 +248,9 @@ void write_gathered_restart(
         mol.prevReweight = pop_reweight(data, at);
         mol.index = static_cast<int>(mols.size());
         if (!molIndexOfId.emplace(mol.id, mol.index).second)
-          fprintf(stderr, "write_gathered_restart: molecule id %d is owned by "
+          fprintf(stderr, "%s: molecule id %d is owned by "
                           "more than one rank\n",
-                  mol.id);
+                  who, mol.id);
         mols.push_back(mol);
       }
       const int nComs = pop_value<int>(data, at);
@@ -297,9 +259,9 @@ void write_gathered_restart(
         com.deserialize(const_cast<unsigned char *>(data), at);
         com.index = static_cast<int>(coms.size());
         if (!comIndexOfId.emplace(com.id, com.index).second)
-          fprintf(stderr, "write_gathered_restart: complex id %d is owned by "
+          fprintf(stderr, "%s: complex id %d is owned by "
                           "more than one rank\n",
-                  com.id);
+                  who, com.id);
         coms.push_back(com);
       }
     }
@@ -387,10 +349,73 @@ void write_gathered_restart(
       }
     }
     if (unresolved || broken)
-      fprintf(stderr, "write_gathered_restart: itr=%lld %d unresolved and %d "
+      fprintf(stderr, "%s: itr=%lld %d unresolved and %d "
                       "asymmetric references in the gathered system\n",
-              simItr, unresolved, broken);
+              who, simItr, unresolved, broken);
 
+    Molecule::numberOfMolecules = rankMolecules;
+    Complex::numberOfComplexes = rankComplexes;
+  }
+}
+
+}  // namespace
+
+void write_gathered_restart(
+    long long int simItr, const std::string &fileName, int rngWrite,
+    Parameters &params,
+    std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
+    std::vector<MolTemplate> &molTemplateList,
+    std::vector<ForwardRxn> &forwardRxns, std::vector<BackRxn> &backRxns,
+    std::vector<CreateDestructRxn> &createDestructRxns,
+    const std::map<std::string, int> &observablesList,
+    const std::map<std::string, int> &observablesAtStart,
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
+    MpiContext &mpiContext) {
+  std::vector<Molecule> mols;
+  std::vector<Complex> coms;
+  gather_system(simItr, "write_gathered_restart", moleculeList, complexList,
+                membraneObject, membraneWhole, simulVolumeWhole, mpiContext,
+                mols, coms);
+
+  // ---- tallies kept per rank
+  std::vector<int> freeLipids = membraneObject.numberOfFreeLipidsEachState;
+  reduce_sum(freeLipids, MPI_INT);
+  std::vector<long long> counts{
+      counterArrays.nLoops,           counterArrays.nCancelOverlapPartner,
+      counterArrays.nCancelOverlapSystem, counterArrays.nCancelDisplace2D,
+      counterArrays.nCancelDisplace3D, counterArrays.nCancelDisplace3Dto2D,
+      counterArrays.nCancelSpanBox,   counterArrays.nAssocSuccess};
+  reduce_sum(counts, MPI_LONG_LONG);
+  std::vector<int> events3D = counterArrays.events3D;
+  std::vector<int> events2D = counterArrays.events2D;
+  std::vector<int> events3Dto2D = counterArrays.events3Dto2D;
+  reduce_sum(events3D, MPI_INT);
+  reduce_sum(events2D, MPI_INT);
+  reduce_sum(events3Dto2D, MPI_INT);
+  std::vector<int> observed;
+  for (const auto &observable : observablesList)
+    observed.push_back(observable.second);
+  reduce_sum(observed, MPI_INT);
+  std::vector<long long> transitions;
+  for (const auto &oneTemp : molTemplateList) {
+    if (!oneTemp.countTransition) continue;
+    for (const auto &row : oneTemp.transitionMatrix)
+      transitions.insert(transitions.end(), row.begin(), row.end());
+  }
+  reduce_sum(transitions, MPI_LONG_LONG);
+  // lifeTime is not a tally but a list per cluster size, appended to as
+  // clusters change size, so each rank's is as long as its own history: the
+  // system's lists are the ranks' laid end to end.
+  std::vector<std::vector<std::vector<double>>> lifeTimes;
+  for (const auto &oneTemp : molTemplateList) {
+    if (!oneTemp.countTransition) continue;
+    lifeTimes.emplace_back();
+    for (const auto &row : oneTemp.lifeTime)
+      lifeTimes.back().push_back(gather_concatenated(row, mpiContext));
+  }
+
+  if (mpiContext.rank == 0) {
     // ---- the counts that follow from the numbering
     std::vector<MolTemplate> templates = molTemplateList;
     std::vector<int> numEachMolType(templates.size(), 0);
@@ -483,6 +508,8 @@ void write_gathered_restart(
     std::vector<int> rankEmptyMols, rankEmptyComs;
     std::swap(Molecule::emptyMolList, rankEmptyMols);
     std::swap(Complex::emptyComList, rankEmptyComs);
+    const int rankMolecules = Molecule::numberOfMolecules;
+    const int rankComplexes = Complex::numberOfComplexes;
     Molecule::numberOfMolecules = static_cast<int>(mols.size());
     Complex::numberOfComplexes = static_cast<int>(coms.size());
 
@@ -504,4 +531,24 @@ void write_gathered_restart(
     if (rngWrite == 1) write_rng_state();
     if (rngWrite == 2) write_rng_state_simItr(simItr);
   }
+}
+
+void write_gathered_bonded_complexes(
+    long long int simItr, const std::string &fileName,
+    std::vector<Molecule> &moleculeList, std::vector<Complex> &complexList,
+    const std::vector<MolTemplate> &molTemplateList,
+    const std::vector<ForwardRxn> &forwardRxns,
+    const std::vector<BackRxn> &backRxns, const Membrane &membraneObject,
+    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
+    MpiContext &mpiContext) {
+  std::vector<Molecule> mols;
+  std::vector<Complex> coms;
+  gather_system(simItr, "write_gathered_bonded_complexes", moleculeList,
+                complexList, membraneObject, membraneWhole, simulVolumeWhole,
+                mpiContext, mols, coms);
+  // The whole box: the writer shifts coordinates by half of it, and a rank's
+  // own water box is its slab.
+  if (mpiContext.rank == 0)
+    write_bonded_complex_json(fileName, mols, coms, molTemplateList,
+                              forwardRxns, backRxns, membraneWhole);
 }
