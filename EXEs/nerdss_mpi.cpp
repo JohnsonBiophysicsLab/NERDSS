@@ -421,14 +421,13 @@ int main(int argc, char* argv[]) {
   //  begin the timer
   MDTimer::time_point simulTimeStart = MDTimer::now();
   int numSavedDurations{1000};
-  std::vector<std::chrono::duration<double>> durationList(numSavedDurations);
+  StepDurationWindow durationList(
+      numSavedDurations,
+      std::chrono::duration<double>(simulTimeStart - totalTimeStart));
 
   if (DEBUG) {
     LOC(4.1, " @ FILL_mList_GAPS ", PROC_0);
   }
-
-  std::fill(durationList.begin(), durationList.end(),
-            std::chrono::duration<double>(simulTimeStart - totalTimeStart));
 
   unsigned DDTableIndex{0};
 
