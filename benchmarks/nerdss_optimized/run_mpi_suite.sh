@@ -4,6 +4,11 @@
 # violations the build reported on stderr (nonzero only when the build was
 # made with CHECK_OWNERSHIP or CHECK_STRUCTURE on), and the final row of the
 # merged copy_numbers_time.dat, which is what a mass-conservation check reads.
+# A build made with -fsanitize=address -fsanitize-recover=address reports to
+# stderr too, and the asan_reports column counts those reports.
+#
+# CASE_TIMEOUT (seconds, default 3600) kills a run that has not finished, so a
+# hung exchange shows up as a nonzero exit instead of stalling the table.
 #
 # Usage: run_mpi_suite.sh <path-to-nerdss_mpi> <label> <nprocs> [result-root]
 #
@@ -31,6 +36,7 @@ BINARY=$(cd "$(dirname "$BINARY")" && pwd)/$(basename "$BINARY")
 SEED=${SUITE_SEED:-20260810}
 INPUT_ROOT=$ROOT_DIR/sample_inputs
 MPIRUN=${MPIRUN:-mpirun --oversubscribe}
+CASE_TIMEOUT=${CASE_TIMEOUT:-3600}
 
 CASES_FILE=${CASES_FILE:-cases.tsv}
 [[ $CASES_FILE == /* ]] || CASES_FILE=$SCRIPT_DIR/$CASES_FILE
@@ -38,6 +44,33 @@ if [[ ! -f $CASES_FILE ]]; then
     echo "no such case table: $CASES_FILE" >&2
     exit 1
 fi
+
+# Same watchdog as run_suite.sh: it polls, so it retires by itself once the
+# run exits and never signals a recycled pid.
+run_with_timeout() {
+    local limit=$1
+    shift
+    "$@" &
+    local child=$!
+    (
+        local waited=0
+        while [[ $waited -lt $limit ]] && kill -0 "$child" 2>/dev/null; do
+            sleep 1
+            waited=$((waited + 1))
+        done
+        # TERM first: mpirun forwards it to the ranks, a KILL would orphan them.
+        if kill -0 "$child" 2>/dev/null; then
+            kill -TERM "$child" 2>/dev/null
+            sleep 10
+            kill -9 "$child" 2>/dev/null
+        fi
+    ) &
+    local watchdog=$!
+    local status=0
+    wait "$child" || status=$?
+    wait "$watchdog" 2>/dev/null || true
+    return $status
+}
 
 OUT_DIR=$RESULT_ROOT/$LABEL
 rm -rf "$OUT_DIR"
@@ -51,7 +84,7 @@ mkdir -p "$OUT_DIR"
     printf 'git_commit\t%s\n' "$(git -C "$ROOT_DIR" rev-parse --short HEAD)"
 } > "$OUT_DIR/metadata.tsv"
 
-printf 'case\tnItr\tseconds\texit_status\townership_violations\tstructure_violations\tfinal_row\n' \
+printf 'case\tnItr\tseconds\texit_status\townership_violations\tstructure_violations\tfinal_row\tasan_reports\texchange_conflicts\n' \
     > "$OUT_DIR/results.tsv"
 
 while IFS=$'\t' read -r id dir parm n_itr extra; do
@@ -82,17 +115,20 @@ while IFS=$'\t' read -r id dir parm n_itr extra; do
     status=0
     (
         cd "$run_dir"
-        $MPIRUN -np "$NPROCS" "$BINARY" -f "$parm" -s "$SEED" > stdout.log 2> stderr.log < /dev/null
+        run_with_timeout "$CASE_TIMEOUT" $MPIRUN -np "$NPROCS" "$BINARY" -f "$parm" -s "$SEED" \
+            > stdout.log 2> stderr.log < /dev/null
     ) || status=$?
     seconds=$(( $(date +%s) - start ))
 
     owned=$(grep -c 'OWNERSHIP VIOLATION' "$run_dir/stderr.log" || true)
     struct=$(grep -c 'STRUCTURE VIOLATION' "$run_dir/stderr.log" || true)
+    asan=$(grep -c 'ERROR: AddressSanitizer' "$run_dir/stderr.log" || true)
+    conflicts=$(grep -c 'EXCHANGE CONFLICT' "$run_dir/stderr.log" || true)
     final=$(tail -n 1 "$run_dir/mergeOUT/copy_numbers_time.dat" 2>/dev/null || true)
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "${SUITE_NITR:-$n_itr}" "$seconds" "$status" \
-        "$owned" "$struct" "$final" >> "$OUT_DIR/results.tsv"
-    printf '%-22s %6ss exit=%-3s ownership=%-3s structure=%-3s %s\n' \
-        "$id" "$seconds" "$status" "$owned" "$struct" "${final:0:60}"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "${SUITE_NITR:-$n_itr}" "$seconds" "$status" \
+        "$owned" "$struct" "$final" "$asan" "$conflicts" >> "$OUT_DIR/results.tsv"
+    printf '%-22s %6ss exit=%-3s ownership=%-3s structure=%-3s asan=%-3s conflicts=%-3s %s\n' \
+        "$id" "$seconds" "$status" "$owned" "$struct" "$asan" "$conflicts" "${final:0:60}"
     # The per-rank outputs are large and reproduced by any rerun; keep the
     # merged copy numbers, the logs and the parameter file.
     rm -rf "$run_dir/DATA" "$run_dir/PDB" "$run_dir/RESTARTS" "$run_dir/mergePDB"

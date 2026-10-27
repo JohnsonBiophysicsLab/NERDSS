@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 
 #include "debug/debug.hpp"
@@ -50,7 +51,7 @@ using namespace std;
 // neighbour.  Nothing else about the step changes: the dissociation has
 // already displaced the product and marked it propagated, and a pair across
 // the right boundary is the neighbour's to decide
-// (drop_right_ghost_crossings()), so an owned product does nothing more in
+// (drop_crossings_decided_elsewhere()), so an owned product does nothing more in
 // that half-step than an unowned one did.  What the claim restores is the
 // invariant everything else reads -- one owner for every complex at every
 // checkpoint -- for the tallies, for the far-neighbour rules keyed on
@@ -190,12 +191,21 @@ void delete_disappeared_molecules(
   // rank with one owned column, that column is mirrored by both neighbours,
   // and a complex the right neighbour owns can have a member in it -- is not
   // in this message because the sender never had it, not because it is gone.
+  //
+  // The first and the last rank have no far neighbour.  On rank 0 rank - 1 is
+  // -1, which is also the ownerRank of a complex nobody has claimed, and at
+  // step 1 that is every ghost complex (prepare_rank_data() seeds owners only
+  // for owned ones).  A ghost the right neighbour had moved out of the
+  // mirrored column before sending -- a 1D association pulls a molecule tens
+  // of nm -- then survived here unbound, came back in the second exchange and
+  // overwrote the neighbour's bound copy: half a bond, at np >= 2.
   const int farNeighbour = fromLeft ? mpiContext.rank + 1 : mpiContext.rank - 1;
+  const bool hasFarNeighbour = farNeighbour >= 0 && farNeighbour < mpiContext.nprocs;
   for (auto &molIndex : region) {
     Molecule &mol = moleculeList[molIndex];
     if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true)
       continue;  // no checking for deleted molecules, implicit lipid
-    if (mol.myComIndex >= 0 &&
+    if (hasFarNeighbour && mol.myComIndex >= 0 &&
         mol.myComIndex < static_cast<int>(complexList.size()) &&
         complexList[mol.myComIndex].ownerRank == farNeighbour)
       continue;
@@ -283,6 +293,14 @@ void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
           mol.myComIndex < static_cast<int>(complexList.size()))
         --complexList[mol.myComIndex].ncross;
     }
+    // A history entry for a departed partner names a slot that a later
+    // arrival can take.
+    for (auto *history : {&mol.prevReweight, &mol.currReweight})
+      history->erase(std::remove_if(history->begin(), history->end(),
+                                    [&absent](const Molecule::ReweightEntry &e) {
+                                      return absent(e.partner);
+                                    }),
+                     history->end());
   }
 }
 

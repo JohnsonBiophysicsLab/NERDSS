@@ -474,8 +474,8 @@ void associate_sphere(long long int iter,
     }
     if (assocDissocFile.is_open()) {
         assocDissocFile << "ITR:" << iter << "," << "BOND," 
-        << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << ifaceIndex1 << "," 
-        << molTemplateList[reactMol2.molTypeIndex].molName << "," << reactMol2.index << "," << ifaceIndex2 << std::endl;
+        << molTemplateList[reactMol1.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol1) << "," << ifaceIndex1 << "," 
+        << molTemplateList[reactMol2.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol2) << "," << ifaceIndex2 << std::endl;
     }
 
     reactMol1.interfaceList[ifaceIndex1].isBound = true;

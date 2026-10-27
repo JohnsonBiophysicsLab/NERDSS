@@ -379,6 +379,14 @@ struct Molecule {
     int id;  // unique molecule identifier in the system
     bool isGhosted{false};  // whether this molecule belongs to certain rank, or is a copy from neighborhood rank This field doesn't get serialized, nor deserialized.
     bool isShared{false};  // whether this molecule is shared between two ranks. This field doesn't get serialized, nor deserialized.
+#ifdef mpi_
+    // Set only for the length of one first-order pass, by src/mpi/
+    // defer_edge_reactions.cpp: the pass skips this molecule as it skips a
+    // ghost, while everything that counts owned molecules (the free-protein
+    // count of check_dissociation_implicitlipid()) still counts it.  Not
+    // serialized.
+    bool firstOrderHeld{false};
+#endif
     bool receivedFromNeighborRank{true}; // When one rank processes molecules near the border with another rank, it sends molecules to that rank, and receives updated versions of some. Those that are not received back should be deleted localy. This field doesn't get serialized, nor deserialized.
     bool need_to_send{false};  // whether this molecule needs to be sent to another rank This field doesn't get serialized, nor deserialized.
     int complexId{-1};  // used for molecules in ghosted zones, for finding complex at neighbor rank
@@ -426,6 +434,11 @@ struct Molecule {
         PUSH(index);
         PUSH(mass);
         PUSH(isLipid);
+        // Set from the template when a molecule is made and read by the 1D
+        // fiber rules; without it every molecule an MPI rank received -- all
+        // of them, since rank 0 hands the start-up system out this way --
+        // left the fiber.
+        PUSH(isPromoter);
         // Serialize comCoord starting from arrayRank, nArrayRank byte
         // and increase nArrayRank by the number of serialized bytes:
         comCoord.serialize(arrayRank, nArrayRank);
@@ -468,6 +481,7 @@ struct Molecule {
         POP(index);
         POP(mass);
         POP(isLipid);
+        POP(isPromoter);
         // std::cout << "isLipid=" << isLipid << ", nArrayRank=" << nArrayRank <<
         // std::endl;
 
@@ -643,6 +657,7 @@ public:
         Dr.serialize(arrayRank, nArrayRank);
         PUSH(isEmpty);
         PUSH(OnSurface);
+        PUSH(onFiber);  // see Molecule::serialize(), isPromoter
         PUSH(tmpOnSurface);
         PUSH(numberOfComplexes);
         // serialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);
@@ -671,6 +686,7 @@ public:
         Dr.deserialize(arrayRank, nArrayRank);
         POP(isEmpty);
         POP(OnSurface);
+        POP(onFiber);
         POP(tmpOnSurface);
         POP(numberOfComplexes);
         // deserialize_primitive_vector<int>(emptyComList, arrayRank, nArrayRank);

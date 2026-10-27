@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
 #include <cstring>
+#include <map>
+#include <string>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -188,6 +191,55 @@ void claim_unowned_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeL
                              vector<Complex> &complexList, SimulVolume &simulVolume);
 
 /*! \ingroup mpi_function
+ * \brief hold the complexes the right neighbour can bind into back from the
+ * top-of-step first-order pass (marks their members ghosts; see
+ * defer_edge_reactions.cpp)
+ */
+void hold_back_right_edge_first_order(MpiContext &mpiContext,
+                                      vector<Molecule> &moleculeList,
+                                      vector<Complex> &complexList,
+                                      vector<int> &heldBack);
+
+/*! \ingroup mpi_function
+ * \brief undo hold_back_right_edge_first_order()'s ghost marks
+ */
+void release_held_back(vector<Molecule> &moleculeList,
+                       const vector<int> &heldBack);
+
+/*! \ingroup mpi_function
+ * \brief the first-order pass for the held-back complexes, after the first
+ * exchange
+ */
+void perform_held_back_first_order(
+    long long simItr, Parameters &params, vector<Molecule> &moleculeList,
+    vector<Complex> &complexList, SimulVolume &simulVolume,
+    vector<ForwardRxn> &forwardRxns, vector<BackRxn> &backRxns,
+    vector<CreateDestructRxn> &createDestructRxns,
+    vector<MolTemplate> &molTemplateList,
+    std::map<std::string, int> &observablesList, copyCounters &counterArrays,
+    Membrane &membraneObject, vector<double> &IL2DbindingVec,
+    vector<double> &IL2DUnbindingVec, vector<double> &ILTableIDs,
+    MpiContext &mpiContext, const vector<int> &heldBackIds,
+    std::ofstream &assocDissocFile);
+
+/*! \ingroup mpi_function
+ * \brief write the whole system's state as one restart file from rank 0, in
+ * the serial format (src/io_mpi/write_gathered_restart.cpp); collective.
+ * rngWrite: 0 no RNG state, 1 DATA/rng_state, 2 RESTARTS/rng_state<simItr>
+ */
+void write_gathered_restart(
+    long long int simItr, const std::string &fileName, int rngWrite,
+    Parameters &params, std::vector<Molecule> &moleculeList,
+    std::vector<Complex> &complexList, std::vector<MolTemplate> &molTemplateList,
+    std::vector<ForwardRxn> &forwardRxns, std::vector<BackRxn> &backRxns,
+    std::vector<CreateDestructRxn> &createDestructRxns,
+    const std::map<std::string, int> &observablesList,
+    const std::map<std::string, int> &observablesAtStart,
+    Membrane &membraneObject, copyCounters &counterArrays,
+    const Membrane &membraneWhole, const SimulVolume &simulVolumeWhole,
+    MpiContext &mpiContext);
+
+/*! \ingroup mpi_function
  * \brief drop every stored reference to a molecule that has left this rank
  */
 void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
@@ -211,7 +263,18 @@ int region_mid_index(MpiContext &mpiContext);
  * the right ghost column.  A pair across a column boundary is decided by the
  * rank to the right of it, in its first half; see region_split.cpp.
  */
-void drop_right_ghost_crossings(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
+void drop_crossings_decided_elsewhere(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
+
+/*! \ingroup mpi_function
+ * \brief candidate pairs this rank can act on, summed over ranks on rank 0
+ */
+long long count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
+
+/*! \ingroup mpi_function
+ * \brief reweighting-history hit counts, edge columns vs interior, summed
+ * over ranks on rank 0
+ */
+std::array<long long, 4> reweight_history_hits(MpiContext &mpiContext, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
  * \brief Delete all molecules that were in the shared zone before sending to

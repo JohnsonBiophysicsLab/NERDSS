@@ -90,6 +90,10 @@ void check_for_unimolstatechange_reactions(unsigned simItr, Parameters& params, 
         // only do checks if the Molecule exists
         if (moleculeList[molItr].isEmpty) continue;
         if (moleculeList[molItr].isGhosted) continue;
+#ifdef mpi_
+        // held back to a later pass in this step; see src/mpi/defer_edge_reactions.cpp
+        if (moleculeList[molItr].firstOrderHeld) continue;
+#endif
 
         //check for state changes
         if (params.hasUniMolStateChange == true) {

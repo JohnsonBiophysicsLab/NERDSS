@@ -1,3 +1,4 @@
+#include "io/io.hpp"
 #include "math/rand_gsl.hpp"
 #include "reactions/unimolecular/unimolecular_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
@@ -270,8 +271,8 @@ bool break_interaction(long long int iter, size_t relIface1, size_t relIface2, M
         }
         if (assocDissocFile.is_open()) {
             assocDissocFile << "ITR:" << iter << "," << "BREAK," 
-            << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << relIface1 << "," 
-            << molTemplateList[reactMol2.molTypeIndex].molName << "," << reactMol2.index << "," << relIface2 << std::endl;
+            << molTemplateList[reactMol1.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol1) << "," << relIface1 << "," 
+            << molTemplateList[reactMol2.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol2) << "," << relIface2 << std::endl;
         }
         // Add these protein into the bimolecular association list
         reactMol1.freelist.push_back(relIface1);

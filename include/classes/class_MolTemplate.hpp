@@ -364,6 +364,9 @@ struct MolTemplate {
         PUSH(excludeVolumeBound);
         PUSH(isRod);
         PUSH(isLipid);
+        // Read when a molecule of this type is created (it starts on the fiber)
+        // and by set_rMaxLimit(); see Molecule::serialize().
+        PUSH(isPromoter);
         PUSH(isPoint);
         PUSH(isImplicitLipid);
         PUSH(bindToSurface);
@@ -401,6 +404,7 @@ struct MolTemplate {
         POP(excludeVolumeBound);
         POP(isRod);
         POP(isLipid);
+        POP(isPromoter);
         POP(isPoint);
         POP(isImplicitLipid);
         POP(bindToSurface);

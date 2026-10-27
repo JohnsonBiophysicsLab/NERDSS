@@ -44,11 +44,8 @@ void check_perform_zeroth_first_order_reactions(
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
     Membrane& membraneObject, std::vector<double>& IL2DbindingVec,
     std::vector<double>& IL2DUnbindingVec, std::vector<double>& ILTableIDs,
-    MpiContext& mpiContext) {
+    MpiContext& mpiContext, std::ofstream& assocDissocFile) {
   if (VERBOSE) printf("Checking 1st order reaction...\n");
-  char fnameProXYZ[256];
-  snprintf(fnameProXYZ, sizeof(fnameProXYZ), "DATA/assoc_dissoc_time.dat");
-  std::ofstream assocDissocFile(fnameProXYZ);
   check_for_unimolecular_reactions(
       simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
       backRxns, createDestructRxns, molTemplateList, observablesList,
@@ -101,6 +98,10 @@ void check_perform_zeroth_first_order_reactions(
           params.implicitLipid == false ||
           moleculeList[molItr].isGhosted == true)
         continue;
+#ifdef mpi_
+      // held back to a later pass in this step; see src/mpi/defer_edge_reactions.cpp
+      if (moleculeList[molItr].firstOrderHeld) continue;
+#endif
       check_dissociation_implicitlipid(
           simItr, params, simulVolume, molTemplateList, observablesList, molItr,
           moleculeList, complexList, backRxns, forwardRxns, createDestructRxns,

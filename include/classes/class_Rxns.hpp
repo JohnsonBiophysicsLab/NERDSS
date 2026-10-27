@@ -305,6 +305,9 @@ public:
         PUSH(relRxnIndex);
         PUSH(isCoupled);
         PUSH(length3Dto2D);
+        // The 1D rate is rate / area3Dto1D; without it every rank's reactions
+        // carried the default -1, and no fiber pair could react under MPI.
+        PUSH(area3Dto1D);
 
         serialize_string(rxnLabel, arrayRank, nArrayRank);
         serialize_string(coupledRxnLabel, arrayRank, nArrayRank);
@@ -348,6 +351,7 @@ public:
         POP(relRxnIndex);
         POP(isCoupled);
         POP(length3Dto2D);
+        POP(area3Dto1D);
 
         deserialize_string(rxnLabel, arrayRank, nArrayRank);
         deserialize_string(coupledRxnLabel, arrayRank, nArrayRank);

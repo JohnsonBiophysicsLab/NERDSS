@@ -259,7 +259,8 @@ int main(int argc, char* argv[]) {
         paramFile, params, observablesList, forwardRxns, backRxns,
         createDestructRxns, molTemplateList, membraneObject, moleculeList,
         complexList, simulVolume, observablesFileName, implicitlipidIndex,
-        simItr, mpiContext, trajFileName, transitionFileName);
+        simItr, mpiContext, trajFileName, transitionFileName,
+        coordinateFileName);
   } else if (params.fromRestart) {
     if (DEBUG) {
       LOC(2.3, " @ RESTART_INPUT ", PROC_0)
@@ -275,6 +276,31 @@ int main(int argc, char* argv[]) {
     error(
         "Please provide a parameter and/or restart file. Parameter file Syntax "
         "is : ./nerdss -f parameterfile.inp or ./nerdss -r restartfile.dat \n");
+  }
+
+  // Two kinds of system this executable would run, and get wrong, without a
+  // word.  A compartment is parsed, but Membrane::serialize() does not carry
+  // hasCompartment or compartmentR, so every rank -- rank 0 included, which
+  // deserializes its own share -- comes up without one, and this loop has no
+  // transmission step anyway: molecules cross the compartment wall freely.
+  // A creation reaction in a sphere draws over the whole sphere with the
+  // whole sphereVol on every rank, so at np ranks the rate is np times the
+  // serial one and most products land in other ranks' slabs.
+  if (membraneObject.hasCompartment) {
+    error(mpiContext,
+          "nerdss_mpi does not simulate compartments (no transmission "
+          "reactions, and the compartment is not passed to the ranks); run "
+          "this model with the serial nerdss");
+  }
+  if (mpiContext.nprocs > 1 && membraneObject.isSphere()) {
+    for (const auto& oneReaction : createDestructRxns) {
+      if (oneReaction.rxnType == ReactionType::zerothOrderCreation) {
+        error(mpiContext,
+              "nerdss_mpi cannot divide a creation reaction in a sphere "
+              "between ranks; run this model with mpirun -np 1 or with the "
+              "serial nerdss");
+      }
+    }
   }
 
   // Restart files are JSON unless legacyRestartFormat asks for the .dat format
@@ -324,6 +350,10 @@ int main(int argc, char* argv[]) {
   std::ofstream pairOutfile{fileName};
   fileName = "DATA/copy_numbers_time_" + std::to_string(mpiContext.rank) + ".dat";
   std::ofstream speciesFile1{fileName};
+  // This rank's associations and dissociations, molecules named by id (see
+  // assoc_dissoc_label()).  The reaction passes used to open a shared
+  // DATA/assoc_dissoc_time.dat each on their own, truncating it every pass on
+  // every rank whatever assocDissocWrite said, and this file stayed empty.
   fileName = "DATA/assoc_dissoc_time_" + std::to_string(mpiContext.rank) + ".dat";
   std::ofstream assocDissocFile(fileName);
   if (params.assocDissocWrite == false) {
@@ -354,6 +384,16 @@ int main(int argc, char* argv[]) {
     LOC(3.0, " @ PARALLEL_PARTITION ", PROC_0);
   }
 
+  // The whole system as parsed, before the ranks split it: a checkpoint
+  // written by write_gathered_restart() restores the water box, membrane area
+  // and site counts the split rescaled, and needs the whole grid and each
+  // observable's starting value (every rank starts from the whole system's).
+  const Membrane membraneWhole = membraneObject;
+  const SimulVolume simulVolumeWhole = simulVolume;
+  const std::map<std::string, int> observablesAtStart = observablesList;
+  const std::string restartExtension{params.legacyRestartFormat ? ".dat"
+                                                                 : ".json"};
+
   if (mpiContext.nprocs) {  // if parallel execution
     if (!params.fromRestart) {
       prepare_data_structures_for_parallel_execution(
@@ -368,6 +408,27 @@ int main(int argc, char* argv[]) {
           moleculeList, simulVolume, membraneObject, molTemplateList, params,
           mpiContext, complexList);
     }
+  }
+
+  // serial main() sets this from the membrane too.  It is not in
+  // Parameters::serialize(), and the set-up above replaces params with rank
+  // 0's serialized copy, so it has to come after.  It was 0 under MPI, and
+  // create_complex_propagation_vectors_on_sphere() divides by it: every
+  // surface complex an overlap sent back for a new move got NaN coordinates
+  // (cluster_gagsphere at np=1: 12 of 200 gag by step 100, 64 by step 1000).
+  params.sphereR = membraneObject.sphereR;
+
+  // Every rank was seeded with the same -s value above, so every rank drew the
+  // same sequence: the first molecule each rank moved at step 1 got the same
+  // displacement, and from then on the ranks' draws were overlapping windows
+  // of one stream, reused for unrelated molecules.  Set-up does need the
+  // common stream -- each rank parses the input, and only rank 0's placement
+  // is kept and distributed -- so the split comes after it.  Rank 0 keeps the
+  // stream it has, so an np=1 run is unchanged.
+  if (mpiContext.rank > 0 && !params.fromRestart) {
+    gsl_rng_set(r, seed + mpiContext.rank);
+    std::cout << "RNG Seed for rank " << mpiContext.rank << ": "
+              << seed + mpiContext.rank << std::endl;
   }
 
   int meanComplexSize{0};
@@ -488,7 +549,11 @@ int main(int argc, char* argv[]) {
   iface_state_bits::build_layouts(molTemplateList);
   iface_state_bits::refresh_all(moleculeList);
 
-  for (simItr += 1; simItr <= params.nItr; ++simItr) {
+  // Steps 1 to nItr - 1, as in the serial build (EXEs/nerdss.cpp), so that
+  // the two run the same steps and end on the same row and restart.  This
+  // loop went to nItr: one step more than serial, and a restart continued
+  // with nerdss_mpi one step further than the same file continued serially.
+  for (simItr += 1; simItr < params.nItr; ++simItr) {
 #ifdef NERDSS_CHECK_STATE_BITS
     iface_state_bits::verify_all(moleculeList, "top of step");
 #endif
@@ -557,11 +622,21 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Check and perform 0th and 1st order reactions...\n");
     }
+    // The complexes the right neighbour can bind into this half-step take
+    // their first-order reactions after the first exchange instead; see
+    // src/mpi/defer_edge_reactions.cpp.
+    vector<int> heldBack;
+    hold_back_right_edge_first_order(mpiContext, moleculeList, complexList,
+                                     heldBack);
     check_perform_zeroth_first_order_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
         counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
-        ILTableIDs, mpiContext);
+        ILTableIDs, mpiContext, assocDissocFile);
+    release_held_back(moleculeList, heldBack);
+    vector<int> heldBackIds;
+    heldBackIds.reserve(heldBack.size());
+    for (int m : heldBack) heldBackIds.push_back(moleculeList[m].id);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after first-order");
@@ -592,8 +667,22 @@ int main(int argc, char* argv[]) {
         ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
         tableIDs, DDTableIndex);
     // A pair across the boundary with the right neighbour is that
-    // neighbour's to decide; see region_split.cpp.
-    drop_right_ghost_crossings(mpiContext, moleculeList, complexList);
+    // neighbour's to decide, and one inside the left ghost column the left
+    // neighbour's; see region_split.cpp.
+    drop_crossings_decided_elsewhere(mpiContext, moleculeList, complexList);
+    if (CHECK_STRUCTURE && simItr == 1) {
+      const long long pairs = count_candidate_pairs(mpiContext, moleculeList);
+      if (mpiContext.rank == 0)
+        fprintf(stderr, "CANDIDATE PAIRS itr=1 total=%lld\n", pairs);
+    }
+    if (CHECK_STRUCTURE) {
+      // counted every step, reported every 1000
+      const auto hits = reweight_history_hits(mpiContext, moleculeList);
+      if (mpiContext.rank == 0 && simItr % 1000 == 0)
+        fprintf(stderr,
+                "REWEIGHT HISTORY itr=%lld edge=%lld/%lld interior=%lld/%lld\n",
+                simItr, hits[0], hits[1], hits[2], hits[3]);
+    }
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after measure_separations");
@@ -645,7 +734,7 @@ int main(int argc, char* argv[]) {
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
-        counterArrays, membraneObject, left);
+        counterArrays, membraneObject, left, assocDissocFile);
     // An association merges the partner's complex into the initiator's, or
     // the other way round -- associate() keeps whichever complex the reaction
     // lists first -- and the survivor keeps its ownerRank.  A ghost partner
@@ -811,6 +900,15 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after receive right");
+
+    perform_held_back_first_order(
+        simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
+        backRxns, createDestructRxns, molTemplateList, observablesList,
+        counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
+        ILTableIDs, mpiContext, heldBackIds, assocDissocFile);
+    if (CHECK_STRUCTURE)
+      check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
+                                "after held-back first-order");
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//after receive right");
@@ -851,7 +949,7 @@ int main(int argc, char* argv[]) {
     perform_bimolecular_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
         backRxns, createDestructRxns, molTemplateList, observablesList,
-        counterArrays, membraneObject, right);
+        counterArrays, membraneObject, right, assocDissocFile);
     // Same as after the left pass: the flag follows the complex.
     derive_ghost_from_ownership(mpiContext, moleculeList, complexList, true);
     if (CHECK_STRUCTURE)
@@ -1052,6 +1150,25 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after remove_empty_slots");
+
+    // The serial build's restart files, on the serial build's schedule and
+    // under its names, holding the whole system; see
+    // src/io_mpi/write_gathered_restart.cpp.  Collective.
+    if (params.restartWrite > 0 && simItr % params.restartWrite == 0)
+      write_gathered_restart(
+          simItr, "DATA/restart" + restartExtension, params.rngwrite ? 1 : 0,
+          params, moleculeList, complexList, molTemplateList, forwardRxns,
+          backRxns, createDestructRxns, observablesList, observablesAtStart,
+          membraneObject, counterArrays, membraneWhole, simulVolumeWhole,
+          mpiContext);
+    if (params.checkPoint > 0 && simItr % params.checkPoint == 0)
+      write_gathered_restart(
+          simItr,
+          "RESTARTS/restart" + std::to_string(simItr) + restartExtension,
+          params.rngwrite ? 2 : 0, params, moleculeList, complexList,
+          molTemplateList, forwardRxns, backRxns, createDestructRxns,
+          observablesList, observablesAtStart, membraneObject, counterArrays,
+          membraneWhole, simulVolumeWhole, mpiContext);
     if (DEBUG) {
       DEBUG_FIND_MOL("7: before 4.10");
       DEBUG_FIND_COMPLEX("7: before 4.10");
@@ -1095,6 +1212,35 @@ int main(int argc, char* argv[]) {
       DEBUG_FIND_COMPLEX("8: end iterating over time steps");
     }
   }  // end iterating over time steps
+
+  // The copy-number row and histogram block at the last step, which the
+  // serial build writes whatever timeWrite is; write_output() writes them on
+  // timeWrite steps only, so a run whose last step is not one ended on the
+  // previous row (gagsphere, timeWrite 5000 over 1000 steps: time 0 alone).
+  {
+    const long long lastItr = simItr - 1;
+    if (!(params.timeWrite > 0 && lastItr % params.timeWrite == 0)) {
+      write_all_species((lastItr - params.itrRestartFrom) * params.timeStep *
+                                Constants::usToSeconds +
+                            params.timeRestartFrom,
+                        moleculeList, speciesFile1, counterArrays,
+                        membraneObject, mpiContext, simulVolume);
+      int number_of_lipids = 0;  // sum of all states of IL
+      for (int n : membraneObject.numberOfFreeLipidsEachState)
+        number_of_lipids += n;
+      print_complex_hist(complexList, assemblyfile, lastItr, params,
+                         molTemplateList, moleculeList, number_of_lipids,
+                         mpiContext, simulVolume);
+    }
+  }
+
+  // The restart file at the last step, as the serial build writes it.
+  write_gathered_restart(
+      simItr - 1, "DATA/restart" + restartExtension, params.rngwrite ? 1 : 0,
+      params, moleculeList, complexList, molTemplateList, forwardRxns,
+      backRxns, createDestructRxns, observablesList, observablesAtStart,
+      membraneObject, counterArrays, membraneWhole, simulVolumeWhole,
+      mpiContext);
 
   // Write out final result
   std::cout << llinebreak << "End simulation\n";

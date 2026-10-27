@@ -5,11 +5,17 @@
 #define COUNT_COMMUNICATIONS false
 // Verify that every molecule is owned by exactly one rank.  O(N) communication
 // per call, so it runs every CHECK_OWNERSHIP_EVERY steps when enabled.
+#ifndef CHECK_OWNERSHIP
 #define CHECK_OWNERSHIP false
+#endif
+#ifndef CHECK_OWNERSHIP_EVERY
 #define CHECK_OWNERSHIP_EVERY 250
+#endif
 // Verify every molecule/complex/partner link in both directions after each
 // phase of the step.  O(N) per call, so off unless hunting a corruption.
+#ifndef CHECK_STRUCTURE
 #define CHECK_STRUCTURE false
+#endif
 #define RANK0_BUFFER_SIZE 100000000
 #define NEIGHBOR_BUFFER_SIZE 50000000
 

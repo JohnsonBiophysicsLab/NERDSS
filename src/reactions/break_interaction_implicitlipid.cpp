@@ -1,3 +1,4 @@
+#include "io/io.hpp"
 #include "reactions/implicitlipid/implicitlipid_reactions.hpp"
 #include "reactions/shared_reaction_functions.hpp"
 
@@ -38,8 +39,8 @@ void break_interaction_implicitlipid(long long int iter, size_t relIface1, size_
     reactMol1.refresh_iface_state_bits();
     if (assocDissocFile.is_open()) {
         assocDissocFile << "ITR:" << iter << "," << "BREAK," 
-        << molTemplateList[reactMol1.molTypeIndex].molName << "," << reactMol1.index << "," << relIface1 << "," 
-        << molTemplateList[reactMol2.molTypeIndex].molName << "," << reactMol2.index << "," << relIface2 << std::endl;
+        << molTemplateList[reactMol1.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol1) << "," << relIface1 << "," 
+        << molTemplateList[reactMol2.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol2) << "," << relIface2 << std::endl;
     }
     //Add these protein into the bimolecular association list
     reactMol1.freelist.push_back(relIface1);

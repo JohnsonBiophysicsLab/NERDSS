@@ -62,18 +62,64 @@ typedef struct structMpiContext {  // holds MPI related data
     MPIArrayToRight = (unsigned char*)malloc(sendBufferSize);
   }
 
-  void init_x_domain_and_offset(int xTotal, int& tempRank) {
-    // Distribute as similar number of cells among x axis as possible per rank,
-    // std::cout << "Cells per x axis: " << simulVolume.numSubCells.x <<
-    // std::endl; Splitting cells onto ranks is done in greedy-manner, but
-    // without having two ranks that process number of cells that differ by more
-    // than 1 e.g. 12 cells onto 5 ranks is divided as: 3, 3, 2, 2, 2.
+  // The smallest x-column count a rank between two others can own.  A
+  // step acts on each rank's columns in two halves, and in the first half
+  // the right neighbour binds into this rank's last owned column (bin n-2)
+  // through its own left ghost.  This rank's first half must therefore not
+  // reach bin n-2: an initiator in the left region pairs with partners one
+  // column further, so the left region has to end two columns short of it.
+  // With the split of region_mid_index() a middle rank owning 2 columns
+  // pairs bin 1 with bin 2 == bin n-2, and one owning 1 column acts on bin
+  // n-2 itself; both ranks then bind the same molecule in the same half-step
+  // and the exchange keeps one of the two bonds (see deserialize.cpp,
+  // report_exchange_conflicts()).  Rank 0 can always avoid it by doing all
+  // its work in the second half, and the last rank has no right neighbour,
+  // so only the middle ranks are bound by this.
+  static constexpr int minMiddleColumns = 3;
+
+  // The most ranks that xTotal columns can be split between under the rule
+  // above.
+  static int max_ranks_for_columns(int xTotal) {
+    if (xTotal < 2) return xTotal;
+    // ends own 1 column each at the least, the middles minMiddleColumns
+    int most = (xTotal - 2) / minMiddleColumns + 2;
+    return most < 2 ? 2 : most;
+  }
+
+  // How many columns rank tempRank owns, and the first of them.  As even a
+  // split as possible -- 13 columns onto 4 ranks is 4, 3, 3, 3 -- unless
+  // that leaves a middle rank short of minMiddleColumns, in which case every
+  // middle rank gets exactly that many and the two ends share the rest, the
+  // first end taking the odd one.  The caller has checked that nprocs is at
+  // most max_ranks_for_columns(xTotal).
+  void column_share(int xTotal, int tempRank, int& first, int& count) const {
     int divCells = xTotal / nprocs;
     int modCells = xTotal % nprocs;
-    // Determine the domain of cells that tempRank is responsible for in gready
-    // manner, e.g. divide 12 cells onto 5 ranks as: 3, 3, 2, 2, 2:
-    startCell = divCells * tempRank + min2(tempRank, modCells);
-    endCell = divCells * (tempRank + 1) + min2(tempRank + 1, modCells) - 1;
+    if (nprocs < 3 || divCells >= minMiddleColumns) {
+      first = divCells * tempRank + min2(tempRank, modCells);
+      count = divCells + (tempRank < modCells ? 1 : 0);
+      return;
+    }
+    const int ends = xTotal - minMiddleColumns * (nprocs - 2);
+    const int firstEnd = ends - ends / 2;
+    if (tempRank == 0) {
+      first = 0;
+      count = firstEnd;
+    } else if (tempRank == nprocs - 1) {
+      first = xTotal - ends / 2;
+      count = ends / 2;
+    } else {
+      first = firstEnd + minMiddleColumns * (tempRank - 1);
+      count = minMiddleColumns;
+    }
+  }
+
+  void init_x_domain_and_offset(int xTotal, int& tempRank) {
+    // Determine the domain of cells that tempRank is responsible for; see
+    // column_share() for how the columns are divided.
+    int count = 0;
+    column_share(xTotal, tempRank, startCell, count);
+    endCell = startCell + count - 1;
     // Include ghosted zones:
     startGhosted = startCell;
     endGhosted = endCell;

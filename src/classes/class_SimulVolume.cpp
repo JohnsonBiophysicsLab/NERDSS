@@ -659,8 +659,11 @@ void SimulVolume::update_memberMolLists(
       add_member(currBin, molItr, mol.molTypeIndex);
     } else {
       /*make sure proteins are within bin limits, lipids are on membrane*/
-      // Make sure the Molecule is still on the membrane if its supposed to be
-      if (std::abs(molTemplateList[mol.molTypeIndex].D.z) < 1E-10) {
+      // Make sure the Molecule is still on the membrane if its supposed to be.
+      // The serial overload above asks isLipid; this one asked D.z == 0,
+      // which a fiber molecule (D = [D.x, 0, 0], anywhere in z) also has, so
+      // every model with a fiber stopped here at set-up, at any rank count.
+      if (molTemplateList[mol.molTypeIndex].isLipid) {
         // define RS3Dinput
         double RS3Dinput{0.0};
 

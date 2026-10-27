@@ -17,8 +17,7 @@ void print_usage(const char *program, std::ostream &os) {
      << "  -f, --parmfile <file>    parameter file\n"
      << "  -s, --seed <n>           RNG seed, a whole number from 0 to "
      << UINT_MAX << "\n"
-     << "  -r, --restart <file>     restart from this file (MPI runs read "
-        "restart.dat<rank>)\n"
+     << "  -r, --restart <file>     restart from this file\n"
      << "  -a, --add <file>         add file applied on restart\n"
      << "  -c, --coordinate <file>  initial coordinates\n"
      << "  -m, --mol-dir <dir>      read <name>.mol files from this directory\n"
@@ -97,13 +96,12 @@ void parse_command(int argc, char *argv[], Parameters &params,
       }
       break;
     case 'r':
-      if (params.rank < 0) { // for serial jobs
-        restartFileName = optarg;
-      } else { // for parallel jobs
-        restartFileName = "restart.dat" + std::to_string(params.rank);
-        std::cout << "Restart file for rank " << params.rank << ": "
-                  << restartFileName << '\n';
-      }
+      // nerdss_mpi used to open restart.dat<rank> whatever the argument, by
+      // testing Parameters::rank, which nothing initializes, so which file
+      // either build opened depended on what that int happened to hold.  A
+      // restart file is one file, written by either build under the same
+      // name (nerdss_mpi's by write_gathered_restart()); read the one named.
+      restartFileName = optarg;
       params.fromRestart = true;
       break;
     case 'a':

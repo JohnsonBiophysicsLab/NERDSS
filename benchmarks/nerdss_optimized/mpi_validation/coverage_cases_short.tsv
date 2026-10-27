@@ -1,0 +1,5 @@
+compartment	compartment	clath_compartment.inp	7500
+gagsphere	gagsphere	gagOriginalModelSolution.inp	500
+cluster_mem_loc	VALIDATE_SUITE/mem_localization/SmallBox/FastDsol	parms.inp	500	clusterOverlapCheck = true
+cluster_gagsphere	gagsphere	parms.inp	500	clusterOverlapCheck = true
+hist_mol_states	auto_phos	autophos_D10.inp	5000	histogramMolStates = true

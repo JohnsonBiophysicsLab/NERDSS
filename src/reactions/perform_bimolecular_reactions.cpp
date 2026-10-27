@@ -42,10 +42,8 @@ void perform_bimolecular_reactions(
     std::vector<CreateDestructRxn>& createDestructRxns,
     std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
-    Membrane& membraneObject, std::vector<int>& region) {
-      char fnameProXYZ[256];
-  snprintf(fnameProXYZ, sizeof(fnameProXYZ), "DATA/assoc_dissoc_time.dat");
-  std::ofstream assocDissocFile(fnameProXYZ);
+    Membrane& membraneObject, std::vector<int>& region,
+    std::ofstream& assocDissocFile) {
   // for (size_t molItr{0}; molItr < moleculeList.size(); ++molItr) {
   for (auto& molItr : region) {
     // Only continue if the molecule actually exists, and isn't implicit-lipid
