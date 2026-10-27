@@ -125,6 +125,7 @@ int main(int argc, char* argv[]) {
 
   mkdir("RESTARTS", 0777);
   mkdir("DATA", 0777);
+  mkdir("DATA/COMPLEXES", 0777);  // as the serial build does, used or not
   mkdir("mergeOUT", 0777);
 
   if (DEBUG) {
@@ -1169,6 +1170,13 @@ int main(int argc, char* argv[]) {
           molTemplateList, forwardRxns, backRxns, createDestructRxns,
           observablesList, observablesAtStart, membraneObject, counterArrays,
           membraneWhole, simulVolumeWhole, mpiContext);
+    // The serial build's DATA/COMPLEXES/<step>.json, from the whole system.
+    // Collective.
+    if (params.bondedComplexWrite > 0 && simItr % params.bondedComplexWrite == 0)
+      write_gathered_bonded_complexes(
+          simItr, "DATA/COMPLEXES/" + std::to_string(simItr) + ".json",
+          moleculeList, complexList, molTemplateList, forwardRxns, backRxns,
+          membraneObject, membraneWhole, simulVolumeWhole, mpiContext);
     if (DEBUG) {
       DEBUG_FIND_MOL("7: before 4.10");
       DEBUG_FIND_COMPLEX("7: before 4.10");
@@ -1241,6 +1249,13 @@ int main(int argc, char* argv[]) {
       backRxns, createDestructRxns, observablesList, observablesAtStart,
       membraneObject, counterArrays, membraneWhole, simulVolumeWhole,
       mpiContext);
+  // And the bonded complexes at the last step, as the serial build writes
+  // them whenever bondedComplexWrite is on.
+  if (params.bondedComplexWrite > 0)
+    write_gathered_bonded_complexes(
+        simItr - 1, "DATA/COMPLEXES/" + std::to_string(simItr - 1) + ".json",
+        moleculeList, complexList, molTemplateList, forwardRxns, backRxns,
+        membraneObject, membraneWhole, simulVolumeWhole, mpiContext);
 
   // Write out final result
   std::cout << llinebreak << "End simulation\n";
