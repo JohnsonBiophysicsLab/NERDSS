@@ -123,6 +123,7 @@ np=1 from the run's row, with `isPromoter` on all 250 molecules.
 | 19 | The association/dissociation log: the three MPI reaction passes each opened a shared `DATA/assoc_dissoc_time.dat` themselves, truncating, every pass on every rank, whatever `assocDissocWrite` said, and the per-rank file stayed empty | hetTrimer with `assocDissocWrite = true`: serial 1525 bytes, np=1 nothing | 966545ac: the passes write the rank's `assoc_dissoc_time_<rank>.dat`, molecules named by id (a rank's slot index is renumbered every step; serial keeps its index format, byte-identical); `assocDissocWrite`/`bondedComplexWrite` serialized (`assoc_dissoc_check.sh`: the per-rank logs replay to the final restart's bonds) |
 | 20 | No end-of-run copy-number row or histogram block: serial writes them at its last step whatever `timeWrite` is, `nerdss_mpi` only on `timeWrite` steps | gagsphere (timeWrite 5000 over 1000 steps): time 0 alone | a4ae5a4c |
 | 21 | `nerdss_mpi` ran steps 1 to nItr, the serial build 1 to nItr - 1 (`simItr < nItr`) | the same checkpoint continued serially stopped one step before `nerdss_mpi -np 1 -r`; every MPI run's last row stood one step past serial's | d32b0114: MPI follows serial, by decision, which keeps serial byte-identical to the reference.  `pair_count_check.sh` now runs nItr = 2 (one step), `fiber_check.sh` nItr = 31 |
+| 22 | `bondedComplexWrite` (the serial build's `DATA/COMPLEXES/<step>.json`) did nothing under MPI: no MPI code read it, and the directory was never made | by reading | 7af9b8f1: `write_gathered_bonded_complexes()` gathers the system as the checkpoint writer does (one shared `gather_system()`; restart files unchanged, byte for byte) and calls the serial writer with the whole box, every `bondedComplexWrite` steps and at the last step (`bonded_complex_check.sh`) |
 
 Tooling: 20fc7303 (checker macros from the compiler line, suite timeout,
 ASan column), e2135edb (EXCHANGE CONFLICT report, exchange_conflicts
@@ -354,6 +355,7 @@ The values that stand out were followed with more seeds:
 | `fiber_check.sh` | model_kin, 48 seeds: np=1/2/4 within 4 SE of serial (38.54/38.48/38.31 vs 38.86), A and B conserved; 12 seeds on d32b0114 |
 | `sphere_surface_check.sh` | no non-finite coordinate at np=1/2 (before #18: 20 and 22 of 200) |
 | `assoc_dissoc_check.sh` | hetTrimer np=1/2/3, implicit_lipid np=1/2: the per-rank logs replay to the final restart's bond count, no bond made twice or broken before it was made |
+| `bonded_complex_check.sh` | the step-500 `DATA/COMPLEXES` file equals, byte for byte, the one the serial build writes from that step's checkpoint: hetTrimer np=1/2/3, homoTrimer np=2/4 |
 | `checkpoint_check.sh` | np=1 exact continuation, np=2 checkpoint continued serially and at np=1 (both end on step 999 since #21), `bindPairList` rule |
 | `run_code_tests` (`make checks`) | all pass, including complex_destroy_reset_check and mpi_column_split_check |
 | serial byte identity | `run_suite.sh` on cases.tsv and coverage_cases.tsv: all 273 + 92 output hashes equal to the tip's, after every commit that touches a file the serial build compiles |
@@ -439,8 +441,8 @@ after a restart (time arithmetic relative to the restart step).
 * **Output merging** covers copy numbers, the complex histogram and PDB/CIF
   frames only; bound-pair, mono/dimer, event-counter, observable and
   transition-matrix files stay per rank, as partial tallies to be summed;
-  so does `assoc_dissoc_time` (#19).  `bondedComplexWrite` has no MPI writer
-  (`DATA/COMPLEXES` is serial-only).
+  so does `assoc_dissoc_time` (#19).  `DATA/COMPLEXES` is written whole by
+  rank 0 (#22).
 * **`-c` itself** expects coordinates in the centred frame (-L/2..L/2) while
   NERDSS writes PDB frames in 0..L, so a NERDSS PDB frame is not accepted as
   it is by either build (serial exits 1).  Not MPI-specific.
