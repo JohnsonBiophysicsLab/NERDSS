@@ -179,7 +179,18 @@ free proteins by it.)
 ## Audit results
 
 Tip = `bf0eccd4` with the conflict report; branch = `d32b0114` (every fix
-here, #1-#21; the first round was `825a8c3a`).  Runs per
+here, #1-#21; the first round was `825a8c3a`).
+
+The branch was then merged with 1.4 at `f09f58de` (#79 and #81-#85; one
+conflict, at the head of the step loop: #79's interface-state word set-up
+kept, with the `< nItr` bound).  On the merge, `e3576256`, both tables at
+np=2/3/4 were run again with the checkers and `-DNERDSS_CHECK_STATE_BITS`
+(every molecule's word verified at the top of every step, and each
+word-based rate selection checked against the interface scan: 24 million
+selections in trimer at np=2, no mismatch), ASan on the short tables, and
+`-O3` seed 4: the refusals and no report of any kind.  Every probe below
+gives the same result as on `d32b0114`, and the serial suites are
+byte-identical to the 1.4 tip's.  Runs per
 case and np: checker seeds 1-3, `-O3` seed 4, ASan seed 1 (short tables);
 coverage cases: checker seed 1 and ASan seed 1 on the branch, seeds 1-3 and
 ASan on the tip.
@@ -346,7 +357,7 @@ The values that stand out were followed with more seeds:
 | `checkpoint_check.sh` | np=1 exact continuation, np=2 checkpoint continued serially and at np=1 (both end on step 999 since #21), `bindPairList` rule |
 | `run_code_tests` (`make checks`) | all pass, including complex_destroy_reset_check and mpi_column_split_check |
 | serial byte identity | `run_suite.sh` on cases.tsv and coverage_cases.tsv: all 273 + 92 output hashes equal to the tip's, after every commit that touches a file the serial build compiles |
-| GCC 15 clean copy | 196 serial sources and the MPI build (216) with g++-15, no warnings; `make checks` passes (d32b0114) |
+| GCC 15 clean copy | 197 serial sources and the MPI build (217) with g++-15, no warnings; `make checks` passes (e3576256, the merge with 1.4) |
 
 
 ## Checkpoints from any rank count
