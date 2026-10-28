@@ -40,7 +40,7 @@ See \ref changelog for a list of changes.
   | `-s <n>`, `--seed <n>`                      | manually declare a seed for RNG, a whole number (optional)                |
   | `-r <filename>`, `--restart <filename>`     | declares the restart file (optional)                                      |
   | `-a <filename>`, `--add <filename>`         | declares an add file applied on restart (optional)                        |
-  | `-c <filename>`, `--coordinate <filename>`  | declares a file of initial coordinates (optional)                         |
+  | `-c <filename>`, `--coordinate <filename>`  | declares a file of initial coordinates, PDB, XYZ or CSV (optional, see \ref coordfile) |
   | `-m <dir>`, `--mol-dir <dir>`               | read `X.mol` from `<dir>` instead of the working directory (optional)     |
   | `-M <dir>`, `--mol-dir-recursive <dir>`     | read `X.mol` from anywhere under `<dir>` (optional)                       |
   | `-v`, `--verbose`                           | more log output; `-vv` for the most (optional)                            |
@@ -50,6 +50,17 @@ See \ref changelog for a list of changes.
   | `-h`, `--help`                              | list the flags and exit                                                   |
 
 - Flags are read with `getopt_long`, so a long flag also takes its value after `=` (`--seed=12`) and short flags can be combined (`-vv`). An unknown flag, a flag missing its value, a seed that is not a whole number, or a stray argument stops the run with a message
+
+\subsection coordfile Initial coordinates from a file
+
+- `-c <filename>` places molecules on positions read from a file instead of at random. Each data row names a molecule type and gives one center of mass, and the first N molecules of that type (in creation order, the order of the `molecules` block) are translated onto the first N rows for that name. Only the translation is applied: orientations stay random. Rows beyond the number of copies are ignored, and a name that is no molecule in the system is skipped. Molecules the file does not place keep their random positions; after placement a pass moves any random molecule that overlaps a file-placed one
+- Coordinates are in nm, in NERDSS's internal frame: the box runs from `-L/2` to `+L/2` on every axis (0 is the box center). `DATA/initial_crds.xyz` and the trajectory are written in that frame; the PDB output is shifted by `+L/2`, so a PDB frame has to be shifted back by `L/2` before it is fed to `-c`
+- Three formats are read; the format is taken from the extension (`.pdb`, `.xyz`, `.csv`, case does not matter) and, for any other or missing extension, from the content: a line starting with `ATOM` or `HETATM` means PDB, a first non-blank line that is a single whole number means XYZ, a first non-blank line holding a comma means CSV, and anything else stops the run. The log says which format was taken and why (`coordinate file format: XYZ (from extension)`)
+  - **PDB**: `ATOM` records whose atom name (columns 13-16) is `COM`; the molecule name is columns 18-21 and x/y/z columns 31-54. Every other line is ignored. Names are limited to 4 characters by the format
+  - **XYZ**: line 1 is the number of rows, line 2 is a comment and is always skipped (even when empty), then one `<name> <x> <y> <z>` row per molecule, separated by whitespace. Fewer rows than line 1 announces stops the run; extra rows are ignored with a warning
+  - **CSV**: one `<name>,<x>,<y>,<z>` row per molecule, with an optional header. The first non-blank row is a header when its 2nd or 3rd field is not entirely a number (`x`, `1st` and `5.5x` are not; `5.5` is). Spaces around fields, CRLF line endings and blank lines are tolerated
+- Names are matched exactly against the `Name` in the mol file. In XYZ and CSV they have no length limit. A malformed XYZ or CSV row (not four fields, or a coordinate that is not a number) stops the run with the file name and line number
+- NERDSS's own `DATA/initial_crds.xyz` looks like XYZ but lists every interface under the molecule name too, one line per interface after the COM line, so fed back as-is it would treat each interface as another molecule. Keep only the COM lines (and fix line 1) before using it as an input
 
 \subsection molfiles Where mol files are read from
 

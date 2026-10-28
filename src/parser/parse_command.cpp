@@ -19,7 +19,7 @@ void print_usage(const char *program, std::ostream &os) {
      << UINT_MAX << "\n"
      << "  -r, --restart <file>     restart from this file\n"
      << "  -a, --add <file>         add file applied on restart\n"
-     << "  -c, --coordinate <file>  initial coordinates\n"
+     << "  -c, --coordinate <file>  initial coordinates (PDB, XYZ or CSV)\n"
      << "  -m, --mol-dir <dir>      read <name>.mol files from this directory\n"
      << "  -M, --mol-dir-recursive <dir>\n"
      << "                           ... or from anywhere under it\n"

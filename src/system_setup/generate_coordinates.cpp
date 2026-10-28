@@ -1,6 +1,7 @@
 #include "classes/class_Vec3D.hpp"
 #include "classes/class_Molecule_Complex.hpp"
 #include "io/io.hpp"
+#include "io/read_coordinate_file.hpp"
 #include "parser/parser_functions.hpp"
 #include "system_setup/system_setup.hpp"
 #include <cctype>
@@ -62,12 +63,12 @@ void generate_coordinates(const Parameters &params,
   }
   // Fix overlapping molecules in the initial configuration
   fixOverlappingMolecules(moleculeList, molTemplateList, complexList, forwardRxns, membraneObject);
-  // Apply coordinates from PDB file if provided
+  // Apply coordinates from the coordinate file if provided
   if (!coordinateFileName.empty())
   {
     std::cout << "\ncoordinate file: " << coordinateFileName << std::endl;
 
-    // Update molecular coordinates from PDB file
+    // Update molecular coordinates from the coordinate file
     std::vector<int> changedMoleculeIndex = updateMoleculeCoordinates(moleculeList, molTemplateList, coordinateFileName);
 
     // Fix overlaps for molecules with new coordinates
@@ -166,7 +167,7 @@ bool checkAndResolveOverlap(
 }
 
 /**
- * @brief Updates the first N molecules of each type based on PDB file data
+ * @brief Updates the first N molecules of each type based on the coordinate file (PDB, XYZ or CSV)
  * @return Vec3D of indices of molecules that were moved
  */
 std::vector<int> updateMoleculeCoordinates(
@@ -177,58 +178,12 @@ std::vector<int> updateMoleculeCoordinates(
   // Vec3D to store indices of modified molecules
   std::vector<int> changedMoleculeIndex;
 
-  // Open the PDB file for reading
-  std::ifstream inputFile(coordinateFileName);
-  if (!inputFile.is_open())
-  {
-    std::cerr << "Error: Could not open coordinate file: " << coordinateFileName << std::endl;
-    return changedMoleculeIndex;
-  }
   std::cout << "Parsing given coordinates..." << std::endl;
-  
-  // Create a map to store coordinates for each molecule type
-  // Key: molecule name, Value: vector of coordinates from PDB
-  std::map<std::string, std::vector<Vec3D>> moleculeCoordinates;
 
-  // Parse the PDB file to extract COM coordinates
-  std::string line;
-  while (std::getline(inputFile, line))
-  {
-    // Skip lines that don't start with "ATOM"
-    if (line.substr(0, 4) != "ATOM")
-    {
-      continue;
-    }
-
-    // Parse the line according to PDB format
-    std::string atomType = line.substr(12, 4);
-    // Trim whitespace from atomType
-    atomType.erase(0, atomType.find_first_not_of(" "));
-    atomType.erase(atomType.find_last_not_of(" ") + 1);
-
-    // Only process COM atom type (center of mass)
-    if (atomType != "COM")
-    {
-      continue;
-    }
-
-    std::string moleculeName = line.substr(17, 4);
-    // Trim whitespace from moleculeName
-    moleculeName.erase(0, moleculeName.find_first_not_of(" "));
-    moleculeName.erase(moleculeName.find_last_not_of(" ") + 1);
-
-    // Extract x, y, z coordinates
-    double x = std::stod(line.substr(30, 8));
-    double y = std::stod(line.substr(38, 8));
-    double z = std::stod(line.substr(46, 8));
-
-    // Store coordinates for this molecule type in a vector
-    // Each entry in the vector represents one molecule of that type from the PDB
-    moleculeCoordinates[moleculeName].push_back(Vec3D{x, y, z});
-  }
-
-  // Close the input file
-  inputFile.close();
+  // Key: molecule name, Value: COM positions from the file (PDB, XYZ or CSV;
+  // see io/read_coordinate_file.hpp).  Names not in the system are skipped
+  // below, and a name with more rows than copies loses the extra rows.
+  std::map<std::string, std::vector<Vec3D>> moleculeCoordinates = read_coordinate_file(coordinateFileName);
 
   // Create index maps for efficient lookup of molecules by type
   std::map<std::string, std::vector<size_t>> moleculeIndicesByType;
