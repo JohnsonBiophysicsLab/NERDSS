@@ -31,6 +31,20 @@
 bool isReactant(const Molecule::Iface& reactIface, const Molecule& reactMol, const RxnIface& tempReactant);
 
 /*!
+ * \brief Whether an interface of `mol1` and one of `mol2` could react with each other and sit closer than that
+ * reaction's bindRadius: the overlap criterion for placing a molecule, at startup, at creation and in an add file.
+ *
+ * Each pair is matched by isReactant() on both sides (type, interface, state, bound) against every bimolecular
+ * reaction, in either reactant order, and held to that reaction's own bindRadius, so the answer does not depend on
+ * which molecule is passed first.  The caller skips emptied slots and implicit lipids.
+ *
+ * \param maxBindRadius no reaction the two molecules can take part in together has a larger bindRadius; interface
+ * pairs this far apart or farther are not matched against the reactions at all
+ */
+bool interfacesOverlap(const Molecule& mol1, const Molecule& mol2, const std::vector<ForwardRxn>& forwardRxns,
+    double maxBindRadius);
+
+/*!
  * \brief Finds a bond in `bndlist` by the interface that carries it.
  *
  * `Molecule::bndlist` holds the relative indices of this molecule's bound
