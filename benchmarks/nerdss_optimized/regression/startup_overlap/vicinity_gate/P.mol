@@ -1,0 +1,19 @@
+##
+# P molecule information file
+##
+
+Name    = P
+
+# translational diffusion constants
+D       = [10.0,10.0,10.0]
+
+# rotational diffusion constants
+Dr      = [0.1,0.1,0.1]
+
+# Coordinates: one interface 0.5 nm from the center, so the template radius
+# is 0.5 nm.
+COM     0.0000    0.0000    0.0000
+p       0.0000    0.0000    0.5000
+
+bonds = 1
+COM p

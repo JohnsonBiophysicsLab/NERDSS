@@ -15,7 +15,8 @@ int fixOverlappingMolecules(std::vector<Molecule> &moleculeList, const std::vect
 std::vector<int> updateMoleculeCoordinates(std::vector<Molecule> &moleculeList,const std::vector<MolTemplate> &molTemplateList,const std::string &coordinateFileName);
 
 bool checkAndResolveOverlap(const Molecule &mol1, Molecule &mol2, const std::vector<MolTemplate> &molTemplateList, const std::vector<ForwardRxn> &forwardRxns,
-  const Membrane &membraneObject, std::vector<Complex> &complexList, bool mol2Changed);
+  const Membrane &membraneObject, std::vector<Complex> &complexList, bool mol2Changed,
+  const std::vector<std::vector<double>> &maxBindRadius);
 
 // Main function definition
 
@@ -90,10 +91,11 @@ bool checkAndResolveOverlap(
     const std::vector<ForwardRxn> &forwardRxns,
     const Membrane &membraneObject,
     std::vector<Complex> &complexList,
-    bool mol2Changed)
+    bool mol2Changed,
+    const std::vector<std::vector<double>> &maxBindRadius)
 {
   // Skip check if molecules are not in vicinity (optimization)
-  if (!are_molecules_in_vicinity(mol1, mol2, molTemplateList))
+  if (!are_molecules_in_vicinity(mol1, mol2, molTemplateList, maxBindRadius[mol1.molTypeIndex][mol2.molTypeIndex]))
     return false;
     
   bool overlapFound = false;
@@ -308,6 +310,9 @@ int fixOverlappingMolecules(
   std::cout << (checkOnlyChanged ? "|-" : "")
             << "Finding and fixing overlapping proteins.\n";
 
+  // How close two molecules' centers must be before their interfaces can overlap
+  const std::vector<std::vector<double>> maxBindRadius = max_bind_radius_between_types(molTemplateList, forwardRxns);
+
   int currItr = 0;
   const int MAX_ITERATIONS = 50; // Maximum retry iterations
 
@@ -341,7 +346,7 @@ int fixOverlappingMolecules(
           auto &mol2 = moleculeList[mol2Itr];
 
           // Check for overlap and resolve if needed
-          if (checkAndResolveOverlap(mol1, mol2, molTemplateList, forwardRxns, membraneObject, complexList, mol2Changed))
+          if (checkAndResolveOverlap(mol1, mol2, molTemplateList, forwardRxns, membraneObject, complexList, mol2Changed, maxBindRadius))
           {
             hasOverlap = true;
             ++numOverlap;
@@ -395,7 +400,7 @@ int fixOverlappingMolecules(
           auto &mol2 = moleculeList[mol2Itr];
 
           // Check for overlap and resolve if needed
-          if (checkAndResolveOverlap(mol1, mol2, molTemplateList, forwardRxns, membraneObject, complexList, false))
+          if (checkAndResolveOverlap(mol1, mol2, molTemplateList, forwardRxns, membraneObject, complexList, false, maxBindRadius))
           {
             hasOverlap = true;
             ++numOverlap;
