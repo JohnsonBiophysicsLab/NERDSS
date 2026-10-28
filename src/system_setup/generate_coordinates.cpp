@@ -376,6 +376,19 @@ int fixOverlappingMolecules(
                 << "No overlapping proteins found.\n";
       break;
     }
+
+    // Out of passes with overlaps still being found: the run starts with them,
+    // so say so instead of carrying on silently
+    if (currItr == MAX_ITERATIONS)
+    {
+      std::cerr << "WARNING: the "
+                << (checkOnlyChanged ? "overlap pass over the molecules placed from the coordinate file (-c)"
+                                     : "startup overlap pass over all molecules")
+                << " gave up after " << MAX_ITERATIONS << " iterations. The last iteration still found "
+                << numOverlap << " overlapping pair(s) and moved one molecule of each to a new random position "
+                << "that was not checked again, so the simulation may start with interfaces closer than the "
+                << "bindRadius of their reaction. Check the box size, copy numbers, sigma values and coordinate file.\n";
+    }
   }
 
   return currItr; // Return number of iterations performed

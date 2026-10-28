@@ -1,0 +1,26 @@
+start parameters
+    nItr = 1
+    timeStep = 0.1
+    timeWrite = 1
+    trajWrite = 1000
+    restartWrite = 1000
+end parameters
+
+start boundaries
+    WaterBox = [@BOX@,@BOX@,@BOX@]
+end boundaries
+
+start molecules
+    P : 1
+    Q : 1
+end molecules
+
+start reactions
+    P(p) + Q(q) <-> P(p!1).Q(q!1)
+    onRate3Dka = 10
+    offRatekb = 1
+    sigma = 5
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan, nan, nan, nan, nan]
+end reactions
