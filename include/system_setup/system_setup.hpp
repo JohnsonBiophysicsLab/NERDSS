@@ -9,15 +9,30 @@
 #include "classes/class_Rxns.hpp"
 
 /**
+ * Largest bindRadius of a bimolecular reaction between each pair of molecule types.
+ *
+ * @param molTemplates All MolTemplates.
+ * @param forwardRxns  All forward reactions.
+ *
+ * @return             A table indexed [molTypeIndex][molTypeIndex]; 0 for a pair of types with no reaction.
+ */
+std::vector<std::vector<double>> max_bind_radius_between_types(const std::vector<MolTemplate>& molTemplates,
+    const std::vector<ForwardRxn>& forwardRxns);
+
+/**
  * Determines whether two molecules are in the vicinity of each other.
  *
- * @param mol1         The first molecule to check.
- * @param mol2         The second molecule to check.
- * @param molTemplates A vector of MolTemplate objects specifying the binding radii of each molecule type.
+ * @param mol1          The first molecule to check.
+ * @param mol2          The second molecule to check.
+ * @param molTemplates  A vector of MolTemplate objects specifying the radius of each molecule type.
+ * @param maxBindRadius The largest bindRadius of a reaction between the two types
+ *                      (see max_bind_radius_between_types()).
  *
- * @return             True if the distance between the two molecules is less than the sum of their radii plus a safety margin of 2.
+ * @return              True if the distance between the two molecules is less than the sum of their radii plus
+ *                      maxBindRadius, the farthest apart two of their interfaces can be closer than a bindRadius.
  */
-bool are_molecules_in_vicinity(const Molecule& mol1, const Molecule& mol2, const std::vector<MolTemplate>& molTemplates);
+bool are_molecules_in_vicinity(const Molecule& mol1, const Molecule& mol2, const std::vector<MolTemplate>& molTemplates,
+    double maxBindRadius);
 
 /*!
  * \ingroup SystemSetup
