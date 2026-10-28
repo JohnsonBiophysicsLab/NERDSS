@@ -171,21 +171,11 @@ bool moleculeOverlaps(const Parameters& params, SimulVolume& simulVolume, Molecu
                             >= createdRadius + molTemplateList[partMol.molTypeIndex].radius + maxBindRadius)
                             continue;
 
-                        for (const auto& oneRxn : forwardRxns) {
-                            if (oneRxn.reactantListNew.size() != 2)
-                                continue;
-                            for (const auto& createdIface : createdMol.interfaceList) {
-                                for (const auto& partIface : partMol.interfaceList) {
-                                    bool canReact { (isReactant(createdIface, createdMol, oneRxn.reactantListNew[0])
-                                                        && isReactant(partIface, partMol, oneRxn.reactantListNew[1]))
-                                        || (isReactant(createdIface, createdMol, oneRxn.reactantListNew[1])
-                                            && isReactant(partIface, partMol, oneRxn.reactantListNew[0])) };
-                                    if (canReact
-                                        && Vec3D { createdIface.coord - partIface.coord }.length() < oneRxn.bindRadius)
-                                        return true;
-                                }
-                            }
-                        }
+                        // maxBindRadius covers every reaction the created
+                        // molecule is a reactant in, so every pair that can
+                        // overlap.
+                        if (interfacesOverlap(createdMol, partMol, forwardRxns, maxBindRadius))
+                            return true;
                     }
                 }
             }

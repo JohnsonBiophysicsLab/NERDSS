@@ -1,0 +1,35 @@
+# Startup overlap model for per-state starting copy numbers.
+#
+# 300 P, all starting phosphorylated, and 300 Q, the first 150 unphosphorylated
+# and the last 150 phosphorylated, in a 40 nm box.  Only the two phosphorylated
+# forms bind, at sigma 2 nm, so a P overlaps the last 150 Q only.  U is each
+# interface's first state, the one every molecule was placed in before the
+# fix.  nItr = 1: only the start is under test.
+
+start parameters
+    nItr = 1
+    timeStep = 0.1
+    timeWrite = 1
+    trajWrite = 1000
+    restartWrite = 1000
+    pdbWrite = 1000
+end parameters
+
+start boundaries
+    WaterBox = [40,40,40]
+end boundaries
+
+start molecules
+    P : 300 (p~P)
+    Q : 150 (q~U), 150 (q~P)
+end molecules
+
+start reactions
+    P(p~P) + Q(q~P) <-> P(p~P!1).Q(q~P!1)
+    onRate3Dka = 10
+    offRatekb = 1
+    sigma = 2.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+end reactions

@@ -1,0 +1,21 @@
+##
+# P molecule information file
+##
+
+Name    = P
+
+# translational diffusion constants
+D       = [10.0,10.0,10.0]
+
+# rotational diffusion constants
+Dr      = [0.1,0.1,0.1]
+
+# One interface, 0.5 nm from the center, unphosphorylated (U, the first
+# state) or phosphorylated (P).
+COM     0.0000    0.0000    0.0000
+p       0.0000    0.0000    0.5000
+
+bonds = 1
+COM p
+
+state = p~U~P
