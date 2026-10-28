@@ -311,6 +311,10 @@ int fixOverlappingMolecules(
   int currItr = 0;
   const int MAX_ITERATIONS = 50; // Maximum retry iterations
 
+  // Molecules re-placed at random by the checkOnlyChanged pass that have not
+  // yet been checked against every other molecule at their new position
+  std::vector<int> replacedMoleculeIndices;
+
   while (currItr < MAX_ITERATIONS)
   {
     bool hasOverlap = false;
@@ -341,9 +345,38 @@ int fixOverlappingMolecules(
           {
             hasOverlap = true;
             ++numOverlap;
+            // mol2 was re-placed at random (overlaps between two file
+            // molecules only warn), so it has to be checked again
+            if (std::find(replacedMoleculeIndices.begin(), replacedMoleculeIndices.end(),
+                          static_cast<int>(mol2Itr)) == replacedMoleculeIndices.end())
+              replacedMoleculeIndices.push_back(mol2Itr);
           }
         }
       }
+
+      // Check each re-placed molecule against all other molecules. It is
+      // always the one moved again, so file molecules and molecules that did
+      // not collide keep their positions
+      std::vector<int> stillReplaced;
+      for (int mol2Itr : replacedMoleculeIndices)
+      {
+        auto &mol2 = moleculeList[mol2Itr];
+
+        for (unsigned long mol1Itr = 0; mol1Itr < moleculeList.size(); ++mol1Itr)
+        {
+          if (mol1Itr == static_cast<unsigned long>(mol2Itr))
+            continue; // Skip self comparison
+
+          if (checkAndResolveOverlap(moleculeList[mol1Itr], mol2, molTemplateList, forwardRxns, membraneObject, complexList, false))
+          {
+            hasOverlap = true;
+            ++numOverlap;
+            stillReplaced.push_back(mol2Itr);
+            break; // Check the new position from the start next iteration
+          }
+        }
+      }
+      replacedMoleculeIndices.swap(stillReplaced);
     }
     else
     {
