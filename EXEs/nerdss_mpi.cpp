@@ -409,7 +409,8 @@ int main(int argc, char* argv[]) {
       // needs the same set-up, from what it read instead of from rank 0.
       prepare_data_structures_for_parallel_restart(
           moleculeList, simulVolume, membraneObject, molTemplateList, params,
-          mpiContext, complexList);
+          forwardRxns, backRxns, createDestructRxns, counterArrays, mpiContext,
+          complexList, pairOutfile);
     }
   }
 
@@ -510,9 +511,13 @@ int main(int argc, char* argv[]) {
     try {
       read_rng_state(mpiContext.rank);  // read the current RNG state
     } catch (std::exception& e) {
+      // No saved state for this rank: seed as a new run does, rank 0 from
+      // the seed and every other rank from seed + rank, so that the ranks
+      // of a restart draw from different streams (one saved state cannot be
+      // split between them either).
       std::cout << "Read rng_state failed. Set the rng_state with the seed: "
-                << seed << std::endl;
-      gsl_rng_set(r, seed);
+                << seed + mpiContext.rank << std::endl;
+      gsl_rng_set(r, seed + mpiContext.rank);
     }
 
     std::ofstream restartFile{restartFileName,
