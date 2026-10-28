@@ -1,0 +1,34 @@
+# Startup overlap model for the per-interface-pair criterion.
+#
+# 300 P and 300 Q placed at random in a 60 nm box.  P(p) + Q(q) binds at
+# sigma 2 nm; Q's second interface r reacts with nothing, so a P whose p lies
+# within 2 nm of an r and not of a q does not overlap anything.  nItr = 1:
+# only the start is under test.
+
+start parameters
+    nItr = 1
+    timeStep = 0.1
+    timeWrite = 1
+    trajWrite = 1000
+    restartWrite = 1000
+    pdbWrite = 1000
+end parameters
+
+start boundaries
+    WaterBox = [60,60,60]
+end boundaries
+
+start molecules
+    P : 300
+    Q : 300
+end molecules
+
+start reactions
+    P(p) + Q(q) <-> P(p!1).Q(q!1)
+    onRate3Dka = 10
+    offRatekb = 1
+    sigma = 2.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    assocAngles = [nan,nan,nan,nan,nan]
+end reactions

@@ -3,6 +3,7 @@
 #include "io/io.hpp"
 #include "io/read_coordinate_file.hpp"
 #include "parser/parser_functions.hpp"
+#include "reactions/shared_reaction_functions.hpp"
 #include "system_setup/system_setup.hpp"
 #include <cctype>
 #include <cmath>
@@ -95,75 +96,53 @@ bool checkAndResolveOverlap(
     bool mol2Changed,
     const std::vector<std::vector<double>> &maxBindRadius)
 {
-  // Skip check if molecules are not in vicinity (optimization)
-  if (!are_molecules_in_vicinity(mol1, mol2, molTemplateList, maxBindRadius[mol1.molTypeIndex][mol2.molTypeIndex]))
+  // Two types with no bimolecular reaction between them cannot overlap, and
+  // this runs for every ordered pair of molecules: most pairs of a large
+  // model end here.
+  const double pairBindRadius = maxBindRadius[mol1.molTypeIndex][mol2.molTypeIndex];
+  if (pairBindRadius <= 0.0)
     return false;
-    
-  bool overlapFound = false;
-  const MolTemplate &mol2Temp = molTemplateList[mol2.molTypeIndex];
 
-  // Check each interface pair for possible overlaps
-  for (unsigned int iface1Itr = 0; iface1Itr < mol1.interfaceList.size(); ++iface1Itr)
+  // Skip check if molecules are not in vicinity (optimization)
+  if (!are_molecules_in_vicinity(mol1, mol2, molTemplateList, pairBindRadius))
+    return false;
+
+  // An implicit lipid has no position to overlap, and an emptied slot no
+  // interfaces; the time step's overlap checks skip both too.  By the
+  // template: initialize_paramters_for_implicitlipid_model() sets the
+  // molecule's own flag only after placement.
+  if (molTemplateList[mol1.molTypeIndex].isImplicitLipid || molTemplateList[mol2.molTypeIndex].isImplicitLipid
+      || mol1.isEmpty || mol2.isEmpty)
+    return false;
+
+  // The test placement uses for created and added molecules too: an interface
+  // pair overlaps when the two could react with each other and sit closer than
+  // that reaction's bindRadius.  This used to take, for each interface of
+  // mol1, the first reaction between the two molecule types, and hold it to
+  // every interface of mol2 with that sigma, whichever interface or state the
+  // reaction named: a mol2 interface that reacts with nothing pushed mol2 away,
+  // and the answer depended on which molecule came first, which the -c pass
+  // fixes as the file one.
+  if (!interfacesOverlap(mol1, mol2, forwardRxns, pairBindRadius))
+    return false;
+
+  if (mol2Changed)
   {
-    const auto &iface1 = mol1.interfaceList[iface1Itr];
-    
-    for (unsigned int iface2Itr = 0; iface2Itr < mol2.interfaceList.size(); ++iface2Itr)
-    {
-      const auto &iface2 = mol2.interfaceList[iface2Itr];
-      int rxnIndex = 0;
-      bool theyInteract = false;
-      
-      // Check if molecules interact through a reaction
-      for (auto rxnItr : molTemplateList[mol1.molTypeIndex].interfaceList[iface1Itr].stateList[0].myForwardRxns)
-      {
-        const ForwardRxn &rxn = forwardRxns[rxnItr];
-        // Check if both molecules are reactants in the same reaction
-        if ((rxn.reactantListNew[0].molTypeIndex == mol1.molTypeIndex &&
-             rxn.reactantListNew[1].molTypeIndex == mol2.molTypeIndex) ||
-            (rxn.reactantListNew[0].molTypeIndex == mol2.molTypeIndex &&
-             rxn.reactantListNew[1].molTypeIndex == mol1.molTypeIndex))
-        {
-          theyInteract = true;
-          rxnIndex = &rxn - &forwardRxns[0];
-          break;
-        }
-      }
-      
-      if (theyInteract)
-      {
-        // Calculate distance between interfaces
-        Vec3D tmpVec{iface1.coord - iface2.coord};
-        double mag = tmpVec.x * tmpVec.x + tmpVec.y * tmpVec.y + tmpVec.z * tmpVec.z;
-        
-        // Check if interfaces are too close (overlap)
-        if (mag < forwardRxns[rxnIndex].bindRadius * forwardRxns[rxnIndex].bindRadius)
-        {
-          if (mol2Changed)
-          {
-            // Just warn about overlap if both molecules came from PDB file
-            // not considered as overlap since this is defined by users
-            std::cout << "|-WARNING!!! " << molTemplateList[mol1.molTypeIndex].molName
-                      << " at " << mol1.comCoord.x << " " << mol1.comCoord.y
-                      << " " << mol1.comCoord.z << " and " << mol2Temp.molName 
-                      << " at " << mol2.comCoord.x << " " << mol2.comCoord.y 
-                      << " " << mol2.comCoord.z << " overlaps. Please check your input!" 
-                      << std::endl;
-          }
-          else
-          {
-            overlapFound = true;
-            // Relocate the molecule to resolve overlap
-            mol2.create_random_coords(mol2Temp, membraneObject);
-            complexList[mol2.myComIndex].comCoord = mol2.comCoord;
-          }
-          
-          return overlapFound; // Exit early once overlap is found
-        }
-      }
-    }
+    // Just warn about overlap if both molecules came from PDB file
+    // not considered as overlap since this is defined by users
+    std::cout << "|-WARNING!!! " << molTemplateList[mol1.molTypeIndex].molName
+              << " at " << mol1.comCoord.x << " " << mol1.comCoord.y
+              << " " << mol1.comCoord.z << " and " << molTemplateList[mol2.molTypeIndex].molName
+              << " at " << mol2.comCoord.x << " " << mol2.comCoord.y
+              << " " << mol2.comCoord.z << " overlaps. Please check your input!"
+              << std::endl;
+    return false;
   }
 
-  return overlapFound;
+  // Relocate the molecule to resolve overlap
+  mol2.create_random_coords(molTemplateList[mol2.molTypeIndex], membraneObject);
+  complexList[mol2.myComIndex].comCoord = mol2.comCoord;
+  return true;
 }
 
 /**

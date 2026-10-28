@@ -1,0 +1,23 @@
+##
+# Q molecule information file
+##
+
+Name    = Q
+
+# translational diffusion constants
+D       = [10.0,10.0,10.0]
+
+# rotational diffusion constants
+Dr      = [0.1,0.1,0.1]
+
+# q binds P's p at sigma 1 nm and s binds it at sigma 2.5 nm; r reacts with
+# nothing.
+COM     0.0000    0.0000    0.0000
+q       0.5000    0.0000    0.0000
+s       0.0000    0.5000    0.0000
+r      -3.0000    0.0000    0.0000
+
+bonds = 3
+COM q
+COM s
+COM r
