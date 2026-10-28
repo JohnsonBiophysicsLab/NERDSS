@@ -168,6 +168,38 @@
 
 ---
 
+\section coordfile Initial Coordinate File
+
+- Passed on the command line with `-c <file>` (or `--coordinate <file>`); optional. Without it every molecule starts at a random position.
+- Each data row names a molecule type and gives one center-of-mass position in nm. The first N molecules of that type, in the order they are created (the order of the `molecules` block), are translated onto the first N rows for that name; only the translation is applied, so orientations stay random. Rows beyond the copy number are ignored, a name that is no molecule in the system is skipped, and molecules the file does not place keep their random positions. After placement a pass moves any random molecule that overlaps a file-placed one.
+- Names are matched exactly against the `Name` of the mol file.
+- Coordinates are in the internal frame: the box runs from `-L/2` to `+L/2` on every axis, so `0 0 0` is the box center. `DATA/initial_crds.xyz` and `DATA/trajectory.xyz` are written in that frame; the PDB output is shifted by `+L/2`, so a PDB frame has to be shifted back by `L/2` before it is given to `-c`.
+
+\subsection coordFormats Formats
+
+The format is taken from the extension (`.pdb`, `.xyz` or `.csv`, case does not matter). With any other or no extension it is taken from the content: a line starting with `ATOM` or `HETATM` means PDB, a first non-blank line that is a single whole number means XYZ, a first non-blank line holding a comma means CSV, and anything else stops the run. The log reports the choice, e.g. `coordinate file format: XYZ (from extension)`.
+
+| Format | Rows | Notes |
+|--------|------|-------|
+| PDB | `ATOM` records whose atom name (columns 13-16) is `COM`; molecule name in columns 18-21, x/y/z in columns 31-54 | every other line is ignored; names are at most 4 characters by the format |
+| XYZ | line 1 is the number of rows, line 2 is a comment and is always skipped (even when empty), then one `<name> <x> <y> <z>` row per molecule, separated by whitespace | fewer rows than line 1 announces stops the run; extra rows are ignored with a warning; blank lines are skipped |
+| CSV | one `<name>,<x>,<y>,<z>` row per molecule, with an optional header | the first non-blank row is a header when its 2nd or 3rd field is not entirely a number (`x`, `1st`, `5.5x`); spaces around fields, CRLF line endings and blank lines are tolerated |
+
+- XYZ and CSV names have no length limit. A malformed XYZ or CSV row (not four fields, or a coordinate that is not a number) stops the run with the file name and the line number. The PDB reader does not validate its input.
+- `DATA/initial_crds.xyz` looks like XYZ but lists every interface under the molecule name too, one line per interface after the COM line, so fed back as-is it would treat each interface as another molecule. Keep only the COM lines (and correct line 1) before using it as an input.
+
+Example XYZ, placing two `A` and one `B` (the remaining copies stay random):
+
+        3
+        made by hand
+        A   10.0   20.0   30.0
+        A  -40.0    5.5  -60.25
+        B   33.0  -33.0   12.0
+
+The same as CSV: `name,x,y,z` on the first line, then `A,10.0,20.0,30.0` and so on.
+
+---
+
 \section rxn Reaction Declarations
 
 \subsection rxnSyn Syntax
