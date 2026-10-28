@@ -113,9 +113,11 @@ int main(int argc, char* argv[]) {
   // mpiContext.rank = MPI::COMM_WORLD.Get_rank();
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiContext.rank);
 
-  double start_computation_time, end_computation_time, total_computation_time,
-      start_communication_time, end_communication_time,
-      total_communication_time;
+  // The totals were never initialized, so the "total computation time" and
+  // "total communication time" lines held whatever the stack had.
+  double start_computation_time = 0, end_computation_time = 0,
+         total_computation_time = 0, start_communication_time = 0,
+         end_communication_time = 0, total_communication_time = 0;
 
 #ifdef ENABLE_PROFILING
   std::string profileFileName{"profile_output_" +
