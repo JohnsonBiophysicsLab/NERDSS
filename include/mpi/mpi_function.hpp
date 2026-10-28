@@ -282,7 +282,7 @@ void drop_crossings_decided_elsewhere(MpiContext &mpiContext, vector<Molecule> &
 /*! \ingroup mpi_function
  * \brief candidate pairs this rank can act on, summed over ranks on rank 0
  */
-long long count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
+std::array<long long, 2> count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
  * \brief reweighting-history hit counts, edge columns vs interior, summed

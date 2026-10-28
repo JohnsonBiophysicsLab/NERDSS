@@ -63,9 +63,33 @@ void measure_separations_to_identify_possible_reactions(
       // with y+1 or z+1.  Skipping ghosts here therefore lost most pairs
       // across every rank boundary -- the left neighbour drops them as its
       // right ghost's (drop_crossings_decided_elsewhere()), so nobody drew
-      // them -- and assembly near the boundaries ran slow.  What a ghost
-      // must not do is pair with another ghost: neither can initiate here.
+      // them -- and assembly near the boundaries ran slow.
+      //
+      // Two ghosts pair too, unless both sit in the left ghost column: that
+      // column is the left neighbour's last owned one, where it lists and
+      // keeps the pair.  Anywhere else a pair of ghosts is nobody's but this
+      // rank's.  The ghosts in this rank's first owned columns are members
+      // of the left neighbour's complexes straddling the boundary, and on
+      // that neighbour they sit in its right ghost column, where it drops
+      // every pair (drop_crossings_decided_elsewhere()); skipping every
+      // ghost-ghost pair here, as this used to, left such a pair with no
+      // initiator anywhere.  A pair of ghosts in the right ghost column is
+      // listed and then dropped as the right neighbour's, like any other
+      // pair there.  The serial build has no ghosts and never reaches the
+      // test.
       const bool targGhost{moleculeList[targMolIndex].isGhosted};
+#ifdef mpi_
+      const int columns{simulVolume.numSubCells.x};
+      auto ghostsLeftNeighboursPair = [&](int partMolIndex) {
+        return targGhost && moleculeList[partMolIndex].isGhosted &&
+               moleculeList[targMolIndex].mySubVolIndex % columns == 0 &&
+               moleculeList[partMolIndex].mySubVolIndex % columns == 0;
+      };
+#else
+      auto ghostsLeftNeighboursPair = [&](int partMolIndex) {
+        return targGhost && moleculeList[partMolIndex].isGhosted;
+      };
+#endif
 
       // Test bimolecular reactions, and binding to implicit-lipids
       if (moleculeList[targMolIndex].freelist.size() > 0 ||
@@ -87,7 +111,7 @@ void measure_separations_to_identify_possible_reactions(
              ++memItr2) {
           int partMolIndex{
               simulVolume.subCellList[cellItr].memberMolList[memItr2]};
-          if (targGhost && moleculeList[partMolIndex].isGhosted) continue;
+          if (ghostsLeftNeighboursPair(partMolIndex)) continue;
 
           check_bimolecular_reactions(
               targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -111,7 +135,7 @@ void measure_separations_to_identify_possible_reactions(
                 simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
             if (DEBUG && (partMolIndex > moleculeList.size()))
               error("partMolIndex is higher than moleculeList size!");
-            if (targGhost && moleculeList[partMolIndex].isGhosted) continue;
+            if (ghostsLeftNeighboursPair(partMolIndex)) continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
                 params, normMatrices, survMatrices, pirMatrices, moleculeList,

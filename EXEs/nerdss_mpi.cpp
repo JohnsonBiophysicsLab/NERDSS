@@ -671,10 +671,11 @@ int main(int argc, char* argv[]) {
     // neighbour's to decide, and one inside the left ghost column the left
     // neighbour's; see region_split.cpp.
     drop_crossings_decided_elsewhere(mpiContext, moleculeList, complexList);
-    if (CHECK_STRUCTURE && simItr == 1) {
-      const long long pairs = count_candidate_pairs(mpiContext, moleculeList);
+    if (CHECK_STRUCTURE && (simItr == 1 || simItr % 1000 == 0)) {
+      const auto pairs = count_candidate_pairs(mpiContext, moleculeList);
       if (mpiContext.rank == 0)
-        fprintf(stderr, "CANDIDATE PAIRS itr=1 total=%lld\n", pairs);
+        fprintf(stderr, "CANDIDATE PAIRS itr=%lld total=%lld ghost-ghost=%lld\n",
+                simItr, pairs[0], pairs[1]);
     }
     if (CHECK_STRUCTURE) {
       // counted every step, reported every 1000
