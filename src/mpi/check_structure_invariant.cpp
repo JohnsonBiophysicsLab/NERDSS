@@ -29,6 +29,55 @@
 // only that memberLists name live slots; mode 2 adds the molecule -> complex
 // direction and leaves the partner links and the complex -> molecule
 // direction to mode 0.
+// Molecule ids to trace through the exchanges, from NERDSS_TRACE_IDS (a
+// comma-separated list; give it to every rank with mpirun -x).  Diagnostic
+// for CHECK_STRUCTURE builds.
+bool trace_id(int id) {
+  static std::vector<int> ids;
+  static bool read = false;
+  if (!read) {
+    read = true;
+    const char *env = std::getenv("NERDSS_TRACE_IDS");
+    if (env) {
+      int v = 0;
+      bool have = false;
+      for (const char *c = env;; c++) {
+        if (*c >= '0' && *c <= '9') {
+          v = v * 10 + (*c - '0');
+          have = true;
+        } else {
+          if (have) ids.push_back(v);
+          v = 0;
+          have = false;
+          if (!*c) break;
+        }
+      }
+    }
+  }
+  return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
+void trace_molecule(MpiContext &mpiContext, const char *where,
+                    const std::vector<Molecule> &moleculeList,
+                    const std::vector<Complex> &complexList,
+                    const Molecule &mol) {
+  if (!trace_id(mol.id)) return;
+  const int ci = mol.myComIndex;
+  fprintf(stderr,
+          "TRACE rank %d itr=%d %s: id=%d idx=%d x=%.2f ghost=%d recv=%d "
+          "traj=%d com(idx=%d id=%d owner=%d) bonds:",
+          mpiContext.rank, mpiContext.simItr, where, mol.id, mol.index,
+          mol.comCoord.x, mol.isGhosted ? 1 : 0,
+          mol.receivedFromNeighborRank ? 1 : 0, static_cast<int>(mol.trajStatus),
+          ci,
+          (ci >= 0 && ci < static_cast<int>(complexList.size())) ? complexList[ci].id : -999,
+          (ci >= 0 && ci < static_cast<int>(complexList.size())) ? complexList[ci].ownerRank : -999);
+  for (const auto &iface : mol.interfaceList)
+    fprintf(stderr, " [idx=%d id=%d]", iface.interaction.partnerIndex,
+            iface.interaction.partnerId);
+  fprintf(stderr, "\n");
+}
+
 bool check_structure_invariant(MpiContext &mpiContext,
                                std::vector<Molecule> &moleculeList,
                                std::vector<Complex> &complexList,
@@ -79,6 +128,22 @@ bool check_structure_invariant(MpiContext &mpiContext,
       if (pf < 0 || pf >= static_cast<int>(partner.interfaceList.size())) {
         report("partnerIfaceIndex out of range", i, ci);
         continue;
+      }
+      if (partner.interfaceList[pf].interaction.partnerIndex != i ||
+          partner.myComIndex != ci) {
+        // Both sides of the broken link, for the record.
+        const int back = partner.interfaceList[pf].interaction.partnerIndex;
+        const int pci = partner.myComIndex;
+        fprintf(stderr,
+                "  mol id=%d (ghost=%d, complex id=%d owner=%d) iface %zu -> "
+                "partner idx=%d id=%d (ghost=%d, complex id=%d owner=%d) iface "
+                "%d, whose partnerIndex=%d (id=%d)\n",
+                mol.id, mol.isGhosted ? 1 : 0, com.id, com.ownerRank, f, p,
+                partner.id, partner.isGhosted ? 1 : 0,
+                (pci >= 0 && pci < nCom) ? complexList[pci].id : -999,
+                (pci >= 0 && pci < nCom) ? complexList[pci].ownerRank : -999,
+                pf, back,
+                (back >= 0 && back < nMol) ? moleculeList[back].id : -999);
       }
       if (partner.interfaceList[pf].interaction.partnerIndex != i)
         report("partner interface does not point back", i, ci);

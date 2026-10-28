@@ -39,6 +39,9 @@ int find_molecule(vector<Molecule> &moleculeList, int id);
  * Reports ids owned by two ranks and ids held only as ghosts, and returns false
  * if either set is non-empty.  Collective: every rank must call it.
  */
+bool trace_id(int id);
+void trace_molecule(MpiContext &mpiContext, const char *where, const std::vector<Molecule> &moleculeList,
+                    const std::vector<Complex> &complexList, const Molecule &mol);
 bool check_ownership_invariant(MpiContext &mpiContext,
                                vector<Molecule> &moleculeList,
                                vector<Complex> &complexList, long long simItr,
