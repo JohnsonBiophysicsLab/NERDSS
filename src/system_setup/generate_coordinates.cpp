@@ -62,6 +62,15 @@ void generate_coordinates(const Parameters &params,
     std::cout << "No molecules present, skipping coordinate generation.\n";
     return;
   }
+  // The interface states the starting copy numbers ask for ("A : 103
+  // (ser~U), 5 (ser~P)"), so that the overlap passes test the pairs that can
+  // react at the first step.  initialize_states() used to be the first to set
+  // them, after placement, so every molecule was placed as if it started in
+  // its interfaces' first states.  It still runs later, for the implicit
+  // lipid's counts, and sets the same states again.
+  for (const auto &oneTemp : molTemplateList)
+    initialize_molecule_states(moleculeList, oneTemp);
+
   // Fix overlapping molecules in the initial configuration
   fixOverlappingMolecules(moleculeList, molTemplateList, complexList, forwardRxns, membraneObject);
   // Apply coordinates from the coordinate file if provided
@@ -139,8 +148,18 @@ bool checkAndResolveOverlap(
     return false;
   }
 
-  // Relocate the molecule to resolve overlap
+  // Relocate the molecule to resolve overlap.  create_random_coords() puts
+  // every interface back in its first state; the molecule keeps the ones it
+  // starts in, which the next pass tests it with.
+  std::vector<Molecule::Iface> startingStates = mol2.interfaceList;
   mol2.create_random_coords(molTemplateList[mol2.molTypeIndex], membraneObject);
+  for (unsigned int ifaceItr = 0; ifaceItr < mol2.interfaceList.size(); ++ifaceItr)
+  {
+    mol2.interfaceList[ifaceItr].index = startingStates[ifaceItr].index;
+    mol2.interfaceList[ifaceItr].stateIden = startingStates[ifaceItr].stateIden;
+    mol2.interfaceList[ifaceItr].stateIndex = startingStates[ifaceItr].stateIndex;
+  }
+  mol2.refresh_iface_state_bits();
   complexList[mol2.myComIndex].comCoord = mol2.comCoord;
   return true;
 }

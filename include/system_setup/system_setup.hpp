@@ -104,4 +104,10 @@ void determine_shape_molecule(std::vector<MolTemplate>& molTemplateList);
 // function to initialize starting copy number for each state
 void initialize_states(std::vector<Molecule>& moleculeList, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject);
 
+// Gives each molecule of a (non-implicit-lipid) template the interface states its
+// starting copy numbers ask for, by index among that template's molecules: the
+// part of initialize_states() that generate_coordinates() needs before the
+// startup overlap pass.  Does nothing for a template with no per-state counts.
+void initialize_molecule_states(std::vector<Molecule>& moleculeList, const MolTemplate& tmpMol);
+
 void set_exclude_volume_bound(std::vector<ForwardRxn>& forwardRxns, std::vector<MolTemplate>& molTemplateList);
