@@ -81,6 +81,8 @@ Go to the [NERDSS server](https://nerdssdemo.org/).
 
 4. To debug the parallel code, use the command *mpirun -np 2 xterm -e gdb --ex 'b error' --ex r --args ./nerdss_mpi -f parms.inp -s 123*.
 
+5. To start some or all molecules at chosen positions, add *-c coords.xyz* (also *--coordinate*). The file is PDB, XYZ or CSV, picked from the extension (`.pdb`, `.xyz`, `.csv`) or, failing that, from the content; each row names a molecule and gives its center of mass in nm, in the box frame that runs from -L/2 to +L/2 (NERDSS's PDB output is shifted by +L/2, so shift it back before feeding it in). The first N molecules of each named type are moved onto the first N rows for that name; the rest stay random. XYZ is a row count, a comment line, then `name x y z`; CSV is `name,x,y,z` with an optional header; PDB uses the `ATOM` records whose atom name is `COM`. See *docs/input.md* ("Initial Coordinate File") for the full rules.
+
 ### Analyzing Results
 
 1. Use the ioNERDSS PyPi library for visualizing simulation results.
