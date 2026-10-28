@@ -780,9 +780,13 @@ int main(int argc, char* argv[]) {
     // of its own, so the ranks cannot agree on the owner until the exchange
     // has carried the merged complex across.  The sound checkpoints are the
     // ones after an exchange: "after left exchange" below and "step top".
+    // The cluster sweeps must not reach outside the region; see
+    // hold_outside_region().
+    hold_outside_region(moleculeList, left);
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    release_sweep_hold(moleculeList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after overlap left");
@@ -981,9 +985,13 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the right part...\n");
     }
+    // The cluster sweeps must not reach outside the region; see
+    // hold_outside_region().
+    hold_outside_region(moleculeList, right);
     check_overlap(right, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    release_sweep_hold(moleculeList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after overlap right");

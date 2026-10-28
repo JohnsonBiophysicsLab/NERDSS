@@ -206,6 +206,8 @@ void hold_back_right_edge_first_order(MpiContext &mpiContext,
 /*! \ingroup mpi_function
  * \brief undo hold_back_right_edge_first_order()'s ghost marks
  */
+void hold_outside_region(vector<Molecule> &moleculeList, const vector<int> &region);
+void release_sweep_hold(vector<Molecule> &moleculeList);
 void release_held_back(vector<Molecule> &moleculeList,
                        const vector<int> &heldBack);
 
