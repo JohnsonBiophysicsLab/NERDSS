@@ -327,7 +327,7 @@ int fixOverlappingMolecules(
           if (mol1Itr == static_cast<unsigned long>(mol2Itr))
             continue; // Skip self comparison
 
-          if (checkAndResolveOverlap(moleculeList[mol1Itr], mol2, molTemplateList, forwardRxns, membraneObject, complexList, false))
+          if (checkAndResolveOverlap(moleculeList[mol1Itr], mol2, molTemplateList, forwardRxns, membraneObject, complexList, false, maxBindRadius))
           {
             hasOverlap = true;
             ++numOverlap;
