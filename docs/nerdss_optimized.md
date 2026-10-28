@@ -1530,3 +1530,63 @@ The three-way benchmark in
 It is a verification tool, not a release configuration: the five changes it
 reverts include two corrections (the orientation sampler and the dissociation
 correction), so `bin/nerdss_legacy` carries `master`'s defects there.
+
+## Version 1.4 - changes after the 2026-10-24 reference
+
+The 1.3 branch was frozen as `nerdss-optimized-1.3-ref-2026-10-24` (`bf0eccd4`)
+and `nerdss-optimized-1.4` was opened from that commit. The rule is the same:
+with every new option left alone, every `DATA/` and `RESTARTS/` file of every
+suite case is byte-identical to the frozen build's.
+
+### `-c` - XYZ and CSV coordinate files besides PDB
+
+`-c <file>` / `--coordinate <file>` places the first N molecules of each named
+type onto center-of-mass positions read from a file, in creation order, by
+translation only (orientations stay random); the rest keep their random
+positions and a pass afterwards moves any random molecule that overlaps a
+file-placed one. The reader was a PDB parser written inline in
+`updateMoleculeCoordinates()` (`src/system_setup/generate_coordinates.cpp`).
+It moved to its own unit, `src/io/read_coordinate_file.cpp`, which returns the
+same name -> COM map and reads two more formats; the placement and overlap code
+did not change.
+
+| Format | Rows | Notes |
+| --- | --- | --- |
+| PDB | `ATOM` records whose atom name (columns 13-16) is `COM`; molecule name columns 18-21, x/y/z columns 31-54 | the old code verbatim; names are 4 characters by the format; nothing is validated |
+| XYZ | line 1 the row count, line 2 a comment (always skipped, even when empty), then `<name> <x> <y> <z>` rows split on whitespace | fewer rows than line 1 announces stops the run; extra rows are ignored with a warning |
+| CSV | `<name>,<x>,<y>,<z>` rows with an optional header | the first non-blank row is a header when its 2nd or 3rd field is not entirely a number (`x`, `1st`, `5.5x`); spaces around fields, CRLF endings and blank lines are tolerated |
+
+The format comes from the extension (`.pdb`, `.xyz`, `.csv`, case folded).
+With any other or no extension the content decides: a line starting with
+`ATOM` or `HETATM` means PDB, a first non-blank line that is a single whole
+number means XYZ, a first non-blank line holding a comma means CSV, and
+anything else stops the run with a message. The log prints the choice
+(`coordinate file format: XYZ (from extension)`).
+
+Coordinates are nm in the internal frame, where the box runs from `-L/2` to
+`+L/2` on every axis. `DATA/initial_crds.xyz` and the trajectory are written in
+that frame; the PDB output adds `+L/2`, so a PDB frame has to be shifted back
+before it is fed to `-c`. `DATA/initial_crds.xyz` itself cannot be fed back
+as-is: it lists each interface under the molecule name after the COM line, and
+the reader would take every interface for another molecule.
+
+Names are matched exactly against the mol file's `Name`; XYZ and CSV names
+have no length limit. A malformed XYZ or CSV row (not four fields, or a
+coordinate that does not parse completely as a number) stops the run with the
+file name and the 1-based line number and a non-zero exit. A file that cannot
+be opened keeps the old behaviour: a message, the generated coordinates, exit 0.
+
+Verification ([#88](https://github.com/JohnsonBiophysicsLab/NERDSS/pull/88)):
+`benchmarks/nerdss_optimized/regression/coordinate_file_formats/check.py`
+runs a three-type model for one step and reads `DATA/initial_crds.xyz` back.
+The same placements as PDB, XYZ, CSV with a header and CSV without one leave
+byte-identical files, with the placed molecules at the file positions and the
+others where a run without `-c` puts them; 49 checks cover names longer than
+4 characters, extension case, content sniffing for all three formats, an
+undetectable file, CRLF, blank lines, a numeric first CSV row, a header-only
+CSV, unknown names, XYZ row-count mismatches, malformed rows and a missing
+file, plus 12 more with `nerdss_mpi` at np=1 and np=2. All pass with clang
+-O3, GCC 15 -O3 and an AddressSanitizer build. Without `-c`, `cases.tsv`
+(14 cases) and `coverage_cases.tsv` (5) are byte-identical to the frozen
+build; with a PDB `-c` file made from a one-step run of each `cases.tsv`
+model, all 14 are identical in `DATA/` and `RESTARTS/`.
