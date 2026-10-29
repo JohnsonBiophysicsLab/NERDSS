@@ -65,10 +65,13 @@ while IFS=$'\t' read -r id dir parm n_itr extra; do
             secs=$(echo "$(date +%s.%N) - $start" | bc)
             comp=""; comm=""; final=""
             if [[ -n $np ]]; then
-                # 1.4's nerdss_mpi prints the totals to stdout at the end; the
-                # standalone branch writes them into output_<rank>.txt.
-                comp=$(grep -h 'total computation time' "$run_dir/stdout.log" "$run_dir"/output_*.txt 2>/dev/null | awk '{s+=$4} END{printf "%.1f", s}')
-                comm=$(grep -h 'total communication time' "$run_dir/stdout.log" "$run_dir"/output_*.txt 2>/dev/null | awk '{s+=$4} END{printf "%.1f", s}')
+                # 1.4's nerdss_mpi prints each rank's running totals every
+                # few thousand steps and once at the end, to the stdout it
+                # sends to DATA/output_<rank>.txt; the standalone branch
+                # writes its into output_<rank>.txt.  The last line of each
+                # file is the rank's total; the ranks are summed.
+                comp=$(for f in "$run_dir/stdout.log" "$run_dir"/DATA/output_*.txt "$run_dir"/output_*.txt; do [[ -f $f ]] && grep -h 'total computation time' "$f" | tail -n 1; done | awk '{s+=$4} END{printf "%.1f", s}')
+                comm=$(for f in "$run_dir/stdout.log" "$run_dir"/DATA/output_*.txt "$run_dir"/output_*.txt; do [[ -f $f ]] && grep -h 'total communication time' "$f" | tail -n 1; done | awk '{s+=$4} END{printf "%.1f", s}')
                 final=$(tail -n 1 "$run_dir/mergeOUT/copy_numbers_time.dat" 2>/dev/null || true)
             else
                 final=$(tail -n 1 "$run_dir/DATA/copy_numbers_time.dat" 2>/dev/null || true)
