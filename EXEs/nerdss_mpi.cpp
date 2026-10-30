@@ -113,9 +113,11 @@ int main(int argc, char* argv[]) {
   // mpiContext.rank = MPI::COMM_WORLD.Get_rank();
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiContext.rank);
 
-  double start_computation_time, end_computation_time, total_computation_time,
-      start_communication_time, end_communication_time,
-      total_communication_time;
+  // The totals were never initialized, so the "total computation time" and
+  // "total communication time" lines held whatever the stack had.
+  double start_computation_time = 0, end_computation_time = 0,
+         total_computation_time = 0, start_communication_time = 0,
+         end_communication_time = 0, total_communication_time = 0;
 
 #ifdef ENABLE_PROFILING
   std::string profileFileName{"profile_output_" +
@@ -407,7 +409,8 @@ int main(int argc, char* argv[]) {
       // needs the same set-up, from what it read instead of from rank 0.
       prepare_data_structures_for_parallel_restart(
           moleculeList, simulVolume, membraneObject, molTemplateList, params,
-          mpiContext, complexList);
+          forwardRxns, backRxns, createDestructRxns, counterArrays, mpiContext,
+          complexList, pairOutfile);
     }
   }
 
@@ -508,9 +511,13 @@ int main(int argc, char* argv[]) {
     try {
       read_rng_state(mpiContext.rank);  // read the current RNG state
     } catch (std::exception& e) {
+      // No saved state for this rank: seed as a new run does, rank 0 from
+      // the seed and every other rank from seed + rank, so that the ranks
+      // of a restart draw from different streams (one saved state cannot be
+      // split between them either).
       std::cout << "Read rng_state failed. Set the rng_state with the seed: "
-                << seed << std::endl;
-      gsl_rng_set(r, seed);
+                << seed + mpiContext.rank << std::endl;
+      gsl_rng_set(r, seed + mpiContext.rank);
     }
 
     std::ofstream restartFile{restartFileName,
@@ -671,10 +678,11 @@ int main(int argc, char* argv[]) {
     // neighbour's to decide, and one inside the left ghost column the left
     // neighbour's; see region_split.cpp.
     drop_crossings_decided_elsewhere(mpiContext, moleculeList, complexList);
-    if (CHECK_STRUCTURE && simItr == 1) {
-      const long long pairs = count_candidate_pairs(mpiContext, moleculeList);
+    if (CHECK_STRUCTURE && (simItr == 1 || simItr % 1000 == 0)) {
+      const auto pairs = count_candidate_pairs(mpiContext, moleculeList);
       if (mpiContext.rank == 0)
-        fprintf(stderr, "CANDIDATE PAIRS itr=1 total=%lld\n", pairs);
+        fprintf(stderr, "CANDIDATE PAIRS itr=%lld total=%lld ghost-ghost=%lld\n",
+                simItr, pairs[0], pairs[1]);
     }
     if (CHECK_STRUCTURE) {
       // counted every step, reported every 1000
@@ -772,9 +780,13 @@ int main(int argc, char* argv[]) {
     // of its own, so the ranks cannot agree on the owner until the exchange
     // has carried the merged complex across.  The sound checkpoints are the
     // ones after an exchange: "after left exchange" below and "step top".
+    // The cluster sweeps must not reach outside the region; see
+    // hold_outside_region().
+    hold_outside_region(moleculeList, left);
     check_overlap(left, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    release_sweep_hold(moleculeList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after overlap left");
@@ -973,9 +985,13 @@ int main(int argc, char* argv[]) {
     if (VERBOSE) {
       printf("Checking overlap and propagate molecules in the right part...\n");
     }
+    // The cluster sweeps must not reach outside the region; see
+    // hold_outside_region().
+    hold_outside_region(moleculeList, right);
     check_overlap(right, simItr, params, moleculeList, complexList, simulVolume,
                   forwardRxns, backRxns, createDestructRxns, molTemplateList,
                   observablesList, counterArrays, membraneObject, mpiContext);
+    release_sweep_hold(moleculeList);
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after overlap right");

@@ -8,6 +8,11 @@ was fixed by those.  Its one np=1 physics difference (auto_phos) is gone: with
 32 seeds each, np=1 and serial agree on all five auto_phos species (smallest
 p = 0.11).
 
+The second pass, 2026-10-27/28, is `AUDIT_2026-10-27.md`: two more defects
+(the cluster overlap sweeps across the region boundary, ghost-ghost pairs),
+restarts at np>1, the timing against the serial build and the standalone
+branch, and one flagged cell that fresh seeds dissolved.
+
 ## How the audit was run
 
 * Builds, all from one tree: `-O3` (`make mpi`); a checker build
@@ -34,6 +39,12 @@ p = 0.11).
 * Probes for what the suites cannot see: `pair_count_check.sh`,
   `reweight_history_check.sh`, `coordinate_file_check.sh`, and
   `conflict_control.sh` with the fast hetTrimer models in `models/`.
+* A flagged cell is re-tested with seeds the audit did not use (`-s`
+  values above the audit's range): `nerdss_mpi` is reproducible per seed, so
+  the same seeds on a later build are nearly the same trajectories again and
+  carry the same chance fluctuation (the second pass's `unimol_state_change`
+  np=2, which held at |t| ~ 3 through three re-measurements on seeds 1-21
+  and vanished on seeds 101-140).
 
 The machine was shared with other sessions throughout (load 5-140 on 10
 cores), so no timing here means anything.

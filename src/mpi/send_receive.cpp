@@ -97,6 +97,9 @@ void send_data_to_left_neighboring_ranks(
       }
     }
 
+    if (CHECK_STRUCTURE)
+      for (int molIdx : moleculesSet)
+        trace_molecule(mpiContext, "sending left", moleculeList, complexList, moleculeList[molIdx]);
     mpiContext.nMPIArrayToLeft = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToLeft, mpiContext.nMPIArrayToLeft,
@@ -200,6 +203,9 @@ void send_data_to_right_neighboring_ranks(
       sentRight[mol.id] = s;
     }
 
+    if (CHECK_STRUCTURE)
+      for (int molIdx : moleculesSet)
+        trace_molecule(mpiContext, "sending right", moleculeList, complexList, moleculeList[molIdx]);
     mpiContext.nMPIArrayToRight = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToRight, mpiContext.nMPIArrayToRight,

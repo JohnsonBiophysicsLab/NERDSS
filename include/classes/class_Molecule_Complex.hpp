@@ -387,6 +387,11 @@ struct Molecule {
     // serialized.
     bool firstOrderHeld{false};
 #endif
+    //! Under MPI: outside the half-step's region, so a cluster overlap sweep
+    //! started in this half must not move or mark it (hold_outside_region()
+    //! in src/mpi/defer_edge_reactions.cpp).  The sweeps test it in every
+    //! build; the serial build never sets it.  Not serialized.
+    bool sweepHeld{false};
     bool receivedFromNeighborRank{true}; // When one rank processes molecules near the border with another rank, it sends molecules to that rank, and receives updated versions of some. Those that are not received back should be deleted localy. This field doesn't get serialized, nor deserialized.
     bool need_to_send{false};  // whether this molecule needs to be sent to another rank This field doesn't get serialized, nor deserialized.
     int complexId{-1};  // used for molecules in ghosted zones, for finding complex at neighbor rank
