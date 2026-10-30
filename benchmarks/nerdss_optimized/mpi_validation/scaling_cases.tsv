@@ -1,0 +1,5 @@
+# Wide-box scaling cases for bench_mpi.sh (SCALING_2026-10-30.md): the
+# validation hetTrimer and clathrin boxes stretched 5x along x, copy numbers
+# scaled with the volume.  Dirs resolve next to bench_mpi.sh.
+hetTrimer_wide	models/wide_box/hetTrimer	parm_hetTri_wide.inp	30000
+clathrin_wide	models/wide_box/clathrin	parms_clath_wide.inp	1500000
