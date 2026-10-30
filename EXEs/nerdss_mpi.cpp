@@ -422,6 +422,13 @@ int main(int argc, char* argv[]) {
   // (cluster_gagsphere at np=1: 12 of 200 gag by step 100, 64 by step 1000).
   params.sphereR = membraneObject.sphereR;
 
+  // The pairwise search's type mask and shell index, built from the rank's
+  // own templates and membrane exactly as the serial build builds them
+  // (EXEs/nerdss.cpp); see PairSearchIndex.  After the set-up above, which
+  // replaces both with rank 0's serialized copies.
+  PairSearchIndex pairSearch;
+  pairSearch.build(molTemplateList, membraneObject, params);
+
   // Every rank was seeded with the same -s value above, so every rank drew the
   // same sequence: the first molecule each rank moved at step 1 got the same
   // displacement, and from then on the ranks' draws were overlapping windows
@@ -670,10 +677,10 @@ int main(int argc, char* argv[]) {
 
     measure_separations_to_identify_possible_reactions(
         simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
-        backRxns, createDestructRxns, molTemplateList, observablesList,
-        counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
-        ILTableIDs, normMatrices, survMatrices, pirMatrices, implicitlipidIndex,
-        tableIDs, DDTableIndex);
+        backRxns, createDestructRxns, transmissionRxns, molTemplateList,
+        observablesList, counterArrays, membraneObject, IL2DbindingVec,
+        IL2DUnbindingVec, ILTableIDs, normMatrices, survMatrices, pirMatrices,
+        implicitlipidIndex, tableIDs, DDTableIndex, pairSearch);
     // A pair across the boundary with the right neighbour is that
     // neighbour's to decide, and one inside the left ghost column the left
     // neighbour's; see region_split.cpp.

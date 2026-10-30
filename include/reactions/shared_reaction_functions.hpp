@@ -13,6 +13,7 @@
 #pragma once
 
 #include "classes/class_Rxns.hpp"
+#include "classes/class_ShellIndex.hpp"
 #include "classes/class_SimulVolume.hpp"
 #include "classes/class_copyCounters.hpp"
 #include "gsl/gsl_matrix.h"
@@ -465,11 +466,39 @@ void check_perform_zeroth_first_order_reactions(
     std::vector<double>& IL2DUnbindingVec, std::vector<double>& ILTableIDs,
     MpiContext& mpiContext, std::ofstream& assocDissocFile);
 
+/*!
+ * \brief The two tables the pairwise search consults besides the cell grid.
+ *
+ * Built once at start-up by both executables, from the molecule templates and
+ * the membrane as they stand when the simulation loop begins (under MPI, after
+ * the rank has received its share of the system).  interactionMask is the
+ * (type, type) table of PR #73 -- empty for a model with more than 64
+ * molecule types, which then offers every pair -- and shellIndex the
+ * latitude-longitude index over the membrane of a spherical system, inactive
+ * everywhere else.
+ */
+struct PairSearchIndex {
+    std::vector<uint64_t> interactionMask {};
+    ShellIndex shellIndex {};
+
+    void build(const std::vector<MolTemplate>& molTemplateList,
+        const Membrane& membraneObject, const Parameters& params);
+};
+
+/*!
+ * \brief The pairwise search of one step: every candidate bimolecular pair,
+ * each molecule's implicit-lipid and compartment checks.
+ *
+ * Shared by nerdss and nerdss_mpi; the MPI ghost rules are compiled in under
+ * mpi_ only.  Refreshes the grid's occupied-cell list and rebins the shell
+ * index itself, so the caller only has to have rebuilt the member lists.
+ */
 void measure_separations_to_identify_possible_reactions(
     unsigned simItr, Parameters& params, std::vector<Molecule>& moleculeList,
     std::vector<Complex>& complexList, SimulVolume& simulVolume,
     std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
     std::vector<CreateDestructRxn>& createDestructRxns,
+    std::vector<TransmissionRxn>& transmissionRxns,
     std::vector<MolTemplate>& molTemplateList,
     std::map<std::string, int>& observablesList, copyCounters& counterArrays,
     Membrane& membraneObject, std::vector<double>& IL2DbindingVec,
@@ -477,7 +506,7 @@ void measure_separations_to_identify_possible_reactions(
     std::vector<gsl_matrix*>& normMatrices,
     std::vector<gsl_matrix*>& survMatrices,
     std::vector<gsl_matrix*>& pirMatrices, int implicitlipidIndex,
-    double* tableIDs, unsigned& DDTableIndex);
+    double* tableIDs, unsigned& DDTableIndex, PairSearchIndex& pairSearch);
 
 void perform_bimolecular_reactions(
     unsigned simItr, Parameters& params, std::vector<Molecule>& moleculeList,

@@ -612,77 +612,12 @@ int main(int argc, char *argv[]) {
   // reaction list (the MPI startup calls the same function)
   set_exclude_volume_bound(forwardRxns, molTemplateList);
 
-  // Bit t2 of interactionMask[t1] is set iff a (t1, t2) pair can do anything
-  // inside check_bimolecular_reactions().  The pairwise search offers every
-  // pair the cell stencil produces regardless of what the two molecules are,
-  // and on a membrane model that is nearly all of them: mem_localization holds
-  // 3755 lipids among 3955 molecules, offers about 165 000 pairs per step, and
-  // 699 of them -- 0.42% -- get past the molecule-type test inside the
-  // function.  The other 99.6% are lipid-lipid pairs that no reaction names.
-  //
-  // Skipping them here rather than inside the function removes only pairs that
-  // the function would have rejected without side effects, so the pairs that
-  // remain are offered in the same order as before and the trajectory does not
-  // change.
-  //
-  // One bit per molecule type, so the table only exists for models with at
-  // most 64 of them; left empty, the search offers every pair as it did before.
-  std::vector<uint64_t> interactionMask;
-  if (molTemplateList.size() <= 64) {
-    interactionMask.assign(molTemplateList.size(), 0);
-    for (size_t typeItr1{0}; typeItr1 < molTemplateList.size(); ++typeItr1) {
-      for (size_t typeItr2{0}; typeItr2 < molTemplateList.size(); ++typeItr2) {
-        // check_bimolecular_reactions() looks for the partner's type in the
-        // target's rxnPartners, in that order, so this table is not symmetric.
-        bool pairMatters{false};
-        for (int partner : molTemplateList[typeItr1].rxnPartners) {
-          if (partner == static_cast<int>(typeItr2)) {
-            pairMatters = true;
-            break;
-          }
-        }
-        // Its volume-exclusion path does not consult rxnPartners and turns on
-        // an interface being bound, which is runtime state.  Testing the
-        // template flag instead keeps every pair that path could ever want.
-        if (molTemplateList[typeItr1].excludeVolumeBound ||
-            molTemplateList[typeItr2].excludeVolumeBound)
-          pairMatters = true;
-        if (pairMatters)
-          interactionMask[typeItr1] |= (uint64_t(1) << typeItr2);
-      }
-    }
-  }
-  const bool useTypeMask{!interactionMask.empty()};
-
-  // A second neighbour index, over the membrane of a spherical system only.
-  // SimulVolume's grid covers the (2R)^3 box that bounds the sphere, so for
-  // molecules pinned to the shell it spends its resolution on interior volume
-  // that is empty by construction, and it bins on Cartesian coordinates while
-  // get_distance() measures those pairs by geodesic arc.  This index covers
-  // surface-to-surface pairs; molecules stay in the Cartesian grid as well, so
-  // surface-to-interior pairs are untouched.  It stays inactive for every
-  // non-spherical system, which then behaves exactly as before.
-  //
-  // It also stays inactive when no two explicit molecules can react with each
-  // other, since then it would hold only pairs the search discards anyway.
-  bool anyExplicitPairReaction{false};
-  for (size_t typeItr1{0};
-       typeItr1 < molTemplateList.size() && !anyExplicitPairReaction; ++typeItr1) {
-    if (molTemplateList[typeItr1].isImplicitLipid)
-      continue;
-    for (int partner : molTemplateList[typeItr1].rxnPartners) {
-      if (partner < 0 || size_t(partner) >= molTemplateList.size())
-        continue;
-      if (molTemplateList[partner].isImplicitLipid)
-        continue;
-      anyExplicitPairReaction = true;
-      break;
-    }
-  }
-  ShellIndex shellIndex;
-  shellIndex.build(membraneObject.isSphere() ? membraneObject.sphereR : 0.0,
-                   params.rMaxLimit, anyExplicitPairReaction);
-  shellIndex.display();
+  // The (type, type) interaction mask and, on a spherical system, the shell
+  // index; see PairSearchIndex and src/reactions/
+  // measure_separations_to_identify_possible_reactions.cpp, which the MPI
+  // build shares.
+  PairSearchIndex pairSearch;
+  pairSearch.build(molTemplateList, membraneObject, params);
 
   for (auto &oneComplex : complexList) {
     oneComplex.update_properties(moleculeList, molTemplateList);
@@ -838,164 +773,16 @@ int main(int argc, char *argv[]) {
     }
 
     // Measure separations between proteins in neighboring cells to identify all
-    // possible reactions.
-    //
-    // Only the SubBoxes that hold molecules are visited.  Walking all of
-    // subCellList cost time proportional to the SubBox count however few
-    // molecules the system held, and that count is typically far larger than
-    // the number of occupied SubBoxes: rev_3D holds 2 000 molecules in 27 000
-    // SubBoxes, of which about 1 800 are occupied, and clathrin fills 97 of
-    // 2 744.  Sorted, occupiedSubCells visits exactly the same SubBoxes in
-    // exactly the same order as the old sweep, so the output is unchanged.
-    simulVolume.refresh_occupied_cells();
-    // After the dissociation blocks above, for the same reason
-    // refresh_occupied_cells() is here: both indices have to describe the
-    // molecule set the search is about to walk.
-    shellIndex.rebin(moleculeList, complexList);
-    const bool shellActive{shellIndex.active};
-    // Partner types for the type-mask tests below, without touching moleculeList.
-    const std::vector<int> &memberTypeIndex{simulVolume.memberTypeIndex};
-    for (int cellItr : simulVolume.occupiedSubCells) {
-      for (unsigned memItr{0};
-           memItr < simulVolume.subCellList[cellItr].memberMolList.size();
-           ++memItr) {
-        int targMolIndex{
-            simulVolume.subCellList[cellItr].memberMolList[memItr]};
-        if (moleculeList[targMolIndex].isImplicitLipid)
-          continue;
-
-        // Test bimolecular reactions, and binding to implicit-lipids
-        if (moleculeList[targMolIndex].freelist.size() > 0 ||
-            molTemplateList[moleculeList[targMolIndex].molTypeIndex]
-                    .excludeVolumeBound == true) {
-          // first, check for implicit-lipid binding
-          int protype = moleculeList[targMolIndex].molTypeIndex;
-          const uint64_t targMask{useTypeMask ? interactionMask[protype]
-                                              : ~uint64_t(0)};
-          // Pairs the shell index owns are skipped here and offered there.
-          const bool targOnShell{shellActive &&
-                                 shellIndex.isShellBinned[targMolIndex] != 0};
-          if (molTemplateList[protype].bindToSurface == true) {
-            check_implicit_reactions(
-                targMolIndex, implicitlipidIndex, simItr, params, moleculeList,
-                complexList, molTemplateList, forwardRxns, backRxns,
-                counterArrays, membraneObject, IL2DbindingVec, IL2DUnbindingVec,
-                ILTableIDs);
-          }
-          // Check for binding to the compartment in / or out. there must be a
-          // reaction type that involves binding/unbinding from the compartment
-          // surface. Implementation might be very similar to implicit lipid.
-          if (membraneObject.hasCompartment == true) {
-            // only consider single molecule
-            if (complexList[moleculeList[targMolIndex].myComIndex]
-                    .memberList.size() == 1) {
-              check_compartment_reaction(
-                  targMolIndex, -1, simItr, params, moleculeList, complexList,
-                  molTemplateList, transmissionRxns, backRxns, counterArrays,
-                  membraneObject, IL2DbindingVec, IL2DUnbindingVec, ILTableIDs);
-            }
-          }
-          // secondly, loop over proteins in your same cell.
-          for (unsigned memItr2{memItr + 1};
-               memItr2 < simulVolume.subCellList[cellItr].memberMolList.size();
-               ++memItr2) {
-            int partMolIndex{
-                simulVolume.subCellList[cellItr].memberMolList[memItr2]};
-            if (targOnShell && shellIndex.isShellBinned[partMolIndex])
-              continue; // the shell index offers this pair
-            if (useTypeMask &&
-                !(targMask &
-                  (uint64_t(1) << memberTypeIndex[partMolIndex])))
-              continue;
-            check_bimolecular_reactions(
-                targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
-                params, normMatrices, survMatrices, pirMatrices, moleculeList,
-                complexList, molTemplateList, forwardRxns, backRxns,
-                counterArrays, membraneObject);
-          } // loop over protein partners in your same cell
-          // thirdly, loop over all neighboring cells, and all proteins in those
-          // cells. for PBC, all cells have maxnbor neighbor cells. For
-          // reflecting, edge have fewer.
-          for (auto &neighCellItr : simulVolume.subCellList[cellItr].neighborList) {
-            if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) == 0)
-              continue; // nothing in that SubBox can pair with this molecule
-            for (unsigned memItr2{0};
-                 memItr2 < simulVolume.subCellList[neighCellItr].memberMolList.size();
-                 ++memItr2) {
-              int partMolIndex{
-                  simulVolume.subCellList[neighCellItr].memberMolList[memItr2]};
-              if (targOnShell && shellIndex.isShellBinned[partMolIndex])
-                continue; // the shell index offers this pair
-              if (useTypeMask &&
-                  !(targMask &
-                    (uint64_t(1) << memberTypeIndex[partMolIndex])))
-                continue;
-              check_bimolecular_reactions(
-                  targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
-                  params, normMatrices, survMatrices, pirMatrices, moleculeList,
-                  complexList, molTemplateList, forwardRxns, backRxns,
-                  counterArrays, membraneObject);
-            } // loop over all proteins in this neighbor cell
-          }   // loop over all neighbor cells
-        }     // if protein i is free to bind
-      }       // loop over all proteins in initial cell
-    }         // End looping over all cells.
-
-    // Second pass: the surface-to-surface pairs the Cartesian pass skipped.
-    // Only check_bimolecular_reactions() runs here.  The implicit-lipid and
-    // compartment checks are per-molecule, not per-pair, and already ran above.
-    if (shellActive) {
-      for (int shellCellItr : shellIndex.occupiedCells) {
-        const std::vector<int> &shellMembers =
-            shellIndex.memberMolList[shellCellItr];
-        for (unsigned memItr{0}; memItr < shellMembers.size(); ++memItr) {
-          const int targMolIndex{shellMembers[memItr]};
-          if (moleculeList[targMolIndex].isImplicitLipid)
-            continue;
-          if (!(moleculeList[targMolIndex].freelist.size() > 0 ||
-                molTemplateList[moleculeList[targMolIndex].molTypeIndex]
-                        .excludeVolumeBound == true))
-            continue;
-
-          const int protype = moleculeList[targMolIndex].molTypeIndex;
-          const uint64_t targMask{useTypeMask ? interactionMask[protype]
-                                              : ~uint64_t(0)};
-
-          for (unsigned memItr2{memItr + 1}; memItr2 < shellMembers.size();
-               ++memItr2) {
-            const int partMolIndex{shellMembers[memItr2]};
-            if (useTypeMask &&
-                !(targMask &
-                  (uint64_t(1) << memberTypeIndex[partMolIndex])))
-              continue;
-            check_bimolecular_reactions(
-                targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
-                params, normMatrices, survMatrices, pirMatrices, moleculeList,
-                complexList, molTemplateList, forwardRxns, backRxns,
-                counterArrays, membraneObject);
-          }
-
-          for (int neighCellItr : shellIndex.neighborList[shellCellItr]) {
-            if ((shellIndex.typeMask[neighCellItr] & targMask) == 0)
-              continue;
-            const std::vector<int> &neighMembers =
-                shellIndex.memberMolList[neighCellItr];
-            for (unsigned memItr2{0}; memItr2 < neighMembers.size(); ++memItr2) {
-              const int partMolIndex{neighMembers[memItr2]};
-              if (useTypeMask &&
-                  !(targMask &
-                    (uint64_t(1) << memberTypeIndex[partMolIndex])))
-                continue;
-              check_bimolecular_reactions(
-                  targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
-                  params, normMatrices, survMatrices, pirMatrices, moleculeList,
-                  complexList, molTemplateList, forwardRxns, backRxns,
-                  counterArrays, membraneObject);
-            }
-          }
-        }
-      }
-    }
+    // possible reactions.  The walk itself, with every gate it has grown
+    // since 1.3, lives in src/reactions/
+    // measure_separations_to_identify_possible_reactions.cpp and is the one
+    // nerdss_mpi runs too.
+    measure_separations_to_identify_possible_reactions(
+        simItr, params, moleculeList, complexList, simulVolume, forwardRxns,
+        backRxns, createDestructRxns, transmissionRxns, molTemplateList,
+        observablesList, counterArrays, membraneObject, IL2DbindingVec,
+        IL2DUnbindingVec, ILTableIDs, normMatrices, survMatrices, pirMatrices,
+        implicitlipidIndex, tableIDs, DDTableIndex, pairSearch);
 
     /*Now that separations and reaction probabilities are calculated, decide
      * whether to perform reactions for each protein.*/
