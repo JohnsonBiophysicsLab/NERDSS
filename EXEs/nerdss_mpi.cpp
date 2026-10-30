@@ -508,14 +508,28 @@ int main(int argc, char* argv[]) {
       LOC(4.1, " @ PRESERVE RNG STATE FROM RESTART", PROC_0);
     }
 
-    try {
-      read_rng_state(mpiContext.rank);  // read the current RNG state
-    } catch (std::exception& e) {
-      // No saved state for this rank: seed as a new run does, rank 0 from
-      // the seed and every other rank from seed + rank, so that the ranks
-      // of a restart draw from different streams (one saved state cannot be
-      // split between them either).
-      std::cout << "Read rng_state failed. Set the rng_state with the seed: "
+    // The state this rank saved at the checkpoint, if the checkpoint was
+    // written at this rank count (write_gathered_restart() has every rank
+    // save its own, named by rank and rank count; the file is looked for in
+    // DATA/, here, and beside the restart file).  The reader used to throw
+    // nothing on a missing file, so the fallback below never ran and every
+    // rank of a restart went on drawing from the generator main() had just
+    // seeded with the seed: one stream, shared by all ranks.
+    const std::string checkpointDir =
+        restartFileNameInput.find('/') == std::string::npos
+            ? std::string(".")
+            : restartFileNameInput.substr(0, restartFileNameInput.rfind('/'));
+    std::string rngStateFile;
+    if (read_rng_state(mpiContext.rank, mpiContext.nprocs, checkpointDir,
+                       simItr, rngStateFile)) {
+      std::cout << "RNG state of rank " << mpiContext.rank << " read from "
+                << rngStateFile << std::endl;
+    } else {
+      // No saved state for this rank at this rank count: seed as a new run
+      // does, rank 0 from the seed and every other rank from seed + rank, so
+      // that the ranks draw from different streams.
+      std::cout << "no saved RNG state for rank " << mpiContext.rank << " of "
+                << mpiContext.nprocs << "; seeding with "
                 << seed + mpiContext.rank << std::endl;
       gsl_rng_set(r, seed + mpiContext.rank);
     }
@@ -523,7 +537,9 @@ int main(int argc, char* argv[]) {
     std::ofstream restartFile{restartFileName,
                               std::ios::out};  // to show different from append
 
-    write_rng_state(mpiContext.rank);  // write the current RNG state
+    // The state the continuation starts from, as the serial build writes
+    // DATA/rng_state when rngwrite is on (EXEs/nerdss.cpp).
+    if (params.rngwrite) write_rng_state(mpiContext.rank, mpiContext.nprocs);
     write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                   complexList, molTemplateList, forwardRxns, backRxns,
                   createDestructRxns, transmissionRxns, observablesList, membraneObject,
@@ -565,6 +581,9 @@ int main(int argc, char* argv[]) {
 #ifdef NERDSS_CHECK_STATE_BITS
     iface_state_bits::verify_all(moleculeList, "top of step");
 #endif
+    // NERDSS_RNG_PROBE in the environment: a digest of this rank's generator
+    // at the top of the step, to stderr (rand_gsl.cpp).
+    rng_probe_line(mpiContext.rank, simItr);
     if (1) {
       // if (mpiContext.rank == 0) {
       start_computation_time = MPI_Wtime();
