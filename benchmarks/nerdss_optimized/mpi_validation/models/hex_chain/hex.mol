@@ -1,0 +1,29 @@
+##
+# A linear polymer made from the hexamer sample: cd1 and cd2 sit on opposite
+# sides of the centre of mass, so cd1 + cd2 bonds line the molecules up end
+# to end (11 nm between centres) instead of closing hexagons, and a chain
+# grows as long as the box lets it.  D is small so that rMaxLimit, and with
+# it the width of a column, is about two links: a chain of six or more
+# molecules can reach past both ends of a middle rank's three columns.  For
+# check_complex_extent(); see
+# benchmarks/nerdss_optimized/mpi_validation/complex_extent_check.sh.
+##
+
+Name = hex
+checkOverlap = true
+
+# translational diffusion constants
+D = [1.0, 1.0, 1.0]
+
+# rotational diffusion constants
+Dr = [0.001, 0.001, 0.001]
+
+# Coordinates
+COM    0.0000    0.0000    0.0000
+cd1    6.0000    0.0000    0.0000
+cd2   -6.0000    0.0000    0.0000
+
+# bonds for visualization only.
+bonds = 2
+com cd1
+com cd2

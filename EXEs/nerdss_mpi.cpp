@@ -1167,6 +1167,10 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after remove_empty_slots");
+    // A complex wider than the stripe can carry (a member two ranks from its
+    // owner); see check_complex_extent() in src/mpi/check_structure_invariant.cpp.
+    check_complex_extent(mpiContext, moleculeList, complexList, molTemplateList,
+                         forwardRxns, simulVolumeWhole.numSubCells.x, simItr);
 
     // The serial build's restart files, on the serial build's schedule and
     // under its names, holding the whole system; see
@@ -1300,6 +1304,8 @@ int main(int argc, char* argv[]) {
     merge_outputs(mpiContext.nprocs, molTemplateList.size(),
                   params.pdbWrite > 0);
   }
+
+  report_complex_extent_summary(mpiContext);
 
   delete[] tableIDs;
   gsl_rng_free(r);

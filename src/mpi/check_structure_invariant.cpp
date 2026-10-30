@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "debug/debug.hpp"
 #include "macro.hpp"
 #include "mpi/mpi_function.hpp"
 
@@ -178,4 +179,148 @@ bool check_structure_invariant(MpiContext &mpiContext,
     exit(3);
   }
   return true;
+}
+
+/*!
+ * A complex is moved by one rank, its owner, and the two exchanges of every
+ * step keep the neighbours' ghost copies current.  Ownership moves with the
+ * stripe: send_data_to_*_neighboring_ranks() hands every complex that has a
+ * member in the rank's ghost column to the neighbour on that side, whole.  A
+ * complex that reaches both ghost columns of a middle rank is therefore
+ * handed to the left neighbour at one exchange and to the right neighbour at
+ * the next, every step; the two neighbours never hear from each other, each
+ * stamp overrides the other on whichever rank receives it last, and the
+ * complex ends up owned by nobody or by two ranks (CHECK_OWNERSHIP reports
+ * it as ids held only as ghosts).  It is the width the stripe cannot carry:
+ * more than a middle rank's owned columns, and nothing stops a chain or a
+ * lattice from growing that wide.  (A member two ranks away from the owner,
+ * the case the audit named, is the same thing: bonds are shorter than a
+ * column, so a complex is contiguous in columns, and one reaching from rank
+ * r - 1's columns into rank r + 1's covers both of rank r's ghost columns.)
+ *
+ * This reports it.  Once per step, after the step's last exchange, every
+ * complex on the rank is measured member by member -- its lowest and highest
+ * column, the x bin as get_x_bin() computes it made absolute with xOffset, so
+ * members held outside the rank's own columns count too -- and compared with
+ * every middle rank's owned columns (MpiContext::column_share(), the same
+ * table on every rank): a complex whose columns include the one before and
+ * the one after a middle rank's owned columns is reported, with the stamp it
+ * carries here, whatever that stamp says.  At np <= 2 there is no middle
+ * rank and nothing to check.
+ *
+ * Cost in the -O3 build: a complex of k members spans at most (k - 1) times
+ * the longest bound-pair separation (twice the farthest interface from a
+ * centre of mass, plus the largest binding radius), and reaching past both
+ * ends of a middle rank's owned columns takes more than their width, so a
+ * complex that cannot be that wide is skipped on its member count alone --
+ * one integer compare per complex per step, and the member loop never runs
+ * for trimers and hexamers.  Checker builds (CHECK_STRUCTURE) walk every
+ * member of every complex.
+ *
+ * The -O3 build prints one warning line, on the first step a rank sees such
+ * a complex, and report_complex_extent_summary() a count at the end of the
+ * run; nothing is printed when it never happens.  Checker builds print every
+ * offending complex (up to a cap per step) under the STRUCTURE VIOLATION
+ * label the suite counts, and go on: the structure is intact, the physics is
+ * what is wrong.
+ */
+namespace {
+long long extentSteps = 0;       // steps on which this rank saw one
+long long extentFirstStep = -1;
+long long extentComplexes = 0;   // complex copies reported, all steps
+}  // namespace
+
+int check_complex_extent(MpiContext &mpiContext,
+                         std::vector<Molecule> &moleculeList,
+                         std::vector<Complex> &complexList,
+                         const std::vector<MolTemplate> &molTemplateList,
+                         const std::vector<ForwardRxn> &forwardRxns,
+                         int totalColumns, long long simItr) {
+  if (mpiContext.nprocs < 3) return 0;
+
+  // Every middle rank's owned columns, and the shortest x-extent that can
+  // reach past both ends of the narrowest of them, both fixed for the run.
+  static std::vector<int> firstOwned, lastOwned;  // per middle rank
+  static double minReach = 0.0;    // nm; a narrower complex cannot violate
+  static double maxLink = 0.0;     // nm; longest bound-pair COM separation
+  if (firstOwned.empty()) {
+    int narrowest = -1;
+    for (int r = 1; r < mpiContext.nprocs - 1; r++) {
+      int first = 0, count = 0;
+      mpiContext.column_share(totalColumns, r, first, count);
+      firstOwned.push_back(first);
+      lastOwned.push_back(first + count - 1);
+      if (narrowest < 0 || count < narrowest) narrowest = count;
+    }
+    minReach = narrowest * mpiContext.simulVolume->subCellSize.x;
+    double reach = 0.0, sigma = 0.0;
+    for (const auto &oneTemp : molTemplateList)
+      for (const auto &iface : oneTemp.interfaceList)
+        reach = std::max(reach, iface.iCoord.length());
+    for (const auto &rxn : forwardRxns)
+      sigma = std::max(sigma, std::max(rxn.bindRadius, rxn.bindRadius2D));
+    maxLink = 2.0 * reach + sigma;
+  }
+
+  const int nMol = static_cast<int>(moleculeList.size());
+  const int cap = 20;
+  int bad = 0;
+  for (const auto &com : complexList) {
+    if (com.isEmpty) continue;
+    const int k = static_cast<int>(com.memberList.size());
+    if (!CHECK_STRUCTURE && (k - 1) * maxLink <= minReach) continue;
+    int lo = -1, hi = -1;
+    for (int m : com.memberList) {
+      if (m < 0 || m >= nMol) continue;
+      const Molecule &mol = moleculeList[m];
+      if (mol.isEmpty || mol.isImplicitLipid) continue;
+      int col = get_x_bin(mpiContext, moleculeList[m]) + mpiContext.xOffset;
+      if (col < 0) col = 0;
+      if (col >= totalColumns) col = totalColumns - 1;
+      if (lo < 0 || col < lo) lo = col;
+      if (hi < 0 || col > hi) hi = col;
+    }
+    if (lo < 0) continue;
+    int middle = -1;
+    for (size_t i = 0; i < firstOwned.size(); i++)
+      if (lo < firstOwned[i] && hi > lastOwned[i]) {
+        middle = static_cast<int>(i) + 1;
+        break;
+      }
+    if (middle < 0) continue;
+    bad++;
+    if (CHECK_STRUCTURE) {
+      if (bad <= cap)
+        fprintf(stderr,
+                "STRUCTURE VIOLATION rank %d itr=%lld at=complex extent : "
+                "complex id=%d (%d members, owner stamp %d) spans columns "
+                "%d..%d, past both ends of rank %d's columns %d..%d; it is "
+                "handed to both of that rank's neighbours in turn\n",
+                mpiContext.rank, simItr, com.id, k, com.ownerRank, lo, hi,
+                middle, firstOwned[middle - 1], lastOwned[middle - 1]);
+    } else if (extentSteps == 0 && bad == 1) {
+      fprintf(stderr,
+              "WARNING rank %d itr=%lld: complex id=%d (%d members) spans "
+              "columns %d..%d, past both ends of rank %d's columns %d..%d; "
+              "the stripe hands it to both of that rank's neighbours in turn, "
+              "so this complex and what binds it are unreliable from here on "
+              "(one warning per rank; a count follows at the end of the run)\n",
+              mpiContext.rank, simItr, com.id, k, lo, hi, middle,
+              firstOwned[middle - 1], lastOwned[middle - 1]);
+    }
+  }
+  if (bad) {
+    if (extentSteps == 0) extentFirstStep = simItr;
+    extentSteps++;
+    extentComplexes += bad;
+  }
+  return bad;
+}
+
+void report_complex_extent_summary(MpiContext &mpiContext) {
+  if (extentSteps == 0) return;
+  fprintf(stderr,
+          "WARNING rank %d: a complex wider than the stripe carries on %lld "
+          "step(s), first at step %lld, %lld complex copies in all\n",
+          mpiContext.rank, extentSteps, extentFirstStep, extentComplexes);
 }
