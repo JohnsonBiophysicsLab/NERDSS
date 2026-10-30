@@ -229,4 +229,10 @@ void remove_empty_slots(
                      history->end());
     }
   }
+#ifdef mpi_
+  // Every index above moved: the id-to-index maps behind find_molecule() and
+  // find_complex() are rebuilt here rather than patched, one pass over lists
+  // this function has just walked anyway (src/mpi/id_index.cpp).
+  rebuild_id_index(moleculeList, complexList);
+#endif
 }

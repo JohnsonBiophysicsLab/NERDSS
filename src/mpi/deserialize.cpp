@@ -214,6 +214,7 @@ void deserialize_complexes(MpiContext &mpiContext,
       c.index = complexList.size();
       complexIndex = c.index;
       complexList.push_back(c);
+      note_complex_installed(c.id, complexIndex);
     } else {
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
@@ -372,6 +373,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       c.index = complexList.size();
       complexIndex = c.index;
       complexList.push_back(c);
+      note_complex_installed(c.id, complexIndex);
     } else {
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
@@ -646,6 +648,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       mol.index = moleculeList.size();
       molIndex = mol.index;
       moleculeList.push_back(mol);
+      note_molecule_installed(mol.id, molIndex);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);
@@ -839,6 +842,7 @@ void deserialize_molecules_right(
       mol.index = moleculeList.size();
       molIndex = mol.index;
       moleculeList.push_back(mol);
+      note_molecule_installed(mol.id, molIndex);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);

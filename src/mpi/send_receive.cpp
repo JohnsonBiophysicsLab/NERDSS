@@ -273,6 +273,9 @@ void receive_right_neighborhood_zones(
            << " received from right: " << mpiContext.nMPIArrayFromRight << endl;
     }
     mpiContext.nMPIArrayFromRight = 0;
+    // What the reactions created here since the last pass has to be findable
+    // by id before the message is read (see src/mpi/id_index.cpp).
+    refresh_id_index(moleculeList, complexList);
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;
@@ -410,6 +413,7 @@ void receive_left_neighborhood_zones(
            << " received from left: " << mpiContext.nMPIArrayFromLeft << endl;
     }
     mpiContext.nMPIArrayFromLeft = 0;
+    refresh_id_index(moleculeList, complexList);
     vector<int> indices;
     vector<int> indicesEnteringMolecules;
     vector<int> indicesExitingMolecules;

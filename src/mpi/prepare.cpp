@@ -239,6 +239,10 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
                                           mpiContext.nprocs * mpiContext.rank;
   Complex::maxID = Complex::maxID + (INT_MAX - Complex::maxID) /
                                         mpiContext.nprocs * mpiContext.rank;
+
+  // The lists and this rank's id range are final: build the id-to-index maps
+  // behind find_molecule() / find_complex().
+  rebuild_id_index(moleculeList, complexList);
 }
 
 /**

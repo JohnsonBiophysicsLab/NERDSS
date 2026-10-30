@@ -29,9 +29,21 @@ using namespace std;
 void move_complexes_based_on_propagation(MpiContext &mpiContext, vector<Molecule> &moleculeList, SimulVolume &simulVolume, Membrane &membraneObject);
 
 /*! \ingroup mpi_function
- * \brief Search for the molecule with the same ID within moleculeList
+ * \brief Index of the molecule with this id in moleculeList, or -1.  Answers
+ * from the id-to-index map (src/mpi/id_index.cpp); the slot may be empty.
  */
 int find_molecule(vector<Molecule> &moleculeList, int id);
+
+/*! \ingroup mpi_function
+ * \brief Keep the id-to-index maps behind find_molecule() / find_complex()
+ * current.  rebuild after the lists were built or compacted; refresh at the
+ * top of a receive, for the ids the reactions created here since; note_*
+ * when a deserialiser appends a slot.
+ */
+void rebuild_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void refresh_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void note_molecule_installed(int id, int index);
+void note_complex_installed(int id, int index);
 
 /*! \ingroup mpi_function
  * \brief Verify that every molecule is owned by exactly one rank.
@@ -60,7 +72,8 @@ void derive_ghost_from_ownership(MpiContext &mpiContext,
                                  bool skipUnclaimed);
 
 /*! \ingroup mpi_function
- * \brief Search for the complex with the same ID within complexList
+ * \brief Index of the complex with this id in complexList, or -1; see
+ * find_molecule().
  */
 int find_complex(vector<Complex> &complexList, int id);
 

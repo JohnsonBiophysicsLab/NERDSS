@@ -397,8 +397,6 @@ struct Molecule {
     int complexId{-1};  // used for molecules in ghosted zones, for finding complex at neighbor rank
     // MPI static variable:
     static int maxID;  //!< the number of the first empty ID for a complex atparticular rank
-    // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
-    static std::unordered_map<size_t, size_t> mapIdToIndex;
 
     // association member functions
     void update_association_coords(const Vec3D& vec);
@@ -601,8 +599,6 @@ public:
     // MPI static variable:
     static int maxID;  //!< the number of the first empty ID for a complex at particular rank
 
-    // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
-    static std::unordered_map<size_t, size_t> mapIdToIndex;
 
     void update_properties(const std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
     void display();
