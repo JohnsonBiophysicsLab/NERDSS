@@ -8,6 +8,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifdef mpi_
@@ -95,6 +96,7 @@ void deserialize_primitive_vector(std::vector<T> &to_deserialize,
                              // from first bytes of arrayRank needed for one int
   nArrayRank +=
       sizeof(int);  // set current number of bytes read to the size of int
+  to_deserialize.reserve(vector_size);
   for (int i = 0; i < vector_size; i++) {  // for all vector elements
     T temp = *((T *)&(
         arrayRank[nArrayRank]));     // extract an element of type T (e.g. int)
@@ -140,13 +142,14 @@ void deserialize_abstract_vector(std::vector<T> &to_deserialize,
     std::cout << "Deserialize: vector size = " << vector_size << std::endl;
   nArrayRank +=
       sizeof(int);  // set current number of bytes read to the size of int
+  to_deserialize.reserve(vector_size);
   for (int i = 0; i < vector_size; i++) {  // for all vector elements
     T temp;  // Create local object of type T (e.g. Vec3D)
     temp.deserialize(
         arrayRank, nArrayRank);  // extract one vector element (e.g. Vec3D)
                                  // and increase number of bytes read
                                  // Note: T has to implement deserialize method
-    to_deserialize.push_back(temp);  // push element to the back of the vector
+    to_deserialize.push_back(std::move(temp));  // push element to the back of the vector
     // if(verbose) std::cout << "push_back finished." << std::endl;
   }
   if (verbose)
