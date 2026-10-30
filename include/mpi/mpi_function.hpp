@@ -136,10 +136,10 @@ bool check_enter_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, 
 bool check_exit_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, vector<int> &indicesEnteringMolecules, SimulVolume &simulVolume);
 
 /*! \ingroup mpi_function
- * \brief serialize molecules
+ * \brief Serialize the molecules at these indices, in this order.
  */
 void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank,
-    int &nArrayRank, set<int> &complexesSet, set<int> &moleculesSet);
+    int &nArrayRank, const vector<int> &molecules);
 
 /*! \ingroup mpi_function
  * \brief serialize some molecules
@@ -183,7 +183,7 @@ void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolum
 /*! \ingroup mpi_function
  * \brief Serialize complexes from complexList with indices within complexesSet
  */
-void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject, set<int> &complexesSet,
+void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject, const vector<int> &complexes,
     vector<Complex> &complexList, vector<Molecule> &moleculeList, unsigned char *arrayRank, int &nArrayRank);
 
 /*! \ingroup mpi_function

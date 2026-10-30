@@ -8,7 +8,7 @@
 using namespace std;
 
 void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
-                         Membrane &membraneObject, set<int> &complexesSet,
+                         Membrane &membraneObject, const vector<int> &complexes,
                          vector<Complex> &complexList,
                          vector<Molecule> &moleculeList,
                          unsigned char *arrayRank, int &nArrayRank) {
@@ -23,24 +23,23 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
   int writeLengthAt = nArrayRank;
   nArrayRank += sizeof(nComplexes);
 
-  // TODO: AssumING 2 molecule complexes:
-  for (auto &com : complexList) {
-    com.deleteIfNotReceivedBack = true;
-  }
+  // This used to set deleteIfNotReceivedBack on every complex of the rank, a
+  // pass over the whole list per exchange.  The flag's only reader is
+  // delete_disappeared_complexes(), which nothing calls, and nothing ever
+  // clears it, so the pass never changed a value.
 
   // The members go on the wire as ids, which the receiver maps back to its
   // own indices.  Written straight from the complex (Complex::serialize_as())
   // rather than from a copy with its memberList rewritten; the one id vector
   // is reused across the loop.
   static vector<int> memberIds;
-  // Loop over set elements:
-  for (auto itr = complexesSet.begin(); itr != complexesSet.end(); itr++) {
-    Complex &com = complexList[*itr];
+  for (int comIndex : complexes) {
+    Complex &com = complexList[comIndex];
     if (com.isEmpty) continue;
     memberIds.clear();
     for (auto &it : com.memberList) memberIds.push_back(moleculeList[it].id);
 
-    // Serialize the complex *itr into the arrayRank:
+    // Serialize the complex into the arrayRank:
     com.serialize_as(arrayRank, nArrayRank, memberIds);
 
     com.receivedFromNeighborRank = false;
@@ -61,8 +60,7 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
 void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
                          vector<Molecule> &moleculeList,
                          vector<Complex> &complexList, unsigned char *arrayRank,
-                         int &nArrayRank, set<int> &complexesSet,
-                          set<int> &moleculesSet) {
+                         int &nArrayRank, const vector<int> &molecules) {
   if (VERBOSE) cout << "serialize_molecules begins" << endl;
   // Molecules are serialized after the number of molecules,
   // making it possible to deserialize.
@@ -75,11 +73,11 @@ void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
   // Count molecules:
   int nMols = 0;
 
-  for (auto &molIndex : moleculesSet) {
+  for (int molIndex : molecules) {
     Molecule &mol = moleculeList[molIndex];
     if (mol.isImplicitLipid) continue;
     if (mol.isEmpty) continue;
-    
+
     // The receiver finds partners and the complex by id: bring the partner
     // ids up to date and write the complex's id where myComIndex goes,
     // without touching the molecule's own myComIndex.

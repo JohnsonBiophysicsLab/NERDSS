@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 
 #include "debug/debug.hpp"
@@ -5,6 +6,45 @@
 #include "mpi/mpi_function.hpp"
 
 using namespace std;
+
+// What a send takes: the molecules of the two edge columns with every member
+// of their complexes, and those complexes, each once, in ascending slot
+// order -- the order the receiver reads them in, so it has to stay.  This
+// was a pair of std::set<int>, a node allocation per insert, and the column
+// loops offer each member of a straddling complex once per column it is met
+// in.  A mark per slot and one sort of the kept indices gives the same list.
+// Static so the marks and the lists keep their storage across exchanges.
+namespace {
+struct StripeSelection {
+  vector<char> molMarked, comMarked;
+  vector<int> mols, coms;
+  void reset(size_t nMols, size_t nComs) {
+    molMarked.assign(nMols, 0);
+    comMarked.assign(nComs, 0);
+    mols.clear();
+    coms.clear();
+  }
+  void add_molecule(int i) {
+    if (i >= 0 && i < static_cast<int>(molMarked.size())) {
+      if (molMarked[i]) return;
+      molMarked[i] = 1;
+    }
+    mols.push_back(i);
+  }
+  void add_complex(int i) {
+    if (i >= 0 && i < static_cast<int>(comMarked.size())) {
+      if (comMarked[i]) return;
+      comMarked[i] = 1;
+    }
+    coms.push_back(i);
+  }
+  void sort_indices() {
+    std::sort(mols.begin(), mols.end());
+    std::sort(coms.begin(), coms.end());
+  }
+};
+StripeSelection selection;
+}  // namespace
 
 // Ghost status is derived, never decided independently: a molecule is a ghost
 // exactly when its complex is owned by somebody else.  After a receive this
@@ -47,8 +87,7 @@ void send_data_to_left_neighboring_ranks(
   // Send pieces to left ranks
   if (mpiContext.rank) {  // if not first rank
     // Store portion of molecules for left rank into the array:
-    set<int> complexesSet;
-    set<int> moleculesSet;
+    selection.reset(moleculeList.size(), complexList.size());
 
     int xItr = 0;
     for (int j = 0; j < simulVolume.numSubCells.y; j++) {
@@ -63,8 +102,8 @@ void send_data_to_left_neighboring_ranks(
           // for itself, so exactly one rank ends up owning it.
           complexList[mol.myComIndex].ownerRank = mpiContext.rank - 1;
           mol.isGhosted = true;
-          moleculesSet.insert(molIdx);
-          complexesSet.insert(mol.myComIndex);
+          selection.add_molecule(molIdx);
+          selection.add_complex(mol.myComIndex);
           // A complex travels whole: serialize_complexes() writes the full
           // memberList as IDs, so every member has to be in the message or the
           // receiver cannot resolve the ID.  Walk memberList rather than the
@@ -72,7 +111,7 @@ void send_data_to_left_neighboring_ranks(
           // rank is in no sub-volume at all and the stripe loops never reach it.
           for (auto& memIdx : complexList[mol.myComIndex].memberList) {
             moleculeList[memIdx].isGhosted = true;
-            moleculesSet.insert(memIdx);
+            selection.add_molecule(memIdx);
           }
         }
       }
@@ -87,25 +126,26 @@ void send_data_to_left_neighboring_ranks(
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
           mol.isShared = true;
-          moleculesSet.insert(molIdx);
-          complexesSet.insert(mol.myComIndex);
+          selection.add_molecule(molIdx);
+          selection.add_complex(mol.myComIndex);
           for (auto& memIdx : complexList[mol.myComIndex].memberList) {
             moleculeList[memIdx].isShared = true;
-            moleculesSet.insert(memIdx);
+            selection.add_molecule(memIdx);
           }
         }
       }
     }
 
+    selection.sort_indices();
     if (CHECK_STRUCTURE)
-      for (int molIdx : moleculesSet)
+      for (int molIdx : selection.mols)
         trace_molecule(mpiContext, "sending left", moleculeList, complexList, moleculeList[molIdx]);
     mpiContext.nMPIArrayToLeft = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToLeft, mpiContext.nMPIArrayToLeft,
-                        complexesSet, moleculesSet);
+                        selection.mols);
     mpiContext.check_buffer_size(mpiContext.nMPIArrayToLeft);
-    serialize_complexes(mpiContext, simulVolume, membraneObject, complexesSet,
+    serialize_complexes(mpiContext, simulVolume, membraneObject, selection.coms,
                         complexList, moleculeList, mpiContext.MPIArrayToLeft,
                         mpiContext.nMPIArrayToLeft);
 
@@ -145,8 +185,7 @@ void send_data_to_right_neighboring_ranks(
   // Send pieces to right ranks
   if (mpiContext.rank < mpiContext.nprocs - 1) {  // if not last rank
     // Store portion of molecules for rank into the array:
-    set<int> complexesSet;
-    set<int> moleculesSet;
+    selection.reset(moleculeList.size(), complexList.size());
 
     int xItr = simulVolume.numSubCells.x - 1;
     for (int j = 0; j < simulVolume.numSubCells.y; j++) {
@@ -160,11 +199,11 @@ void send_data_to_right_neighboring_ranks(
           // and send the whole complex with it for the same reason.
           complexList[mol.myComIndex].ownerRank = mpiContext.rank + 1;
           mol.isGhosted = true;
-          moleculesSet.insert(molIdx);
-          complexesSet.insert(mol.myComIndex);
+          selection.add_molecule(molIdx);
+          selection.add_complex(mol.myComIndex);
           for (auto& memIdx : complexList[mol.myComIndex].memberList) {
             moleculeList[memIdx].isGhosted = true;
-            moleculesSet.insert(memIdx);
+            selection.add_molecule(memIdx);
           }
         }
       }
@@ -179,20 +218,21 @@ void send_data_to_right_neighboring_ranks(
           auto& mol = moleculeList[molIdx];
           if (mol.myComIndex == -1 || mol.isImplicitLipid == true || mol.isEmpty == true) continue;
           mol.isShared = true;
-          moleculesSet.insert(molIdx);
-          complexesSet.insert(mol.myComIndex);
+          selection.add_molecule(molIdx);
+          selection.add_complex(mol.myComIndex);
           for (auto& memIdx : complexList[mol.myComIndex].memberList) {
             moleculeList[memIdx].isShared = true;
-            moleculesSet.insert(memIdx);
+            selection.add_molecule(memIdx);
           }
         }
       }
     }
 
+    selection.sort_indices();
     // What the right neighbour is given, by id: at the next first exchange
     // its copy of these comes back, and a copy that still matches this is one
     // the neighbour did not touch.
-    for (int molIdx : moleculesSet) {
+    for (int molIdx : selection.mols) {
       const Molecule &mol = moleculeList[molIdx];
       MolSnapshot s;
       if (mol.myComIndex >= 0 &&
@@ -204,15 +244,15 @@ void send_data_to_right_neighboring_ranks(
     }
 
     if (CHECK_STRUCTURE)
-      for (int molIdx : moleculesSet)
+      for (int molIdx : selection.mols)
         trace_molecule(mpiContext, "sending right", moleculeList, complexList, moleculeList[molIdx]);
     mpiContext.nMPIArrayToRight = 0;
     serialize_molecules(mpiContext, simulVolume, moleculeList, complexList,
                         mpiContext.MPIArrayToRight, mpiContext.nMPIArrayToRight,
-                        complexesSet, moleculesSet);
+                        selection.mols);
     mpiContext.check_buffer_size(mpiContext.nMPIArrayToRight);
 
-    serialize_complexes(mpiContext, simulVolume, membraneObject, complexesSet,
+    serialize_complexes(mpiContext, simulVolume, membraneObject, selection.coms,
                         complexList, moleculeList, mpiContext.MPIArrayToRight,
                         mpiContext.nMPIArrayToRight);
 
