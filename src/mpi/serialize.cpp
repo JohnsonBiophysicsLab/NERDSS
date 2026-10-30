@@ -28,20 +28,22 @@ void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume,
     com.deleteIfNotReceivedBack = true;
   }
 
+  // The members go on the wire as ids, which the receiver maps back to its
+  // own indices.  Written straight from the complex (Complex::serialize_as())
+  // rather than from a copy with its memberList rewritten; the one id vector
+  // is reused across the loop.
+  static vector<int> memberIds;
   // Loop over set elements:
   for (auto itr = complexesSet.begin(); itr != complexesSet.end(); itr++) {
-    if (complexList[*itr].isEmpty) continue;
-    Complex c = complexList[*itr];
-    vector<int> memberList{};
-    for (auto &it : c.memberList) {
-      memberList.push_back(moleculeList[it].id);
-    }
-    c.memberList = memberList;
+    Complex &com = complexList[*itr];
+    if (com.isEmpty) continue;
+    memberIds.clear();
+    for (auto &it : com.memberList) memberIds.push_back(moleculeList[it].id);
 
     // Serialize the complex *itr into the arrayRank:
-    c.serialize(arrayRank, nArrayRank);
+    com.serialize_as(arrayRank, nArrayRank, memberIds);
 
-    complexList[*itr].receivedFromNeighborRank = false;
+    com.receivedFromNeighborRank = false;
     nComplexes++;
   }
 
@@ -78,20 +80,13 @@ void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
     if (mol.isImplicitLipid) continue;
     if (mol.isEmpty) continue;
     
-    // complexesSet.insert(mol.myComIndex);
-    int myComIndex = mol.myComIndex;
-    // indices_to_IDs rewrites the reweighting history in place from local
-    // indices to global IDs, exactly as it does myComIndex, so it has to be
-    // restored the same way.  It was not, which left this rank's own reweighting
-    // history holding IDs where every consumer reads indices.
-    std::vector<Molecule::ReweightEntry> prevReweight = mol.prevReweight;
-    indices_to_IDs(mol, moleculeList, complexList);
-    mol.serialize(arrayRank, nArrayRank);
-    mol.myComIndex = myComIndex;
-    mol.prevReweight = prevReweight;
+    // The receiver finds partners and the complex by id: bring the partner
+    // ids up to date and write the complex's id where myComIndex goes,
+    // without touching the molecule's own myComIndex.
+    refresh_partner_ids(mol, moleculeList);
+    mol.serialize_as(arrayRank, nArrayRank, complexList[mol.myComIndex].id);
     mol.receivedFromNeighborRank = false;
     nMols++;
-  
   }
 
   // Serialize number of molecules before serialized molecules:
@@ -143,22 +138,10 @@ void serialize_molecules_partial(MpiContext &mpiContext,
         // Mark myComIndex complex to be serialized as well:
         complexesSet.insert(mol.myComIndex);
 
-        // Store current myComIndex,
-        // as the one for serialization will be replaced by complexId:
-        int myComIndex = mol.myComIndex;
-        // Same for the reweighting history, which indices_to_IDs also
-        // rewrites in place.
-        std::vector<Molecule::ReweightEntry> prevReweight = mol.prevReweight;
-
-        // Based on interfaces' partnerIndex, assign partnerIDs:
-        indices_to_IDs(mol, moleculeList, complexList);
-
-        // Serialize mol into the arrayRank:
-        mol.serialize(arrayRank, nArrayRank);
-
-        // Restore original myComIndex, instead of complexId:
-        mol.myComIndex = myComIndex;
-        mol.prevReweight = prevReweight;
+        // Based on interfaces' partnerIndex, assign partnerIDs, and write the
+        // complex's id where myComIndex goes:
+        refresh_partner_ids(mol, moleculeList);
+        mol.serialize_as(arrayRank, nArrayRank, complexList[mol.myComIndex].id);
 
         // Before sending molecules to the neighbor rank,
         // mark each molecule as not received back from the other rank,

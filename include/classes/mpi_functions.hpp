@@ -67,8 +67,10 @@ void serialize_vector_strings(std::vector<std::string> to_serialize,
 void deserialize_vector_strings(std::vector<std::string> &to_deserialize,
                                 unsigned char *arrayRank, int &nArrayRank);
 
+// The vectors are taken by reference: by value, every Molecule and Complex put
+// on the wire cost four heap copies before a byte was written.
 template <typename T>
-void serialize_primitive_vector(std::vector<T> to_serialize,
+void serialize_primitive_vector(const std::vector<T> &to_serialize,
                                 unsigned char *arrayRank, int &nArrayRank) {
   // serialize to_serialize vector of primitive type T
   *((int *)(arrayRank + nArrayRank)) =
@@ -102,7 +104,7 @@ void deserialize_primitive_vector(std::vector<T> &to_deserialize,
 }
 
 template <typename T>
-void serialize_abstract_vector(std::vector<T> to_serialize,
+void serialize_abstract_vector(std::vector<T> &to_serialize,
                                unsigned char *arrayRank, int &nArrayRank,
                                bool verbose = false) {
   // serialize to_serialize vector of abstract type T

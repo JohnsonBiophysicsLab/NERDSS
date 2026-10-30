@@ -206,28 +206,40 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
 }
 
+// Before a molecule goes on the wire, every bound interface's partnerId has
+// to name the partner the receiver will look for.  The reactions set only
+// partnerIndex, so this is where partnerId is brought up to date, and it
+// stays: IDs_to_indices() reads the local partner's partnerId to find the
+// interface pointing back at a received molecule.  -3 stands for the implicit
+// lipid, which has no id of its own.
+//
+// The exchange used indices_to_IDs() below for this, which also writes the
+// complex's id into myComIndex and the partners' ids into the reweighting
+// history, both of which the sender then had to save and restore -- one
+// vector copy per molecule sent, for a history that is not on the wire at
+// all.  The complex id now goes straight to the wire
+// (Molecule::serialize_as()).
+void refresh_partner_ids(Molecule &mol, const vector<Molecule> &moleculeList) {
+  for (auto &iface : mol.interfaceList) {
+    Molecule::Interaction &inter = iface.interaction;
+    if (inter.partnerIndex == -1) continue;
+    inter.partnerId = moleculeList[inter.partnerIndex].isImplicitLipid
+                          ? -3
+                          : moleculeList[inter.partnerIndex].id;
+  }
+}
+
+// Every index a molecule holds rewritten as an id, in place: the partners
+// (as above), the complex, and the reweighting history's partners.  For a
+// copy that is going into a gathered restart file (gather_system()), where
+// the history is written too.
 void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
                     vector<Complex> &complexList) {
-  if (VERBOSE) cout << "indices_to_IDs begins" << endl;
-  // Update interfaces to store also partner-molecule ID:
-  for (size_t i = 0; i < mol.interfaceList.size(); i++) {
-    Molecule::Interaction &inter = mol.interfaceList[i].interaction;
-    if (inter.partnerIndex != -1) {  // if it can be seen
-      if (moleculeList[inter.partnerIndex].isImplicitLipid == false) {
-        // Update only interfaces whose partner is visible on this rank:
-        inter.partnerId = moleculeList[inter.partnerIndex].id;
-        if (VERBOSE) cout << "Assigned: " << inter.partnerId << ". ";
-      } else {
-        inter.partnerId = -3;  // its partner is implicit lipid
-      }
-    }
-  }
-  // Set myComIndex to the ID of the complex:
+  refresh_partner_ids(mol, moleculeList);
   mol.myComIndex = complexList[mol.myComIndex].id;
-  // Map the reweighting history's partner indices to IDs.  An entry can be -1
-  // when the neighbour it refers to has moved to another rank; moleculeList[-1]
-  // is a read off the front of the vector, so pass the sentinel through
-  // untouched.
+  // An entry can be -1 when the neighbour it refers to has moved to another
+  // rank; moleculeList[-1] is a read off the front of the vector, so pass the
+  // sentinel through untouched.
   for (auto &prevEntry : mol.prevReweight) {
     prevEntry.partner =
         (prevEntry.partner >= 0 &&
@@ -235,5 +247,4 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
             ? moleculeList[prevEntry.partner].id
             : -1;
   }
-  if (VERBOSE) cout << "indices_to_IDs ends" << endl;
 }

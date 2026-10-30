@@ -109,7 +109,14 @@ void check_molecule_coordinates(MpiContext &mpiContext, vector<Molecule> &molecu
     vector<MolTemplate> &molTemplateList, SimulVolume &simulVolume, Membrane &membraneObject, copyCounters &counterArrays);
 
 /*! \ingroup mpi_function
- * \brief map local index to unique global id
+ * \brief Set each bound interface's partnerId from its partnerIndex before the
+ * molecule is serialized (-3 for the implicit lipid).  Persists.
+ */
+void refresh_partner_ids(Molecule &mol, const vector<Molecule> &moleculeList);
+
+/*! \ingroup mpi_function
+ * \brief Rewrite every index the molecule holds (partners, complex, reweighting
+ * history) as an id, in place; for a copy bound for a restart file.
  */
 void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList, vector<Complex> &complexList);
 
