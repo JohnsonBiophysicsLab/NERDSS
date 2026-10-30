@@ -26,11 +26,12 @@ using namespace std;
 // `list[index].id == id` alone, and the callers keep their own isEmpty tests.
 //
 // How the maps are kept current:
-//  * rebuild_id_index() after prepare() has built the rank's lists and after
-//    remove_empty_slots() has compacted them (every MPI step, in the function
-//    that moves the slots).
+//  * rebuild_id_index() after prepare() has built the rank's lists.
 //  * note_molecule_installed() / note_complex_installed() from the deserialisers
-//    when they append a slot.  In-place overwrites keep the id and the index.
+//    when they append a slot, and from remove_empty_slots() for each slot it
+//    moves into a hole (every MPI step; it moves only as many slots as there
+//    are holes, so the maps are patched rather than rebuilt).  In-place
+//    overwrites keep the id and the index.
 //  * refresh_id_index() at the top of each receive, for what the reactions
 //    created on this rank since the last rebuild.  Ids are handed out from
 //    Molecule::maxID / Complex::maxID, which only ever grow, and prepare()
@@ -38,8 +39,10 @@ using namespace std;
 //    pass are exactly those in [watermark, maxID): one integer compare per
 //    slot finds them, whatever slot the creation took.  Nothing else installs
 //    an id below the watermark except the deserialisers, which report it.
-// A stale entry -- a slot destroyed, or recycled under a new id -- fails the
-// validation, which is what the scan would have reported too.  Under
+// A stale entry -- a slot destroyed, recycled under a new id, or compacted
+// away -- fails the validation, which is what the scan would have reported
+// too; compact_id_index() rebuilds a map once its stale entries outnumber
+// the live ones, so the memory stays proportional to the lists.  Under
 // CHECK_STRUCTURE every lookup is also checked against the scan.
 
 namespace {
@@ -108,6 +111,17 @@ void refresh_id_index(const vector<Molecule> &moleculeList,
                       const vector<Complex> &complexList) {
   refresh(molIds, moleculeList, Molecule::maxID);
   refresh(comIds, complexList, Complex::maxID);
+}
+
+void compact_id_index(const vector<Molecule> &moleculeList,
+                      const vector<Complex> &complexList) {
+  // Every live slot has an entry, so anything beyond the list's size is
+  // stale.  Rebuilding at twice the size (plus some slack for small lists)
+  // costs one pass per that many destructions.
+  if (molIds.index.size() > 2 * moleculeList.size() + 1024)
+    rebuild(molIds, moleculeList, molIds.watermark);
+  if (comIds.index.size() > 2 * complexList.size() + 1024)
+    rebuild(comIds, complexList, comIds.watermark);
 }
 
 void note_molecule_installed(int id, int index) { molIds.index[id] = index; }

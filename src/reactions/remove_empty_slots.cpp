@@ -85,6 +85,9 @@ void remove_empty_slots(
 
     // Update complex index to match new position:
     complexList[firstEmptyIndex].index = firstEmptyIndex;
+#ifdef mpi_
+    note_complex_installed(complexList[firstEmptyIndex].id, firstEmptyIndex);
+#endif
 
     newComIndex[lastNonEmptyIndex] = firstEmptyIndex;
     lastNonEmptyIndex--;
@@ -156,6 +159,9 @@ void remove_empty_slots(
     moleculeList[firstEmptyIndex] = moleculeList[lastNonEmptyIndex];
     // Update molecule index to match new position:
     moleculeList[firstEmptyIndex].index = firstEmptyIndex;
+#ifdef mpi_
+    note_molecule_installed(moleculeList[firstEmptyIndex].id, firstEmptyIndex);
+#endif
     newMolIndex[lastNonEmptyIndex] = firstEmptyIndex;
     lastNonEmptyIndex--;
   }
@@ -230,9 +236,11 @@ void remove_empty_slots(
     }
   }
 #ifdef mpi_
-  // Every index above moved: the id-to-index maps behind find_molecule() and
-  // find_complex() are rebuilt here rather than patched, one pass over lists
-  // this function has just walked anyway (src/mpi/id_index.cpp).
-  rebuild_id_index(moleculeList, complexList);
+  // The id-to-index maps behind find_molecule() and find_complex() were told
+  // about every slot that moved, above.  The entries of the slots that went
+  // -- the holes and the popped tail -- are stale, and a stale entry fails
+  // the lookup's validation just as the slot's absence would; this only
+  // keeps their number from growing with every destruction.
+  compact_id_index(moleculeList, complexList);
 #endif
 }

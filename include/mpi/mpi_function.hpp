@@ -36,12 +36,14 @@ int find_molecule(vector<Molecule> &moleculeList, int id);
 
 /*! \ingroup mpi_function
  * \brief Keep the id-to-index maps behind find_molecule() / find_complex()
- * current.  rebuild after the lists were built or compacted; refresh at the
- * top of a receive, for the ids the reactions created here since; note_*
- * when a deserialiser appends a slot.
+ * current.  rebuild after the lists were built; refresh at the top of a
+ * receive, for the ids the reactions created here since; note_* when a
+ * deserialiser appends a slot or remove_empty_slots() moves one; compact
+ * after a compaction, to drop stale entries once they outnumber the live ones.
  */
 void rebuild_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
 void refresh_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void compact_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
 void note_molecule_installed(int id, int index);
 void note_complex_installed(int id, int index);
 
