@@ -88,6 +88,9 @@ def replay(events, hub):
 def copy_numbers(run, nranks, hub, sites, burn_time):
     path = os.path.join(run, 'mergeOUT', 'copy_numbers_time.dat') if nranks > 1 \
         else os.path.join(run, 'DATA', 'copy_numbers_time.dat')
+    if not os.path.exists(path):
+        # nerdss_mpi at np=1 writes rank 0's file and no mergeOUT.
+        path = os.path.join(run, 'DATA', 'copy_numbers_time_0.dat')
     with open(path) as fh:
         header = fh.readline().strip().split(',')
         bound_cols = [i for i, h in enumerate(header)

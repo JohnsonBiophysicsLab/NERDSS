@@ -369,7 +369,7 @@ The values that stand out were followed with more seeds:
 | `bonded_complex_check.sh` | the step-500 `DATA/COMPLEXES` file equals, byte for byte, the one the serial build writes from that step's checkpoint: hetTrimer np=1/2/3, homoTrimer np=2/4 |
 | `checkpoint_check.sh` | np=1 exact continuation, np=2 checkpoint continued serially and at np=1 (both end on step 999 since #21), `bindPairList` rule |
 | `run_code_tests` (`make checks`) | all pass, including complex_destroy_reset_check and mpi_column_split_check |
-| `deferral_run.sh` + `deferral_lifetimes.py` / `deferral_table.py` / `deferral_ranks.py` / `deferral_columns.py` | the cost of the deferred first-order pass, measured on `models/deferral` (see `DEFERRAL_2026-10-30.md`): bond lifetimes from the per-rank association logs, bound fraction per rank and per x column |
+| `deferral_run.sh` + `deferral_lifetimes.py` / `deferral_table.py` / `deferral_ranks.py` / `deferral_columns.py` / `deferral_hazard.py` / `deferral_drift.py` | the cost of the deferred first-order pass, measured on `models/deferral` (see `DEFERRAL_2026-10-30.md`): bond lifetimes from the per-rank association logs, bound fraction per rank and per x column, dissociation hazard by bond age, left-right drift of the hubs from the restart snapshots |
 | serial byte identity | `run_suite.sh` on cases.tsv and coverage_cases.tsv: all 273 + 92 output hashes equal to the tip's, after every commit that touches a file the serial build compiles |
 | GCC 15 clean copy | 197 serial sources and the MPI build (217) with g++-15, no warnings; `make checks` passes (e3576256, the merge with 1.4) |
 
@@ -446,7 +446,14 @@ after a restart (time arithmetic relative to the restart step).
   first-order draw that step (its older bonds lose one dissociation chance),
   and a molecule that changes state in the late pass cannot also bind that
   step, which in serial it could, with its new state.  Both second order in
-  the rates and confined to the edge column.
+  the rates and confined to the edge column.  Measured in
+  `DEFERRAL_2026-10-30.md` on a model built to maximise it: no lengthening
+  of the affected bonds at any off rate (the +0.3-0.5% predicted at
+  kb = 1e5 is excluded at five standard errors), so nothing to fix there;
+  the same measurement found a binding deficit within half a column left
+  of each rank boundary (-0.0033 of bound fraction per boundary), a 1%
+  shortfall in the *serial* dissociation draw at kb dt = 0.2, and a drift
+  of the serial run's hubs along -x from order-dependent partner choice.
 * **Spherical models** stay outside the validation set by user decision; #5
   and #6 were found by reading and one probe, and nothing else about the
   sphere's decomposition was checked.
