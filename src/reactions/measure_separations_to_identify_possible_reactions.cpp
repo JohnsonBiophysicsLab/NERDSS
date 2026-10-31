@@ -68,10 +68,21 @@
 //
 // One bit per molecule type, so the table only exists for models with at
 // most 64 of them; left empty, the search offers every pair as it did before.
+// Upper bound on a SubBox's neighborList: a cubic SubBox looks at 13 forward
+// neighbours (SimulVolume::maxNeighbors); 32 leaves room without a heap
+// buffer per molecule.
+static constexpr int kMaxNeighbors{32};
+
 static std::vector<uint64_t> build_interaction_mask(
     const std::vector<MolTemplate>& molTemplateList) {
   std::vector<uint64_t> interactionMask;
-  if (molTemplateList.size() > 64) return interactionMask;
+  // Past 64 types the bits run out.  Every mask is then all ones, so the
+  // test below passes every pair, as the walk did before the table existed:
+  // the same answer as an empty table, without a flag to test per partner.
+  if (molTemplateList.size() > 64) {
+    interactionMask.assign(molTemplateList.size(), ~uint64_t(0));
+    return interactionMask;
+  }
   interactionMask.assign(molTemplateList.size(), 0);
   for (size_t typeItr1{0}; typeItr1 < molTemplateList.size(); ++typeItr1) {
     for (size_t typeItr2{0}; typeItr2 < molTemplateList.size(); ++typeItr2) {
@@ -166,7 +177,14 @@ void measure_separations_to_identify_possible_reactions(
   shellIndex.rebin(moleculeList, complexList);
   const bool shellActive{shellIndex.active};
   const std::vector<uint64_t>& interactionMask{pairSearch.interactionMask};
-  const bool useTypeMask{!interactionMask.empty()};
+  // Does the partner's type pass the target's mask.  The shift count is
+  // taken modulo 64 so that a model with more than 64 types, whose masks
+  // are all ones, is tested with the same code: the old walk tested a flag
+  // for that case before every pair, and clang could keep the flag in a
+  // register only while the walk was inline in main().
+  auto typePasses = [](uint64_t targMask, int partType) {
+    return (targMask >> (partType & 63)) & 1;
+  };
   // Partner types for the type-mask tests below, without touching moleculeList.
   const std::vector<int>& memberTypeIndex{simulVolume.memberTypeIndex};
 #ifdef mpi_
@@ -219,8 +237,7 @@ void measure_separations_to_identify_possible_reactions(
                   .excludeVolumeBound == true) {
         // first, check for implicit-lipid binding
         int protype = moleculeList[targMolIndex].molTypeIndex;
-        const uint64_t targMask{useTypeMask ? interactionMask[protype]
-                                            : ~uint64_t(0)};
+        const uint64_t targMask{interactionMask[protype]};
         // Pairs the shell index owns are skipped here and offered there.
         const bool targOnShell{shellActive &&
                                shellIndex.isShellBinned[targMolIndex] != 0};
@@ -255,9 +272,7 @@ void measure_separations_to_identify_possible_reactions(
               simulVolume.subCellList[cellItr].memberMolList[memItr2]};
           if (targOnShell && shellIndex.isShellBinned[partMolIndex])
             continue;  // the shell index offers this pair
-          if (useTypeMask &&
-              !(targMask & (uint64_t(1) << memberTypeIndex[partMolIndex])))
-            continue;
+          if (!typePasses(targMask, memberTypeIndex[partMolIndex])) continue;
           if (ghostsLeftNeighboursPair(partMolIndex)) continue;
 
           check_bimolecular_reactions(
@@ -270,12 +285,29 @@ void measure_separations_to_identify_possible_reactions(
         // thirdly, loop over all neighboring cells, and all proteins in those
         // cells. for PBC, all cells have maxnbor neighbor cells. For
         // reflecting, edge have fewer.
-        for (auto& neighCellItr :
-             simulVolume.subCellList[cellItr].neighborList) {
+        // Which neighbouring SubBoxes can hold a partner of this molecule.
+        // Scanned in a loop of its own, with no call in it: when the scan
+        // shared a loop with the check_bimolecular_reactions() call, the
+        // call's argument references kept the callee-saved registers and
+        // clang spilled targMask, so each of the 13 mask tests per molecule
+        // paid stack loads.  In the serial build that cost rev_3D 1.7% more
+        // instructions than the old inline walk; this scan gives them back.
+        // The accepted SubBoxes are visited in neighborList order, so the
+        // pairs come out in the same order as before.
+        const std::vector<int>& neighborList{
+            simulVolume.subCellList[cellItr].neighborList};
+        int liveCells[kMaxNeighbors];
+        int numLiveCells{0};
+        if (neighborList.size() > kMaxNeighbors)
+          error("a SubBox has more neighbours than the pair walk allows");
+        for (int neighCellItr : neighborList) {
           if (DEBUG && (neighCellItr > simulVolume.subCellList.size()))
             error("neighCellItr is higher than subCellList size!");
-          if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) == 0)
-            continue;  // nothing in that SubBox can pair with this molecule
+          if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) != 0)
+            liveCells[numLiveCells++] = neighCellItr;
+        }
+        for (int liveItr{0}; liveItr < numLiveCells; ++liveItr) {
+          const int neighCellItr{liveCells[liveItr]};
           for (unsigned memItr2{0};
                memItr2 <
                simulVolume.subCellList[neighCellItr].memberMolList.size();
@@ -286,9 +318,7 @@ void measure_separations_to_identify_possible_reactions(
               error("partMolIndex is higher than moleculeList size!");
             if (targOnShell && shellIndex.isShellBinned[partMolIndex])
               continue;  // the shell index offers this pair
-            if (useTypeMask &&
-                !(targMask & (uint64_t(1) << memberTypeIndex[partMolIndex])))
-              continue;
+            if (!typePasses(targMask, memberTypeIndex[partMolIndex])) continue;
             if (ghostsLeftNeighboursPair(partMolIndex)) continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -317,8 +347,7 @@ void measure_separations_to_identify_possible_reactions(
           continue;
 
         const int protype = moleculeList[targMolIndex].molTypeIndex;
-        const uint64_t targMask{useTypeMask ? interactionMask[protype]
-                                            : ~uint64_t(0)};
+        const uint64_t targMask{interactionMask[protype]};
 #ifdef mpi_
         const bool targGhost{moleculeList[targMolIndex].isGhosted};
         auto ghostsLeftNeighboursPair = [&](int partMolIndex) {
@@ -333,9 +362,7 @@ void measure_separations_to_identify_possible_reactions(
         for (unsigned memItr2{memItr + 1}; memItr2 < shellMembers.size();
              ++memItr2) {
           const int partMolIndex{shellMembers[memItr2]};
-          if (useTypeMask &&
-              !(targMask & (uint64_t(1) << memberTypeIndex[partMolIndex])))
-            continue;
+          if (!typePasses(targMask, memberTypeIndex[partMolIndex])) continue;
           if (ghostsLeftNeighboursPair(partMolIndex)) continue;
           check_bimolecular_reactions(
               targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,
@@ -350,9 +377,7 @@ void measure_separations_to_identify_possible_reactions(
               shellIndex.memberMolList[neighCellItr];
           for (unsigned memItr2{0}; memItr2 < neighMembers.size(); ++memItr2) {
             const int partMolIndex{neighMembers[memItr2]};
-            if (useTypeMask &&
-                !(targMask & (uint64_t(1) << memberTypeIndex[partMolIndex])))
-              continue;
+            if (!typePasses(targMask, memberTypeIndex[partMolIndex])) continue;
             if (ghostsLeftNeighboursPair(partMolIndex)) continue;
             check_bimolecular_reactions(
                 targMolIndex, partMolIndex, simItr, tableIDs, DDTableIndex,

@@ -472,7 +472,7 @@ void check_perform_zeroth_first_order_reactions(
  * Built once at start-up by both executables, from the molecule templates and
  * the membrane as they stand when the simulation loop begins (under MPI, after
  * the rank has received its share of the system).  interactionMask is the
- * (type, type) table of PR #73 -- empty for a model with more than 64
+ * (type, type) table of PR #73 -- all ones for a model with more than 64
  * molecule types, which then offers every pair -- and shellIndex the
  * latitude-longitude index over the membrane of a spherical system, inactive
  * everywhere else.
