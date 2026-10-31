@@ -1,0 +1,64 @@
+# Deferral cost model (proposal item 10): tetravalent A, monovalent B.
+# Mean bond lifetime 1/kb = 10 us = 20 steps; a free site binds with
+# probability ~0.05 per step at the equilibrium free-B concentration, so a
+# bound complex gains a member every ~10 steps.  rMaxLimit ~33 nm gives
+# 8 columns across the 270 nm x axis.
+start parameters
+    nItr = 4000
+    timestep = 0.5
+    timeWrite = 100
+    trajWrite = 100000000
+    restartWrite = 100000000
+    pdbWrite = 100000000
+    transitionWrite = 100000000
+    fromRestart = false
+    overlapSepLimit = 1.0
+    scaleMaxDisplace = 30.0
+    assocDissocWrite = true
+end parameters
+start boundaries
+    WaterBox = [270.0, 100.0, 100.0] #nm
+end boundaries
+
+start molecules
+    A : 300
+    B : 1000
+end molecules
+
+start reactions
+    A(a1) + B(b) <-> A(a1!1).B(b!1)
+    onRate3Dka = 10000
+    offRatekb = 1e5
+    norm1 = [0, 0, 1]
+    norm2 = [0, 0, 1]
+    sigma = 2.0
+    assocAngles = [M_PI, M_PI, nan, nan, 0]
+    bindRadSameCom = 1.5
+
+    A(a2) + B(b) <-> A(a2!1).B(b!1)
+    onRate3Dka = 10000
+    offRatekb = 1e5
+    norm1 = [0, 0, 1]
+    norm2 = [0, 0, 1]
+    sigma = 2.0
+    assocAngles = [M_PI, M_PI, nan, nan, 0]
+    bindRadSameCom = 1.5
+
+    A(a3) + B(b) <-> A(a3!1).B(b!1)
+    onRate3Dka = 10000
+    offRatekb = 1e5
+    norm1 = [0, 0, 1]
+    norm2 = [0, 0, 1]
+    sigma = 2.0
+    assocAngles = [M_PI, M_PI, nan, nan, 0]
+    bindRadSameCom = 1.5
+
+    A(a4) + B(b) <-> A(a4!1).B(b!1)
+    onRate3Dka = 10000
+    offRatekb = 1e5
+    norm1 = [0, 0, 1]
+    norm2 = [0, 0, 1]
+    sigma = 2.0
+    assocAngles = [M_PI, M_PI, nan, nan, 0]
+    bindRadSameCom = 1.5
+end reactions

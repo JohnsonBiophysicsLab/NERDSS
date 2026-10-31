@@ -369,6 +369,7 @@ The values that stand out were followed with more seeds:
 | `bonded_complex_check.sh` | the step-500 `DATA/COMPLEXES` file equals, byte for byte, the one the serial build writes from that step's checkpoint: hetTrimer np=1/2/3, homoTrimer np=2/4 |
 | `checkpoint_check.sh` | np=1 exact continuation, np=2 checkpoint continued serially and at np=1 (both end on step 999 since #21), `bindPairList` rule |
 | `run_code_tests` (`make checks`) | all pass, including complex_destroy_reset_check and mpi_column_split_check |
+| `deferral_run.sh` + `deferral_lifetimes.py` / `deferral_table.py` / `deferral_ranks.py` / `deferral_columns.py` | the cost of the deferred first-order pass, measured on `models/deferral` (see `DEFERRAL_2026-10-30.md`): bond lifetimes from the per-rank association logs, bound fraction per rank and per x column |
 | serial byte identity | `run_suite.sh` on cases.tsv and coverage_cases.tsv: all 273 + 92 output hashes equal to the tip's, after every commit that touches a file the serial build compiles |
 | GCC 15 clean copy | 197 serial sources and the MPI build (217) with g++-15, no warnings; `make checks` passes (e3576256, the merge with 1.4) |
 
