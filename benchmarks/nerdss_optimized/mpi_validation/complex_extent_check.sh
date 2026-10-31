@@ -33,7 +33,7 @@ status=$?
 warnings=$(grep -c '^WARNING rank [0-9]* itr=[0-9]*: complex id=' "$d/stderr.log" || true)
 counts=$(grep -c '^WARNING rank [0-9]*: a complex wider than the stripe carries on' "$d/stderr.log" || true)
 violations=$(grep -c 'STRUCTURE VIOLATION .* at=complex extent' "$d/stderr.log" || true)
-first=$(grep -o 'itr=[0-9]*' "$d/stderr.log" | head -n 1)
+first=$(grep 'complex id=' "$d/stderr.log" | grep -o 'itr=[0-9]*' | head -n 1)
 rows=$(grep -c '' "$d/mergeOUT/copy_numbers_time.dat" 2>/dev/null || echo 0)
 if [[ $status == 0 && $rows -ge 13 && ( ( $warnings -ge 1 && $warnings == "$counts" ) || $violations -ge 1 ) ]]; then
     if [[ $violations -ge 1 ]]; then

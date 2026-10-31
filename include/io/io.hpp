@@ -162,6 +162,15 @@ void write_pdb(long long int simItr, unsigned frameNum, const Parameters& params
 void init_print_dimers(std::ofstream& outfile, Parameters params, std::vector<MolTemplate>& molTemplateList);
 void print_dimers(std::vector<Complex>& complexList, std::ofstream& outfile, int it, Parameters params,
     std::vector<MolTemplate>& molTemplateList);
+void print_dimers(std::vector<Complex>& complexList, std::ofstream& outfile, int it, Parameters params,
+    std::vector<MolTemplate>& molTemplateList, MpiContext& mpiContext); // for mpi version: the complexes this rank owns
+
+/*! \ingroup IO
+ * \brief Counts a restart's bound pairs again from the molecules this rank owns (mpi version;
+ * see src/io_mpi/rank_tallies.cpp).
+ */
+void recount_owned_bound_pairs(copyCounters& counterArrays, const Parameters& params,
+    const std::vector<Molecule>& moleculeList);
 
 /*! \ingroup IO
  * \brief Nbound pairs are counting all directly bound pairs of protein A and partner B. Does not matter if A or B are
@@ -233,9 +242,19 @@ void write_output(long long int simItr, Parameters& params,std::string trajFileN
     copyCounters& counterArrays, std::ofstream& speciesFile1, std::ofstream& debugFile, std::string debugFileName, std::string restartFileName,
     std::vector<Complex>& complexList, SimulVolume& simulVolume, std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
     std::vector<CreateDestructRxn>& createDestructRxns, StepDurationWindow& durationList, MDTimer::time_point& startStep,
-    MDTimer::time_point& totalTimeStart, std::map<std::string, int>& observablesList, std::ofstream& assemblyfile); // for mpi version
+    MDTimer::time_point& totalTimeStart, std::map<std::string, int>& observablesList, std::ofstream& assemblyfile,
+    std::ofstream& dimerfile, std::ofstream& eventFile, std::ofstream& pairOutfile,
+    const std::string& observablesFileName); // for mpi version
 
-void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles); // for mpi version
+/*! \ingroup IO
+ * \brief Merges the ranks' per-rank DATA files (name_<rank>.dat) into mergeOUT/ under the serial build's names
+ * and formats: copy numbers, the complex histogram, bound pairs, monomers and dimers, the event
+ * counters, the observables (each rank starts from the whole system's value, observablesAtStart,
+ * so the sum is corrected by nprocs - 1 of it) and the transition matrix are summed, the
+ * association/dissociation log is concatenated in step order, PDB/CIF frames are concatenated.
+ */
+void merge_outputs(int totalrank, int molTemplateNum, bool mergePdbFiles,
+    const std::map<std::string, int>& observablesAtStart); // for mpi version
 
 /*! \ingroup IO
  * \brief Outputs structural information on bonded complexes for ioNERDSS and

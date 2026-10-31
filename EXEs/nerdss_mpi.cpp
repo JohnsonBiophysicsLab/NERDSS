@@ -453,8 +453,13 @@ int main(int argc, char* argv[]) {
   init_NboundPairs(
       counterArrays, pairOutfile, params, molTemplateList,
       moleculeList);  // initializes to zero, re-calculated for a restart!!
+  // ... from every molecule on the rank, ghost copies included; count a
+  // restart's bonds from the owned ones (src/io_mpi/rank_tallies.cpp).
+  if (params.fromRestart)
+    recount_owned_bound_pairs(counterArrays, params, moleculeList);
   write_NboundPairs(counterArrays, pairOutfile, simItr, params, moleculeList);
-  print_dimers(complexList, dimerfile, simItr, params, molTemplateList);
+  print_dimers(complexList, dimerfile, simItr, params, molTemplateList,
+               mpiContext);  // the complexes this rank owns
   print_association_events(counterArrays, eventFile, simItr, params);
 
   int number_of_lipids = 0;  ///< sum of all states of IL
@@ -1240,7 +1245,8 @@ int main(int argc, char* argv[]) {
                  speciesFile1, debugFile, debugFileName, restartFileName,
                  complexList, simulVolume, forwardRxns, backRxns,
                  createDestructRxns, durationList, startStep, totalTimeStart,
-                 observablesList, assemblyfile);
+                 observablesList, assemblyfile, dimerfile, eventFile,
+                 pairOutfile, observablesFileName);
 
     if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       std::cout << "total computation time: " << total_computation_time
@@ -1278,6 +1284,29 @@ int main(int argc, char* argv[]) {
       print_complex_hist(complexList, assemblyfile, lastItr, params,
                          molTemplateList, moleculeList, number_of_lipids,
                          mpiContext, simulVolume);
+      // and the tallies the serial build writes with them
+      write_NboundPairs(counterArrays, pairOutfile, lastItr, params,
+                        moleculeList);
+      print_dimers(complexList, dimerfile, lastItr, params, molTemplateList,
+                   mpiContext);
+      print_association_events(counterArrays, eventFile, lastItr, params);
+      if (!observablesList.empty()) {
+        std::ofstream observablesFile{observablesFileName, std::ios::app};
+        write_observables((lastItr - params.itrRestartFrom) * params.timeStep *
+                                  Constants::usToSeconds +
+                              params.timeRestartFrom,
+                          observablesFile, observablesList);
+      }
+    }
+    // The transition matrix at the last step, as the serial build writes it
+    // whenever transitionWrite is on (a step that is also a transitionWrite
+    // step gets a second block there too).
+    if (params.transitionWrite > 0) {
+      std::ofstream transitionFile{transitionFileName, std::ios::app};
+      write_transition((lastItr - params.itrRestartFrom) * params.timeStep *
+                               Constants::usToSeconds +
+                           params.timeRestartFrom,
+                       transitionFile, molTemplateList);
     }
   }
 
@@ -1318,10 +1347,18 @@ int main(int argc, char* argv[]) {
   // here, but rank 0 can get here first: the step loop only waits on the
   // neighbours' messages, not on their writes.  So wait for every rank before
   // reading the per-rank files, or the merged files lose their final rows.
+  // And flushed: the event counters are written with '\n', not endl, so the
+  // last block was still in the buffer when rank 0 read the file.
+  speciesFile1.flush();
+  assemblyfile.flush();
+  pairOutfile.flush();
+  dimerfile.flush();
+  eventFile.flush();
+  assocDissocFile.flush();
   MPI_Barrier(MPI_COMM_WORLD);
   if (mpiContext.rank == 0) {
     merge_outputs(mpiContext.nprocs, molTemplateList.size(),
-                  params.pdbWrite > 0);
+                  params.pdbWrite > 0, observablesAtStart);
   }
 
   report_complex_extent_summary(mpiContext);
