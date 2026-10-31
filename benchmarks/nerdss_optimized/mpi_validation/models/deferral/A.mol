@@ -1,0 +1,29 @@
+##
+# A: a hub with four binding sites, tetrahedral, 1.5 nm from the centre.
+# Every B that binds a second, third or fourth site is a member gained by a
+# complex that already holds older bonds: the event the deferred first-order
+# pass skips a draw for.
+##
+
+Name = A
+checkOverlap = true
+
+# translational diffusion constants
+D = [10.0, 10.0, 10.0]
+
+# rotational diffusion constants
+Dr = [0.1, 0.1, 0.1]
+
+# Coordinates
+COM   0.0000000   0.0000000   0.0000000
+a1    0.8660254   0.8660254   0.8660254
+a2    0.8660254  -0.8660254  -0.8660254
+a3   -0.8660254   0.8660254  -0.8660254
+a4   -0.8660254  -0.8660254   0.8660254
+
+# bonds
+bonds = 4
+com a1
+com a2
+com a3
+com a4
