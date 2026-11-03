@@ -39,6 +39,9 @@ int find_molecule(vector<Molecule> &moleculeList, int id);
  * Reports ids owned by two ranks and ids held only as ghosts, and returns false
  * if either set is non-empty.  Collective: every rank must call it.
  */
+bool trace_id(int id);
+void trace_molecule(MpiContext &mpiContext, const char *where, const std::vector<Molecule> &moleculeList,
+                    const std::vector<Complex> &complexList, const Molecule &mol);
 bool check_ownership_invariant(MpiContext &mpiContext,
                                vector<Molecule> &moleculeList,
                                vector<Complex> &complexList, long long simItr,
@@ -203,6 +206,8 @@ void hold_back_right_edge_first_order(MpiContext &mpiContext,
 /*! \ingroup mpi_function
  * \brief undo hold_back_right_edge_first_order()'s ghost marks
  */
+void hold_outside_region(vector<Molecule> &moleculeList, const vector<int> &region);
+void release_sweep_hold(vector<Molecule> &moleculeList);
 void release_held_back(vector<Molecule> &moleculeList,
                        const vector<int> &heldBack);
 
@@ -282,7 +287,7 @@ void drop_crossings_decided_elsewhere(MpiContext &mpiContext, vector<Molecule> &
 /*! \ingroup mpi_function
  * \brief candidate pairs this rank can act on, summed over ranks on rank 0
  */
-long long count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
+std::array<long long, 2> count_candidate_pairs(MpiContext &mpiContext, vector<Molecule> &moleculeList);
 
 /*! \ingroup mpi_function
  * \brief reweighting-history hit counts, edge columns vs interior, summed
@@ -359,7 +364,9 @@ void prepare_data_structures_for_parallel_execution(vector<Molecule> &moleculeLi
  * \brief Set a rank up to continue from a restart file (one rank only)
  */
 void prepare_data_structures_for_parallel_restart(vector<Molecule> &moleculeList, SimulVolume &simulVolume, Membrane &membraneObject,
-    vector<MolTemplate> &molTemplateList, Parameters &params, MpiContext &mpiContext, vector<Complex> &complexList);
+    vector<MolTemplate> &molTemplateList, Parameters &params, vector<ForwardRxn> &forwardRxns, vector<BackRxn> &backRxns,
+    vector<CreateDestructRxn> &createDestructRxns, copyCounters &counterArrays, MpiContext &mpiContext, vector<Complex> &complexList,
+    ofstream &pairOutfile);
 
 /*! \ingroup mpi_function
  * \brief Used for the writing of output files

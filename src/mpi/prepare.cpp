@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -85,6 +86,18 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
           }
         }
       }
+    } else {
+      // A restart file holds the whole membrane's free sites in each state.
+      // Give this rank its column share of each, with the same telescoping
+      // rounding, so that the ranks' shares add back up to the file's counts
+      // (write_gathered_restart() sums them).  One rank keeps them all.
+      for (auto &sites : membraneObject.numberOfFreeLipidsEachState) {
+        const long long low =
+            llround(1.0 * sites * mpiContext.startCell / totalxBins);
+        const long long high =
+            llround(1.0 * sites * (mpiContext.endCell + 1) / totalxBins);
+        sites = static_cast<int>(high - low);
+      }
     }
   }
 
@@ -95,33 +108,83 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
   mpiContext.moleculeList = &moleculeList;
   mpiContext.complexList = &complexList;
 
-  // Update isGhosted for each molecule:
-  for (auto &mol : moleculeList) {
-    if (mol.isImplicitLipid == true) {
-      mol.isGhosted = false;
-      continue;
-    }
-    int xBin = get_x_bin(mpiContext, mol);
-    mol.isGhosted = false;
-    if ((mpiContext.rank) &&  // if not first rank
-        (xBin == 0))
-      mol.isGhosted = true;
-    if ((mpiContext.rank < mpiContext.nprocs - 1) &&  // if not first rank
-        (xBin == simulVolume.numSubCells.x - 1))
-      mol.isGhosted = true;
-  }
-
-  // Seed complex ownership from that same initial decomposition.  From here on
-  // ownerRank is the authority and isGhosted is derived from it; this is the one
-  // place the two are allowed to be computed independently.
-  for (auto &com : complexList) {
-    com.ownerRank = -1;
-    for (int m : com.memberList) {
-      if (m < 0 || m >= (int)moleculeList.size()) continue;
-      if (!moleculeList[m].isGhosted && !moleculeList[m].isEmpty) {
-        com.ownerRank = mpiContext.rank;
-        break;
+  if (!params.fromRestart) {
+    // Update isGhosted for each molecule:
+    for (auto &mol : moleculeList) {
+      if (mol.isImplicitLipid == true) {
+        mol.isGhosted = false;
+        continue;
       }
+      int xBin = get_x_bin(mpiContext, mol);
+      mol.isGhosted = false;
+      if ((mpiContext.rank) &&  // if not first rank
+          (xBin == 0))
+        mol.isGhosted = true;
+      if ((mpiContext.rank < mpiContext.nprocs - 1) &&  // if not first rank
+          (xBin == simulVolume.numSubCells.x - 1))
+        mol.isGhosted = true;
+    }
+
+    // Seed complex ownership from that same initial decomposition.  From here
+    // on ownerRank is the authority and isGhosted is derived from it; this is
+    // the one place the two are allowed to be computed independently.
+    for (auto &com : complexList) {
+      com.ownerRank = -1;
+      for (int m : com.memberList) {
+        if (m < 0 || m >= (int)moleculeList.size()) continue;
+        if (!moleculeList[m].isGhosted && !moleculeList[m].isEmpty) {
+          com.ownerRank = mpiContext.rank;
+          break;
+        }
+      }
+    }
+  } else {
+    // A restart file's complexes are bonded and straddle column boundaries,
+    // and every rank holds each of its complexes whole (prepare_rank_data()),
+    // so the rule above would give a straddling complex an owner on each
+    // side.  Settle ownership by a rule every rank evaluates alike instead:
+    // a complex belongs to the rank whose owned columns hold its lowest-id
+    // member (ids are the file's indices, the same on every rank).  The
+    // ranks' column ranges are disjoint, so exactly one rank claims each
+    // complex, and isGhosted follows the stamp as it does after an exchange.
+    // The implicit lipid's complex is every rank's own, as on a new run.
+    auto rankOfColumn = [&](int column) {
+      for (int r = 0; r < mpiContext.nprocs; r++) {
+        int first = 0, count = 0;
+        mpiContext.column_share(totalxBins, r, first, count);
+        if (column >= first && column < first + count) return r;
+      }
+      return mpiContext.nprocs - 1;
+    };
+    for (auto &com : complexList) {
+      com.ownerRank = -1;
+      if (com.isEmpty) continue;
+      int lowest = -1;
+      for (int m : com.memberList) {
+        if (m < 0 || m >= (int)moleculeList.size()) continue;
+        const Molecule &mol = moleculeList[m];
+        if (mol.isEmpty || mol.isImplicitLipid) continue;
+        if (lowest < 0 || mol.id < moleculeList[lowest].id) lowest = m;
+      }
+      if (lowest < 0) {
+        com.ownerRank = mpiContext.rank;
+        continue;
+      }
+      int column = static_cast<int>(
+          (moleculeList[lowest].comCoord.x + membraneObject.waterBox.x / 2) /
+          simulVolume.subCellSize.x);
+      if (column < 0) column = 0;
+      if (column >= totalxBins) column = totalxBins - 1;
+      com.ownerRank = rankOfColumn(column);
+    }
+    for (auto &mol : moleculeList) {
+      if (mol.isImplicitLipid || mol.isEmpty) {
+        mol.isGhosted = false;
+        continue;
+      }
+      mol.isGhosted = mol.myComIndex < 0 ||
+                      mol.myComIndex >= (int)complexList.size() ||
+                      complexList[mol.myComIndex].ownerRank != mpiContext.rank;
     }
   }
 
@@ -146,8 +209,25 @@ static void finish_rank_setup(int totalxBins, vector<Molecule> &moleculeList,
 
     if (!receivedFromNeighborRank) {
       mol.receivedFromNeighborRank = false;
-      complexList[mol.myComIndex].receivedFromNeighborRank = false;
-      complexList[mol.myComIndex].deleteIfNotReceivedBack = true;
+      if (mol.myComIndex < 0 ||
+          mol.myComIndex >= static_cast<int>(complexList.size()))
+        continue;
+      Complex &com = complexList[mol.myComIndex];
+      com.receivedFromNeighborRank = false;
+      com.deleteIfNotReceivedBack = true;
+      // The send marks the whole complex, members outside those columns
+      // included (send_data_to_right_neighboring_ranks() walks memberList),
+      // and the receive deletes what was marked and not received back.  A
+      // restart's bonded complexes have such members: a dimer across the
+      // right boundary that the neighbour dissociates at the top of the
+      // first step comes back as its member in the edge columns alone, and
+      // the other member's copy here has to go with the bond it still
+      // holds, as it would had this rank sent it the step before.
+      for (int m : com.memberList) {
+        if (m < 0 || m >= static_cast<int>(moleculeList.size())) continue;
+        if (moleculeList[m].isImplicitLipid) continue;
+        moleculeList[m].receivedFromNeighborRank = false;
+      }
     }
   }  // end loop moleculeList to update receivedFromNeighborRank
 
@@ -355,44 +435,145 @@ void prepare_data_structures_for_parallel_execution(
  * environment; without it, which molecules counted as ghosts depended on
  * whatever those pointers happened to hit.
  *
- * A restart file holds the whole system.  One rank can take it as it stands,
- * and that is all this supports.  Splitting it between ranks is not a matter of
- * calling the function above: prepare_rank_data() reorders molecules by
- * sub-volume without remapping bound partners' indices, which a new run can
- * afford because nothing is bound yet.  Every rank would instead keep the
- * whole system and simulate it again, so more than one rank is refused.
+ * A restart file holds the whole system, and every rank has read it.  One
+ * rank takes it as it stands.  Several ranks each cut their own share out of
+ * it with prepare_rank_data(), exactly what rank 0 would have sent them on a
+ * new run, now that the splitter carries complexes whole and maps bound
+ * partners (a new run never needed either: nothing is bound at step 0).
+ * finish_rank_setup() then settles the ownership of the straddling complexes
+ * by a rule every rank evaluates alike, and splits the implicit lipid's free
+ * sites per state.  The tallies the checkpoint writer sums over the ranks
+ * (the counters, the event histograms, the transition matrices and cluster
+ * lifetimes) are the whole system's in the file: rank 0 keeps them and the
+ * other ranks start from zero, so the sums come back to the file's values.
+ * Each rank's random stream is seeded in main(): rank 0 from the saved state
+ * when there is one, the others from seed + rank, as on a new run.
  */
 void prepare_data_structures_for_parallel_restart(
     vector<Molecule> &moleculeList, SimulVolume &simulVolume,
     Membrane &membraneObject, vector<MolTemplate> &molTemplateList,
-    Parameters &params, MpiContext &mpiContext,
-    vector<Complex> &complexList) {
-  if (mpiContext.nprocs != 1) {
-    error(mpiContext,
-          "restarting nerdss_mpi is supported on one rank only (mpirun -np "
-          "1): the restart file holds the whole system, and nothing divides "
-          "it between " +
-              to_string(mpiContext.nprocs) + " ranks");
+    Parameters &params, vector<ForwardRxn> &forwardRxns,
+    vector<BackRxn> &backRxns, vector<CreateDestructRxn> &createDestructRxns,
+    copyCounters &counterArrays, MpiContext &mpiContext,
+    vector<Complex> &complexList, ofstream &pairOutfile) {
+  if (mpiContext.nprocs == 1) {
+    // One rank's domain is the whole grid: no ghost bins, xOffset 0, and x
+    // bounds at the walls of the box.
+    mpiContext.init_x_domain_and_offset(simulVolume.numSubCells.x,
+                                        mpiContext.rank);
+
+    // A new run numbers molecules and complexes in prepare_rank_data(); a
+    // restart file does not store the IDs.
+    for (size_t i = 0; i < moleculeList.size(); i++) moleculeList[i].id = i;
+    for (size_t i = 0; i < complexList.size(); i++) complexList[i].id = i;
+    Molecule::maxID = moleculeList.size();
+    Complex::maxID = complexList.size();
+
+    // Unlike prepare(), no init_NboundPairs() here.  main() calls it for both
+    // paths, and each call writes another header to the bound-pair file and
+    // counts every bond again on top of the last count.
+    finish_rank_setup(simulVolume.numSubCells.x, moleculeList, simulVolume,
+                      membraneObject, molTemplateList, params, mpiContext,
+                      complexList);
+    return;
   }
 
-  // One rank's domain is the whole grid: no ghost bins, xOffset 0, and x
-  // bounds at the walls of the box.
-  mpiContext.init_x_domain_and_offset(simulVolume.numSubCells.x,
-                                      mpiContext.rank);
+  cout << "*************** PREPARING DATA STRUCTURES FOR A PARALLEL RESTART "
+          "**************** rank:"
+       << mpiContext.rank << endl;
+  // The same column rule as a new run; see
+  // prepare_data_structures_for_parallel_execution().
+  const int mostRanks =
+      MpiContext::max_ranks_for_columns(simulVolume.numSubCells.x);
+  if (mpiContext.nprocs > mostRanks) {
+    error(mpiContext,
+          "nerdss_mpi divides the box along x into whole sub-volume columns, "
+          "every rank between two others needs " +
+              to_string(MpiContext::minMiddleColumns) +
+              " of them, and this system has " +
+              to_string(simulVolume.numSubCells.x) + ", too few for " +
+              to_string(mpiContext.nprocs) +
+              " ranks; run with mpirun -np " + to_string(mostRanks) +
+              " or fewer");
+  }
+  const int totalxBins = simulVolume.numSubCells.x;
+  // The whole system's tallies, for rank 0 to keep (prepare_rank_data()
+  // starts every rank's at zero).
+  const copyCounters whole = counterArrays;
 
-  // A new run numbers molecules and complexes in prepare_rank_data(); a
-  // restart file does not store the IDs.
-  for (size_t i = 0; i < moleculeList.size(); i++) moleculeList[i].id = i;
-  for (size_t i = 0; i < complexList.size(); i++) complexList[i].id = i;
-  Molecule::maxID = moleculeList.size();
-  Complex::maxID = complexList.size();
+  unsigned char *arrayRank = (unsigned char *)malloc(RANK0_BUFFER_SIZE);
+  prepare_rank_data(mpiContext.rank, moleculeList, simulVolume, membraneObject,
+                    molTemplateList, params, forwardRxns, backRxns,
+                    createDestructRxns, counterArrays, mpiContext, complexList,
+                    pairOutfile, arrayRank);
 
-  // Unlike prepare(), no init_NboundPairs() here.  main() calls it for both
-  // paths, and each call writes another header to the bound-pair file and
-  // counts every bond again on top of the last count.
-  finish_rank_setup(simulVolume.numSubCells.x, moleculeList, simulVolume,
-                    membraneObject, molTemplateList, params, mpiContext,
-                    complexList);
+  // Take the share as a rank takes what rank 0 sends it, in the order
+  // prepare_rank_data() wrote it.
+  int nArrayRank = 0;
+  complexList.clear();
+  deserialize_abstract_vector<Complex>(complexList, arrayRank, nArrayRank);
+  moleculeList.clear();
+  deserialize_abstract_vector<Molecule>(moleculeList, arrayRank, nArrayRank);
+  SimulVolume simulVolumeClean;
+  simulVolume = simulVolumeClean;
+  simulVolume.deserialize(arrayRank, nArrayRank);
+  mpiContext.deserialize(arrayRank, nArrayRank);
+  Membrane membraneObjectClean;
+  membraneObject = membraneObjectClean;
+  membraneObject.deserialize(arrayRank, nArrayRank);
+  molTemplateList.clear();
+  deserialize_abstract_vector<MolTemplate>(molTemplateList, arrayRank,
+                                           nArrayRank);
+  Parameters paramsClean;
+  params = paramsClean;
+  params.deserialize(arrayRank, nArrayRank);
+  forwardRxns.clear();
+  deserialize_abstract_vector<ForwardRxn>(forwardRxns, arrayRank, nArrayRank);
+  backRxns.clear();
+  deserialize_abstract_vector<BackRxn>(backRxns, arrayRank, nArrayRank);
+  createDestructRxns.clear();
+  deserialize_abstract_vector<CreateDestructRxn>(createDestructRxns, arrayRank,
+                                                 nArrayRank);
+  copyCounters counterArraysClean;
+  counterArrays = counterArraysClean;
+  counterArrays.deserialize(arrayRank, nArrayRank);
+  free(arrayRank);
+
+  // The file's empty slots are not in the rank's compact lists.
+  Molecule::emptyMolList.clear();
+  Complex::emptyComList.clear();
+  // init_speciesFile() checks that a restart's bindPairList has one list
+  // per species; nerdss_mpi never draws from the lists (population-based
+  // dissociation is off under MPI, and the checkpoint writer rebuilds them
+  // from the bonds), and the file's entries are the file's indices.
+  counterArrays.bindPairList.assign(whole.bindPairList.size(),
+                                    std::vector<int>{});
+
+  if (mpiContext.rank == 0) {
+    counterArrays.nLoops = whole.nLoops;
+    counterArrays.nCancelOverlapPartner = whole.nCancelOverlapPartner;
+    counterArrays.nCancelOverlapSystem = whole.nCancelOverlapSystem;
+    counterArrays.nCancelDisplace2D = whole.nCancelDisplace2D;
+    counterArrays.nCancelDisplace3D = whole.nCancelDisplace3D;
+    counterArrays.nCancelDisplace3Dto2D = whole.nCancelDisplace3Dto2D;
+    counterArrays.nCancelSpanBox = whole.nCancelSpanBox;
+    counterArrays.nAssocSuccess = whole.nAssocSuccess;
+    counterArrays.events3D = whole.events3D;
+    counterArrays.events2D = whole.events2D;
+    counterArrays.events3Dto2D = whole.events3Dto2D;
+  } else {
+    // Every rank's template list is a copy of the file's, transition
+    // matrices and lifetimes included.
+    for (auto &oneTemp : molTemplateList) {
+      if (!oneTemp.countTransition) continue;
+      for (auto &row : oneTemp.transitionMatrix)
+        std::fill(row.begin(), row.end(), 0);
+      for (auto &row : oneTemp.lifeTime) row.clear();
+    }
+  }
+
+  finish_rank_setup(totalxBins, moleculeList, simulVolume, membraneObject,
+                    molTemplateList, params, mpiContext, complexList);
 }
 
 int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
@@ -576,6 +757,81 @@ int prepare_rank_data(int tempRank, vector<Molecule> &moleculeList,
       // Restore old values of mol, as one mol can be copied to two ranks, where
       // one copy is a ghost:
       mol = molBackup;
+    }
+  }
+
+  // A complex travels whole, as it does over the wire (send_data_to_*): a
+  // bonded complex straddling the edge of the rank's visible columns has
+  // members in cells the rank does not hold, and the sweep above left them
+  // out -- harmless on a new run, where nothing is bound at step 0, but a
+  // restart file is full of them.  Add them outside every cell, the way a
+  // received member whose column lies beyond the rank is held
+  // (update_memberMolLists() skips it; its cell index is the nearest visible
+  // column's, for the code that reads it before the first update).
+  for (unsigned iComplex = 0; iComplex < complexList.size(); iComplex++) {
+    if (!transferComplex[iComplex]) continue;
+    if ((iComplex == 0) && (params.implicitLipid == true)) continue;
+    for (int m : complexList[iComplex].memberList) {
+      if (m < 0 || m >= static_cast<int>(moleculeList.size())) continue;
+      if (mapSerialToParallelMolecule[m] != -1) continue;
+      const Molecule &mol = moleculeList[m];
+      if (mol.isEmpty || mol.isImplicitLipid) continue;
+      Molecule copy = mol;
+      copy.index = moleculeListRank.size();
+      int xItr = static_cast<int>(
+          (mol.comCoord.x + membraneObject.waterBox.x / 2) /
+          simulVolume.subCellSize.x);
+      if (xItr < mpiContext.startGhosted) xItr = mpiContext.startGhosted;
+      if (xItr > mpiContext.endGhosted) xItr = mpiContext.endGhosted;
+      int yItr = static_cast<int>(
+          (mol.comCoord.y + membraneObject.waterBox.y / 2) /
+          simulVolume.subCellSize.y);
+      int zItr = (membraneObject.waterBox.z > 0)
+                     ? static_cast<int>(
+                           -(mol.comCoord.z + 1E-6 -
+                             membraneObject.waterBox.z / 2.0) /
+                           simulVolume.subCellSize.z)
+                     : 0;
+      if (yItr < 0) yItr = 0;
+      if (yItr >= simulVolumeRank.numSubCells.y)
+        yItr = simulVolumeRank.numSubCells.y - 1;
+      if (zItr < 0) zItr = 0;
+      if (zItr >= simulVolumeRank.numSubCells.z)
+        zItr = simulVolumeRank.numSubCells.z - 1;
+      copy.mySubVolIndex =
+          (xItr - mpiContext.xOffset) + yItr * simulVolumeRank.numSubCells.x +
+          zItr * simulVolumeRank.numSubCells.x * simulVolumeRank.numSubCells.y;
+      mapSerialToParallelMolecule[m] = copy.index;
+      moleculeListRank.push_back(copy);
+    }
+  }
+
+  // Every reference between molecules is still a serial index.  Map bound
+  // partners and the reweighting history to the rank's numbering; the
+  // complexes travel whole, so every bound partner is on the rank, and the
+  // implicit lipid keeps index 0 everywhere.  A history entry whose partner
+  // is not here is dropped, as the exchanges drop it.
+  auto mapped = [&](int serialIndex) {
+    return (serialIndex >= 0 &&
+            serialIndex < static_cast<int>(moleculeList.size()))
+               ? mapSerialToParallelMolecule[serialIndex]
+               : -1;
+  };
+  for (auto &mol : moleculeListRank) {
+    if (mol.isImplicitLipid) continue;
+    for (auto &iface : mol.interfaceList) {
+      int &partner = iface.interaction.partnerIndex;
+      if (partner != -1) partner = mapped(partner);
+    }
+    for (auto &partner : mol.bndpartner)
+      if (partner != -1) partner = mapped(partner);
+    for (auto *history : {&mol.prevReweight, &mol.currReweight}) {
+      std::vector<Molecule::ReweightEntry> kept;
+      for (auto entry : *history) {
+        entry.partner = mapped(entry.partner);
+        if (entry.partner != -1) kept.push_back(entry);
+      }
+      history->swap(kept);
     }
   }
 

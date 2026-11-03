@@ -126,14 +126,17 @@ void drop_crossings_decided_elsewhere(MpiContext &mpiContext,
 }
 
 // How many candidate interface pairs this rank holds that it can act on --
-// listed after drop_crossings_decided_elsewhere(), with at least one member
-// that is not a ghost -- summed over the ranks on rank 0.  At step 1 nothing
-// has moved and every decomposition starts from rank 0's coordinates, so the
-// total has to be the np=1 count: each pair listed by exactly one rank.  A
-// diagnostic for CHECK_STRUCTURE builds; collective.
-long long count_candidate_pairs(MpiContext &mpiContext,
-                                vector<Molecule> &moleculeList) {
-  long long local = 0;
+// listed after drop_crossings_decided_elsewhere() -- summed over the ranks
+// on rank 0, and how many of them pair two ghosts (members of a
+// neighbour's straddling complexes, which this rank decides since
+// measure_separations() stopped skipping them).  At step 1 nothing has moved
+// and every decomposition starts from rank 0's coordinates, so the total has
+// to be the np=1 count: each pair listed by exactly one rank; and no ghost
+// pairs with a ghost there, since nothing straddles yet.  A diagnostic for
+// CHECK_STRUCTURE builds; collective.
+std::array<long long, 2> count_candidate_pairs(MpiContext &mpiContext,
+                                               vector<Molecule> &moleculeList) {
+  std::array<long long, 2> local{0, 0};
   for (const auto &mol : moleculeList) {
     if (mol.isEmpty || mol.isImplicitLipid) continue;
     for (const auto &cross : mol.crossings) {
@@ -141,13 +144,16 @@ long long count_candidate_pairs(MpiContext &mpiContext,
       if (p < 0 || p >= static_cast<int>(moleculeList.size())) continue;
       const Molecule &partner = moleculeList[p];
       if (partner.isImplicitLipid) continue;
-      if (mol.isGhosted && partner.isGhosted) continue;
       // each pair sits in both lists; count it from the lower id's
-      if (mol.id < partner.id) local++;
+      if (mol.id < partner.id) {
+        local[0]++;
+        if (mol.isGhosted && partner.isGhosted) local[1]++;
+      }
     }
   }
-  long long total = 0;
-  MPI_Reduce(&local, &total, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+  std::array<long long, 2> total{0, 0};
+  MPI_Reduce(local.data(), total.data(), 2, MPI_LONG_LONG, MPI_SUM, 0,
+             MPI_COMM_WORLD);
   return total;
 }
 

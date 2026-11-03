@@ -33,7 +33,7 @@ while IFS=$'\t' read -r id dir parm most; do
             "$ROOT_DIR/sample_inputs/$dir/$parm" > "$d/$parm"
         (cd "$d" && mpirun --oversubscribe -np "$np" "$BINARY" -f "$parm" -s 1 \
             > stdout.log 2> stderr.log < /dev/null) || true
-        totals+=("$(sed -n 's/^CANDIDATE PAIRS itr=1 total=//p' "$d/stderr.log")")
+        totals+=("$(sed -n 's/^CANDIDATE PAIRS itr=1 total=\([0-9]*\).*/\1/p' "$d/stderr.log")")
     done
     echo "$id: ${totals[*]} (np=1..$most)"
     for t in "${totals[@]}"; do

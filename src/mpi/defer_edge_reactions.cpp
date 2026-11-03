@@ -168,3 +168,27 @@ void perform_held_back_first_order(
     for (auto &cross : mol.crossings) cross.prob = 0;
   }
 }
+
+// The overlap sweep of a half-step acts on the molecules of its region, and
+// the plain sweep moves the initiator's complex alone.  The cluster sweeps
+// (clusterOverlapCheck) move every complex of the cluster, and a cluster
+// reaches across the region boundary: in the first half it moved and marked
+// owned molecules of the right region, whose columns the right neighbour
+// binds into during the same half through the copy it holds.  The first
+// exchange then kept this rank's moved copies (deserialize_molecules_right()
+// keeps what this rank propagated) and the neighbour's bonds into them were
+// lost -- on mem_localization with the cluster sweep, a third of the
+// membrane binding.  Hold everything outside the region for the length of
+// the sweep; the cluster sweeps leave a held molecule where it is, as they
+// leave a ghost.
+void hold_outside_region(vector<Molecule> &moleculeList,
+                         const vector<int> &region) {
+  for (auto &mol : moleculeList) mol.sweepHeld = !mol.isEmpty;
+  for (int m : region)
+    if (m >= 0 && m < static_cast<int>(moleculeList.size()))
+      moleculeList[m].sweepHeld = false;
+}
+
+void release_sweep_hold(vector<Molecule> &moleculeList) {
+  for (auto &mol : moleculeList) mol.sweepHeld = false;
+}

@@ -128,6 +128,9 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
     // a molecule received over a local copy keeps that copy's history, which
     // already names local indices (deserialize_molecules*()).
   }
+  if (CHECK_STRUCTURE)
+    for (auto &index : indices)
+      trace_molecule(mpiContext, "after IDs_to_indices", moleculeList, *mpiContext.complexList, moleculeList[index]);
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
 }
 

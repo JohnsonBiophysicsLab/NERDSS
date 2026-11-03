@@ -236,6 +236,7 @@ void delete_disappeared_molecules(
         mol.crossings.clear();
         // Remove the molecule from this rank
         // and remove it from complex as well
+        if (CHECK_STRUCTURE) trace_molecule(mpiContext, "deleted, not received back", moleculeList, complexList, mol);
         mol.MPI_remove_from_one_rank(moleculeList, complexList);
         count++;
       }

@@ -219,10 +219,17 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
             k1 = pairList[i].k1;
             p2 = pairList[i].p2;
             k2 = pairList[i].k2;
-            if (moleculeList[p1].trajStatus == TrajStatus::none || moleculeList[p1].trajStatus == TrajStatus::canBeResampled) {
+            // A ghost's complex belongs to another rank, which moves it; a
+            // copy moved here would be kept over the owner's at the exchange
+            // (deserialize_molecules_right() keeps what this rank
+            // propagated) and the two ranks would drift apart.  The plain
+            // sweep moves the initiator's complex alone and never meets
+            // this; here every member of the cluster is moved.  A serial
+            // run has no ghosts and holds nothing.
+            if (!(moleculeList[p1].isGhosted || moleculeList[p1].sweepHeld) && (moleculeList[p1].trajStatus == TrajStatus::none || moleculeList[p1].trajStatus == TrajStatus::canBeResampled)) {
                 complexList[k1].propagate(moleculeList, membraneObject, molTemplateList);
             }
-            if (moleculeList[p2].trajStatus == TrajStatus::none || moleculeList[p2].trajStatus == TrajStatus::canBeResampled) {
+            if (!(moleculeList[p2].isGhosted || moleculeList[p2].sweepHeld) && (moleculeList[p2].trajStatus == TrajStatus::none || moleculeList[p2].trajStatus == TrajStatus::canBeResampled)) {
                 complexList[k2].propagate(moleculeList, membraneObject, molTemplateList);
             }
         }
@@ -232,7 +239,7 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
             for (i = 0; i < partnerOfPairList.size(); i++) {
                 int p = partnerOfPairList[i];
                 int k = moleculeList[p].myComIndex;
-                if (moleculeList[p].trajStatus == TrajStatus::none || moleculeList[p].trajStatus == TrajStatus::canBeResampled) {
+                if (!(moleculeList[p].isGhosted || moleculeList[p].sweepHeld) && (moleculeList[p].trajStatus == TrajStatus::none || moleculeList[p].trajStatus == TrajStatus::canBeResampled)) {
                     complexList[k].propagate(moleculeList, membraneObject, molTemplateList);
                 }
             }
@@ -269,12 +276,14 @@ void sweep_separation_complex_rot_memtest_cluster_sphere(int simItr, int pro1Ind
         p1 = pairList[i].p1;
         p2 = pairList[i].p2;
 
-        moleculeList[p1].trajStatus = TrajStatus::propagated;
-        moleculeList[p2].trajStatus = TrajStatus::propagated;
+        // A ghost was not moved (above) and is not marked: its owner's copy
+        // replaces it at the exchange, and the mark would keep this one.
+        if (!(moleculeList[p1].isGhosted || moleculeList[p1].sweepHeld)) moleculeList[p1].trajStatus = TrajStatus::propagated;
+        if (!(moleculeList[p2].isGhosted || moleculeList[p2].sweepHeld)) moleculeList[p2].trajStatus = TrajStatus::propagated;
     }
     for (i = 0; i < partnerOfPairList.size(); i++) {
         int p = partnerOfPairList[i];
-        moleculeList[p].trajStatus = TrajStatus::propagated;
+        if (!(moleculeList[p].isGhosted || moleculeList[p].sweepHeld)) moleculeList[p].trajStatus = TrajStatus::propagated;
     }
 
     params.timeStep = timeStepOrg; // recover timeStep

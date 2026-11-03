@@ -544,6 +544,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
     mol.deserialize(arrayRank, nArrayRank);
 
     if (VERBOSE) printf("deserializing mol (id=%d) ...\n", mol.id);
+    if (CHECK_STRUCTURE) trace_molecule(mpiContext, "wire copy", moleculeList, complexList, mol);
 
     update_mySubVolIndex(mpiContext, mol, membraneObject, simulVolume);
 
@@ -584,6 +585,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
                  mol.id);
         moleculeList[molIndex].receivedFromNeighborRank = true;
         keptLocalMol[molIndex] = 1;
+        if (CHECK_STRUCTURE) trace_molecule(mpiContext, "kept local", moleculeList, complexList, moleculeList[molIndex]);
         continue;
       }
 
@@ -622,6 +624,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
       mol.currReweight = std::move(moleculeList[molIndex].currReweight);
       moleculeList[molIndex] = mol;
+      if (CHECK_STRUCTURE) trace_molecule(mpiContext, "overwritten", moleculeList, complexList, moleculeList[molIndex]);
 
       auto &newCellIndex = moleculeList[molIndex].mySubVolIndex;
       // Check if cell index has changed:
@@ -643,6 +646,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       mol.index = moleculeList.size();
       molIndex = mol.index;
       moleculeList.push_back(mol);
+      if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);
     // if(DEBUG) DEBUG_MOL("1DESERIALIZed A MOLECULE");
@@ -725,6 +729,7 @@ void deserialize_molecules_right(
   // Apply received molecules and update structures:
   for (Molecule &mol : received) {
     if (VERBOSE) printf("deserializing mol (id=%d) ...\n", mol.id);
+    if (CHECK_STRUCTURE) trace_molecule(mpiContext, "wire copy", moleculeList, complexList, mol);
 
     update_mySubVolIndex(mpiContext, mol, membraneObject, simulVolume);
 
@@ -768,6 +773,7 @@ void deserialize_molecules_right(
               mol.id);
         moleculeList[molIndex].receivedFromNeighborRank = true;
         keptLocalMol[molIndex] = 1;
+        if (CHECK_STRUCTURE) trace_molecule(mpiContext, "kept local", moleculeList, complexList, moleculeList[molIndex]);
         continue;
       }
 
@@ -811,6 +817,7 @@ void deserialize_molecules_right(
       mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
       mol.currReweight = std::move(moleculeList[molIndex].currReweight);
       moleculeList[molIndex] = mol;
+      if (CHECK_STRUCTURE) trace_molecule(mpiContext, "overwritten", moleculeList, complexList, moleculeList[molIndex]);
 
       auto newCellIndex = moleculeList[molIndex].mySubVolIndex;
       // Check if cell index has changed:
@@ -832,6 +839,7 @@ void deserialize_molecules_right(
       mol.index = moleculeList.size();
       molIndex = mol.index;
       moleculeList.push_back(mol);
+      if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);
     // if(DEBUG) DEBUG_MOL("1DESERIALIZed A MOLECULE");
