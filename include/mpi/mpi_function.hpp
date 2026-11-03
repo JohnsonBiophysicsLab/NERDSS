@@ -29,9 +29,23 @@ using namespace std;
 void move_complexes_based_on_propagation(MpiContext &mpiContext, vector<Molecule> &moleculeList, SimulVolume &simulVolume, Membrane &membraneObject);
 
 /*! \ingroup mpi_function
- * \brief Search for the molecule with the same ID within moleculeList
+ * \brief Index of the molecule with this id in moleculeList, or -1.  Answers
+ * from the id-to-index map (src/mpi/id_index.cpp); the slot may be empty.
  */
 int find_molecule(vector<Molecule> &moleculeList, int id);
+
+/*! \ingroup mpi_function
+ * \brief Keep the id-to-index maps behind find_molecule() / find_complex()
+ * current.  rebuild after the lists were built; refresh at the top of a
+ * receive, for the ids the reactions created here since; note_* when a
+ * deserialiser appends a slot or remove_empty_slots() moves one; compact
+ * after a compaction, to drop stale entries once they outnumber the live ones.
+ */
+void rebuild_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void refresh_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void compact_id_index(const vector<Molecule> &moleculeList, const vector<Complex> &complexList);
+void note_molecule_installed(int id, int index);
+void note_complex_installed(int id, int index);
 
 /*! \ingroup mpi_function
  * \brief Verify that every molecule is owned by exactly one rank.
@@ -60,7 +74,8 @@ void derive_ghost_from_ownership(MpiContext &mpiContext,
                                  bool skipUnclaimed);
 
 /*! \ingroup mpi_function
- * \brief Search for the complex with the same ID within complexList
+ * \brief Index of the complex with this id in complexList, or -1; see
+ * find_molecule().
  */
 int find_complex(vector<Complex> &complexList, int id);
 
@@ -96,7 +111,14 @@ void check_molecule_coordinates(MpiContext &mpiContext, vector<Molecule> &molecu
     vector<MolTemplate> &molTemplateList, SimulVolume &simulVolume, Membrane &membraneObject, copyCounters &counterArrays);
 
 /*! \ingroup mpi_function
- * \brief map local index to unique global id
+ * \brief Set each bound interface's partnerId from its partnerIndex before the
+ * molecule is serialized (-3 for the implicit lipid).  Persists.
+ */
+void refresh_partner_ids(Molecule &mol, const vector<Molecule> &moleculeList);
+
+/*! \ingroup mpi_function
+ * \brief Rewrite every index the molecule holds (partners, complex, reweighting
+ * history) as an id, in place; for a copy bound for a restart file.
  */
 void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList, vector<Complex> &complexList);
 
@@ -116,10 +138,10 @@ bool check_enter_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, 
 bool check_exit_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, vector<int> &indicesEnteringMolecules, SimulVolume &simulVolume);
 
 /*! \ingroup mpi_function
- * \brief serialize molecules
+ * \brief Serialize the molecules at these indices, in this order.
  */
 void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank,
-    int &nArrayRank, set<int> &complexesSet, set<int> &moleculesSet);
+    int &nArrayRank, const vector<int> &molecules);
 
 /*! \ingroup mpi_function
  * \brief serialize some molecules
@@ -163,7 +185,7 @@ void deserialize_molecules_right(MpiContext &mpiContext, SimulVolume &simulVolum
 /*! \ingroup mpi_function
  * \brief Serialize complexes from complexList with indices within complexesSet
  */
-void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject, set<int> &complexesSet,
+void serialize_complexes(MpiContext &mpiContext, SimulVolume &simulVolume, Membrane &membraneObject, const vector<int> &complexes,
     vector<Complex> &complexList, vector<Molecule> &moleculeList, unsigned char *arrayRank, int &nArrayRank);
 
 /*! \ingroup mpi_function

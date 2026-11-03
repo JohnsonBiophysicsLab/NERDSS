@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <iostream>
 #include <unordered_map>
 
@@ -6,66 +7,151 @@
 
 using namespace std;
 
-/*
-// Hash maps to help translating IDs to indices faster:
-unordered_map<size_t, size_t> Molecule::mapIdToIndex {};
-unordered_map<size_t, size_t> Complex::mapIdToIndex {};
+// Id-to-index maps for the two lists a rank holds.
+//
+// find_molecule() and find_complex() used to be linear scans over
+// moleculeList and complexList, called once per received molecule and once
+// per bound partner of each (deserialize.cpp, IDs_to_indices()): about 7% of
+// a rank's samples at np=2 on hetTrimer, and quadratic in the stripe
+// population.  The maps below answer the same question in O(1).
+//
+// What the scans answered, exactly: the lowest index whose id field equals
+// the id asked for, whether or not that slot is empty.  The distinction
+// matters: Molecule::MPI_remove_from_one_rank() leaves id set on the slot it
+// empties, and deserialize_molecules() relies on finding that slot again so a
+// molecule that comes back in the same step is written into it rather than
+// appended twice; deserialize_complexes() finds it too and then drops the
+// member because it is empty.  Molecule::destroy() and Complex::destroy() set
+// id to -1, so those slots never match.  A hit is therefore validated by
+// `list[index].id == id` alone, and the callers keep their own isEmpty tests.
+//
+// How the maps are kept current:
+//  * rebuild_id_index() after prepare() has built the rank's lists.
+//  * note_molecule_installed() / note_complex_installed() from the deserialisers
+//    when they append a slot, and from remove_empty_slots() for each slot it
+//    moves into a hole (every MPI step; it moves only as many slots as there
+//    are holes, so the maps are patched rather than rebuilt).  In-place
+//    overwrites keep the id and the index.
+//  * refresh_id_index() at the top of each receive, for what the reactions
+//    created on this rank since the last rebuild.  Ids are handed out from
+//    Molecule::maxID / Complex::maxID, which only ever grow, and prepare()
+//    gives every rank its own id range, so the ids created here since the last
+//    pass are exactly those in [watermark, maxID): one integer compare per
+//    slot finds them, whatever slot the creation took.  Nothing else installs
+//    an id below the watermark except the deserialisers, which report it.
+// A stale entry -- a slot destroyed, recycled under a new id, or compacted
+// away -- fails the validation, which is what the scan would have reported
+// too; compact_id_index() rebuilds a map once its stale entries outnumber
+// the live ones, so the memory stays proportional to the lists.  Under
+// CHECK_STRUCTURE every lookup is also checked against the scan.
 
-int find_complex(vector<Complex> &complexList, int id){
-    size_t iCom = 0;
-    // Fist check if the given id can already be found in the mapIdToIndex:
-    if(Complex::mapIdToIndex.find(id) != Complex::mapIdToIndex.end()){
-        iCom = Complex::mapIdToIndex[id];
-        if( (iCom < complexList.size()) && (complexList[iCom].id == id) )
-            return iCom;
-    }
-    // Search complexList for a complex with the same ID:
-    iCom = 0;
-    while( (iCom < complexList.size()) && (complexList[iCom].id != id) )
-        iCom++;
-    if( iCom == complexList.size() )
-        return -1;
-    // Store for future reference:
-    Complex::mapIdToIndex[id] = iCom;
-    //TODO: Empty old values once in e.g. 100000 iterations.
-    return iCom;
+namespace {
+
+struct IdIndex {
+  std::unordered_map<int, int> index;
+  int watermark{0};  // ids below this were in the map at the last pass
+};
+
+IdIndex molIds;
+IdIndex comIds;
+
+template <typename T>
+void rebuild(IdIndex &ids, const vector<T> &list, int maxID) {
+  ids.index.clear();
+  ids.index.reserve(list.size() * 2);
+  for (size_t i = 0; i < list.size(); i++) {
+    if (list[i].id < 0) continue;
+    ids.index.emplace(list[i].id, static_cast<int>(i));  // keeps the lowest
+  }
+  ids.watermark = maxID;
 }
 
-
-int find_molecule(vector<Molecule> &moleculeList, int id){
-    size_t iMol = 0;
-    // Fist check if the given id can already be found in the mapIdToIndex:
-    if(Molecule::mapIdToIndex.find(id) != Molecule::mapIdToIndex.end()){
-        iMol = Molecule::mapIdToIndex[id];
-        if( (iMol < moleculeList.size()) && (moleculeList[iMol].id == id) )
-            return iMol;
+template <typename T>
+void refresh(IdIndex &ids, const vector<T> &list, int maxID) {
+  if (maxID > ids.watermark) {
+    for (size_t i = 0; i < list.size(); i++) {
+      const int id = list[i].id;
+      if (id >= ids.watermark && id < maxID)
+        ids.index.emplace(id, static_cast<int>(i));
     }
-    // Search moleculeList for a molecule with the same ID:
-    iMol = 0;
-    while( (iMol < moleculeList.size()) && (moleculeList[iMol].id != id) )
-        iMol++;
-    if( iMol == moleculeList.size() )
-        return -1;
-    // Store for future reference:
-    Molecule::mapIdToIndex[id] = iMol;
-    return iMol;
+    ids.watermark = maxID;
+  }
 }
-*/
+
+template <typename T>
+int scan(const vector<T> &list, int id) {
+  size_t i = 0;
+  while ((i < list.size()) && (list[i].id != id)) i++;
+  if (i == list.size()) return -1;
+  return static_cast<int>(i);
+}
+
+template <typename T>
+int lookup(const IdIndex &ids, const vector<T> &list, int id) {
+  // Destroyed slots carry id -1 and are not in the map; a caller asking for
+  // a negative id gets the scan's answer, as before.  Nothing does in a run
+  // whose invariants hold.
+  if (id < 0) return scan(list, id);
+  auto it = ids.index.find(id);
+  if (it == ids.index.end()) return -1;
+  const int index = it->second;
+  if (index < 0 || index >= static_cast<int>(list.size())) return -1;
+  return list[index].id == id ? index : -1;
+}
+
+}  // namespace
+
+void rebuild_id_index(const vector<Molecule> &moleculeList,
+                      const vector<Complex> &complexList) {
+  rebuild(molIds, moleculeList, Molecule::maxID);
+  rebuild(comIds, complexList, Complex::maxID);
+}
+
+void refresh_id_index(const vector<Molecule> &moleculeList,
+                      const vector<Complex> &complexList) {
+  refresh(molIds, moleculeList, Molecule::maxID);
+  refresh(comIds, complexList, Complex::maxID);
+}
+
+void compact_id_index(const vector<Molecule> &moleculeList,
+                      const vector<Complex> &complexList) {
+  // Every live slot has an entry, so anything beyond the list's size is
+  // stale.  Rebuilding at twice the size (plus some slack for small lists)
+  // costs one pass per that many destructions.
+  if (molIds.index.size() > 2 * moleculeList.size() + 1024)
+    rebuild(molIds, moleculeList, molIds.watermark);
+  if (comIds.index.size() > 2 * complexList.size() + 1024)
+    rebuild(comIds, complexList, comIds.watermark);
+}
+
+void note_molecule_installed(int id, int index) { molIds.index[id] = index; }
+
+void note_complex_installed(int id, int index) { comIds.index[id] = index; }
 
 int find_complex(vector<Complex> &complexList, int id) {
-  size_t iCom = 0;
-  // Search complexList for a complex with the same ID:
-  while ((iCom < complexList.size()) && (complexList[iCom].id != id)) iCom++;
-  if (iCom == complexList.size()) return -1;
-  return iCom;
+  const int index = lookup(comIds, complexList, id);
+  if (CHECK_STRUCTURE) {
+    const int scanned = scan(complexList, id);
+    if (scanned != index)
+      fprintf(stderr,
+              "STRUCTURE VIOLATION: complex id index gives %d for id %d, the "
+              "scan %d\n",
+              index, id, scanned);
+  }
+  return index;
 }
 
 int find_molecule(vector<Molecule> &moleculeList, int id) {
-  size_t iMol = 0;
-  // Search moleculeList for a molecule with the same ID:
-  while ((iMol < moleculeList.size()) && (moleculeList[iMol].id != id)) iMol++;
-  if (iMol == moleculeList.size()) return -1;
-  return iMol;
+  const int index = lookup(molIds, moleculeList, id);
+  if (CHECK_STRUCTURE) {
+    const int scanned = scan(moleculeList, id);
+    if (scanned != index)
+      fprintf(stderr,
+              "STRUCTURE VIOLATION: molecule id index gives %d for id %d, the "
+              "scan %d\n",
+              index, id, scanned);
+  }
+  return index;
 }
 
 void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
@@ -134,28 +220,40 @@ void IDs_to_indices(MpiContext &mpiContext, vector<Molecule> &moleculeList,
   if (VERBOSE) cout << "IDs_to_indices ends" << endl;
 }
 
+// Before a molecule goes on the wire, every bound interface's partnerId has
+// to name the partner the receiver will look for.  The reactions set only
+// partnerIndex, so this is where partnerId is brought up to date, and it
+// stays: IDs_to_indices() reads the local partner's partnerId to find the
+// interface pointing back at a received molecule.  -3 stands for the implicit
+// lipid, which has no id of its own.
+//
+// The exchange used indices_to_IDs() below for this, which also writes the
+// complex's id into myComIndex and the partners' ids into the reweighting
+// history, both of which the sender then had to save and restore -- one
+// vector copy per molecule sent, for a history that is not on the wire at
+// all.  The complex id now goes straight to the wire
+// (Molecule::serialize_as()).
+void refresh_partner_ids(Molecule &mol, const vector<Molecule> &moleculeList) {
+  for (auto &iface : mol.interfaceList) {
+    Molecule::Interaction &inter = iface.interaction;
+    if (inter.partnerIndex == -1) continue;
+    inter.partnerId = moleculeList[inter.partnerIndex].isImplicitLipid
+                          ? -3
+                          : moleculeList[inter.partnerIndex].id;
+  }
+}
+
+// Every index a molecule holds rewritten as an id, in place: the partners
+// (as above), the complex, and the reweighting history's partners.  For a
+// copy that is going into a gathered restart file (gather_system()), where
+// the history is written too.
 void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
                     vector<Complex> &complexList) {
-  if (VERBOSE) cout << "indices_to_IDs begins" << endl;
-  // Update interfaces to store also partner-molecule ID:
-  for (size_t i = 0; i < mol.interfaceList.size(); i++) {
-    Molecule::Interaction &inter = mol.interfaceList[i].interaction;
-    if (inter.partnerIndex != -1) {  // if it can be seen
-      if (moleculeList[inter.partnerIndex].isImplicitLipid == false) {
-        // Update only interfaces whose partner is visible on this rank:
-        inter.partnerId = moleculeList[inter.partnerIndex].id;
-        if (VERBOSE) cout << "Assigned: " << inter.partnerId << ". ";
-      } else {
-        inter.partnerId = -3;  // its partner is implicit lipid
-      }
-    }
-  }
-  // Set myComIndex to the ID of the complex:
+  refresh_partner_ids(mol, moleculeList);
   mol.myComIndex = complexList[mol.myComIndex].id;
-  // Map the reweighting history's partner indices to IDs.  An entry can be -1
-  // when the neighbour it refers to has moved to another rank; moleculeList[-1]
-  // is a read off the front of the vector, so pass the sentinel through
-  // untouched.
+  // An entry can be -1 when the neighbour it refers to has moved to another
+  // rank; moleculeList[-1] is a read off the front of the vector, so pass the
+  // sentinel through untouched.
   for (auto &prevEntry : mol.prevReweight) {
     prevEntry.partner =
         (prevEntry.partner >= 0 &&
@@ -163,5 +261,4 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList,
             ? moleculeList[prevEntry.partner].id
             : -1;
   }
-  if (VERBOSE) cout << "indices_to_IDs ends" << endl;
 }

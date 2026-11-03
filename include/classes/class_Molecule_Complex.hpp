@@ -397,8 +397,6 @@ struct Molecule {
     int complexId{-1};  // used for molecules in ghosted zones, for finding complex at neighbor rank
     // MPI static variable:
     static int maxID;  //!< the number of the first empty ID for a complex atparticular rank
-    // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
-    static std::unordered_map<size_t, size_t> mapIdToIndex;
 
     // association member functions
     void update_association_coords(const Vec3D& vec);
@@ -430,10 +428,19 @@ struct Molecule {
     Function serialize serializes the Molecule into array of bytes.
     */
     void serialize(unsigned char* arrayRank, int& nArrayRank) {
+        serialize_as(arrayRank, nArrayRank, myComIndex);
+    }
+    /*
+    The same bytes with comIndexOnWire written where myComIndex goes.  The
+    exchange sends the complex's id there (the receiver maps it back to its own
+    index), and used to get it by overwriting myComIndex, serializing and
+    restoring; see serialize_molecules().
+    */
+    void serialize_as(unsigned char* arrayRank, int& nArrayRank, int comIndexOnWire) {
         // std::cout << "+Molecule serialization starts here..." << std::endl;
         //  Serialize myComIndex into arrayRank starting from nArrayRank byte
         //  and increase nArrayRank by number of serialized bytes after:
-        PUSH(myComIndex);
+        PUSH(comIndexOnWire);
         PUSH(molTypeIndex);
         PUSH(mySubVolIndex);
         PUSH(index);
@@ -601,8 +608,6 @@ public:
     // MPI static variable:
     static int maxID;  //!< the number of the first empty ID for a complex at particular rank
 
-    // Declaring mapIdToIndex to be able to translate ID to index relatively fast:
-    static std::unordered_map<size_t, size_t> mapIdToIndex;
 
     void update_properties(const std::vector<Molecule>& moleculeList, const std::vector<MolTemplate>& molTemplateList);
     void display();
@@ -647,6 +652,13 @@ public:
     Function serialize serializes the Molecule into array of bytes.
     */
     void serialize(unsigned char* arrayRank, int& nArrayRank) {
+        serialize_as(arrayRank, nArrayRank, memberList);
+    }
+    /*
+    The same bytes with memberListOnWire written where memberList goes: the
+    exchange sends the members' ids (see serialize_complexes()).
+    */
+    void serialize_as(unsigned char* arrayRank, int& nArrayRank, const std::vector<int>& memberListOnWire) {
         // std::cout << "+Complex serialization nArrayRanks here..." << std::endl;
         //  Serialize starting from beginning of arrayRank
         //  increased by the number of bytes already serialized
@@ -654,7 +666,7 @@ public:
         PUSH(index);
         PUSH(radius);
         PUSH(mass);
-        serialize_primitive_vector<int>(memberList, arrayRank, nArrayRank);
+        serialize_primitive_vector<int>(memberListOnWire, arrayRank, nArrayRank);
         serialize_primitive_vector<int>(numEachMol, arrayRank, nArrayRank);
         serialize_primitive_vector<long long int>(lastNumberUpdateItrEachMol,
                                                 arrayRank, nArrayRank);

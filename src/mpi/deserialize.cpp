@@ -199,7 +199,7 @@ void deserialize_complexes(MpiContext &mpiContext,
     // complexes_partial() reads memberList[0] of every complex that is not
     // flagged empty.  Leave this rank's own copy untouched instead.
     if (memberList.empty()) continue;
-    c.memberList = memberList;
+    c.memberList = std::move(memberList);
 
     // Extract unique complex identifier in the system,
     // and find index to local complex with the same ID:
@@ -213,7 +213,9 @@ void deserialize_complexes(MpiContext &mpiContext,
 
       c.index = complexList.size();
       complexIndex = c.index;
-      complexList.push_back(c);
+      const int newId = c.id;
+      complexList.push_back(std::move(c));
+      note_complex_installed(newId, complexIndex);
     } else {
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
@@ -231,7 +233,6 @@ void deserialize_complexes(MpiContext &mpiContext,
         continue;
       }
 
-      auto vecOld = complexList[complexIndex].memberList;
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
@@ -246,33 +247,13 @@ void deserialize_complexes(MpiContext &mpiContext,
       const int currentOwner = complexList[complexIndex].ownerRank;
       const bool senderMayReassign =
           (currentOwner == senderRank) || (currentOwner == -1);
-      complexList[complexIndex] = c;  // copy all deserialized properties
+      complexList[complexIndex] = std::move(c);  // the deserialized properties
       if (!senderMayReassign)
         complexList[complexIndex].ownerRank = currentOwner;
       if (VERBOSE)
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
       complexList[complexIndex].index = complexIndex;
-      auto &vecNew = complexList[complexIndex].memberList;
-
-      // Update member molecules to match also old molecules:
-      // for (auto &it : vecOld) {
-      //   // cout << "add old..." << endl;
-      //   //  If old memberList element isn't found in vecNew, add it:
-      //   if (std::find(vecNew.begin(), vecNew.end(), it) == vecNew.end()) {
-      //     // Push only if a member molecule isn't deleted:
-      //     if ((it < moleculeList.size()) &&
-      //         (moleculeList[it].myComIndex != -1)) {
-      //       // Push "it" only if not in a shared zone:
-      //       int xBin = get_x_bin(mpiContext, moleculeList[it]);
-      //       if (((!mpiContext.rank) || (xBin > 1)) &&
-      //           ((mpiContext.rank == mpiContext.nprocs - 1) ||
-      //            (xBin < (*(mpiContext.simulVolume)).numSubCells.x - 2))) {
-      //         vecNew.push_back(it);
-      //       }
-      //     }
-      //   }
-      // }
     }
 
     // Update myComIndex of member molecules to complexIndex:
@@ -360,7 +341,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
     }
     if (VERBOSE) cout << endl;
     if (memberList.empty()) continue;
-    c.memberList = memberList;
+    c.memberList = std::move(memberList);
 
     if (VERBOSE)
       cout << "complexIndex = " << complexIndex << "complexId = " << c.id
@@ -371,7 +352,9 @@ void deserialize_complexes_right(MpiContext &mpiContext,
 
       c.index = complexList.size();
       complexIndex = c.index;
-      complexList.push_back(c);
+      const int newId = c.id;
+      complexList.push_back(std::move(c));
+      note_complex_installed(newId, complexIndex);
     } else {
       if (VERBOSE)
         printf("This is a old complex (id=%d) here\n",
@@ -391,7 +374,6 @@ void deserialize_complexes_right(MpiContext &mpiContext,
         continue;
       }
 
-      auto vecOld = complexList[complexIndex].memberList;
       if (VERBOSE)
         cout << "Old receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
@@ -410,7 +392,7 @@ void deserialize_complexes_right(MpiContext &mpiContext,
       // this rank's (deserialize_molecules_right()); the sender's count is
       // of its own lists.
       const int localNcross = complexList[complexIndex].ncross;
-      complexList[complexIndex] = c;  // copy all deserialized properties
+      complexList[complexIndex] = std::move(c);  // the deserialized properties
       complexList[complexIndex].ncross = localNcross;
       if (!senderMayReassign)
         complexList[complexIndex].ownerRank = currentOwner;
@@ -418,26 +400,6 @@ void deserialize_complexes_right(MpiContext &mpiContext,
         cout << "New receivedFromNeighborRank = "
              << complexList[complexIndex].receivedFromNeighborRank << endl;
       complexList[complexIndex].index = complexIndex;
-      auto &vecNew = complexList[complexIndex].memberList;
-
-      // Update member molecules to match also old molecules:
-      // for (auto &it : vecOld) {
-      //   // cout << "add old..." << endl;
-      //   //  If old memberList element isn't found in vecNew, add it:
-      //   if (std::find(vecNew.begin(), vecNew.end(), it) == vecNew.end()) {
-      //     // Push only if a member molecule isn't deleted:
-      //     if ((it < moleculeList.size()) &&
-      //         (moleculeList[it].myComIndex != -1)) {
-      //       // Push "it" only if not in a shared zone:
-      //       int xBin = get_x_bin(mpiContext, moleculeList[it]);
-      //       if (((!mpiContext.rank) || (xBin > 1)) &&
-      //           ((mpiContext.rank == mpiContext.nprocs - 1) ||
-      //            (xBin < (*(mpiContext.simulVolume)).numSubCells.x - 2))) {
-      //         vecNew.push_back(it);
-      //       }
-      //     }
-      //   }
-      // }
     }
 
     // Update myComIndex of member molecules to complexIndex:
@@ -623,7 +585,7 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       // step, i.e. no reweighting at all.
       mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
       mol.currReweight = std::move(moleculeList[molIndex].currReweight);
-      moleculeList[molIndex] = mol;
+      moleculeList[molIndex] = std::move(mol);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "overwritten", moleculeList, complexList, moleculeList[molIndex]);
 
       auto &newCellIndex = moleculeList[molIndex].mySubVolIndex;
@@ -645,7 +607,9 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       //  The molecule doesn't exist in moleculeList. Add it:
       mol.index = moleculeList.size();
       molIndex = mol.index;
-      moleculeList.push_back(mol);
+      const int newId = mol.id;
+      moleculeList.push_back(std::move(mol));
+      note_molecule_installed(newId, molIndex);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);
@@ -726,7 +690,8 @@ void deserialize_molecules_right(
         keptLocalCom[ci] = 1;
   keptLocalMol.assign(moleculeList.size(), 0);
 
-  // Apply received molecules and update structures:
+  // Apply received molecules and update structures.  Each is moved into its
+  // slot below, so nothing reads `received` after this loop.
   for (Molecule &mol : received) {
     if (VERBOSE) printf("deserializing mol (id=%d) ...\n", mol.id);
     if (CHECK_STRUCTURE) trace_molecule(mpiContext, "wire copy", moleculeList, complexList, mol);
@@ -816,7 +781,7 @@ void deserialize_molecules_right(
       // Nor is the reweighting history; see deserialize_molecules().
       mol.prevReweight = std::move(moleculeList[molIndex].prevReweight);
       mol.currReweight = std::move(moleculeList[molIndex].currReweight);
-      moleculeList[molIndex] = mol;
+      moleculeList[molIndex] = std::move(mol);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "overwritten", moleculeList, complexList, moleculeList[molIndex]);
 
       auto newCellIndex = moleculeList[molIndex].mySubVolIndex;
@@ -838,7 +803,9 @@ void deserialize_molecules_right(
       // The molecule doesn't exist in moleculeList. Add it:
       mol.index = moleculeList.size();
       molIndex = mol.index;
-      moleculeList.push_back(mol);
+      const int newId = mol.id;
+      moleculeList.push_back(std::move(mol));
+      note_molecule_installed(newId, molIndex);
       if (CHECK_STRUCTURE) trace_molecule(mpiContext, "appended", moleculeList, complexList, moleculeList.back());
     }
     indices.push_back(molIndex);
