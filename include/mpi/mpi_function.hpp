@@ -210,6 +210,23 @@ bool check_structure_invariant(MpiContext &mpiContext, std::vector<Molecule> &mo
                                const char *label, int mode = 0);
 
 /*! \ingroup mpi_function
+ * \brief report every complex that reaches past both ends of a middle rank's
+ * owned columns (the width the stripe cannot carry: it is handed to both of
+ * that rank's neighbours); one warning per rank in the -O3 build, every
+ * complex under CHECK_STRUCTURE.  Returns how many this step.
+ */
+int check_complex_extent(MpiContext &mpiContext, std::vector<Molecule> &moleculeList,
+                         std::vector<Complex> &complexList,
+                         const std::vector<MolTemplate> &molTemplateList,
+                         const std::vector<ForwardRxn> &forwardRxns, int totalColumns,
+                         long long simItr);
+
+/*! \ingroup mpi_function
+ * \brief the end-of-run count for check_complex_extent(); silent if it never fired
+ */
+void report_complex_extent_summary(MpiContext &mpiContext);
+
+/*! \ingroup mpi_function
  * \brief give an owner to every complex created since the last start-up seed
  */
 void claim_unowned_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList,

@@ -175,6 +175,99 @@ void read_rng_state(int rank)
     }
 }
 
+// ---- every rank's generator, for a restart at the same rank count ----
+//
+// nerdss_mpi gives each rank its own stream (rank 0 the seed, rank r the
+// seed + r), and a checkpoint used to save rank 0's state alone under the
+// serial build's names, so a restart at np > 1 could continue rank 0's
+// stream at best and re-seeded the others.  write_gathered_restart() now has
+// every rank write its state as well, under a name that carries the rank and
+// the rank count: a state is only meaningful for the same rank of the same
+// decomposition, and a restart at another count falls back to seeding.
+//
+// Names: DATA/rng_state_<rank>_np<nprocs> beside DATA/restart.json, and
+// RESTARTS/rng_state<itr>_<rank>_np<nprocs> beside RESTARTS/restart<itr>.json.
+// read_rng_state() below looks in DATA/, in the working directory, and in
+// the directory the restart file was read from (so a checkpoint restarts from
+// its own RESTARTS/ with nothing copied or renamed); at np=1 it also accepts
+// the names an np=1 run and the serial build write, so an np=1 continuation
+// of either is still exact.
+
+namespace {
+std::string rng_state_rank_tag(int rank, int nprocs)
+{
+    return "_" + std::to_string(rank) + "_np" + std::to_string(nprocs);
+}
+} // namespace
+
+void write_rng_state(int rank, int nprocs)
+{
+    write_rng_state_file("DATA/rng_state" + rng_state_rank_tag(rank, nprocs));
+}
+
+void write_rng_state_simItr(long long simItr, int rank, int nprocs)
+{
+    write_rng_state_file("RESTARTS/rng_state" + std::to_string(simItr) + rng_state_rank_tag(rank, nprocs));
+}
+
+bool read_rng_state(int rank, int nprocs, const std::string& checkpointDir, long long simItr,
+    std::string& fileRead)
+{
+    const std::string tagged = "rng_state" + rng_state_rank_tag(rank, nprocs);
+    const std::string dir = checkpointDir.empty() ? std::string(".") : checkpointDir;
+    std::vector<std::string> candidates {
+        "DATA/" + tagged,
+        tagged,
+        dir + "/rng_state" + std::to_string(simItr) + rng_state_rank_tag(rank, nprocs),
+    };
+    if (nprocs == 1) {
+        // what an np=1 run wrote before the tag existed, and the serial names
+        candidates.push_back("DATA/rng_state_0");
+        candidates.push_back("rng_state_0");
+        candidates.push_back("DATA/rng_state");
+        candidates.push_back("rng_state");
+        candidates.push_back(dir + "/rng_state" + std::to_string(simItr));
+    }
+    for (const auto& name : candidates) {
+        const ReadResult result = read_rng_state_file(name);
+        if (result == ReadResult::success) {
+            fileRead = name;
+            return true;
+        }
+        // a file that exists but cannot be read has been reported; keep looking
+    }
+    fileRead.clear();
+    return false;
+}
+
+std::string rng_state_digest()
+{
+    // FNV-1a over the generator's state bytes: two generators with the same
+    // digest are (to the hash) the same generator, and will draw the same
+    // sequence from here on.
+    const unsigned char* bytes = static_cast<const unsigned char*>(gsl_rng_state(r));
+    const std::size_t n = gsl_rng_size(r);
+    unsigned long long h = 14695981039346656037ULL;
+    for (std::size_t i = 0; i < n; i++) {
+        h ^= bytes[i];
+        h *= 1099511628211ULL;
+    }
+    char text[24];
+    std::snprintf(text, sizeof text, "%016llx", h);
+    return text;
+}
+
+void rng_probe_line(int rank, long long simItr)
+{
+    // NERDSS_RNG_PROBE in the environment (mpirun -x NERDSS_RNG_PROBE=1)
+    // prints the digest at the top of every step to stderr, so that a
+    // restarted run can be compared with the uninterrupted one at the same
+    // step; see benchmarks/nerdss_optimized/mpi_validation/restart_np_check.sh.
+    static const bool on = std::getenv("NERDSS_RNG_PROBE") != nullptr;
+    if (!on) return;
+    std::fprintf(stderr, "RNG STATE rank %d itr=%lld %s\n", rank, simItr, rng_state_digest().c_str());
+}
+
 double GaussV()
 {
     // The Marsaglia polar method this used to implement draws ~2.55 uniforms on

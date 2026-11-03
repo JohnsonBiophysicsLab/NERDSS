@@ -51,7 +51,9 @@ void write_output(long long int simItr, Parameters& params,
                   MDTimer::time_point& startStep,
                   MDTimer::time_point& totalTimeStart,
                   std::map<std::string, int>& observablesList,
-                  std::ofstream& assemblyfile) {
+                  std::ofstream& assemblyfile, std::ofstream& dimerfile,
+                  std::ofstream& eventFile, std::ofstream& pairOutfile,
+                  const std::string& observablesFileName) {
   // if (simItr % params.trajWrite == 0) {
   //   std::ofstream trajFile{trajFileName, std::ios::app};  // for append
   //   write_traj(simItr, trajFile, params, moleculeList, molTemplateList,
@@ -72,6 +74,16 @@ void write_output(long long int simItr, Parameters& params,
   // which assembles the whole system on rank 0; one rank's lists alone are
   // not a restart file.
 
+  // The transition matrix on the serial schedule; this rank's counts, which
+  // merge_outputs() sums (the lifetime lists it lays end to end).
+  if (params.transitionWrite > 0 && simItr % params.transitionWrite == 0) {
+    std::ofstream transitionFile{transitionFileName, std::ios::app};
+    write_transition((simItr - params.itrRestartFrom) * params.timeStep *
+                             Constants::usToSeconds +
+                         params.timeRestartFrom,
+                     transitionFile, molTemplateList);
+  }
+
   // timeWrite <= 0 turns the periodic statistics output off
   if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
     write_all_species((simItr - params.itrRestartFrom) * params.timeStep *
@@ -88,6 +100,24 @@ void write_output(long long int simItr, Parameters& params,
     int meanComplexSize = print_complex_hist(
         complexList, assemblyfile, simItr, params, molTemplateList,
         moleculeList, number_of_lipids, mpiContext, simulVolume);
+
+    // The tallies the serial loop writes on the same steps (EXEs/nerdss.cpp).
+    // They used to be written once, at the start, and never again: each
+    // rank's file held its header and the step-0 row.  Bound pairs, the
+    // event counters and the observables are this rank's own counts, and
+    // merge_outputs() sums them; the monomer and dimer counts are of the
+    // complexes this rank owns (src/io_mpi/rank_tallies.cpp).
+    write_NboundPairs(counterArrays, pairOutfile, simItr, params, moleculeList);
+    print_dimers(complexList, dimerfile, simItr, params, molTemplateList,
+                 mpiContext);
+    print_association_events(counterArrays, eventFile, simItr, params);
+    if (!observablesList.empty()) {
+      std::ofstream observablesFile{observablesFileName, std::ios::app};
+      write_observables((simItr - params.itrRestartFrom) * params.timeStep *
+                                Constants::usToSeconds +
+                            params.timeRestartFrom,
+                        observablesFile, observablesList);
+    }
 
     char charTime[24];
 

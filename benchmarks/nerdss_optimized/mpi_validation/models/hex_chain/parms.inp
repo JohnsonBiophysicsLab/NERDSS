@@ -1,0 +1,43 @@
+# Linear polymer on a box of 8 columns (rMaxLimit 20.4 nm, columns of 22.5 nm
+# along x): at np=3 the ranks own 3, 3 and 2 of them, and a chain of six or
+# more molecules lying along x reaches past both ends of the middle rank's
+# columns.  Nothing dissociates, so chains only grow; with seeds 1, 2 and 3
+# the first such complex appears between step 4800 and step 9600.  Narrower
+# boxes in y and z (which would line the chains up along x sooner) end in
+# "mol outside box": a long rigid chain is not reflected cleanly.
+
+start parameters
+    nItr = 12000
+    timeStep = 0.5
+    timeWrite = 1000
+    trajWrite = -1
+    pdbWrite = -1
+    checkPoint = 100000
+    restartWrite = 0
+    transitionWrite = 100000
+    scaleMaxDisplace = 30.0
+    overlapSepLimit = 2.3
+end parameters
+
+start boundaries
+    WaterBox = [180.0, 80.0, 80.0]
+    xBCtype = reflect
+    yBCtype = reflect
+    zBCtype = reflect
+end boundaries
+
+start molecules
+    hex : 300
+end molecules
+
+start reactions
+    hex(cd1) + hex(cd2) <-> hex(cd1!1).hex(cd2!1)
+    onRate3Dka = 1000.0  #nm3/us
+    offRatekb = 0.0
+    norm1 = [0,0,1]
+    norm2 = [0,0,1]
+    sigma = 1.0
+    bindRadSameCom = 1.2
+    loopCoopFactor = 1.0
+    assocAngles = [M_PI,M_PI,nan,nan,0]
+end reactions

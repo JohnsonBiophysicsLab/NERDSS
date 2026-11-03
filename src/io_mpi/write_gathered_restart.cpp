@@ -531,6 +531,13 @@ void write_gathered_restart(
     if (rngWrite == 1) write_rng_state();
     if (rngWrite == 2) write_rng_state_simItr(simItr);
   }
+
+  // And every rank's, tagged with the rank and the rank count, so that a
+  // restart at the same count continues every rank's stream rather than rank
+  // 0's alone; see read_rng_state() in src/math/rand_gsl.cpp.
+  if (rngWrite == 1) write_rng_state(mpiContext.rank, mpiContext.nprocs);
+  if (rngWrite == 2)
+    write_rng_state_simItr(simItr, mpiContext.rank, mpiContext.nprocs);
 }
 
 void write_gathered_bonded_complexes(

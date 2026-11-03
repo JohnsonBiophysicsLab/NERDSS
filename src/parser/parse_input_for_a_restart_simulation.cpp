@@ -73,6 +73,7 @@ void parse_input_for_a_restart_simulation(
   int numMolTemplateBeforeAdd{0};
   int numDoubleBeforeAdd{0};
 
+#ifndef mpi_
   try {
     read_rng_state(mpiContext.rank);
   } catch (std::exception& e) {
@@ -80,6 +81,12 @@ void parse_input_for_a_restart_simulation(
               << seed << std::endl;
     gsl_rng_set(r, seed);
   }
+#else
+  // nerdss_mpi restores every rank's state itself, by rank and rank count,
+  // once the restart file is read (EXEs/nerdss_mpi.cpp); this read of the
+  // untagged rng_state_<rank> only reported "not restored" on every rank.
+  (void)seed;
+#endif
 
   std::ifstream restartFileInput{restartFileNameInput};
   if (!restartFileInput) error("could not find restart file, exiting...");

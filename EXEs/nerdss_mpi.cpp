@@ -460,8 +460,13 @@ int main(int argc, char* argv[]) {
   init_NboundPairs(
       counterArrays, pairOutfile, params, molTemplateList,
       moleculeList);  // initializes to zero, re-calculated for a restart!!
+  // ... from every molecule on the rank, ghost copies included; count a
+  // restart's bonds from the owned ones (src/io_mpi/rank_tallies.cpp).
+  if (params.fromRestart)
+    recount_owned_bound_pairs(counterArrays, params, moleculeList);
   write_NboundPairs(counterArrays, pairOutfile, simItr, params, moleculeList);
-  print_dimers(complexList, dimerfile, simItr, params, molTemplateList);
+  print_dimers(complexList, dimerfile, simItr, params, molTemplateList,
+               mpiContext);  // the complexes this rank owns
   print_association_events(counterArrays, eventFile, simItr, params);
 
   int number_of_lipids = 0;  ///< sum of all states of IL
@@ -515,14 +520,28 @@ int main(int argc, char* argv[]) {
       LOC(4.1, " @ PRESERVE RNG STATE FROM RESTART", PROC_0);
     }
 
-    try {
-      read_rng_state(mpiContext.rank);  // read the current RNG state
-    } catch (std::exception& e) {
-      // No saved state for this rank: seed as a new run does, rank 0 from
-      // the seed and every other rank from seed + rank, so that the ranks
-      // of a restart draw from different streams (one saved state cannot be
-      // split between them either).
-      std::cout << "Read rng_state failed. Set the rng_state with the seed: "
+    // The state this rank saved at the checkpoint, if the checkpoint was
+    // written at this rank count (write_gathered_restart() has every rank
+    // save its own, named by rank and rank count; the file is looked for in
+    // DATA/, here, and beside the restart file).  The reader used to throw
+    // nothing on a missing file, so the fallback below never ran and every
+    // rank of a restart went on drawing from the generator main() had just
+    // seeded with the seed: one stream, shared by all ranks.
+    const std::string checkpointDir =
+        restartFileNameInput.find('/') == std::string::npos
+            ? std::string(".")
+            : restartFileNameInput.substr(0, restartFileNameInput.rfind('/'));
+    std::string rngStateFile;
+    if (read_rng_state(mpiContext.rank, mpiContext.nprocs, checkpointDir,
+                       simItr, rngStateFile)) {
+      std::cout << "RNG state of rank " << mpiContext.rank << " read from "
+                << rngStateFile << std::endl;
+    } else {
+      // No saved state for this rank at this rank count: seed as a new run
+      // does, rank 0 from the seed and every other rank from seed + rank, so
+      // that the ranks draw from different streams.
+      std::cout << "no saved RNG state for rank " << mpiContext.rank << " of "
+                << mpiContext.nprocs << "; seeding with "
                 << seed + mpiContext.rank << std::endl;
       gsl_rng_set(r, seed + mpiContext.rank);
     }
@@ -530,7 +549,9 @@ int main(int argc, char* argv[]) {
     std::ofstream restartFile{restartFileName,
                               std::ios::out};  // to show different from append
 
-    write_rng_state(mpiContext.rank);  // write the current RNG state
+    // The state the continuation starts from, as the serial build writes
+    // DATA/rng_state when rngwrite is on (EXEs/nerdss.cpp).
+    if (params.rngwrite) write_rng_state(mpiContext.rank, mpiContext.nprocs);
     write_restart(simItr, restartFile, params, simulVolume, moleculeList,
                   complexList, molTemplateList, forwardRxns, backRxns,
                   createDestructRxns, transmissionRxns, observablesList, membraneObject,
@@ -572,6 +593,9 @@ int main(int argc, char* argv[]) {
 #ifdef NERDSS_CHECK_STATE_BITS
     iface_state_bits::verify_all(moleculeList, "top of step");
 #endif
+    // NERDSS_RNG_PROBE in the environment: a digest of this rank's generator
+    // at the top of the step, to stderr (rand_gsl.cpp).
+    rng_probe_line(mpiContext.rank, simItr);
     if (1) {
       // if (mpiContext.rank == 0) {
       start_computation_time = MPI_Wtime();
@@ -1174,6 +1198,10 @@ int main(int argc, char* argv[]) {
     if (CHECK_STRUCTURE)
       check_structure_invariant(mpiContext, moleculeList, complexList, simItr,
                                 "after remove_empty_slots");
+    // A complex wider than the stripe can carry (a member two ranks from its
+    // owner); see check_complex_extent() in src/mpi/check_structure_invariant.cpp.
+    check_complex_extent(mpiContext, moleculeList, complexList, molTemplateList,
+                         forwardRxns, simulVolumeWhole.numSubCells.x, simItr);
 
     // The serial build's restart files, on the serial build's schedule and
     // under its names, holding the whole system; see
@@ -1224,7 +1252,8 @@ int main(int argc, char* argv[]) {
                  speciesFile1, debugFile, debugFileName, restartFileName,
                  complexList, simulVolume, forwardRxns, backRxns,
                  createDestructRxns, durationList, startStep, totalTimeStart,
-                 observablesList, assemblyfile);
+                 observablesList, assemblyfile, dimerfile, eventFile,
+                 pairOutfile, observablesFileName);
 
     if (params.timeWrite > 0 && simItr % params.timeWrite == 0) {
       std::cout << "total computation time: " << total_computation_time
@@ -1262,6 +1291,29 @@ int main(int argc, char* argv[]) {
       print_complex_hist(complexList, assemblyfile, lastItr, params,
                          molTemplateList, moleculeList, number_of_lipids,
                          mpiContext, simulVolume);
+      // and the tallies the serial build writes with them
+      write_NboundPairs(counterArrays, pairOutfile, lastItr, params,
+                        moleculeList);
+      print_dimers(complexList, dimerfile, lastItr, params, molTemplateList,
+                   mpiContext);
+      print_association_events(counterArrays, eventFile, lastItr, params);
+      if (!observablesList.empty()) {
+        std::ofstream observablesFile{observablesFileName, std::ios::app};
+        write_observables((lastItr - params.itrRestartFrom) * params.timeStep *
+                                  Constants::usToSeconds +
+                              params.timeRestartFrom,
+                          observablesFile, observablesList);
+      }
+    }
+    // The transition matrix at the last step, as the serial build writes it
+    // whenever transitionWrite is on (a step that is also a transitionWrite
+    // step gets a second block there too).
+    if (params.transitionWrite > 0) {
+      std::ofstream transitionFile{transitionFileName, std::ios::app};
+      write_transition((lastItr - params.itrRestartFrom) * params.timeStep *
+                               Constants::usToSeconds +
+                           params.timeRestartFrom,
+                       transitionFile, molTemplateList);
     }
   }
 
@@ -1302,11 +1354,21 @@ int main(int argc, char* argv[]) {
   // here, but rank 0 can get here first: the step loop only waits on the
   // neighbours' messages, not on their writes.  So wait for every rank before
   // reading the per-rank files, or the merged files lose their final rows.
+  // And flushed: the event counters are written with '\n', not endl, so the
+  // last block was still in the buffer when rank 0 read the file.
+  speciesFile1.flush();
+  assemblyfile.flush();
+  pairOutfile.flush();
+  dimerfile.flush();
+  eventFile.flush();
+  assocDissocFile.flush();
   MPI_Barrier(MPI_COMM_WORLD);
   if (mpiContext.rank == 0) {
     merge_outputs(mpiContext.nprocs, molTemplateList.size(),
-                  params.pdbWrite > 0);
+                  params.pdbWrite > 0, observablesAtStart);
   }
+
+  report_complex_extent_summary(mpiContext);
 
   delete[] tableIDs;
   gsl_rng_free(r);

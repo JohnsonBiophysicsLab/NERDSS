@@ -13,6 +13,14 @@
 # 3. Bound pairs at the end of the hetTrimer continuation, averaged over
 #    SEEDS seeds (default 8) at np=2 and np=3, against the serial build's
 #    continuation of the same checkpoints: printed as a Welch z.
+# 4. The random streams.  A checkpoint written with rngwrite at np=2 saves
+#    every rank's generator (RESTARTS/rng_state<itr>_<rank>_np2); restarted
+#    at np=2 from that directory, each rank's generator at the top of the
+#    first step after the checkpoint has to be the uninterrupted run's at the
+#    same step (NERDSS_RNG_PROBE prints a digest of the state bytes to stderr
+#    at the top of every step).  Without the state files, and at np=3 (whose
+#    ranks the np=2 states cannot serve), the ranks re-seed with seed + rank
+#    and the digests differ.
 #
 # Usage: restart_np_check.sh <nerdss_mpi> <nerdss> [work-dir]
 set -uo pipefail
@@ -137,6 +145,49 @@ for s in $(seq 1 "$SEEDS"); do
 done
 echo "3: last copy-number column (bound species) at step 999, $SEEDS seeds each:"
 python_welch "serial:$serial" "np2:$np2" "np3:$np3"
+
+# --- 4: every rank's generator continues at the same rank count
+d=$WORK/rng_streams
+rm -rf "$d"; stage "$d/run" "$HET" parm_autodiff_hetTri.inp 600 500 100
+awk '{ print } /^    restartWrite = 0$/ { print "    rngwrite = true" }' "$d/run/parm_autodiff_hetTri.inp" > "$d/run/parm.tmp" && mv "$d/run/parm.tmp" "$d/run/parm_autodiff_hetTri.inp"
+(cd "$d/run" && $MPIRUN -x NERDSS_RNG_PROBE=1 -np 2 "$MPI_BIN" -f parm_autodiff_hetTri.inp -s 1 > stdout.log 2> stderr.log < /dev/null)
+digests() {  # <stderr.log> <itr>: "rank0:<digest> rank1:<digest> ..."
+    grep "^RNG STATE rank [0-9]* itr=$2 " "$1" | sort -t' ' -k4,4n | awk '{printf "rank%s:%s ", $4, $6}'
+}
+ref=$(digests "$d/run/stderr.log" 501)
+if [[ ! -f $d/run/RESTARTS/rng_state500_0_np2 || ! -f $d/run/RESTARTS/rng_state500_1_np2 ]]; then
+    echo "4 FAIL: the np=2 run did not write RESTARTS/rng_state500_<rank>_np2"; fail=1
+fi
+# (a) restarted at np=2 beside the checkpoint's own state files
+mkdir -p "$d/same"; cp "$d/run/RESTARTS/restart500.json" "$d/run/RESTARTS/rng_state500_"*"_np2" "$d/same/"
+(cd "$d/same" && $MPIRUN -x NERDSS_RNG_PROBE=1 -np 2 "$MPI_BIN" -r restart500.json -s 1 > stdout.log 2> stderr.log < /dev/null)
+got=$(digests "$d/same/stderr.log" 501)
+reads=$(grep -h -c "RNG state of rank [0-9]* read from " "$d/same/DATA"/output_*.txt | paste -sd+ - | bc)
+if [[ -n $ref && $got == "$ref" && $reads == 2 ]]; then
+    echo "4a ok: np=2 restart continues both ranks' streams (step 501 digests $got)"
+else
+    echo "4a FAIL: np=2 restart step-501 digests '$got', uninterrupted '$ref', $reads rank(s) read a state"; fail=1
+fi
+# (b) restarted at np=2 without the state files: seed + rank, different streams
+mkdir -p "$d/none"; cp "$d/run/RESTARTS/restart500.json" "$d/none/"
+(cd "$d/none" && $MPIRUN -x NERDSS_RNG_PROBE=1 -np 2 "$MPI_BIN" -r restart500.json -s 1 > stdout.log 2> stderr.log < /dev/null)
+got=$(digests "$d/none/stderr.log" 501)
+seeded=$(grep -h -c "no saved RNG state for rank [0-9]* of 2; seeding with " "$d/none/DATA"/output_*.txt | paste -sd+ - | bc)
+r0=${got%% *}; r1=${got#* }
+if [[ $got != "$ref" && $seeded == 2 && ${r0#rank0:} != "${r1#rank1:}" ]]; then
+    echo "4b ok: without state files both ranks re-seed (seed + rank) and draw other streams"
+else
+    echo "4b FAIL: digests '$got' vs uninterrupted '$ref', $seeded rank(s) re-seeded"; fail=1
+fi
+# (c) restarted at np=3: the np=2 states do not apply, every rank re-seeds
+mkdir -p "$d/np3"; cp "$d/run/RESTARTS/restart500.json" "$d/run/RESTARTS/rng_state500_"*"_np2" "$d/np3/"
+(cd "$d/np3" && $MPIRUN -x NERDSS_RNG_PROBE=1 -np 3 "$MPI_BIN" -r restart500.json -s 1 > stdout.log 2> stderr.log < /dev/null)
+seeded=$(grep -h -c "no saved RNG state for rank [0-9]* of 3; seeding with " "$d/np3/DATA"/output_*.txt | paste -sd+ - | bc)
+if [[ $seeded == 3 ]]; then
+    echo "4c ok: np=3 restart from the np=2 checkpoint re-seeds all three ranks"
+else
+    echo "4c FAIL: $seeded of 3 ranks re-seeded"; fail=1
+fi
 
 [[ $fail == 0 ]] && echo "restart_np_check: ok"
 exit $fail

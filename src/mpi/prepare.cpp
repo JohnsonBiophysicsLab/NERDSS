@@ -419,12 +419,10 @@ void prepare_data_structures_for_parallel_execution(
 
   finish_rank_setup(totalxBins, moleculeList, simulVolume, membraneObject,
                     molTemplateList, params, mpiContext, complexList);
-
-  //  Count how many interface connections are on each rank by calling
-  //  init_NboundPairs on each rank.
-  init_NboundPairs(
-      counterArrays, pairOutfile, params, molTemplateList,
-      moleculeList);  // initializes to zero, re-calculated for a restart!!
+  // init_NboundPairs() used to be called here as well as in main(): each
+  // call wrote another header to the bound-pair file and pushed another copy
+  // of every pair on to proPairlist, so a new run's rows had every pair
+  // column twice.  main() calls it once, for a new run and a restart alike.
 }
 
 /**
@@ -473,9 +471,9 @@ void prepare_data_structures_for_parallel_restart(
     Molecule::maxID = moleculeList.size();
     Complex::maxID = complexList.size();
 
-    // Unlike prepare(), no init_NboundPairs() here.  main() calls it for both
-    // paths, and each call writes another header to the bound-pair file and
-    // counts every bond again on top of the last count.
+    // No init_NboundPairs() here: main() calls it for both paths, and each
+    // call writes another header to the bound-pair file and counts every
+    // bond again on top of the last count.
     finish_rank_setup(simulVolume.numSubCells.x, moleculeList, simulVolume,
                       membraneObject, molTemplateList, params, mpiContext,
                       complexList);
