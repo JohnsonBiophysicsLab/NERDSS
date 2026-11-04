@@ -1,0 +1,24 @@
+diff --git a/src/reactions/measure_separations_to_identify_possible_reactions.cpp b/src/reactions/measure_separations_to_identify_possible_reactions.cpp
+index 98eebd4..21a1c10 100644
+--- a/src/reactions/measure_separations_to_identify_possible_reactions.cpp
++++ b/src/reactions/measure_separations_to_identify_possible_reactions.cpp
+@@ -187,6 +187,7 @@ void measure_separations_to_identify_possible_reactions(
+   };
+   // Partner types for the type-mask tests below, without touching moleculeList.
+   const std::vector<int>& memberTypeIndex{simulVolume.memberTypeIndex};
++  const std::vector<uint64_t>& occupancy{simulVolume.occupancyMask};
+ #ifdef mpi_
+   const int columns{simulVolume.numSubCells.x};
+ #endif
+@@ -303,6 +304,11 @@ void measure_separations_to_identify_possible_reactions(
+         for (int neighCellItr : neighborList) {
+           if (DEBUG && (neighCellItr > simulVolume.subCellList.size()))
+             error("neighCellItr is higher than subCellList size!");
++          // PROTOTYPE: test the occupancy bit (3.4 KB for 27 000 cells, L1
++          // resident) before loading the SubBox (about 80 bytes each, 2 MB),
++          // so an empty neighbour costs no SubBox load.
++          if (!((occupancy[neighCellItr >> 6] >> (neighCellItr & 63)) & 1))
++            continue;
+           if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) != 0)
+             liveCells[numLiveCells++] = neighCellItr;
+         }

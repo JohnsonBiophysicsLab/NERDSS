@@ -1,0 +1,83 @@
+Total: 176 samples
+       0   0.0%   0.0%      176 100.0% __libc_start_call_main
+       0   0.0%   0.0%      176 100.0% __libc_start_main_impl
+       0   0.0%   0.0%      176 100.0% _start
+       7   4.0%   4.0%      176 100.0% main
+      20  11.4%  15.3%       55  31.2% measure_separations_to_identify_possible_reactions
+      10   5.7%  21.0%       32  18.2% create_complex_propagation_vectors
+       2   1.1%  22.2%       27  15.3% check_for_unimolstatechange_reactions
+       4   2.3%  24.4%       26  14.8% Complex::propagate
+      13   7.4%  31.8%       24  13.6% check_bimolecular_reactions
+      14   8.0%  39.8%       22  12.5% gsl_ran_gaussian_ziggurat
+       1   0.6%  40.3%       21  11.9% ::draw_unimolecular_state_change
+      10   5.7%  46.0%       21  11.9% Complex::update_properties
+       5   2.8%  48.9%       14   8.0% __GI___exp
+      13   7.4%  56.2%       13   7.4% gsl_ran_wishart
+      12   6.8%  63.1%       12   6.8% __ieee754_exp_fma
+       0   0.0%  63.1%       12   6.8% first_order_probability (inline)
+      12   6.8%  69.9%       12   6.8% std::vector::operator[] (inline)
+       4   2.3%  72.2%        9   5.1% SimulVolume::update_memberMolLists
+       1   0.6%  72.7%        9   5.1% reflect_traj_complex_rad_rot
+       3   1.7%  74.4%        8   4.5% reflect_traj_complex_rad_rot_box
+       0   0.0%  74.4%        6   3.4% determine_3D_bimolecular_reaction_probability
+       6   3.4%  77.8%        6   3.4% std::vector::size (inline)
+       4   2.3%  80.1%        4   2.3% find_which_state_change_reaction
+       0   0.0%  80.1%        4   2.3% passocF
+       1   0.6%  80.7%        4   2.3% std::vector::resize (inline)
+       2   1.1%  81.8%        3   1.7% SimulVolume::add_member (inline)
+       3   1.7%  83.5%        3   1.7% Vec3D::length (inline)
+       1   0.6%  84.1%        3   1.7% __erfc
+       3   1.7%  85.8%        3   1.7% __gnu_cxx::__normal_iterator::__normal_iterator (inline)
+       3   1.7%  87.5%        3   1.7% axis_value (inline)
+       2   1.1%  88.6%        3   1.7% std::vector::_M_default_append
+       1   0.6%  89.2%        2   1.1% ::sweep_separation_box [clone .constprop.1]
+       2   1.1%  90.3%        2   1.1% __GI___libc_write
+       1   0.6%  90.9%        2   1.1% __erf
+       0   0.0%  90.9%        2   1.1% __find_if (inline)
+       2   1.1%  92.0%        2   1.1% __gnu_cxx::__normal_iterator::operator++ (inline)
+       0   0.0%  92.0%        2   1.1% check_for_unimolecular_reactions_population
+       0   0.0%  92.0%        2   1.1% clear_reweight_vecs
+       0   0.0%  92.0%        2   1.1% find_if (inline)
+       2   1.1%  93.2%        2   1.1% operator+ (inline)
+       2   1.1%  94.3%        2   1.1% operator- (inline)
+       0   0.0%  94.3%        2   1.1% pirr_pfree_ratio_psF
+       2   1.1%  95.5%        2   1.1% std::_Vector_base::_Vector_impl_data::_M_copy_data (inline)
+       0   0.0%  95.5%        2   1.1% std::_Vector_base::_Vector_impl_data::_M_swap_data (inline)
+       0   0.0%  95.5%        2   1.1% std::ostream::flush@@GLIBCXX_3.4
+       0   0.0%  95.5%        2   1.1% std::vector::begin (inline)
+       0   0.0%  95.5%        2   1.1% std::vector::swap (inline)
+       1   0.6%  96.0%        1   0.6% LazyEulerRotationMatrix::get (inline)
+       1   0.6%  96.6%        1   0.6% SimulVolume::clear_member_lists
+       1   0.6%  97.2%        1   0.6% SimulVolume::lowest_set_bit (inline)
+       0   0.0%  97.2%        1   0.6% SimulVolume::refresh_occupied_cells (inline)
+       0   0.0%  97.2%        1   0.6% _IO_new_file_sync
+       0   0.0%  97.2%        1   0.6% _IO_new_file_write
+       0   0.0%  97.2%        1   0.6% __GI__IO_fflush
+       1   0.6%  97.7%        1   0.6% _init
+       1   0.6%  98.3%        1   0.6% check_for_unimolstatechange_reactions (inline)
+       0   0.0%  98.3%        1   0.6% display_all_reactions
+       0   0.0%  98.3%        1   0.6% find_which_reaction_for_partner
+       1   0.6%  98.9%        1   0.6% find_which_reaction_for_partner (inline)
+       0   0.0%  98.9%        1   0.6% gsl_ran_binomial
+       0   0.0%  98.9%        1   0.6% new_do_write
+       0   0.0%  98.9%        1   0.6% nlohmann::json_abi_v3_12_0::basic_json::data::~data (inline)
+       1   0.6%  99.4%        1   0.6% nlohmann::json_abi_v3_12_0::basic_json::json_value::destroy
+       0   0.0%  99.4%        1   0.6% nlohmann::json_abi_v3_12_0::basic_json::~basic_json
+       0   0.0%  99.4%        1   0.6% operator (inline)
+       0   0.0%  99.4%        1   0.6% std::__basic_file::xsputn
+       0   0.0%  99.4%        1   0.6% std::__fill_a (inline)
+       0   0.0%  99.4%        1   0.6% std::__fill_a1 (inline)
+       0   0.0%  99.4%        1   0.6% std::__fill_n_a (inline)
+       0   0.0%  99.4%        1   0.6% std::__new_allocator::destroy (inline)
+       0   0.0%  99.4%        1   0.6% std::__uninitialized_default_n (inline)
+       0   0.0%  99.4%        1   0.6% std::__uninitialized_default_n_1::__uninit_default_n (inline)
+       0   0.0%  99.4%        1   0.6% std::__uninitialized_default_n_a (inline)
+       0   0.0%  99.4%        1   0.6% std::allocator_traits::destroy (inline)
+       0   0.0%  99.4%        1   0.6% std::basic_filebuf::_M_convert_to_external
+       0   0.0%  99.4%        1   0.6% std::basic_filebuf::overflow
+       0   0.0%  99.4%        1   0.6% std::basic_filebuf::sync
+       0   0.0%  99.4%        1   0.6% std::fill_n (inline)
+       0   0.0%  99.4%        1   0.6% std::vector::end (inline)
+       0   0.0%  99.4%        1   0.6% std::vector::pop_back (inline)
+       1   0.6% 100.0%        1   0.6% std::vector::push_back (inline)
+       0   0.0% 100.0%        1   0.6% write_json_restart

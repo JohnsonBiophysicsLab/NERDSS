@@ -1,0 +1,338 @@
+Total: 1610 samples
+       0   0.0%   0.0%     1610 100.0% __libc_start_call_main
+       0   0.0%   0.0%     1610 100.0% __libc_start_main_impl
+       0   0.0%   0.0%     1610 100.0% _start
+      22   1.4%   1.4%     1610 100.0% main
+     173  10.7%  12.1%      464  28.8% measure_separations_to_identify_possible_reactions
+       0   0.0%  12.1%      344  21.4% write_json_restart
+      50   3.1%  15.2%      264  16.4% check_bimolecular_reactions
+      14   0.9%  16.1%      214  13.3% Complex::propagate
+       0   0.0%  16.1%      165  10.2% operator<<
+       0   0.0%  16.1%      161  10.0% std::ostream::operator<< (inline)
+       3   0.2%  16.3%      157   9.8% nlohmann::json_abi_v3_12_0::basic_json::~basic_json
+       3   0.2%  16.5%      156   9.7% nlohmann::json_abi_v3_12_0::basic_json::data::~data (inline)
+      19   1.2%  17.6%      156   9.7% nlohmann::json_abi_v3_12_0::basic_json::json_value::destroy
+       3   0.2%  17.8%      156   9.7% std::ostream::_M_insert
+       1   0.1%  17.9%      155   9.6% write_traj
+       7   0.4%  18.3%      148   9.2% std::num_put::_M_insert_float
+      18   1.1%  19.4%      147   9.1% determine_3D_bimolecular_reaction_probability
+      29   1.8%  21.2%      131   8.1% ::sweep_separation_box [clone .constprop.1]
+      40   2.5%  23.7%      128   8.0% create_complex_propagation_vectors
+       0   0.0%  23.7%      124   7.7% std::__cxx11::collate::do_transform
+       0   0.0%  23.7%      119   7.4% __vsnprintf_internal
+       1   0.1%  23.8%      107   6.6% __printf_fp_l_buffer
+       0   0.0%  23.8%      107   6.6% __printf_fp_spec
+       0   0.0%  23.8%       92   5.7% QuatRotation::rotate_about (inline)
+       0   0.0%  23.8%       91   5.7% nlohmann::json_abi_v3_12_0::basic_json::dump (inline)
+       7   0.4%  24.2%       91   5.7% nlohmann::json_abi_v3_12_0::detail::serializer::dump
+      45   2.8%  27.0%       82   5.1% gsl_ran_gaussian_ziggurat
+       8   0.5%  27.5%       79   4.9% __GI___libc_free
+      12   0.7%  28.3%       74   4.6% hack_digit
+      11   0.7%  28.9%       73   4.5% SimulVolume::update_memberMolLists
+      73   4.5%  33.5%       73   4.5% std::vector::operator[] (inline)
+      33   2.0%  35.5%       67   4.2% QuatRotation::rotate (inline)
+      23   1.4%  37.0%       65   4.0% std::vector::push_back (inline)
+      61   3.8%  40.7%       61   3.8% __mpn_divrem
+       1   0.1%  40.8%       57   3.5% std::__new_allocator::destroy (inline)
+       0   0.0%  40.8%       57   3.5% std::allocator_traits::destroy (inline)
+      11   0.7%  41.5%       54   3.4% pirr_pfree_ratio_psF
+      22   1.4%  42.9%       51   3.2% __printf_fp_buffer_1
+       5   0.3%  43.2%       51   3.2% std::__new_allocator::construct (inline)
+       0   0.0%  43.2%       51   3.2% std::allocator_traits::construct (inline)
+       0   0.0%  43.2%       47   2.9% _int_free_maybe_consolidate
+      36   2.2%  45.4%       47   2.9% malloc_consolidate
+      42   2.6%  48.0%       42   2.6% gsl_ran_wishart
+      28   1.7%  49.8%       40   2.5% Complex::update_properties
+       7   0.4%  50.2%       40   2.5% SimulVolume::add_member (inline)
+       3   0.2%  50.4%       40   2.5% nlohmann::json_abi_v3_12_0::basic_json::basic_json
+       0   0.0%  50.4%       39   2.4% generate_coordinates
+      39   2.4%  52.8%       39   2.4% operator- (inline)
+       0   0.0%  52.8%       37   2.3% nlohmann::json_abi_v3_12_0::basic_json::create (inline)
+      34   2.1%  54.9%       34   2.1% Quat::operator* (inline)
+       1   0.1%  55.0%       34   2.1% nlohmann::json_abi_v3_12_0::basic_json::operator[]
+       0   0.0%  55.0%       33   2.0% std::_Rb_tree::_M_create_node (inline)
+      33   2.0%  57.0%       33   2.0% std::vector::size (inline)
+      17   1.1%  58.1%       32   2.0% __erfc
+       1   0.1%  58.1%       30   1.9% operator new@@GLIBCXX_3.4
+       1   0.1%  58.2%       30   1.9% std::__new_allocator::allocate (inline)
+       0   0.0%  58.2%       30   1.9% std::allocator_traits::allocate (inline)
+      29   1.8%  60.0%       29   1.8% __ieee754_exp_fma
+       1   0.1%  60.1%       29   1.8% fixOverlappingMolecules
+       7   0.4%  60.5%       29   1.8% passocF
+       0   0.0%  60.5%       28   1.7% nlohmann::json_abi_v3_12_0::basic_json::operator[] (inline)
+       1   0.1%  60.6%       28   1.7% nlohmann::json_abi_v3_12_0::detail::serializer::dump_float (inline)
+      14   0.9%  61.4%       27   1.7% checkAndResolveOverlap [clone .constprop.0] [clone .isra.0]
+       0   0.0%  61.4%       27   1.7% nlohmann::json_abi_v3_12_0::basic_json::json_value::json_value (inline)
+       0   0.0%  61.4%       27   1.7% nlohmann::json_abi_v3_12_0::basic_json::push_back
+       2   0.1%  61.6%       27   1.7% nlohmann::json_abi_v3_12_0::detail::to_chars
+       1   0.1%  61.6%       27   1.7% std::_Rb_tree::_M_copy
+       0   0.0%  61.6%       27   1.7% std::_Rb_tree::_M_copy (inline)
+       1   0.1%  61.7%       27   1.7% std::_Rb_tree::_M_emplace_unique
+       0   0.0%  61.7%       27   1.7% std::_Rb_tree::_Rb_tree (inline)
+       0   0.0%  61.7%       27   1.7% std::map::emplace (inline)
+       0   0.0%  61.7%       27   1.7% std::map::map (inline)
+      26   1.6%  63.3%       26   1.6% nlohmann::json_abi_v3_12_0::basic_json::assert_invariant
+       0   0.0%  63.3%       26   1.6% std::_Rb_tree::_Alloc_node::operator (inline)
+       0   0.0%  63.3%       26   1.6% std::_Rb_tree::_M_clone_node (inline)
+       0   0.0%  63.3%       25   1.6% std::__new_allocator::deallocate (inline)
+       0   0.0%  63.3%       25   1.6% std::allocator_traits::deallocate (inline)
+       1   0.1%  63.4%       25   1.6% std::operator<<  (inline)
+       2   0.1%  63.5%       24   1.5% EulerRotationMatrixCache::get (inline)
+       8   0.5%  64.0%       24   1.5% __GI___libc_malloc
+      24   1.5%  65.5%       24   1.5% do_sin
+       0   0.0%  65.5%       24   1.5% std::_Rb_tree::_M_drop_node (inline)
+      24   1.5%  67.0%       24   1.5% std::_Rb_tree_increment@@GLIBCXX_3.4@d4130
+       0   0.0%  67.0%       24   1.5% std::_Rb_tree_iterator::operator++ (inline)
+       0   0.0%  67.0%       24   1.5% std::vector::vector (inline)
+      23   1.4%  68.4%       23   1.4% __sincos_fma
+       3   0.2%  68.6%       23   1.4% create_euler_rotation_matrix
+       0   0.0%  68.6%       23   1.4% std::_Rb_tree::_M_erase
+       0   0.0%  68.6%       22   1.4% ::serialize_molecule_interface
+      22   1.4%  69.9%       22   1.4% __memcpy_evex_unaligned_erms
+       1   0.1%  70.0%       22   1.4% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::grisu2
+      18   1.1%  71.1%       22   1.4% nlohmann::json_abi_v3_12_0::detail::serializer::dump_escaped
+       0   0.0%  71.1%       22   1.4% std::_Rb_tree::_M_construct_node (inline)
+       0   0.0%  71.1%       22   1.4% std::pair::pair (inline)
+       2   0.1%  71.2%       22   1.4% std::vector::clear (inline)
+       4   0.2%  71.5%       20   1.2% SimulVolume::clear_member_lists
+      20   1.2%  72.7%       20   1.2% _int_free
+       8   0.5%  73.2%       20   1.2% std::__ostream_insert
+      16   1.0%  74.2%       20   1.2% std::vector::_M_erase_at_end (inline)
+       0   0.0%  74.2%       20   1.2% write_xyz
+       3   0.2%  74.4%       19   1.2% get_distance
+       7   0.4%  74.8%       19   1.2% nlohmann::json_abi_v3_12_0::basic_json::basic_json (inline)
+       0   0.0%  74.8%       19   1.2% std::_Rb_tree::_M_put_node (inline)
+       8   0.5%  75.3%       19   1.2% std::vector::emplace_back
+       7   0.4%  75.8%       18   1.1% __GI___exp
+       2   0.1%  75.9%       18   1.1% for_each_bound_exclusion (inline)
+       0   0.0%  75.9%       18   1.1% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::grisu2 (inline)
+       1   0.1%  76.0%       18   1.1% reflect_traj_complex_rad_rot
+       1   0.1%  76.0%       18   1.1% std::_Construct (inline)
+       1   0.1%  76.1%       18   1.1% std::__do_uninit_copy (inline)
+       0   0.0%  76.1%       18   1.1% std::__uninitialized_copy::__uninit_copy (inline)
+       0   0.0%  76.1%       18   1.1% std::__uninitialized_copy_a (inline)
+       1   0.1%  76.1%       18   1.1% std::basic_filebuf::xsputn
+       0   0.0%  76.1%       18   1.1% std::uninitialized_copy (inline)
+      17   1.1%  77.2%       17   1.1% __GI___writev
+       5   0.3%  77.5%       17   1.1% record_crossing_pair
+      10   0.6%  78.1%       17   1.1% reflect_traj_complex_rad_rot_box
+       0   0.0%  78.1%       17   1.1% std::__basic_file::xsputn_2
+       7   0.4%  78.6%       16   1.0% __erf
+       5   0.3%  78.9%       16   1.0% determine_if_reaction_occurs
+      16   1.0%  79.9%       16   1.0% matrix_rotate (inline)
+       0   0.0%  79.9%       16   1.0% std::_Rb_tree::_M_get_node (inline)
+       0   0.0%  79.9%       16   1.0% std::_Rb_tree::clear (inline)
+       0   0.0%  79.9%       16   1.0% std::map::clear (inline)
+      13   0.8%  80.7%       15   0.9% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::grisu2_digit_gen (inline)
+       2   0.1%  80.8%       15   0.9% std::__cxx11::basic_string::_M_append
+       3   0.2%  81.0%       14   0.9% Quat::inverse (inline)
+       0   0.0%  81.0%       14   0.9% QuatRotation::QuatRotation (inline)
+      14   0.9%  81.9%       14   0.9% _int_malloc
+       9   0.6%  82.4%       14   0.9% add_3D_rotational_diffusion (inline)
+       0   0.0%  82.4%       14   0.9% std::__cxx11::basic_string::compare (inline)
+       0   0.0%  82.4%       14   0.9% std::less::operator (inline)
+       0   0.0%  82.4%       14   0.9% std::operator<  (inline)
+       8   0.5%  82.9%       13   0.8% are_molecules_in_vicinity
+       1   0.1%  83.0%       13   0.8% check_bimolecular_reactions (inline)
+       3   0.2%  83.2%       13   0.8% std::_Rb_tree::_M_get_insert_unique_pos
+       0   0.0%  83.2%       12   0.7% for_each_excluded_iface (inline)
+       0   0.0%  83.2%       12   0.7% operator (inline)
+       1   0.1%  83.2%       11   0.7% clear_reweight_vecs
+       3   0.2%  83.4%       11   0.7% rand_gsl64
+       0   0.0%  83.4%       11   0.7% std::__cxx11::basic_string::_M_mutate
+       1   0.1%  83.5%       11   0.7% std::__cxx11::basic_string::basic_string (inline)
+       1   0.1%  83.5%       11   0.7% std::char_traits::compare (inline)
+      11   0.7%  84.2%       11   0.7% unlink_chunk
+      10   0.6%  84.8%       10   0.6% Vec3D::length (inline)
+      10   0.6%  85.5%       10   0.6% __memcmp_evex_movbe
+      10   0.6%  86.1%       10   0.6% operator+ (inline)
+       0   0.0%  86.1%       10   0.6% std::_Rb_tree_const_iterator::operator++ (inline)
+      10   0.6%  86.7%       10   0.6% std::_Rb_tree_increment@@GLIBCXX_3.4@d4180
+      10   0.6%  87.3%       10   0.6% std::_Vector_base::_Vector_impl_data::_M_copy_data (inline)
+       0   0.0%  87.3%       10   0.6% std::_Vector_base::_Vector_impl_data::_M_swap_data (inline)
+       0   0.0%  87.3%       10   0.6% std::vector::swap (inline)
+       8   0.5%  87.8%        9   0.6% __printf_buffer
+       9   0.6%  88.4%        9   0.6% do_cos
+       0   0.0%  88.4%        8   0.5% nlohmann::json_abi_v3_12_0::detail::output_string_adapter::write_characters (inline)
+       1   0.1%  88.4%        8   0.5% std::__cxx11::basic_string::append (inline)
+       1   0.1%  88.5%        8   0.5% std::vector::emplace_back (inline)
+       3   0.2%  88.7%        8   0.5% zero_reciprocal_crossings
+       2   0.1%  88.8%        7   0.4% ::check_bound_exclusion_pair
+       0   0.0%  88.8%        7   0.4% ::serialize_vec3
+       7   0.4%  89.3%        7   0.4% libc_feholdsetround_sse_ctx
+       0   0.0%  89.3%        7   0.4% nlohmann::json_abi_v3_12_0::basic_json::~basic_json (inline)
+       0   0.0%  89.3%        7   0.4% std::_Rb_tree::_Auto_node::_Auto_node (inline)
+       0   0.0%  89.3%        7   0.4% std::_Rb_tree::~_Rb_tree (inline)
+       0   0.0%  89.3%        7   0.4% std::_Vector_base::_M_allocate (inline)
+       1   0.1%  89.3%        7   0.4% std::_Vector_base::_M_deallocate (inline)
+       0   0.0%  89.3%        7   0.4% std::map::~map (inline)
+       1   0.1%  89.4%        7   0.4% std::vector::_M_range_initialize (inline)
+       6   0.4%  89.8%        6   0.4% Molecule::CrossEntry::CrossEntry (inline)
+       6   0.4%  90.1%        6   0.4% __gnu_cxx::__normal_iterator::operator++ (inline)
+       0   0.0%  90.1%        6   0.4% nlohmann::json_abi_v3_12_0::detail::output_string_adapter::write_character (inline)
+       0   0.0%  90.1%        6   0.4% std::__basic_file::xsputn
+       1   0.1%  90.2%        6   0.4% std::__cxx11::basic_string::push_back (inline)
+       0   0.0%  90.2%        6   0.4% std::basic_filebuf::_M_convert_to_external
+       0   0.0%  90.2%        6   0.4% std::basic_filebuf::overflow
+       0   0.0%  90.2%        6   0.4% std::basic_filebuf::sync
+       0   0.0%  90.2%        6   0.4% std::endl (inline)
+       0   0.0%  90.2%        6   0.4% std::flush (inline)
+       0   0.0%  90.2%        6   0.4% std::ostream::flush@@GLIBCXX_3.4
+       1   0.1%  90.2%        6   0.4% std::vector::_M_realloc_insert
+       5   0.3%  90.6%        5   0.3% GaussV
+       5   0.3%  90.9%        5   0.3% __GI___libc_write
+       5   0.3%  91.2%        5   0.3% __strlen_evex
+       0   0.0%  91.2%        5   0.3% check_bound_exclusion_pair
+       0   0.0%  91.2%        5   0.3% nlohmann::json_abi_v3_12_0::adl_serializer::to_json (inline)
+       2   0.1%  91.3%        5   0.3% nlohmann::json_abi_v3_12_0::detail::external_constructor::construct (inline)
+       0   0.0%  91.3%        5   0.3% nlohmann::json_abi_v3_12_0::detail::to_json (inline)
+       0   0.0%  91.3%        5   0.3% nlohmann::json_abi_v3_12_0::detail::to_json_fn::operator (inline)
+       1   0.1%  91.4%        5   0.3% std::_Destroy (inline)
+       0   0.0%  91.4%        5   0.3% std::_Destroy_aux::__destroy (inline)
+       0   0.0%  91.4%        5   0.3% std::_Rb_tree::_Auto_node::_M_insert (inline)
+       0   0.0%  91.4%        5   0.3% std::_Rb_tree::_M_destroy_node (inline)
+       0   0.0%  91.4%        5   0.3% std::_Rb_tree::_M_insert_node (inline)
+       0   0.0%  91.4%        5   0.3% std::pair::~pair (inline)
+       0   0.0%  91.4%        5   0.3% std::vector::pop_back (inline)
+       4   0.2%  91.6%        4   0.2% Quat::conjugate (inline)
+       4   0.2%  91.9%        4   0.2% Quat::scaled (inline)
+       4   0.2%  92.1%        4   0.2% __GI___uselocale
+       4   0.2%  92.4%        4   0.2% __gnu_cxx::__normal_iterator::__normal_iterator (inline)
+       4   0.2%  92.6%        4   0.2% __printf_buffer_write
+       4   0.2%  92.9%        4   0.2% pair_dim (inline)
+       3   0.2%  93.0%        4   0.2% std::basic_streambuf::xsputn
+       1   0.1%  93.1%        4   0.2% std::char_traits::length (inline)
+       1   0.1%  93.2%        4   0.2% std::num_put::_M_pad
+       0   0.0%  93.2%        4   0.2% std::vector::_M_realloc_insert (inline)
+       0   0.0%  93.2%        4   0.2% sweep_separation_box
+       4   0.2%  93.4%        4   0.2% tcache_get_n
+       3   0.2%  93.6%        3   0.2% GLIBC_2.15
+       3   0.2%  93.8%        3   0.2% Quat::norm (inline)
+       0   0.0%  93.8%        3   0.2% SimulVolume::refresh_occupied_cells (inline)
+       0   0.0%  93.8%        3   0.2% __find_specmb
+       3   0.2%  94.0%        3   0.2% checked_request2size
+       2   0.1%  94.1%        3   0.2% find_which_reaction_for_partner
+       0   0.0%  94.1%        3   0.2% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::compute_boundaries
+       3   0.2%  94.3%        3   0.2% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::diyfp::normalize (inline)
+       0   0.0%  94.3%        3   0.2% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::format_buffer (inline)
+       0   0.0%  94.3%        3   0.2% nlohmann::json_abi_v3_12_0::detail::to_chars (inline)
+       3   0.2%  94.5%        3   0.2% std::_Rb_tree::end (inline)
+       0   0.0%  94.5%        3   0.2% std::__copy_move::__copy_m (inline)
+       0   0.0%  94.5%        3   0.2% std::__copy_move_a (inline)
+       0   0.0%  94.5%        3   0.2% std::__copy_move_a1 (inline)
+       0   0.0%  94.5%        3   0.2% std::__copy_move_a2 (inline)
+       2   0.1%  94.6%        3   0.2% std::__cxx11::basic_string::_M_construct
+       3   0.2%  94.8%        3   0.2% std::__once_callable@@GLIBCXX_3.4.11
+       0   0.0%  94.8%        3   0.2% std::back_insert_iterator::operator= (inline)
+       3   0.2%  95.0%        3   0.2% std::ios_base::precision (inline)
+       0   0.0%  95.0%        3   0.2% std::map::end (inline)
+       3   0.2%  95.2%        3   0.2% std::min (inline)
+       0   0.0%  95.2%        3   0.2% std::move (inline)
+       3   0.2%  95.3%        3   0.2% std::ostream::sentry::sentry@@GLIBCXX_3.4
+       0   0.0%  95.3%        3   0.2% std::vector::begin (inline)
+       3   0.2%  95.5%        3   0.2% top12
+       0   0.0%  95.5%        3   0.2% write_psf
+       2   0.1%  95.7%        2   0.1% SimulVolume::lowest_set_bit (inline)
+       0   0.0%  95.7%        2   0.1% __GI___sbrk
+       0   0.0%  95.7%        2   0.1% __GI_memcpy
+       2   0.1%  95.8%        2   0.1% __brk
+       0   0.0%  95.8%        2   0.1% __glibc_morecore
+       2   0.1%  95.9%        2   0.1% __h_errno@@GLIBC_PRIVATE
+       2   0.1%  96.0%        2   0.1% __ieee754_log_fma
+       2   0.1%  96.1%        2   0.1% __strchrnul_evex
+       2   0.1%  96.3%        2   0.1% _init
+       0   0.0%  96.3%        2   0.1% associate_box
+       2   0.1%  96.4%        2   0.1% axis_value (inline)
+       2   0.1%  96.5%        2   0.1% calc_interface_distance (inline)
+       2   0.1%  96.6%        2   0.1% create_euler_rotation_matrix (inline)
+       2   0.1%  96.8%        2   0.1% free_rotational_cf (inline)
+       0   0.0%  96.8%        2   0.1% nlohmann::json_abi_v3_12_0::basic_json::operator=
+       2   0.1%  96.9%        2   0.1% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::get_cached_power_for_binary_exponent (inline)
+       2   0.1%  97.0%        2   0.1% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::grisu2_round (inline)
+       0   0.0%  97.0%        2   0.1% nlohmann::json_abi_v3_12_0::detail::json_ref::~json_ref (inline)
+       2   0.1%  97.1%        2   0.1% nlohmann::json_abi_v3_12_0::detail::serializer::decode (inline)
+       1   0.1%  97.2%        2   0.1% nlohmann::json_abi_v3_12_0::detail::serializer::dump_integer (inline)
+       0   0.0%  97.2%        2   0.1% scan_axis_extent (inline)
+       0   0.0%  97.2%        2   0.1% std::_Vector_base::_M_create_storage (inline)
+       0   0.0%  97.2%        2   0.1% std::_Vector_base::_Vector_base (inline)
+       0   0.0%  97.2%        2   0.1% std::_Vector_base::~_Vector_base (inline)
+       2   0.1%  97.3%        2   0.1% std::__cxx11::basic_string::_M_local_data (inline)
+       0   0.0%  97.3%        2   0.1% std::__cxx11::basic_string::_M_set_length (inline)
+       0   0.0%  97.3%        2   0.1% std::__cxx11::basic_string::~basic_string (inline)
+       2   0.1%  97.5%        2   0.1% std::num_put::do_put
+       2   0.1%  97.6%        2   0.1% std::swap (inline)
+       1   0.1%  97.6%        2   0.1% std::vector::~vector
+       0   0.0%  97.6%        2   0.1% systrim
+       1   0.1%  97.7%        2   0.1% void for_each_complex_point (inline)
+       2   0.1%  97.8%        2   0.1% weighted_D_sum (inline)
+       1   0.1%  97.9%        1   0.1% BiMolData::BiMolData (inline)
+       1   0.1%  98.0%        1   0.1% LazyEulerRotationMatrix::LazyEulerRotationMatrix (inline)
+       0   0.0%  98.0%        1   0.1% LazyEulerRotationMatrix::get (inline)
+       1   0.1%  98.0%        1   0.1% Molecule::ReweightEntry::ReweightEntry (inline)
+       0   0.0%  98.0%        1   0.1% SimulVolume::SubVolume::~SubVolume (inline)
+       0   0.0%  98.0%        1   0.1% SimulVolume::create_cell_neighbor_list_cubic
+       0   0.0%  98.0%        1   0.1% SimulVolume::create_simulation_volume
+       0   0.0%  98.0%        1   0.1% SimulVolume::~SimulVolume
+       1   0.1%  98.1%        1   0.1% Vec3D::operator/= (inline)
+       1   0.1%  98.1%        1   0.1% Vec3D::zero (inline)
+       1   0.1%  98.2%        1   0.1% __GI___clock_gettime
+       1   0.1%  98.3%        1   0.1% __GI___fileno
+       1   0.1%  98.3%        1   0.1% __libc_use_alloca
+       1   0.1%  98.4%        1   0.1% __memset_evex_unaligned_erms
+       1   0.1%  98.4%        1   0.1% __mpn_lshift
+       1   0.1%  98.5%        1   0.1% __mpn_mul_1
+       1   0.1%  98.6%        1   0.1% __printf_buffer_done
+       0   0.0%  98.6%        1   0.1% __printf_buffer_snprintf_done
+       1   0.1%  98.6%        1   0.1% _int_free_merge_chunk
+       0   0.0%  98.6%        1   0.1% check_for_structure_overlap_system
+       0   0.0%  98.6%        1   0.1% complex_composition_string[abi:cxx11]
+       1   0.1%  98.7%        1   0.1% find_which_reaction_for_partner (inline)
+       1   0.1%  98.8%        1   0.1% flat_rotational_cf (inline)
+       1   0.1%  98.8%        1   0.1% get_max_fast
+       0   0.0%  98.8%        1   0.1% nlohmann::json_abi_v3_12_0::basic_json::array (inline)
+       1   0.1%  98.9%        1   0.1% nlohmann::json_abi_v3_12_0::basic_json::is_null (inline)
+       1   0.1%  98.9%        1   0.1% nlohmann::json_abi_v3_12_0::detail::dtoa_impl::diyfp::mul (inline)
+       0   0.0%  98.9%        1   0.1% nlohmann::json_abi_v3_12_0::detail::json_ref::moved_or_copied (inline)
+       0   0.0%  98.9%        1   0.1% operator
+       1   0.1%  99.0%        1   0.1% phi_rotation
+       0   0.0%  99.0%        1   0.1% print_complex_hist
+       1   0.1%  99.1%        1   0.1% round_away
+       0   0.0%  99.1%        1   0.1% run_association_rejection_checks
+       1   0.1%  99.1%        1   0.1% scan_axis_extent::{lambda#1}::operator (inline)
+       0   0.0%  99.1%        1   0.1% std::_Rb_tree::_Auto_node::~_Auto_node (inline)
+       0   0.0%  99.1%        1   0.1% std::_Rb_tree::_Rb_tree_impl::_Rb_tree_impl (inline)
+       1   0.1%  99.2%        1   0.1% std::_Rb_tree::_S_left (inline)
+       1   0.1%  99.3%        1   0.1% std::_Rb_tree_header::_M_reset (inline)
+       0   0.0%  99.3%        1   0.1% std::_Rb_tree_header::_Rb_tree_header (inline)
+       1   0.1%  99.3%        1   0.1% std::__cxx11::basic_string::_M_check_length (inline)
+       0   0.0%  99.3%        1   0.1% std::__cxx11::basic_string::_M_construct (inline)
+       0   0.0%  99.3%        1   0.1% std::__cxx11::basic_string::_M_is_local (inline)
+       1   0.1%  99.4%        1   0.1% std::__cxx11::basic_string::_M_length (inline)
+       1   0.1%  99.4%        1   0.1% std::__cxx11::basic_string::_S_copy (inline)
+       0   0.0%  99.4%        1   0.1% std::__cxx11::basic_string::_S_copy_chars (inline)
+       0   0.0%  99.4%        1   0.1% std::__cxx11::basic_string::capacity (inline)
+       1   0.1%  99.5%        1   0.1% std::__cxx11::basic_string::size (inline)
+       1   0.1%  99.6%        1   0.1% std::__numpunct_cache::_M_cache
+       0   0.0%  99.6%        1   0.1% std::__relocate_a (inline)
+       0   0.0%  99.6%        1   0.1% std::__relocate_a_1 (inline)
+       0   0.0%  99.6%        1   0.1% std::__relocate_object_a (inline)
+       1   0.1%  99.6%        1   0.1% std::__shared_ptr::get (inline)
+       0   0.0%  99.6%        1   0.1% std::__shared_ptr_access::_M_get (inline)
+       0   0.0%  99.6%        1   0.1% std::__shared_ptr_access::operator-> (inline)
+       0   0.0%  99.6%        1   0.1% std::__uninitialized_default_n (inline)
+       0   0.0%  99.6%        1   0.1% std::__uninitialized_default_n_1::__uninit_default_n (inline)
+       0   0.0%  99.6%        1   0.1% std::__uninitialized_default_n_a (inline)
+       1   0.1%  99.7%        1   0.1% std::abs (inline)
+       1   0.1%  99.8%        1   0.1% std::char_traits::assign (inline)
+       1   0.1%  99.8%        1   0.1% std::char_traits::copy (inline)
+       0   0.0%  99.8%        1   0.1% std::chrono::_V2::system_clock::now@@GLIBCXX_3.4.19
+       0   0.0%  99.8%        1   0.1% std::operator+ (inline)
+       1   0.1%  99.9%        1   0.1% std::ostream::put@@GLIBCXX_3.4
+       1   0.1%  99.9%        1   0.1% std::vector::_M_default_append
+       0   0.0%  99.9%        1   0.1% std::vector::_M_default_initialize (inline)
+       0   0.0%  99.9%        1   0.1% std::vector::_S_do_relocate (inline)
+       0   0.0%  99.9%        1   0.1% std::vector::_S_relocate (inline)
+       0   0.0%  99.9%        1   0.1% std::vector::end (inline)
+       0   0.0%  99.9%        1   0.1% std::vector::resize (inline)
+       0   0.0%  99.9%        1   0.1% std::vector::~vector (inline)
+       1   0.1% 100.0%        1   0.1% sweep_separation_complex_rot
