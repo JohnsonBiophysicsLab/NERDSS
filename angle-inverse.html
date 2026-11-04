@@ -75,6 +75,14 @@
 
   .bench { max-width: 1520px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 40px; }
 
+  /* Site bar: the way back to the NERDSS website. */
+  .sitebar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; font-size: 13px; }
+  .sitebar a { color: var(--muted); text-decoration: none; }
+  .sitebar a:hover, .sitebar a:focus-visible { color: var(--ink); text-decoration: underline; }
+  .sitebar .sitebar-home { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; background: var(--panel); color: var(--ink); font-weight: 600; }
+  .sitebar .sitebar-home:hover, .sitebar .sitebar-home:focus-visible { border-color: var(--accent); text-decoration: none; }
+  .sitebar-trail { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+
   .masthead {
     display: flex; flex-wrap: wrap; gap: 20px 32px;
     align-items: flex-end; justify-content: space-between;
@@ -304,6 +312,13 @@
 </head>
 <body>
 <main class="bench">
+  <nav class="sitebar" aria-label="NERDSS website">
+    <a class="sitebar-home" href="index.html"><span aria-hidden="true">&larr;</span> NERDSS home</a>
+    <span class="sitebar-trail">
+      <a href="user_guide.html#angle-tools">User guides</a>
+      <a href="user_guide/nerdss_user_guide.html#assocangles"><code>assocAngles</code> in the user guide</a>
+    </span>
+  </nav>
   <header class="masthead">
     <div>
       <div class="kicker">Geometry in · angles out</div>
