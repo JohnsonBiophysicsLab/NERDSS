@@ -195,17 +195,21 @@ p + p {
 
 .software-card .actions{
   margin-top: auto;
-  display: grid;
-  grid-template-columns: repeat(3, max-content);
-  grid-auto-rows: auto;
+  /* Wrap, not a fixed three-column grid: three max-content columns overflow
+     any card narrower than its first three pills.  On phones that already
+     cut off "Article"; with "Documentation" in the first row it happened
+     at most desktop widths too, because the site's font grows with the
+     viewport.  Wrapping fits whatever the card's width. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
 }
 
-/* Make “Learn more” span full width on row 2 */
+/* Give “Learn more” its own row */
 .software-card .actions .action-pill.primary{
-  grid-column: 1 / -1;
-  justify-self: start;  /* or stretch */
+  flex-basis: 100%;
+  justify-content: center;
 }
 
 
