@@ -569,7 +569,7 @@ Each reaction starts with the declaration and followed by the corresponding para
 
 - **Acceptable Values:** Vector (optional)
 - **Default:** [0, 0, 1]
-- **Description:** vectors used to calculate the phi and phi2 angles (and sometimes omega) for a bimolecular reaction, the definition can be found in the supporting information of NERDSS paper.
+- **Description:** vectors used to calculate the phi and phi2 angles (and sometimes omega) for a bimolecular reaction, the definition can be found in the supporting information of NERDSS paper. The [angle explorer](../angle-convention.html) shows where each normal enters the phi and omega measurements.
 - **Sample:**
 
   ```
@@ -584,6 +584,7 @@ Each reaction starts with the declaration and followed by the corresponding para
 - **Description:** five angles for bimolecular association, the definition can be found in the supporting information of NERDSS paper. If the angle does not exist, the angle should read “nan”. M_PI is Pi (3.14159). For all ‘nan’, the binding partners are placed at the orientation they are prior to the association event.
 - **Unit:** rad
 - **Sample:** `assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]`
+- **Interactive tools:** the [angle explorer](../angle-convention.html) shows the bound geometry a set of angles produces, including which angles are undefined and must be `nan`; the [angle solver](../angle-inverse.html) works backwards from bound-state coordinates and `norm1`/`norm2` to the five angles and prints the `assocAngles` line to paste here.
 
 ##### `length3Dto2D`
 
@@ -731,7 +732,7 @@ This is where you can specify all possible reactions. You can do both unimolecul
 
 **The Angles:**
 
-Five angles are used to specify the geometry of association.
+Five angles are used to specify the geometry of association. To see each one on a live 3D model, measured exactly as the simulator measures it, use the [angle explorer](../angle-convention.html); to get the angles from coordinates you already have, use the [angle solver](../angle-inverse.html).
 
 - **Theta (one for each molecule)** *[0 < Θ < π]*
 

@@ -646,7 +646,7 @@ moleculeName2 : Ncopies</code></pre>
 <ul>
 <li><p><strong>Acceptable Values:</strong> Vector (optional)</p></li>
 <li><p><strong>Default:</strong> [0, 0, 1]</p></li>
-<li><p><strong>Description:</strong> vectors used to calculate the phi and phi2 angles (and sometimes omega) for a bimolecular reaction, the definition can be found in the supporting information of NERDSS paper.</p></li>
+<li><p><strong>Description:</strong> vectors used to calculate the phi and phi2 angles (and sometimes omega) for a bimolecular reaction, the definition can be found in the supporting information of NERDSS paper. The <a href="../angle-convention.html">angle explorer</a> shows where each normal enters the phi and omega measurements.</p></li>
 <li><p><strong>Sample:</strong></p>
 <pre><code>norm1 = [0, 0, 1]
 norm2 = [0, 0, 1]</code></pre></li>
@@ -658,6 +658,7 @@ norm2 = [0, 0, 1]</code></pre></li>
 <li><strong>Description:</strong> five angles for bimolecular association, the definition can be found in the supporting information of NERDSS paper. If the angle does not exist, the angle should read “nan”. M_PI is Pi (3.14159). For all ‘nan’, the binding partners are placed at the orientation they are prior to the association event.</li>
 <li><strong>Unit:</strong> rad</li>
 <li><strong>Sample:</strong> <code>assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]</code></li>
+<li><strong>Interactive tools:</strong> the <a href="../angle-convention.html">angle explorer</a> shows the bound geometry a set of angles produces, including which angles are undefined and must be <code>nan</code>; the <a href="../angle-inverse.html">angle solver</a> works backwards from bound-state coordinates and <code>norm1</code>/<code>norm2</code> to the five angles and prints the <code>assocAngles</code> line to paste here.</li>
 </ul>
 <h5 id="length3dto2d"><code>length3Dto2D</code></h5>
 <ul>
@@ -782,7 +783,7 @@ norm2 = [0, 0, 1]</code></pre></li>
 <p><strong>Sigma:</strong> Sigma is the association distance (in nm) for a reaction between two interfaces. It is represented as the dotted line between the two interface vectors. Only its length may be changed - positions of both other molecules are defined relative to it.</p>
 <p><strong>The Normal Vector:</strong> The solid black line is the normal vector. It does not have any physical significance, but is instead used as a reference point for the phi angle, which measure the rotation of the molecule about a given interface vector.</p>
 <p><strong>The Angles:</strong></p>
-<p>Five angles are used to specify the geometry of association.</p>
+<p>Five angles are used to specify the geometry of association. To see each one on a live 3D model, measured exactly as the simulator measures it, use the <a href="../angle-convention.html">angle explorer</a>; to get the angles from coordinates you already have, use the <a href="../angle-inverse.html">angle solver</a>.</p>
 <ul>
 <li><p><strong>Theta (one for each molecule)</strong> <em>[0 &lt; Θ &lt; π]</em></p>
 <p>Theta is the angle between the interface vector and sigma. It’s axis of rotation is the cross product of the sigma vector and a given interface vector.</p>
