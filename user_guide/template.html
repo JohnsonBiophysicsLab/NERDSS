@@ -1,0 +1,139 @@
+<!DOCTYPE HTML>
+<!--
+	GENERATED FILE: do not edit nerdss_user_guide.html by hand.
+	Edit user_guide/nerdss_user_guide.md (or this template) and run user_guide/build.sh.
+-->
+<html lang="en">
+	<head>
+		<title>NERDSS - user guide</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content="The NERDSS user guide: building and running NERDSS, input and output files, every MOL and INP parameter, coordinate files, rate and time-step considerations, the GUI and troubleshooting." />
+		<link rel="icon" type="image/png" href="../images/NERDSSicon.png">
+		<link rel="stylesheet" href="../assets/css/main.css" />
+		<link rel="stylesheet" href="../assets/css/custom.css" />
+		<link rel="stylesheet" href="user_guide.css" />
+		<noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
+$if(math)$
+		<script>window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] } };</script>
+		<script defer src="$mathjax-url$"></script>
+$endif$
+	</head>
+	<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HWZ9W3CM4J"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-HWZ9W3CM4J');
+</script>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+							<a href="../index.html" class="logo">
+								<span class="symbol"><img src="../images/logo_design.png" alt="NERDSS home" /></span>
+							</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="../index.html">Home</a></li>
+							<li><a href="../about.html">About</a></li>
+							<li><a href="../introductory_tutorial.html">Tutorials</a></li>
+							<li><a href="../user_guide.html">User Guides</a></li>
+							<li><a href="../articles.html">Articles</a></li>
+							<li><a href="../developers.html">For Developers</a></li>
+							<li><a href="https://github.com/mjohn218/NERDSS/discussions" target="_blank">User Forum</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner guide">
+							<p class="guide-breadcrumb"><a href="../user_guide.html">User Guides</a> &rsaquo; NERDSS user guide</p>
+							<h1 class="guide-title">$title$</h1>
+							<ul class="guide-links">
+								<li><a href="nerdss_user_guide.md">Markdown source</a></li>
+								<li><a href="../files/NERDSS_USER_GUIDE.pdf">PDF (older 2024 edition)</a></li>
+								<li><a href="../user_guide.html">All user guides</a></li>
+							</ul>
+							<div class="guide-layout">
+								<nav class="guide-toc" aria-label="Table of contents">
+									<details id="guide-toc-details" open>
+										<summary>Contents</summary>
+$table-of-contents$
+									</details>
+								</nav>
+								<article class="guide-body">
+$body$
+									<p class="guide-top"><a href="#main">Back to top</a></p>
+								</article>
+							</div>
+						</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>email: margaret.johnson@jhu.edu</p>
+							<p>lab website: <a href = "https://sites.krieger.jhu.edu/johnson-lab/" target="_blank">https://sites.krieger.jhu.edu/johnson-lab/</a></p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://github.com/mjohn218/NERDSS" class="icon brands style2 fa-github" target="_blank"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script>
+				(function () {
+					// Contents open beside the text on wide screens, folded above it on phones.
+					var toc = document.getElementById('guide-toc-details');
+					if (toc && window.matchMedia && !window.matchMedia('(min-width: 981px)').matches) {
+						toc.removeAttribute('open');
+					}
+					// Small "#" self-links on section headings, for sharing deep links.
+					var heads = document.querySelectorAll('.guide-body h2[id], .guide-body h3[id], .guide-body h4[id], .guide-body h5[id]');
+					for (var i = 0; i < heads.length; i++) {
+						var a = document.createElement('a');
+						a.className = 'heading-anchor';
+						a.href = '#' + heads[i].id;
+						a.setAttribute('aria-label', 'Link to this section');
+						a.textContent = '#';
+						heads[i].appendChild(a);
+					}
+				})();
+			</script>
+
+	</body>
+</html>
