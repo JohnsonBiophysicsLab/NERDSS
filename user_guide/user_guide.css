@@ -1,0 +1,314 @@
+/* Styles for the online NERDSS user guide (user_guide/nerdss_user_guide.html).
+   Loaded after main.css and custom.css; everything is scoped to .guide so the
+   rest of the site is unaffected. */
+
+#main > .inner.guide {
+  max-width: 1180px;
+}
+
+.guide-breadcrumb {
+  font-size: 0.85em;
+  margin: 0 0 0.6rem 0;
+  color: #777;
+}
+
+.guide-title {
+  font-size: 2.1em;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6rem;
+}
+
+.guide-links {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.6rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  font-size: 0.9em;
+}
+
+.guide-links li {
+  padding: 0;
+}
+
+/* ---- Two-column layout: sticky contents beside the text ---- */
+
+.guide-layout {
+  display: block;
+}
+
+.guide-body {
+  min-width: 0; /* lets wide tables and code scroll inside the column */
+}
+
+@media screen and (min-width: 981px) {
+  .guide-layout {
+    display: grid;
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .guide-toc {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+/* ---- Table of contents ---- */
+
+.guide-toc {
+  font-size: 0.82em;
+  line-height: 1.45;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  padding: 0.75rem 0.9rem;
+}
+
+.guide-toc summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.guide-toc ul {
+  list-style: none;
+  margin: 0.4rem 0 0 0;
+  padding: 0;
+}
+
+.guide-toc ul ul {
+  margin: 0.15rem 0 0.35rem 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.guide-toc li {
+  padding: 0;
+  margin: 0.2rem 0;
+}
+
+.guide-toc a {
+  border-bottom: none;
+  text-decoration: none;
+}
+
+.guide-toc code {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 1em;
+}
+
+/* ---- Body text ---- */
+
+.guide-body h2,
+.guide-body h3,
+.guide-body h4,
+.guide-body h5 {
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  line-height: 1.3;
+  scroll-margin-top: 1rem;
+}
+
+.guide-body h2 {
+  font-size: 1.55em;
+  margin: 2.6rem 0 0.9rem 0 !important;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.guide-body > h2:first-child {
+  margin-top: 0 !important;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.guide-body h3 {
+  font-size: 1.25em;
+  margin: 2rem 0 0.7rem 0 !important;
+}
+
+.guide-body h4 {
+  font-size: 1.05em;
+  margin: 1.6rem 0 0.5rem 0 !important;
+}
+
+.guide-body h5 {
+  font-size: 0.98em;
+  margin: 1.4rem 0 0.4rem 0 !important;
+}
+
+.guide-body h4 code,
+.guide-body h5 code {
+  font-size: 0.95em;
+  margin: 0;
+}
+
+.guide-body .heading-anchor {
+  margin-left: 0.4em;
+  border-bottom: none;
+  color: #bbb;
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+}
+
+.guide-body h2:hover .heading-anchor,
+.guide-body h3:hover .heading-anchor,
+.guide-body h4:hover .heading-anchor,
+.guide-body h5:hover .heading-anchor,
+.guide-body .heading-anchor:focus {
+  opacity: 1;
+}
+
+.guide-body p {
+  margin: 0 0 1.1em 0;
+}
+
+.guide-body ul,
+.guide-body ol {
+  margin: 0 0 1.2em 0;
+}
+
+.guide-body ul li,
+.guide-body ol li {
+  margin: 0.15em 0;
+}
+
+.guide-body li > ul,
+.guide-body li > ol {
+  margin: 0.2em 0 0.4em 0;
+}
+
+.guide-body li > p {
+  margin: 0.3em 0 0.6em 0;
+}
+
+/* Inline code: lighter than the site default so it reads well in prose,
+   and allowed to wrap so long rules never widen the page. */
+.guide-body :not(pre) > code {
+  margin: 0 0.1em;
+  padding: 0.05em 0.35em;
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+.guide-body pre {
+  margin: 0.4em 0 1.3em 0;
+  max-width: 100%;
+}
+
+.guide-body pre code {
+  padding: 0.75em 1.1em;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ---- Tables: scroll inside the wrapper, never the page ---- */
+
+.guide-body .table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0 0 1.6em 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.guide-body .table-wrapper table {
+  margin: 0;
+  min-width: 34rem;
+  font-size: 0.9em;
+}
+
+.guide-body table th {
+  padding: 0.7em 0.75em;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.guide-body table td {
+  vertical-align: top;
+  padding: 0.55em 0.75em;
+}
+
+.guide-body table td:first-child code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* ---- Figures and maths ---- */
+
+.guide-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.6em 0 1.2em 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+}
+
+.guide-body .math.display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* ---- Callouts ---- */
+
+.guide-body blockquote {
+  font-style: normal;
+}
+
+.guide-alert {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-left: 5px solid #8a8a8a;
+  border-radius: 10px;
+  padding: 0.9em 1.1em 0.2em 1.1em;
+  margin: 0 0 1.5em 0;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.guide-alert-warning,
+.guide-alert-caution {
+  border-left-color: #c0392b;
+  background: rgba(192, 57, 43, 0.05);
+}
+
+.guide-alert-note,
+.guide-alert-tip,
+.guide-alert-important {
+  border-left-color: #1d4ed8;
+  background: rgba(29, 78, 216, 0.05);
+}
+
+.guide-top {
+  margin-top: 2.5em;
+  font-size: 0.9em;
+}
+
+@media screen and (max-width: 736px) {
+  .guide-title {
+    font-size: 1.6em;
+  }
+
+  .guide-body h2 {
+    font-size: 1.3em;
+  }
+
+  .guide-body h3 {
+    font-size: 1.12em;
+  }
+
+  .guide-body .math.display mjx-container {
+    font-size: 88% !important;
+  }
+}

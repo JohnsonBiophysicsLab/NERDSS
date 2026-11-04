@@ -1,0 +1,890 @@
+<!DOCTYPE HTML>
+<!--
+	GENERATED FILE: do not edit nerdss_user_guide.html by hand.
+	Edit user_guide/nerdss_user_guide.md (or this template) and run user_guide/build.sh.
+-->
+<html lang="en">
+	<head>
+		<title>NERDSS - user guide</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content="The NERDSS user guide: building and running NERDSS, input and output files, every MOL and INP parameter, coordinate files, rate and time-step considerations, the GUI and troubleshooting." />
+		<link rel="icon" type="image/png" href="../images/NERDSSicon.png">
+		<link rel="stylesheet" href="../assets/css/main.css" />
+		<link rel="stylesheet" href="../assets/css/custom.css" />
+		<link rel="stylesheet" href="user_guide.css" />
+		<noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
+		<script>window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] } };</script>
+		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+	</head>
+	<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HWZ9W3CM4J"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-HWZ9W3CM4J');
+</script>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+							<a href="../index.html" class="logo">
+								<span class="symbol"><img src="../images/logo_design.png" alt="NERDSS home" /></span>
+							</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="../index.html">Home</a></li>
+							<li><a href="../about.html">About</a></li>
+							<li><a href="../introductory_tutorial.html">Tutorials</a></li>
+							<li><a href="../user_guide.html">User Guides</a></li>
+							<li><a href="../articles.html">Articles</a></li>
+							<li><a href="../developers.html">For Developers</a></li>
+							<li><a href="https://github.com/mjohn218/NERDSS/discussions" target="_blank">User Forum</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner guide">
+							<p class="guide-breadcrumb"><a href="../user_guide.html">User Guides</a> &rsaquo; NERDSS user guide</p>
+							<h1 class="guide-title">Non-Equilibrium Reaction Diffusion Self-Assembly Simulator (NERDSS) User Guide</h1>
+							<ul class="guide-links">
+								<li><a href="nerdss_user_guide.md">Markdown source</a></li>
+								<li><a href="../files/NERDSS_USER_GUIDE.pdf">PDF (older 2024 edition)</a></li>
+								<li><a href="../user_guide.html">All user guides</a></li>
+							</ul>
+							<div class="guide-layout">
+								<nav class="guide-toc" aria-label="Table of contents">
+									<details id="guide-toc-details" open>
+										<summary>Contents</summary>
+<ul>
+<li><a href="#dependencies" id="toc-dependencies">Dependencies</a></li>
+<li><a href="#building-nerdss" id="toc-building-nerdss">Building NERDSS</a></li>
+<li><a href="#starting-a-simulation-with-nerdss" id="toc-starting-a-simulation-with-nerdss">Starting a Simulation With NERDSS</a></li>
+<li><a href="#running-a-restart-simulation" id="toc-running-a-restart-simulation">Running a Restart Simulation</a></li>
+<li><a href="#input-and-output-files-of-nerdss" id="toc-input-and-output-files-of-nerdss">Input and Output files of NERDSS</a>
+<ul>
+<li><a href="#input-files" id="toc-input-files">Input Files</a></li>
+<li><a href="#output-files" id="toc-output-files">Output Files</a></li>
+</ul></li>
+<li><a href="#nerdss-parameters" id="toc-nerdss-parameters">NERDSS parameters</a>
+<ul>
+<li><a href="#parameters-in-mol-file" id="toc-parameters-in-mol-file">Parameters in MOL file</a></li>
+<li><a href="#parameters-in-inp-file" id="toc-parameters-in-inp-file">Parameters in INP file</a></li>
+</ul></li>
+<li><a href="#use-a-coordinate-file-pdb-xyz-or-csv-to-initialize-molecules-at-specific-positions" id="toc-use-a-coordinate-file-pdb-xyz-or-csv-to-initialize-molecules-at-specific-positions">Use a coordinate file (PDB, XYZ or CSV) to initialize molecules at specific positions.</a></li>
+<li><a href="#nerdss-and-important-rule-based-reaction-rate-considerations" id="toc-nerdss-and-important-rule-based-reaction-rate-considerations">NERDSS and Important Rule-based Reaction-Rate considerations</a></li>
+<li><a href="#nerdss-and-time-step-selection" id="toc-nerdss-and-time-step-selection">NERDSS and time-step selection</a></li>
+<li><a href="#creating-input-files-with-gui" id="toc-creating-input-files-with-gui">Creating Input Files With GUI</a>
+<ul>
+<li><a href="#general" id="toc-general">General</a></li>
+<li><a href="#the-molecule-screen" id="toc-the-molecule-screen">The Molecule Screen</a></li>
+<li><a href="#the-reactions-screen" id="toc-the-reactions-screen">The Reactions Screen</a></li>
+<li><a href="#the-parameters-screen" id="toc-the-parameters-screen">The Parameters Screen</a></li>
+</ul></li>
+<li><a href="#troubleshooting" id="toc-troubleshooting">Troubleshooting</a>
+<ul>
+<li><a href="#debugging" id="toc-debugging">Debugging</a></li>
+<li><a href="#build-errors" id="toc-build-errors">Build Errors</a></li>
+</ul></li>
+<li><a href="#citations" id="toc-citations">Citations</a></li>
+</ul>
+									</details>
+								</nav>
+								<article class="guide-body">
+<p><em>Updated: May 3, 2025 (date shown in the header of the Word master). Converted to Markdown from <code>NERDSS_USER_GUIDE_MASTER.docx</code>, last revised October 28, 2026. This Markdown file is now the editable source; see <a href="README.md">README.md</a>.</em></p>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>C++ compiler, one of the following
+<ul>
+<li>GCC ≥ 4.9.0</li>
+<li>Intel ≥ 16.0</li>
+<li>Clang ≥ 3.3</li>
+</ul></li>
+<li>GSL ≥ 1.5</li>
+<li>Make ≥ 4.2.1</li>
+<li>Java 8 or higher (for GUI)</li>
+</ul>
+<h2 id="building-nerdss">Building NERDSS</h2>
+<p>Simply run <code>make serial</code> within the main directory <code>NERDSS/</code> to use build using the provided make file.</p>
+<p>The executable will be placed in the <code>NERDSS/bin</code> directory.</p>
+<p>If you wish to build slightly faster, or are having issues building NERDSS as above, you can try using cmake. To do this:</p>
+<pre class="sh"><code>mkdir build; cd build
+cmake ..
+make    # may use -j flag to specify number cores to use</code></pre>
+<p>The NERDSS Executable will be in the build directory.</p>
+<h2 id="starting-a-simulation-with-nerdss">Starting a Simulation With NERDSS</h2>
+<p>In order to start a new simulation, you need a parameter file with .inp extension, and all .mol file required by that parameter file. mol files specify the structure of specific molecule, including the location of all its interfaces, and both translational and rotational diffusion constants. inp files control reaction rules as well as simulation settings. (see <a href="#input-and-output-files-of-nerdss">Input and Output file</a> section for more info). All input files can be automatically generated using the provided <a href="#creating-input-files-with-gui">GUI</a>.</p>
+<p>If all the input files are correctly formatted, you may run NERDSS with the following command:</p>
+<pre class="sh"><code>./nerdss -f $YOUR_PARAM_FILE</code></pre>
+<p>Note that all necessary .mol files (that are referred to by the param file) must be in the same directory as the executable.</p>
+<p>Below are some flags that may be helpful:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr class="header">
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>-f &lt;filename&gt;</code>, <code>--parmfile &lt;filename&gt;</code></td>
+<td>declares the parameter file (required)</td>
+</tr>
+<tr class="even">
+<td><code>--seed &lt;integer&gt;</code>, <code>-s &lt;integer&gt;</code></td>
+<td>manually declare a seed for RNG (optional)</td>
+</tr>
+<tr class="odd">
+<td><code>-c &lt;filename&gt;</code>, <code>--coordinate &lt;filename&gt;</code></td>
+<td>When starting a new simulation, declare a file of initial coordinates (PDB, XYZ or CSV; see “<a href="#use-a-coordinate-file-pdb-xyz-or-csv-to-initialize-molecules-at-specific-positions">Use a coordinate file to initialize molecules at specific positions</a>”) for placing all or some molecules at given positions (optional).</td>
+</tr>
+<tr class="even">
+<td><code>--debug-force-dissoc</code></td>
+<td>force dissociation to occur whenever possible (optional, for debug only)</td>
+</tr>
+<tr class="odd">
+<td><code>--debug-force-assoc</code></td>
+<td>force association to occur whenever possible (optional, for debug only)</td>
+</tr>
+<tr class="even">
+<td><code>-r &lt;filename&gt;</code>, <code>--restart &lt;filename&gt;</code></td>
+<td>declares the restart file (optional)</td>
+</tr>
+<tr class="odd">
+<td><code>-a &lt;filename&gt;</code>, <code>--add &lt;filename&gt;</code></td>
+<td>During a restart, will read updated and new parameters, added to or overriding from the original parameter file</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="running-a-restart-simulation">Running a Restart Simulation</h2>
+<p>During a normal run of NERDSS, a special file called <code>restart.dat</code> is written at intervals specified by the user (see <a href="#parameters-in-inp-file">.inp file parameters</a> section), A restart simulation allows you to start a new simulation from a timestep in a previous simulation at which a restart file was written. .inp and .mol files are not required for a restart simulation.</p>
+<div class="guide-alert guide-alert-warning" role="note">
+<p><strong>CRITICAL WARNING: Overwriting Output Files</strong></p>
+<p>If you restart a simulation using a command like <code>./nerdss -r RESTARTS/restart.dat</code> from the <strong>same directory</strong> where the original simulation was run, NERDSS will <strong>OVERWRITE</strong> existing output files in the <code>DATA/</code> subdirectory (e.g., <code>observables_time.dat</code>, <code>copy_numbers_time.dat</code>, <code>trajectory.xyz</code>, etc.).</p>
+<p>This happens because these primary data output files are monolithic; they have fixed names and are appended to or overwritten from the beginning when a simulation (or a restarted simulation) starts. In contrast, files in the <code>PDB/</code> subdirectory and the restart files themselves in the <code>RESTARTS/</code> subdirectory are typically named with timestamps or iteration numbers (e.g., <code>pdb_1000.pdb</code>, <code>restart10000.dat</code>), so new files are created without overwriting previous distinct ones.</p>
+<p><strong>To avoid accidental data loss, it is STRONGLY RECOMMENDED to run restart simulations in a new, separate directory.</strong> You can copy the required restart file (e.g., <code>RESTARTS/restart.dat</code> or a specific <code>RESTARTS/restart&lt;timeStep&gt;.dat</code>) and the <code>rng_state</code> file from the <code>RESTARTS/</code> directory of the original simulation into this new directory. If you are providing an old trajectory file to append to, copy that as well. Then, run the restart command from within this new directory.</p>
+</div>
+<p><strong>To restart a simulation successfully:</strong></p>
+<ul>
+<li><p>Make sure the following are in the same directory as the executable:</p>
+<ul>
+<li>Restart File (by default <code>restart.dat</code>)</li>
+</ul>
+<p>OPTIONAL</p>
+<ul>
+<li>Trajectory file (optional, a new trajectory file will be created if not providing trajectory file for restart; If restart the simulation from a checkpoint, modify the input trajectory file to make it consistent with the restart timepoint; or restart the simulation without the input trajectory file and concatenate all the trajectory files after the simulation)</li>
+<li>To restart using the exact same sequence of random numbers, you will also need the <code>rng_state</code> file. These are only created if the parameter <code>debugRNG</code> is set to ‘true’ in the main executable <code>nerdss.cpp</code>. By default, <code>debugRNG</code> is ‘false’.</li>
+</ul></li>
+</ul>
+<p>Run restart simulation via: <code>./nerdss -r $RESTART</code>, where <code>$RESTART</code> is the restart file.</p>
+<p><strong>Restarting and modifying the system:</strong></p>
+<p>When restarting, it can be beneficial to adapt the system by changing the parameters or by adding molecules and/or reactions. This can be done by also reading in a .inp file that is formatted the same way as the <code>parms.inp</code> file. This new parameter file can be used to add additional species, change/overwrite the simulation parameters within the parameter block, and to add additional reactions. It Cannot be used to modify the rates in existing reactions—that must be modified (currently) by changing the values stored in the <code>restart.dat</code> file.</p>
+<p>The command is:</p>
+<pre class="sh"><code>./nerdss -r $RESTART -a add_parameters.inp</code></pre>
+<p>Where <code>$RESTART</code> is the restart file and <code>add_parameters.inp</code> is the parameter file containing new species/reactions</p>
+<h2 id="input-and-output-files-of-nerdss">Input and Output files of NERDSS</h2>
+<h3 id="input-files">Input Files</h3>
+<h4 id="mol-files">MOL files</h4>
+<p>The MOL format (<code>*.mol</code>) is used for storing molecule template information being read by NERDSS. The <code>*.mol</code> file has the prefix being the molecule with named identically to that used in the reactions, which are defined in the INP format file. The information that can be included in the MOL file are listed <a href="#parameters-in-mol-file">here</a>.</p>
+<ul>
+<li>Required: Molecule name, copy numbers of the molecule, translational diffusion constants, rotational diffusion constants, center of mass coordinates, at least one interface coordinates;</li>
+<li>Optional: whether it is a lipid, whether it is an implicit lipid, interface states, pre-defined bonds.</li>
+</ul>
+<h4 id="inp-files">INP files</h4>
+<p>The INP format (<code>*.inp</code>) is used for storing system information being read by NERDSS, and the format is, as much as possible, shared with BioNetGenLanguage (BNGL) for model portability. It can be used for a new simulation. It can also be used for a restart simulation to change the simulation parameters or adding new molecules and reactions to the previous system. The information that can be included in the INP file are listed <a href="#parameters-in-inp-file">here</a>. The information in the <code>*.inp</code> file is stored in different blocks. Blocks are started with the ‘start’ keyword and ended with the ‘end’ keyword. Four blocks are used: parameters, boundaries, molecules and reactions. Molecules must be defined before reactions.</p>
+<ul>
+<li>The <strong>parameters block</strong> can include following things.
+<ul>
+<li>Required: requested number of iterations, timestep length;</li>
+<li>Optional: interval to write timestep information, interval to write to coordinates file, interval to update the latest restart file, interval to write separate restart files, interval to write individual pdb files.</li>
+</ul></li>
+<li>The <strong>boundaries block</strong> can include following things.
+<ul>
+<li>Required: water box dimensions, type of the boundary conditions.</li>
+<li>Optional: isSphere, radius of sphere.</li>
+</ul></li>
+<li>The <strong>molecules block</strong> includes the name and starting copy number of the molecules in the system line by line. These should be consistent with the molecule name in the MOL files.
+<ul>
+<li>One note is that if the system has implicit lipid molecule, you must put it in the first position of the molecules list.</li>
+</ul></li>
+<li>The <strong>reactions block</strong> includes all the information of the reactions in the system.
+<ul>
+<li>Each reaction starts with a declaration like this: <code>A(a) + B(b) &lt;-&gt; A(a!1).B(b!1)</code>, where A and B are the reacting molecules, a and b are the reacting interfaces. <code>A(a!1).B(b!1)</code> is the product, where “!” denotes an interaction with index 1, and “.” Indicates the two molecules are interacting. Reversible reactions are denoted by a double-headed arrow <code>&lt;-&gt;</code>. Interfaces must be uniquely named, at least on each molecule type. States are allowed and are not required to be binary. Denoted with a tilde. An interface can only change its state or interaction, not both.</li>
+<li>Ancillary interfaces are allowed. These can include interfaces with/without states/interaction that do not change their state or interaction in the particular reaction but are required for the reaction to occur. For example, a molecule A has two interfaces a1 and a2, with a2 having two states P and U. If an interaction between a1 and some interface b on molecule B is dependent on a2 being in the P state, we can write the reaction as: <code>A(a1,a2~P) + B(b) &lt;-&gt; A(a1!1,a2~P).B(b!1)</code>. If an interaction between a1 and some interface b on molecule B is dependent on a2 being bound to something, we can write the reaction as: <code>A(a1,a2!*) + B(b) &lt;-&gt; A(a1!1,a2!*).B(b!1)</code>. Here we use wildcard <code>*</code> to represent ancillary interactions in the reactants. Another note is that wildcard states are allowed in the reactants/products by omitting the state of an interface which has states. If the state of an ancillary interface does not affect the reaction, it should not be listed. If it is listed, it will be required to be in the state listed.</li>
+<li>The supported reaction types include reversible binding reactions (<code>A(a) + A(a) &lt;-&gt; A(a!1).A(a!.1)</code>), bimolecular association (<code>A(a) + B(b) -&gt; A(a!1).B(b!.1)</code>), bimolecular state change (enzyme facilitated state change)(<code>A(a) + B(a~U) &lt;-&gt; A(a)+B(a~P)</code>), unimolecular state change (<code>A(a~S)-&gt;A(a~O)</code>), dissociation (<code>A(a!1).B(b!.1)-&gt;A(a)+B(b)</code>), creation from concentration (<code>0 -&gt; A(a)</code>), creation from molecule (<code>A(a) -&gt; A(a) + B(b)</code>), destruction (<code>A(a) -&gt; 0</code>).</li>
+<li>The parameters for a reaction are given below the declaration line by line. Required: 3D microscopic binding rate or macroscopic binding rate, microscopic dissociation rate or macroscopic dissociation rate (only required for reversible reaction). Optional: distance between the two reacting interfaces for a bimolecular reaction (required for bimolecular association), angles for bimolecular association (required for bimolecular association), vector used to calculate the phi1 and phi2 angles (and sometimes omega), label for tracking the reaction product.</li>
+</ul></li>
+</ul>
+<h3 id="output-files">Output Files</h3>
+<p><strong>Output Subdirectories:</strong></p>
+<ul>
+<li>Most standard output data files (DAT, XYZ, PSF) generated during a non-restart simulation are written to a subdirectory named <code>DATA/</code>, created within the directory from which nerdss was executed (i.e., where your .inp and .mol files are located).</li>
+<li>All PDB files are written to a subdirectory named <code>PDB/</code>. The directory is made only when <code>pdbWrite</code> is positive.</li>
+<li>All restart files (checkpointed <code>restart&lt;nItr&gt;.dat</code> files and the latest <code>restart.dat</code>, along with their corresponding <code>rng_state</code> files) are written to a subdirectory named <code>RESTARTS/</code>.</li>
+</ul>
+<h4 id="dat-files">DAT files</h4>
+<p>NERDSS produces most of output files in the DAT format. The DAT files whose name ending with <code>_time.dat</code> include the quantities of the system as a function of time in a specified aspect. The first line of these <code>_time.dat</code> files is the headline and the rest lines are the data recording in a specified interval (the interval parameters are given in the <code>*.inp</code> file). The information of different <code>_time.dat</code> files are listed here.</p>
+<ul>
+<li><code>observables_time.dat</code>
+<ul>
+<li>Purpose: Tracks time-dependent quantities of labeled observables specified in the <code>.inp</code> file’s reactions section</li>
+<li>Format:
+<ul>
+<li>First line is header listing observed labels</li>
+<li>Subsequent lines are data recorded at intervals defined by the interval parameter in the <code>.inp</code> file</li>
+</ul></li>
+</ul></li>
+<li><code>copy_numbers_time.dat</code>
+<ul>
+<li>Purpose: Records time-dependent copy numbers of all species (reactants, products)</li>
+<li>Format:
+<ul>
+<li>Header: First column: <code>Time (s)</code>, followed by species names (comma-separated)</li>
+<li>Examples:
+<ul>
+<li><code>C(A1)</code>: Free A1 interface in molecule C</li>
+<li><code>C(A1!1).A(C1!1)</code>: A1-C1 bond between molecules C and A</li>
+</ul></li>
+<li>Data rows: Time points with corresponding species counts</li>
+</ul></li>
+</ul></li>
+<li><code>histogram_complexes_time.dat</code>
+<ul>
+<li>Purpose: Tracks time-dependent composition and abundance of <strong>complexes</strong></li>
+<li>Format:
+<ul>
+<li>Lines starting with <code>Time (s): [value]</code> mark a new time point.</li>
+<li>Subsequent lines list complexes and their compositions, e.g., <code>22 C:3. A:2. B:5</code> means 22 complexes composed of 3 C, 2 A, and 5 B molecules</li>
+</ul></li>
+</ul></li>
+<li><code>mono_dimer_time.dat</code>
+<ul>
+<li>Purpose: Monitors monomers and <strong>perfect dimers</strong> (excludes dimers in larger complexes)</li>
+<li>Format:
+<ul>
+<li>Header: <code>TIME (s)</code> followed by <code>MONO:[name]</code> or <code>DIMERS W:[name]</code> (tab-separated).</li>
+<li>Example: Dimer counts for A (e.g., AB + AC dimers) are summed under <code>DIMERS W:A</code></li>
+</ul></li>
+</ul></li>
+<li><code>bound_pair_time.dat</code>
+<ul>
+<li>Purpose: Tracks all <strong>directly bound pairs</strong> (e.g., A-B bonds) and system-wide loops</li>
+<li>Format:
+<ul>
+<li>Header: <code>TIME(s)</code>, followed by bound pair names (e.g., <code>C,A</code>) and <code>Nloops</code></li>
+<li>Additional columns track rejected/successful association events</li>
+</ul></li>
+</ul></li>
+<li><code>transition_matrix_time.dat</code>
+<ul>
+<li>Purpose: Logs transitions between cluster sizes (n→m) and tracks lifetimes of molecular sizes</li>
+<li>Structure:
+<ul>
+<li>First half: Transition matrix where:
+<ul>
+<li>Diagonal = counts of unchanged cluster sizes.</li>
+<li>Off-diagonal = transitions between sizes.</li>
+<li>Row sums = total n-mers in the simulation.</li>
+</ul></li>
+<li>Second half: Lifetime data for each cluster size.</li>
+</ul></li>
+<li>Parameters (set in .mol/.inp files):
+<ul>
+<li><code>countTransition</code>: Enable tracking (default: false).</li>
+<li><code>transitionMatrixSize</code>: Matrix dimensions (default: 500).</li>
+<li><code>transitionWrite</code>: Output interval (default: nItr/10).</li>
+</ul></li>
+</ul></li>
+</ul>
+<p>The <code>restart.dat</code> stores all the system information to restart a simulation from the latest step. The <code>rng_state</code> file stores the state of the Random Number Generator of the latest step, which is also needed to restart a simulation for a debug task to restart the simulation and capture the previous error. If the corresponding <code>rng_state</code> file is used, the trajectory will follow identically. The <code>restart$timeStep$.dat</code> and <code>rng_state$timeStep$</code> files include the information for restarting a simulation from a specified timestep. And the interval to write these <code>restart$timeStep$.dat</code> and <code>rng_state$timeStep$</code> files is determined by the checkpoint parameter in the <code>*.inp</code> file. The restart simulation is suggested to run in a new directory.</p>
+<h4 id="xyz-files">XYZ files</h4>
+<p>The XYZ format is used for coordinate and trajectory written by NERDSS. These files can be visualized by VMD and Ovito. The initial coordinate of all the molecules in the system are stored in the file named <code>initial_crds.xyz</code> and the final coordinate of all the molecules are stored in the file named <code>final_coords.xyz</code>. The whole trajectory of the system is stored in <code>trajectory.xyz</code>. The interval to write coordinates in the trajectory is determined by the parameter <code>trajWrite</code> in the <code>*.inp</code> file; 0 or a negative value writes no <code>trajectory.xyz</code> at all. NOTE: If the total copies of species can change per step, due to creation and destruction, for example, then these will not work in VMD.</p>
+<h4 id="psf-files">PSF files</h4>
+<p>The PSF format is used to specify the rigid molecules in the system, bonds between them, and their copies, for visualization in VMD. There is no way to update these files if the total copies of species can change per step, due to creation and destruction, for example. Then use PDB files with Ovito.</p>
+<h4 id="pdb-files">PDB files</h4>
+<p>The optional PDB format output is used for coordinate and trajectory written by NERDSS. Unlike the XYZ file that contains the entire trajectory, this creates an individual file for each frame. The advantage is that these files can be read by Ovito, and do not require the same copy numbers per frame. Thus they are needed to visualize open systems where total copies of species can change.</p>
+<h4 id="standard-output">Standard output</h4>
+<p>NERDSS logs a variety of information of the simulation system to standard output, including the information that is parsed from the input files, the reaction happened in each step, the simulation time information in a fixed timestep interval, and warnings.</p>
+<h2 id="nerdss-parameters">NERDSS parameters</h2>
+<h3 id="parameters-in-mol-file">Parameters in MOL file</h3>
+<p><code>#</code> is an indicator for comment in the <code>*.mol</code> file.</p>
+<h4 id="name"><code>name</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> String (must provide)</li>
+<li><strong>Description:</strong> molecule name, must match that used in the <code>*.inp</code> file; also consistent with the name of this <code>*.mol</code> file</li>
+<li><strong>Sample:</strong> <code>name = A</code></li>
+</ul>
+<h4 id="islipid"><code>isLipid</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> Is the molecule restricted to the 2D surface? I.e., is it a lipid, or transmembrane protein, etc.</li>
+<li><strong>Sample:</strong> <code>isLipid = true</code></li>
+</ul>
+<h4 id="isimplicitlipid"><code>isImplicitLipid</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> Is the molecule an implicit lipid? This is used for simulating binding to a membrane with many lipid binding sites using the implicit lipid model.</li>
+<li><strong>Sample:</strong> <code>isImplicitLipid = true</code></li>
+</ul>
+<h4 id="ispromoter"><code>isPromoter</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> Is the molecule restricted to the 1D fiber? I.e., is it a promoter on DNA, or nucleosome bound on DNA, etc.</li>
+<li><strong>Sample:</strong> <code>isPromoter = true</code></li>
+</ul>
+<h4 id="checkoverlap"><code>checkOverlap</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> is steric overlap checked for during association for this molecule type? Steric overlap checks are applied then to the two molecules binding, and with each of those molecules against the rest of the system.</li>
+<li><strong>Sample:</strong> <code>checkOverlap = true</code></li>
+</ul>
+<h4 id="counttransition"><code>countTransition</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> is size transition counted during simulation for this molecule type?</li>
+<li><strong>Sample:</strong> <code>countTransition = true</code></li>
+</ul>
+<h4 id="transitionmatrixsize"><code>transitionMatrixSize</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> int (optional)</li>
+<li><strong>Default Value:</strong> 500</li>
+<li><strong>Description:</strong> size of the transition matrix</li>
+<li><strong>Sample:</strong> <code>transitionMatrixSize = 100</code></li>
+</ul>
+<h4 id="insidecompartment"><code>insideCompartment</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> this mol type is inside the compartment</li>
+<li><strong>Sample:</strong> <code>insideCompartment = true</code></li>
+</ul>
+<h4 id="outsidecompartment"><code>outsideCompartment</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean (optional)</li>
+<li><strong>Default Value:</strong> false</li>
+<li><strong>Description:</strong> this mol type is outside the compartment</li>
+<li><strong>Sample:</strong> <code>outsideCompartment = true</code></li>
+</ul>
+<h4 id="d"><code>D</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Array, [x, y, z] (must provide)</li>
+<li><strong>Description:</strong> the molecule’s xyz translational diffusion constants</li>
+<li><strong>Unit:</strong> μm<sup>2</sup>/s</li>
+<li><strong>Sample:</strong> <code>D = [25.0, 25.0, 25.0]</code></li>
+</ul>
+<h4 id="dr"><code>Dr</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Array, [x, y, z] (must provide)</li>
+<li><strong>Description:</strong> the molecule's xyz rotational diffusion constants</li>
+<li><strong>Unit:</strong> rad<sup>2</sup>/μs</li>
+<li><strong>Sample:</strong> <code>Dr = [0.5, 0.5, 0.5]</code></li>
+</ul>
+<h4 id="com"><code>COM</code></h4>
+<ul>
+<li><p><strong>Acceptable Values:</strong> coordinates block (must provide)</p></li>
+<li><p><strong>Description:</strong> COM (center-of-mass) denotes the start of the internal coordinates block for the center of mass and all interfaces. interfaceName must be identical to that used in <code>*.inp</code> file.</p></li>
+<li><p><strong>Unit:</strong> nm</p></li>
+<li><p><strong>Sample:</strong></p>
+<pre><code>COM 0.0 0.0 0.0
+interfaceName1 0.0 0.0 1.5
+interfaceName2 0.0 0.0 -1.5</code></pre></li>
+</ul>
+<h4 id="bonds"><code>bonds</code></h4>
+<ul>
+<li><p><strong>Acceptable Values:</strong> bonds block (optional)</p></li>
+<li><p><strong>Description:</strong> Bonds for the molecule are declared strictly for visualization purposes, not to propagate the system (written to PSF file). A pair of interface names separated by whitespace, the first line is the number of bonds.</p></li>
+<li><p><strong>Sample:</strong></p>
+<pre><code>bonds = 2
+com interfaceName1
+com interfaceName2</code></pre></li>
+</ul>
+<h4 id="state"><code>state</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Single character (optional)</li>
+<li><strong>Description:</strong> define interface states with the format <code>$interfaceName~X~Y</code>, must be consistent with the name used in the <code>*.inp</code> file</li>
+<li><strong>Sample:</strong> <code>state = interfaceName1~P~U</code></li>
+</ul>
+<h4 id="mass"><code>mass</code></h4>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> Set to the molecule radius. Molecule radius is calculated from the largest distance COM to interfaces.</li>
+<li><strong>Description:</strong> mass is used only to determine the geometric center of mass of a multi-component complex. Rotation occurs relative to this COM. Mass is effectively unitless, as total mass is divided out.</li>
+<li><strong>Sample:</strong> <code>mass = 1</code></li>
+</ul>
+<h3 id="parameters-in-inp-file">Parameters in INP file</h3>
+<p><code>#</code> is an indicator for comment in the <code>*.inp</code> file.</p>
+<h4 id="parameters-block-between-start-parameters-and-end-parameters">parameters block (between <code>start parameters</code> and <code>end parameters</code>)</h4>
+<h5 id="nitr"><code>nItr</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (must provide)</li>
+<li><strong>Description:</strong> requested number of iterations</li>
+<li><strong>Sample:</strong> <code>nItr = 10000</code></li>
+</ul>
+<h5 id="timestep"><code>timeStep</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (must provide)</li>
+<li><strong>Description:</strong> timestep length per iteration</li>
+<li><strong>Unit:</strong> μs</li>
+<li><strong>Sample:</strong> <code>timeStep = 0.1</code></li>
+</ul>
+<h5 id="timewrite"><code>timeWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> 10</li>
+<li><strong>Description:</strong> iteration interval to print running time information to standard output and to record the copy numbers in the <code>*_time.dat</code> files.</li>
+<li><strong>Sample:</strong> <code>timeWrite = 100</code></li>
+</ul>
+<h5 id="trajwrite"><code>trajWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> 10</li>
+<li><strong>Description:</strong> iteration interval to write coordinates to the trajectory file <code>DATA/trajectory.xyz</code>; a positive value also writes the first and the last step, and 0 or a negative value writes no trajectory file at all, not even the initial frame</li>
+<li><strong>Sample:</strong> <code>trajWrite = 100</code></li>
+</ul>
+<h5 id="restartwrite"><code>restartWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> 10</li>
+<li><strong>Description:</strong> iteration interval to update “./DATA/restart.dat”. Caution! This is NOT the restart file written in “./RESTARTS/” per interval. To tune that, please use “checkpoint”.</li>
+<li><strong>Sample:</strong> <code>restartWrite = 100</code></li>
+</ul>
+<h5 id="pdbwrite"><code>pdbWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> -1</li>
+<li><strong>Description:</strong> iteration interval to write pdb files; -1 means no pdb file output at all, not even of the initial frame (any value of 0 or below is off); a positive value also writes the first and the last step</li>
+<li><strong>Sample:</strong> <code>pdbWrite = 100</code></li>
+</ul>
+<h5 id="bondedcomplexwrite"><code>bondedComplexWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> -1</li>
+<li><strong>Description:</strong> iteration interval to write bonded complex data to JSON files in “./DATA/COMPEXES/”; -1 means no file output</li>
+<li><strong>Sample:</strong> <code>bondedComplexWrite = 100</code></li>
+</ul>
+<h5 id="checkpoint"><code>checkPoint</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> nItr / 10, where nItr is the total number of iterations.</li>
+<li><strong>Description:</strong> iteration interval to write checkpoint for restart in “./RESTARTS/”.</li>
+<li><strong>Sample:</strong> <code>checkPoint = 1000</code></li>
+</ul>
+<h5 id="transitionwrite"><code>transitionWrite</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Integer (optional)</li>
+<li><strong>Default Value:</strong> nItr / 10, where nItr is the total number of iterations.</li>
+<li><strong>Description:</strong> iteration interval to write transition matrix</li>
+<li><strong>Sample:</strong> <code>checkPoint = 1000</code></li>
+</ul>
+<h5 id="clusteroverlapcheck"><code>clusterOverlapCheck</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Bool (optional)</li>
+<li><strong>Default Value:</strong> false.</li>
+<li><strong>Description:</strong> is overlap checked based on cluster</li>
+<li><strong>Sample:</strong> <code>clusterOverlapCheck = true</code></li>
+</ul>
+<h5 id="overlapseplimit"><code>overlapSepLimit</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 0.1</li>
+<li><strong>Description:</strong> COM-COM distance less than this value is cancelled, for the molecules whose checkOverlap is true.</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>overlapSepLimit = 3.0</code></li>
+</ul>
+<h5 id="scalemaxdisplace"><code>scaleMaxDisplace</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 100.0</li>
+<li><strong>Description:</strong> association events that result in shifts of an interface on either component by scaleMaxDisplace* &lt;RMSD&gt; are rejected. Rationale is because these large displacements, due to rotation of large complexes into bound structures, are unphysical. &lt;RMSD&gt; is calculated from <code>sqrt(6.0*Dtot*dt)</code> in 3D, and <code>sqrt(4.0*Dtot*dt)</code> in 2D.</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>scaleMaxDisplace = 10.0</code></li>
+</ul>
+<h4 id="boundaries-block-between-start-boundaries-and-end-boundaries">boundaries block (between <code>start boundaries</code> and <code>end boundaries</code>)</h4>
+<h5 id="waterbox"><code>WaterBox</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Array, [x, y, z] (must provide)</li>
+<li><strong>Description:</strong> the xyz dimensions of the simulation system</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>WaterBox = [500.0, 500.0, 500.0]</code></li>
+</ul>
+<h5 id="xbctypeybctypezbctype"><code>xBCtype/yBCtype/zBCtype</code></h5>
+<ul>
+<li><p><strong>Acceptable Values:</strong> reflect (optional)</p></li>
+<li><p><strong>Default:</strong> reflect</p></li>
+<li><p><strong>Description:</strong> the boundary conditions for each dimension</p></li>
+<li><p><strong>Sample:</strong></p>
+<pre><code>xBCtype = reflect
+yBCtype = reflect
+zBCtype = reflect</code></pre></li>
+</ul>
+<h5 id="issphere"><code>isSphere</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean, True/False (optional)</li>
+<li><strong>Default:</strong> False</li>
+<li><strong>Sample:</strong> <code>isSphere = false</code></li>
+</ul>
+<h5 id="spherer"><code>sphereR</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default:</strong> 0</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>sphereR=1000</code></li>
+</ul>
+<h5 id="hascompartment"><code>hasCompartment</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Boolean, True/False (optional)</li>
+<li><strong>Default:</strong> False</li>
+<li><strong>Sample:</strong> <code>hasCompartment = true</code></li>
+</ul>
+<h5 id="compartmentr"><code>compartmentR</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default:</strong> 0</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>sphereR=1000</code></li>
+</ul>
+<h5 id="compartmentsited"><code>compartmentSiteD</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default:</strong> 0</li>
+<li><strong>Unit:</strong> nm^2/us</li>
+<li><strong>Sample:</strong> <code>compartmentSiteD =10.0</code></li>
+</ul>
+<h5 id="compartmentsiterho"><code>compartmentSiteRho</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default:</strong> 0</li>
+<li><strong>Unit:</strong> nm^-2</li>
+<li><strong>Sample:</strong> <code>compartmentSiteD =10.0</code></li>
+</ul>
+<h4 id="molecules-block-between-start-molecules-and-end-molecules">molecules block (between <code>start molecules</code> and <code>end molecules</code>)</h4>
+<p>This block includes all the molecules’ types in the simulation system, and their starting copy numbers. The name of the molecules should be consistent with the corresponding <code>*.mol</code> file. One note is that the implicit lipid molecule must be placed firstly if exists.</p>
+<p>Sample:</p>
+<pre><code>ImplicitLipid : Ncopies
+moleculeName1 : Ncopies
+moleculeName2 : Ncopies</code></pre>
+<p>If a molecule has more than one state, those can be initialized with distinct copy numbers. In this example, molecule Kinase with site ‘a’ will be initialized with 100 copies in state P, and 200 copies in state U.</p>
+<p>Sample:</p>
+<pre><code>Kinase : 100 (a~P), 200 (a~U)</code></pre>
+<p>Here is an example for a molecule pip2 that has two sites ‘head’ and ‘tail’, each of which can exist in 2 states, head~U~P and tail~S~D:</p>
+<p>Sample</p>
+<pre><code>pip2 : 60 (head~U, tail~S), 10 (head~P, tail~D), 10 (head~U, tail~D), 10 (head~P, tail~S)</code></pre>
+<h4 id="reactions-block-between-start-reactions-and-end-reactions">reactions block (between <code>start reactions</code> and <code>end reactions</code>)</h4>
+<p>Each reaction starts with the declaration and followed by the corresponding parameter values for this reaction. The syntax of the declaration and the supported reaction types have been given in the <a href="#inp-files">INP files</a> Section. Here is the description of the parameters for each reaction.</p>
+<h5 id="onrate3dka"><code>onRate3Dka</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (one of onRate3Dka and onRate3DMacro must provide)</li>
+<li><strong>Description:</strong> 3D microscopic binding rate</li>
+<li><strong>Unit:</strong> nm<sup>3</sup>/μs (for 2D will be converted to: nm<sup>2</sup>/μs by length3Dto2D; for Creation: M/s)</li>
+<li><strong>Sample:</strong> <code>onRate3Dka = 1.0</code></li>
+</ul>
+<h5 id="onrate3dmacro"><code>onRate3DMacro</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (one of onRate3Dka and onRate3DMacro must provide)</li>
+<li><strong>Description:</strong> Macroscopic binding rate, the relationship between 3D microscopic binding rate and macroscopic binding rate for different system can be found in the supporting information of NERDSS paper.</li>
+<li><strong>Unit:</strong> μM<sup>-1</sup>s<sup>-1</sup> (the relationship between nm<sup>3</sup>/μs and μM<sup>-1</sup>s<sup>-1</sup> is 1 μM<sup>-1</sup>s<sup>-1</sup> = 1/0.602214076 nm<sup>3</sup>/μs)</li>
+<li><strong>Sample:</strong> <code>onRate3DMacro = 1.0</code></li>
+</ul>
+<h5 id="offratekb"><code>offRatekb</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (one of offRatekb and offRateMacro must provide for the reversible reaction)</li>
+<li><strong>Description:</strong> Microscopic dissociation rate</li>
+<li><strong>Unit:</strong> s<sup>-1</sup></li>
+<li><strong>Sample:</strong> <code>offRatekb = 1.0</code></li>
+</ul>
+<h5 id="offratemacro"><code>offRateMacro</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (one of offRatekb and offRateMacro must provide for the reversible reaction)</li>
+<li><strong>Description:</strong> Macroscopic dissociation rate, the relationship between microscopic dissociation rate and macroscopic dissociation rate for different system can be found in the supporting information of NERDSS paper.</li>
+<li><strong>Unit:</strong> s<sup>-1</sup></li>
+<li><strong>Sample:</strong> <code>offRateMacro = 1.0</code></li>
+</ul>
+<h5 id="rate"><code>rate</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float</li>
+<li><strong>Description:</strong> Use for zeroth order and for first order. If used for bimolecular, will map to onRate3Dka.</li>
+<li><strong>Unit:</strong> Reaction Order dependent: Zeroth (M/s), First (1/s).</li>
+<li><strong>Sample:</strong> <code>rate = 10.0</code></li>
+</ul>
+<h5 id="sigma"><code>sigma</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 1.0</li>
+<li><strong>Description:</strong> distance between the two reacting interfaces for a bimolecular reaction</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>sigma = 1.0</code></li>
+</ul>
+<h5 id="norm1norm2"><code>norm1/norm2</code></h5>
+<ul>
+<li><p><strong>Acceptable Values:</strong> Vector (optional)</p></li>
+<li><p><strong>Default:</strong> [0, 0, 1]</p></li>
+<li><p><strong>Description:</strong> vectors used to calculate the phi and phi2 angles (and sometimes omega) for a bimolecular reaction, the definition can be found in the supporting information of NERDSS paper.</p></li>
+<li><p><strong>Sample:</strong></p>
+<pre><code>norm1 = [0, 0, 1]
+norm2 = [0, 0, 1]</code></pre></li>
+</ul>
+<h5 id="assocangles"><code>assocAngles</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Vector (optional)</li>
+<li><strong>Default:</strong> [nan, nan, nan, nan, nan]</li>
+<li><strong>Description:</strong> five angles for bimolecular association, the definition can be found in the supporting information of NERDSS paper. If the angle does not exist, the angle should read “nan”. M_PI is Pi (3.14159). For all ‘nan’, the binding partners are placed at the orientation they are prior to the association event.</li>
+<li><strong>Unit:</strong> rad</li>
+<li><strong>Sample:</strong> <code>assocAngles = [1.5707963, 1.5707963, nan, nan, M_PI]</code></li>
+</ul>
+<h5 id="length3dto2d"><code>length3Dto2D</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 2*sigma</li>
+<li><strong>Description:</strong> length scale to convert 3D rate to 2D rate</li>
+<li><strong>Unit:</strong> nm</li>
+<li><strong>Sample:</strong> <code>length3Dto2D = 30</code></li>
+</ul>
+<h5 id="area3dto1d"><code>area3Dto1D</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 4*M_PI*sigma^2</li>
+<li><strong>Description:</strong> area scale to convert 3D rate to 1D rate</li>
+<li><strong>Unit:</strong> nm^2</li>
+<li><strong>Sample:</strong> <code>length3Dto2D = 100</code></li>
+</ul>
+<h5 id="bindradsamecom"><code>bindRadSameCom</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 1.1</li>
+<li><strong>Description:</strong> scalar multiple of sigma, determines distance between two reactants to force reaction within the same complex</li>
+<li><strong>Unit:</strong> unitless</li>
+<li><strong>Sample:</strong> <code>bindRadSameCom = 1.1</code></li>
+</ul>
+<h5 id="loopcoopfactor"><code>loopCoopFactor</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Default Value:</strong> 1.0 (e.g. exp(-0) )</li>
+<li><strong>Description:</strong> multiple the rate by this scale factor, used only when closing loops, such as occurs, for example, within a hexagonal lattice. lCF=exp(-∆G<sub>coop</sub>/k<sub>B</sub>T).</li>
+<li><strong>Unit:</strong> unitless</li>
+<li><strong>Sample:</strong> <code>loopCoopFactor = 0.001</code></li>
+</ul>
+<h5 id="observelabel"><code>observeLabel</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> String (optional)</li>
+<li><strong>Description:</strong> label for tracking the reaction product, the copy numbers of each observeLabel storing in obervables_time.dat</li>
+<li><strong>Sample:</strong> <code>observeLabel = leg</code></li>
+</ul>
+<h5 id="rxnlabel"><code>rxnLabel</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> String (optional)</li>
+<li><strong>Description:</strong> give the reaction a name. This is helpful if you want to couple a different reaction to this one.</li>
+<li><strong>Sample:</strong> <code>rxnLabel = phosphorylateA</code></li>
+</ul>
+<h5 id="coupledrxnlabel"><code>coupledRxnLabel</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> String from ‘rxnLabel’ (optional)</li>
+<li><strong>Description:</strong> This allows the completion of a reaction to immediately cause another reaction to happen. The reaction that it triggers must already be a listed reaction, but it will not occur with the rate for that reaction. It will occur with rate ‘kcat’ (see next entry). If kcat is not specified, it will not occur. The reaction it is coupled to must have its own rxnLabel (see previous entry) set, so that this can be mapped to it. Only applies to products of a reaction. Couples currently to dissociation only.</li>
+<li><strong>Sample:</strong> <code>coupledRxnLabel = phosphorylateA</code></li>
+</ul>
+<h5 id="kcat"><code>kcat</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Float (optional)</li>
+<li><strong>Description:</strong> For a coupledRxn, will occur with this rate. Therefore, will not be used unless coupledRxnLabel is also specified (see previous entry). Michaelis-Menten reactions, for example, can be defined via a reversible bimolecular reaction, with coupledRxnLabel specified as pointing to a unimolecular reaction that changes state, and kcat specified.</li>
+<li><strong>Units:</strong> s-1.</li>
+<li><strong>Sample:</strong> <code>kcat = 1.0 #s-1</code>. For example see <code>sample_inputs/VALIDATE_SUITE/michaelis_menten/</code></li>
+</ul>
+<h5 id="excludevolumebound"><code>excludeVolumeBound</code></h5>
+<ul>
+<li><strong>Acceptable Values:</strong> Bool (optional)</li>
+<li><strong>Default:</strong> False</li>
+<li><strong>Description:</strong> Once two sites are in the bound site (where being bound, they cannot undergo additional bimolecular reactions), by default they will not try to bind and therefore will not exclude volume with any other sites.</li>
+<li><strong>Sample:</strong> <code>excludeVolumeBound = false</code></li>
+</ul>
+<h2 id="use-a-coordinate-file-pdb-xyz-or-csv-to-initialize-molecules-at-specific-positions">Use a coordinate file (PDB, XYZ or CSV) to initialize molecules at specific positions.</h2>
+<p>Use the option <code>-c (--coordinate) &lt;coordinate file&gt;</code> to initialize all or part of molecules at specific positions. The coordinates of each molecule’s center of mass (COM) given in <code>&lt;coordinate file&gt;</code> will be the initial coordinates of that molecule ‘s COM. The interfaces will be initialized at positions given by <code>*.mol</code> files (only a translation is applied; orientations stay random). For each molecule name the first N molecules of that type, in the order of the molecules block, are moved onto the first N rows for that name; rows beyond the copy number are ignored, a name that is no molecule in the system is skipped, and molecules the file does not place keep their random positions (a random molecule that overlaps a placed one is moved afterwards). Coordinates are in nm, in the internal frame where the box runs from -L/2 to +L/2 on every axis (0 is the box center); <code>DATA/initial_crds.xyz</code> and the trajectory use that frame, while the PDB output is shifted by +L/2 and must be shifted back before it is given to <code>-c</code>. Three formats are read. The format is taken from the file extension (<code>.pdb</code>, <code>.xyz</code> or <code>.csv</code>, case does not matter); with any other or no extension it is taken from the content: a line starting with <code>ATOM</code> or <code>HETATM</code> means PDB, a first non-blank line that is a single whole number means XYZ, a first non-blank line holding a comma means CSV, and anything else stops the run. The log reports the choice (“<code>coordinate file format: XYZ (from extension)</code>”).</p>
+<p><strong>PDB.</strong> A PDB <code>&lt;coordinate file&gt;</code> should follow these rules:</p>
+<ul>
+<li>Column 1~6 is the record name, usually it is literally “ATOM ”</li>
+<li><strong>Column 13-16 is the atom name.</strong></li>
+<li><strong>Column 18-20 is the molecule name. (This is usually the residue name in common PDB files)</strong></li>
+<li>Column 31-38: X coordinate.</li>
+<li>Column 39-46: Y coordinate.</li>
+<li>Column 47-54: Z coordinate.</li>
+<li><strong>All molecules must have an atom named COM to be used for moving the center of mass to specified coordinates. Other atoms and molecules without COM will be ignored.</strong></li>
+<li><strong>The number of molecules of each molecule type must be no more than the copy number specified in the INP file. To be clear, all molecules have COM must be specified by the INP file.</strong></li>
+</ul>
+<p>The bolded rules are different from common PDB files.</p>
+<p><strong>XYZ.</strong> An XYZ <code>&lt;coordinate file&gt;</code> should follow these rules:</p>
+<ul>
+<li>Line 1 is the number of rows. Line 2 is a comment line and is always skipped, even when it is empty.</li>
+<li>Every following line is one molecule: <code>&lt;name&gt; &lt;X&gt; &lt;Y&gt; &lt;Z&gt;</code>, separated by spaces or tabs, exactly four fields. Blank lines are skipped.</li>
+<li>If the file holds fewer rows than line 1 announces, the run stops with an error; if it holds more, a warning is printed and the extra rows are ignored.</li>
+<li>NERDSS’s own <code>DATA/initial_crds.xyz</code> looks like an XYZ file but lists each interface under the molecule name after the COM line, so fed back as-is every interface would be taken for another molecule. Keep only the COM lines (and correct line 1) before using it as an input.</li>
+</ul>
+<p><strong>CSV.</strong> A CSV <code>&lt;coordinate file&gt;</code> should follow these rules:</p>
+<ul>
+<li>One molecule per line: <code>&lt;name&gt;,&lt;X&gt;,&lt;Y&gt;,&lt;Z&gt;</code>, exactly four fields. Spaces around the fields, Windows (CRLF) line endings and blank lines are tolerated.</li>
+<li>A header row is optional. The first non-blank row is taken as a header when its 2nd or 3rd field is not entirely a number (“x”, “1st” or “5.5x” are not numbers; “5.5” is), and is then skipped.</li>
+</ul>
+<p>In XYZ and CSV files the name is matched exactly against the Name in the .mol file and has no length limit (PDB names are limited to 4 characters by the format). A malformed XYZ or CSV row — not four fields, or a coordinate that is not a number — stops the run with the file name and the line number. The PDB reader does not validate its input.</p>
+<h2 id="nerdss-and-important-rule-based-reaction-rate-considerations">NERDSS and Important Rule-based Reaction-Rate considerations</h2>
+<ul>
+<li><p>An important property must be noted when a molecule has multiple interfaces, A(a,b), and can bind itself, with a distinct interface: e.g. <code>A(a)+A(b) &lt;-&gt;A(a!1).A(b!1)</code>. These reactions will read in k<sub>a</sub><sup>3D</sup> values, such that K<sub>D</sub>=k<sub>b</sub>/k<sub>a</sub><sup>3D</sup>, with no automatic re-scaling. This is fine for a molecule like Actin, that binds to itself using two distinct interfaces (<code>A(barbed end)+A(pointed end)-&gt;</code>). However, for models such as clathrin, the distinction between an ‘a’ site and a ‘b’ site is purely a label to distinguish their coordinates in space. In reality, they are all structurally/chemically identical sites, and all interactions are possible (<code>A(a)+A(a)-&gt;</code>, <code>A(a)+A(b)-&gt;</code>, <code>A(b)+A(b)-&gt;</code>). To correct for this distinction arising purely due to labeling, for these specific cases, <strong>users should input rates multiplied by two</strong>, relative to the case where both labels are the same. For example:</p>
+<ul>
+<li><code>A(a)+A(a) &lt;-&gt; A(a!1).A(a!1)</code> onRate3Dka=1</li>
+<li><code>A(a)+A(b)&lt;-&gt; A(a!1).A(b!1)</code> onRate3Dka=2</li>
+</ul>
+<p>The rate for the true self interaction (i.e. onRate3Dka=1 in the example above), is the one that corresponds to the K<sub>D</sub> given all identical sites. If this change is not done by the user, and the same rates are used for the A(a)+A(a) binding for clathrin sites, as for the A(a)+A(b) binding for clathrin sites, the equilibrium will not match what is thermodynamically expected. This is also discussed as well in <a href="#citations">Ref. 2</a>, and applies to all rule-based, rate-based reactions (noted in NFSim—here they automatically divide self- rates by 2). What we want is that 2*A(a!).A(a!)=A(a!).A(b!) = A(a!).A(c!). Same for sites b and c. Then, each product/complex type has the same number of ‘a’ sites bound, due to having the same binding free energy. This result emerges due to the combinatorics of choosing two of the same molecules from A<sub>tot</sub>=N<sub>0</sub>, vs one molecule A from A<sub>tot</sub>=N<sub>0</sub> and one molecule B from B<sub>tot</sub>=N<sub>0</sub>. They produce an identical equilibrium with the same number of A in bound states when A<sub>eq</sub><sup>self</sup>(K<sub>D</sub>)=A<sub>eq</sub><sup>distinct</sup>(K<sub>D</sub>/2)=B<sub>eq</sub><sup>distinct</sup>(K<sub>D</sub>/2).</p></li>
+<li><p>As described in the NERDSS paper, the reaction rates are input by the user as the 3D values, k<sub>a</sub><sup>3D</sup>, and the code will convert them to values needed for the appropriate reaction kinetics. We always have that K<sub>D</sub>= k<sub>b</sub>/k<sub>a</sub><sup>3D</sup>= k<sub>off</sub>/k<sub>on</sub><sup>3D</sup>, based on the user-input rates. For information on what rates are needed to give to the Green’s function to recover appropriate reaction kinetics, see <a href="#citations">Ref 2</a>, SI.</p></li>
+</ul>
+<h2 id="nerdss-and-time-step-selection">NERDSS and time-step selection</h2>
+<ul>
+<li><p>To maintain at most two-body interactions between all reactant pairs per time-step (approximately), the time-step is limited (usually) by the bimolecular reactions and the density of those reactants, and their diffusion coefficients. Based on the definition of R<sub>max</sub> for the FPR algorithm <a href="#citations">[3]</a>, or the maximum distance a particle could diffuse in a step and collide with a partner, a minimum time-step for a given reactant B due to binding to A in 3D is:</p>
+<p><span class="math display">\[\Delta t^{3D} = \frac{1}{56(D_{A} + D_{B})}\left[ \left( \frac{3}{4\pi\rho_{A}} + \sigma^{3} \right)^{1/3} - \sigma \right]^{2}\]</span></p>
+<p>where <span class="math inline">\(\rho_{A} = \frac{N_{A}}{V}\)</span>. A minimum time-step for a given reactant B due to binding to A in 2D is:</p>
+<p><span class="math display">\[\Delta t^{2D} = \frac{1}{36(D_{A} + D_{B})}\left[ \left( \frac{1}{\pi\rho_{A}} + \sigma^{2} \right)^{1/2} - \sigma \right]^{2}\]</span></p>
+<p>where <span class="math inline">\(\rho_{A} = \frac{N_{A}}{Area}\)</span>, and the diffusion coefficients are the (slower) values in 2D, on the surface. These can be approximated as comparable to the lipid diffusion coefficients (~0.5 μm<sup>2</sup>/s). The dependence on σ is weak as it nearly cancels for most systems. The time-step for the system is the minimum of all the time-steps, we typically set default values of 0.1-1 μs.</p></li>
+<li><p>The time-step can also be limited by the speed of unimolecular reactions. This is mitigated by the fact that now, unimolecular reactions in NERDSS are determined on a population level, and thus instead of evaluating the probability for each specie individually, the number of events is calculated from a Poisson distribution, based on N total species. However, for a model where only one molecule, for example, can form a complex and dissociate, if k*dt is relatively large, say &gt;0.001, then error can occur due to the fact that over the course of dt, more than one event should occur, but only one is allowed. Hence a smaller time-step is necessary.</p></li>
+<li><p>NERDSS will still propagate dynamics effectively with steps larger than the minimum suggested above. Particularly if systems spend minimal time in their densest state, the error due to choosing a larger step will be small, and empirically, the error for many-body systems is relatively small even when the two-body requirement is not closely maintained. Nonetheless, a smaller time-step will ensure more accurate propagation of dynamics.</p></li>
+</ul>
+<h2 id="creating-input-files-with-gui">Creating Input Files With GUI</h2>
+<h3 id="general">General</h3>
+<p>This is a Graphical Interface for creating input files for NERDSS. It allows you to define all the molecules, reactions, boundary conditions, and other parameters for your simulation.</p>
+<h3 id="the-molecule-screen">The Molecule Screen</h3>
+<p><img src="media/gui-molecule-screen.png" alt="The opening (Molecule) screen of the NERDSS GUI, with the molecule list, interface list and a 3D view of a molecule and its interface vectors" /></p>
+<p>Above is the opening screen for the GUI. Here you can add all the individual molecules that will be included in your simulation. You must also specify each binding site as a vector from its molecule’s center of mass. Binding will occur at the terminal end of this interface vector. Each binding site must be added a molecule, and the molecule must be added to the molecule list, in order for it to appear on the reactions screen.</p>
+<h3 id="the-reactions-screen">The Reactions Screen</h3>
+<p>This is where you can specify all possible reactions. You can do both unimolecular and bi molecular reaction. Since there are no association angles for a unimolecular reaction, the 3D pane on the right will only appear once a bimolecular reaction is specified.</p>
+<p><img src="media/gui-reactions-screen.png" alt="The Reactions screen of the NERDSS GUI, with reaction settings on the left and the 3D Interaction Designer pane on the right" /></p>
+<p><strong>Sigma:</strong> Sigma is the association distance (in nm) for a reaction between two interfaces. It is represented as the dotted line between the two interface vectors. Only its length may be changed - positions of both other molecules are defined relative to it.</p>
+<p><strong>The Normal Vector:</strong> The solid black line is the normal vector. It does not have any physical significance, but is instead used as a reference point for the phi angle, which measure the rotation of the molecule about a given interface vector.</p>
+<p><strong>The Angles:</strong></p>
+<p>Five angles are used to specify the geometry of association.</p>
+<ul>
+<li><p><strong>Theta (one for each molecule)</strong> <em>[0 &lt; Θ &lt; π]</em></p>
+<p>Theta is the angle between the interface vector and sigma. It’s axis of rotation is the cross product of the sigma vector and a given interface vector.</p>
+<p><img src="media/angle-theta.jpg" alt="Interaction Designer showing the theta angle between an interface vector and sigma, with its rotation axis" /></p></li>
+<li><p><strong>Phi (one for each molecule)</strong> <em>[-π &lt; Φ &lt; π] *</em></p>
+<p><em>*note that this range is converted to [0 &lt; Φ &lt; 2π] when angles are output to .parms file.</em></p>
+<p>Phi is the dihedral angle between the normal vector and the sigma vector. It can be thought of as defining the rotation of a molecule about its interface vector.</p>
+<p><img src="media/angle-phi.jpg" alt="Interaction Designer showing the phi dihedral angle between the normal vector and sigma, about the interface vector" /></p></li>
+<li><p><strong>Omega</strong> <em>[-π &lt; Ω &lt; π]*</em></p>
+<p><em>* note that this range is converted to [0 &lt; Φ &lt; 2π] when angles are output to .parms file.</em></p>
+<p>Omega is the dihedral between the two interface vectors, with sigma has the axis of rotation.</p>
+<p><img src="media/angle-omega.png" alt="Interaction Designer showing the omega dihedral between the two interface vectors, about sigma" /></p>
+<p><em>**There may be some small unexpected graphical behavior when changing omega. The display is corrected quickly and this will not affect simulations.</em></p></li>
+</ul>
+<p>Note that the angle spinners may not be able exactly reach boundary conditions (e.g. theta may not get all the way to 180 degrees or all the way down to -180 degrees). When simulation input files are created, these angles will be set equal to the boundaries. The GUI will output angles at a precision of 1 degree. Also note that the angles are displayed in degrees on the spinners for easy interpretability, but are always stored internally and written to the .parm file in radians.</p>
+<p><strong>On Rate: onRate3Dka</strong> This is required for all reactions. Specifies the association rate constant.</p>
+<p><strong>Off Rate: offRatekb</strong> Only needed for reversible reactions. Specifies the disassociation rate constant. Do not specify that that a reaction is reversible and then leave the Off Rate at 0. This may cause errors.</p>
+<p><strong>2D Reaction:</strong> Weather the reaction is limited to species on a 2D surface (e.g. a membrane).</p>
+<p><strong>Managing Reactions:</strong> Use the Add reaction button to add the current reaction to the simulation. To update a reaction, first select a reaction from the list, then change its parameters, and finally click Update Reaction. To remove a reaction from the simulation, first select a reaction from the list, then click Delete Reaction.</p>
+<h3 id="the-parameters-screen">The Parameters Screen</h3>
+<p><strong>Time Step:</strong> The length of time in μs between each iteration of the simulation.</p>
+<p><strong>Number of Time Steps:</strong> The length of the simulation in iterations.</p>
+<p><strong>Freq to Print Configuration:</strong> How many iterations are between each print of the current configuration.</p>
+<p><strong>Freq to Print Statistics:</strong> How many iterations are between each print of the current statistics.</p>
+<p><strong>Freq to Print Restart File:</strong> How often to print a restart file (in iterations) – the restart file can be used to start a new simulation at a later date from this point in the current simulation</p>
+<h4 id="the-boundary-screen">The Boundary Screen</h4>
+<p>As of right now, the GUI can only output simulation with a box boundary condition. The output parameter files may be edited manually for spherical boundaries.</p>
+<p>Simply specify the box dimensions along the x, y, and z axis.</p>
+<p><strong>Create parameter file:</strong></p>
+<p>To output .mol and .parm files to run simulations with, click Create Parameter Input Files. Then select the directory to place them in. To run simulations, place these files in the same directory as the Nerdss executable.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="debugging">Debugging</h3>
+<p>Can do general debugging by building NERDSS using:</p>
+<pre class="sh"><code>cmake -DCMAKE_BUILD_TYPE=Debug</code></pre>
+<p>Instead of just normal cmake.</p>
+<ul>
+<li><code>-g</code>: generate debugging tables for GDB/LLDB</li>
+<li><code>-fsanitize=address</code>: Uses a sanitizer to give information about memory access issues, such as out-of-range element access</li>
+<li><code>-fno-omit-frame-pointer</code>: stores the stack frame pointers for functions (needed for <code>-fsanitize</code>)</li>
+</ul>
+<h3 id="build-errors">Build Errors</h3>
+<p>Build issues may occur on system configurations that NERDSS was not tested on, particularly on super computers and large clusters. A common issue is cmake having issues finding GSL when it is installed in a non-standard location. This is easily solved by setting the <code>GSL_ROOT_DIR</code> environment variable using:</p>
+<pre class="sh"><code>export GSL_ROOT_DIR=&quot;correct_path&quot;</code></pre>
+<p>If make cannot find a recipe for ‘all’, (<code>Makefile:83: recipe for target 'all' failed</code>), specify the target for NERDSS, e.g. <code>make nerdss</code></p>
+<h2 id="citations">Citations</h2>
+<ol type="1">
+<li>Varga, M.<sup>◇</sup>, Y. Fu<sup>◇</sup>, S. Loggia, O.N. Yogurtcu, and M.E. Johnson. NERDSS: a non-equilibrium simulator for multibody self-assembly at the cellular scale. <em>In Revision.</em></li>
+<li>Johnson, M. E. Modeling the Self-Assembly of Protein Complexes through a Rigid-Body Rotational Reaction–Diffusion Algorithm. J. of Phys. Chem. B 2018, 122, 11771–11783.</li>
+<li>Johnson, M.E., and G. Hummer. Free propagator reweighting integrator for single-particle dynamics in reaction-diffusion models of heterogeneous protein-protein interactions systems. Phys. Rev. X 4, 031037 (2014)</li>
+<li>Yogurtcu, O.N., and M.E. Johnson. Theory of bi-molecular association dynamics in 2D for accurate model and experimental parameterization of binding rates. J. Chem. Phys. 143, 084117 (2015)</li>
+<li>Yogurtcu, O.N., and M.E. Johnson. Cytoplasmic proteins can exploit membrane localization to trigger functional assembly. PLoS Comput. Biology 14, e1006031 (2018)</li>
+</ol>
+									<p class="guide-top"><a href="#main">Back to top</a></p>
+								</article>
+							</div>
+						</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>email: margaret.johnson@jhu.edu</p>
+							<p>lab website: <a href = "https://sites.krieger.jhu.edu/johnson-lab/" target="_blank">https://sites.krieger.jhu.edu/johnson-lab/</a></p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://github.com/mjohn218/NERDSS" class="icon brands style2 fa-github" target="_blank"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script>
+				(function () {
+					// Contents open beside the text on wide screens, folded above it on phones.
+					var toc = document.getElementById('guide-toc-details');
+					if (toc && window.matchMedia && !window.matchMedia('(min-width: 981px)').matches) {
+						toc.removeAttribute('open');
+					}
+					// Small "#" self-links on section headings, for sharing deep links.
+					var heads = document.querySelectorAll('.guide-body h2[id], .guide-body h3[id], .guide-body h4[id], .guide-body h5[id]');
+					for (var i = 0; i < heads.length; i++) {
+						var a = document.createElement('a');
+						a.className = 'heading-anchor';
+						a.href = '#' + heads[i].id;
+						a.setAttribute('aria-label', 'Link to this section');
+						a.textContent = '#';
+						heads[i].appendChild(a);
+					}
+				})();
+			</script>
+
+	</body>
+</html>
