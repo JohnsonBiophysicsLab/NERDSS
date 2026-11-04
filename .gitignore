@@ -68,3 +68,8 @@ benchmarks/nerdss_optimized/reference*
 
 # local branching documentation
 docs/debranching_plan.md
+# Editor / language-server caches (clangd background index, ccls).
+# Machine-specific and regenerated automatically; never commit them.
+# (A .clangd *config* file at the root is not a cache and is not ignored.)
+/.cache/
+.ccls-cache/
