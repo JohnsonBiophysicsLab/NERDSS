@@ -1590,3 +1590,31 @@ file, plus 12 more with `nerdss_mpi` at np=1 and np=2. All pass with clang
 (14 cases) and `coverage_cases.tsv` (5) are byte-identical to the frozen
 build; with a PDB `-c` file made from a one-step run of each `cases.tsv`
 model, all 14 are identical in `DATA/` and `RESTARTS/`.
+
+### The pair walk's occupancy prefilter, and the first merges
+
+Measured 2026-11-04 on Linux x86-64 over all 22 runnable cases
+([`benchmarks/nerdss_optimized/profile_suite_2026-11-04/REPORT.md`](../benchmarks/nerdss_optimized/profile_suite_2026-11-04/REPORT.md)),
+the pair walk is 37% of the mean case, and on sparse boxes 19% of the run is
+the 13-neighbour `typeMask` scan: each neighbour SubBox is a likely cache
+miss, and on `rev_3D` 1 800 of 27 000 cells are occupied, so nearly every
+load finds an empty cell. `86fe815` tests `SimulVolume::occupancyMask` (one
+bit per cell, L1-resident) before loading the SubBox. Exact, because
+`add_member()` sets the bit with the mask and the two are cleared together;
+byte-identical on all 19 cases for `bin/nerdss` and `bin/nerdss_legacy`,
+`nerdss_mpi` runs at np=1 and 2. Interleaved A/B: 1.10x on `rev_3D`, 1.08x
+on `scale_10k`, neutral on dense cases; `sphere` came out 0.98x on the
+shared VM and is to be re-timed on the reference host.
+
+The same report names the next candidate: an incremental cell-list update,
+since the per-step rebuild is 20-28% of the sparse and large cases.
+
+[`docs/merge_candidates/README.md`](merge_candidates/README.md) ranks the
+near-duplicate functions and records what has been merged so far: the
+uncalled MPI-only functions and `mpi_proto/` deleted (`c425fa3`, `7e62837`),
+`parse_input()` and `parse_input_for_add()` folded into one body
+(`71551fb`), and three shared blocks of the association and state-change
+paths made helpers (`e153553`, `2a54469`, `47a7200`). Every one of those
+commits was held to the bitwise suite on both builds; the parser merge also
+to `make checks` and the add-file restart regression.
+

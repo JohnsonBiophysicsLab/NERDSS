@@ -8,6 +8,26 @@ described under [Method](#method); run them from the repository root, e.g.
 
 Every file:line below is relative to the repository root and refers to `b4d7438`.
 
+## Status, 2026-11-05
+
+Done on `nerdss-optimized-1.4`, one family per commit, each byte-identical on
+all 19 cases of `cases.tsv` + `coverage_cases.tsv` for `bin/nerdss` and
+`bin/nerdss_legacy` unless the row says otherwise:
+
+| Family | Commit | What landed | Evidence |
+| --- | --- | --- | --- |
+| A (dead MPI code) | `c425fa3` | 14 uncalled functions in `src/mpi`, `src/debug`, their declarations and the commented calls to them | serial and legacy binaries hash identically before and after (clean builds, same flags); `nerdss_mpi` links, `rev_3D` at np=1, 2 gives the same copy numbers |
+| A (`mpi_proto/`) | `7e62837` | the directory; the two scan scripts here no longer list it | not built by anything |
+| B | `71551fb` | `parse_input_impl()` with the six differences behind `isAddFile`; both public functions are wrappers | suite; all 20 `run_code_tests` checks; `regression/add_file_restart` matches the pre-change binary on both models |
+| D1 | `e153553` | `finalize_bond()` in `reaction_bookkeeping.cpp` | suite |
+| D5 | `2a54469` | `Molecule::commit_tmp_association_coords()`; 12 sites (the proposal counted 14: two of the implicit-lipid loops were already commented out) | suite |
+| D4 | `47a7200` | `commit_bimolecular_state_change()` and `commit_implicitlipid_state_change()` in `state_change_bookkeeping.cpp` | suite, and the D1+D5+D4 end state validated as a whole as well |
+
+Not done, in the order the procedure below suggests next: D2 (the
+`associate_box` rotations through `apply_state_change_rotations`), D3 (the
+state-change prologue), C, J, H, I, K, F, S, L, G, N, F2, M, G2, P. Section 4's
+defects are untouched.
+
 **Scope rule assumed throughout:** a merge is only proposed as "bitwise" when
 every `DATA/` and `RESTARTS/` byte of `benchmarks/nerdss_optimized/cases.tsv` +
 `coverage_cases.tsv` must stay identical for `bin/nerdss` *and*

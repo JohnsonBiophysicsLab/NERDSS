@@ -50,7 +50,7 @@ are not measurement dates. Unless a row says otherwise, the host is an Apple M5
 | 2026-10-30 | [DEFERRAL_2026-10-30.md](nerdss_optimized/mpi_validation/DEFERRAL_2026-10-30.md) | cost measurement | | cost of the deferred first-order pass (item 10) |
 | 2026-10-30 | [SCALING_2026-10-30.md](nerdss_optimized/mpi_validation/SCALING_2026-10-30.md) + [results_scaling_2026-10-30/](nerdss_optimized/mpi_validation/results_scaling_2026-10-30/) | MPI scaling | | wide-box scaling vs serial |
 | 2026-11-03 | [BENCH_2026-11-03.md](nerdss_optimized/mpi_validation/BENCH_2026-11-03.md) + [results_bench_2026-11-03/](nerdss_optimized/mpi_validation/results_bench_2026-11-03/) | MPI benchmark + np=1 profile | 1.4 `b4d7438e` vs standalone `f1dd0590` | `nerdss_mpi` beats serial from np=2 on a 42-column box; np=1 gap is the full-grid sweep + `remove_empty_slots` |
-| 2026-11-04 | [profile_suite_2026-11-04/REPORT.md](nerdss_optimized/profile_suite_2026-11-04/REPORT.md) | serial profile, whole suite, Linux x86-64 | 1.4 `9200537` | pair walk 37% of the mean case; on sparse boxes 19% is the 13-neighbour `typeMask` scan and 20-28% the cell-list rebuild. An occupancy-bit prefilter is byte-identical on 19/19 cases and 1.10x on `rev_3D` (prototype, not applied) |
+| 2026-11-04 | [profile_suite_2026-11-04/REPORT.md](nerdss_optimized/profile_suite_2026-11-04/REPORT.md) | serial profile, whole suite, Linux x86-64 | 1.4 `9200537` | pair walk 37% of the mean case; on sparse boxes 19% is the 13-neighbour `typeMask` scan and 20-28% the cell-list rebuild. An occupancy-bit prefilter is byte-identical on 19/19 cases and 1.10x on `rev_3D`; applied in `86fe815` (2026-11-05) |
 
 ## 2. By topic
 
