@@ -384,49 +384,7 @@ void perform_bimolecular_state_change_sphere(int stateChangeIface, int facilitat
         return;
     }
 
-    // change the state
-    // copyNumSpecies is indexed by absolute interface (state) index.  stateIndex
-    // is the state's position within its own interface, so it used to move the
-    // counts of whichever species happen to have absolute index 0 and 1 (in
-    // regression/bimol_state_change, K(k) and K(kd)) and never the changed ones.
-    int oldStateIndex { stateChangeMol.interfaceList[stateChangeIface].index };
-    stateChangeMol.interfaceList[stateChangeIface].change_state(
-        relStateIndex, newState.absIfaceIndex, newState.requiresState);
-    stateChangeMol.refresh_iface_state_bits();
-
-    // write temporary to real coords and clear temporary coordinates
-    for (auto memMol : facilitatorCom.memberList) {
-        moleculeList[memMol].commit_tmp_association_coords();
-        moleculeList[memMol].trajStatus = TrajStatus::propagated;
-    }
-    facilitatorCom.update_properties(moleculeList, molTemplateList);
-
-    for (auto memMol : stateChangeCom.memberList) {
-        moleculeList[memMol].commit_tmp_association_coords();
-        moleculeList[memMol].trajStatus = TrajStatus::propagated;
-    }
-    stateChangeCom.update_properties(moleculeList, molTemplateList);
-
-    // Enforce boundary conditions
-    reflect_complex_rad_rot(membraneObject, facilitatorCom, moleculeList, 0.0, false);
-
-    zero_partner_probvec(stateChangeMol, moleculeList);
-
-    // Set probability of this protein to zero in all reactions so it doesn't try to
-    // react again but the partners still will avoid overlapping.
-    zero_partner_probvec(facilitatorMol, moleculeList);
-
-    // update observables, if applicable
-    // TODO: Temporarily, if backRxn, iterate down, if forwardRxn, iterate up
-    update_state_change_observable(isStateChangeBackRxn, rxnIndex, backRxnIndex, forwardRxns, backRxns, observablesList);
-
-    /*Update species copy numbers*/
-    counterArrays.copyNumSpecies[oldStateIndex]--; // decrement ifaceIndex1
-    counterArrays.copyNumSpecies[stateChangeMol.interfaceList[stateChangeIface].index]++; // increment product state
-
-    // Update the crossed molecule lists so that the current molecules won't avoid anything, but others will.
-    stateChangeCom.ncross = -1;
-    facilitatorCom.ncross = -1;
-    stateChangeMol.crossings.clear();
-    facilitatorMol.crossings.clear();
+    commit_bimolecular_state_change(stateChangeIface, relStateIndex, newState, stateChangeMol, facilitatorMol,
+        stateChangeCom, facilitatorCom, isStateChangeBackRxn, rxnIndex, backRxnIndex, forwardRxns, backRxns,
+        moleculeList, molTemplateList, observablesList, counterArrays, membraneObject);
 }

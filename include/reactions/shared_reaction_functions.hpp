@@ -221,6 +221,37 @@ void update_state_change_observable(bool isStateChangeBackRxn, int rxnIndex, int
     std::map<std::string, int>& observablesList);
 
 /*!
+ * \brief The tail of a bimolecular state change, once its geometry is settled.
+ *
+ * Commits the new state, makes the temporary coordinates real, reflects the
+ * facilitator's complex, zeroes both molecules' remaining probabilities, moves
+ * the observable and species counts and clears the crossings.  Shared by the
+ * box and sphere versions, which carried the same statements.
+ */
+void commit_bimolecular_state_change(int stateChangeIface, int relStateIndex, const RxnIface& newState,
+    Molecule& stateChangeMol, Molecule& facilitatorMol, Complex& stateChangeCom, Complex& facilitatorCom,
+    bool isStateChangeBackRxn, int rxnIndex, int backRxnIndex, const std::vector<ForwardRxn>& forwardRxns,
+    const std::vector<BackRxn>& backRxns, std::vector<Molecule>& moleculeList,
+    std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList,
+    copyCounters& counterArrays, const Membrane& membraneObject);
+
+/*!
+ * \brief The tail of an implicit-lipid state change, once its geometry is settled.
+ *
+ * Moves the species counts of the consumed and released sides, the free-lipid
+ * count of each state, makes the facilitator's temporary coordinates real,
+ * rebuilds the lipid's complex, reflects, zeroes the facilitator's remaining
+ * probabilities, moves the observable count and clears the crossings.  Shared
+ * by the box and sphere versions, which carried the same statements.
+ */
+void commit_implicitlipid_state_change(int stateChangeIface, int relStateIndex, const ForwardRxn& currRxn,
+    double RS3D, Molecule& stateChangeMol, Molecule& facilitatorMol, Complex& stateChangeCom,
+    Complex& facilitatorCom, bool isStateChangeBackRxn, int rxnIndex, int backRxnIndex,
+    const std::vector<ForwardRxn>& forwardRxns, const std::vector<BackRxn>& backRxns,
+    std::vector<Molecule>& moleculeList, std::vector<MolTemplate>& molTemplateList,
+    std::map<std::string, int>& observablesList, copyCounters& counterArrays, Membrane& membraneObject);
+
+/*!
  * \brief Counts an observed unimolecular reaction, in whichever direction fired.
  *
  * Distinct from \ref update_state_change_observable: this indexes both reaction
