@@ -10,7 +10,7 @@ F=json.load(open(_os.path.join(OUTDIR, 'funcs.json')))
 import sys; sys.path.insert(0,'.')
 from extract import strip_comments
 texts={}
-for d in ['src','EXEs','include','mpi_proto','run_code_tests']:
+for d in ['src','EXEs','include','run_code_tests']:
     for dp,dn,fn in os.walk(os.path.join(ROOT,d)):
         for f in fn:
             if f.endswith(('.cpp','.hpp','.h')) and f!='json.hpp':

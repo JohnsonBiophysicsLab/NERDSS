@@ -13,7 +13,7 @@ _os.makedirs(OUTDIR, exist_ok=True)
 import json, os, re, sys
 
 
-DIRS = ["src", "EXEs", "include", "mpi_proto"]
+DIRS = ["src", "EXEs", "include"]
 OUT = _os.path.join(OUTDIR, "funcs.json")
 
 KEYWORDS = set("""if for while switch return sizeof catch else do new delete throw case
