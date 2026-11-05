@@ -6,30 +6,56 @@
   max-width: 1180px;
 }
 
+/* ---- Page header: title, one-line scope, downloads ---- */
+
+.guide-head {
+  margin: 0 0 2rem 0;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
 .guide-breadcrumb {
   font-size: 0.85em;
-  margin: 0 0 0.6rem 0;
+  margin: 0 0 0.5rem 0;
   color: #777;
 }
 
 .guide-title {
-  font-size: 2.1em;
+  font-size: 2.3em;
   letter-spacing: -0.02em;
-  margin-bottom: 0.6rem;
+  margin: 0 0 0.35rem 0;
 }
 
-.guide-links {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1.6rem 0;
+.guide-subtitle {
+  max-width: 46rem;
+  margin: 0 0 1.1rem 0;
+  font-size: 1.05em;
+  line-height: 1.55;
+}
+
+.guide-resources {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.2rem;
-  font-size: 0.9em;
+  gap: 0.6rem;
+  margin: 0 0 0.8rem 0;
 }
 
-.guide-links li {
-  padding: 0;
+.guide-resources .action-pill {
+  font-size: 0.9em;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.16);
+}
+
+.guide-resources .action-pill .pill-note {
+  font-weight: 400;
+  color: #777;
+  margin-left: -0.2rem;
+}
+
+.guide-edition {
+  margin: 0;
+  font-size: 0.85em;
+  color: #777;
 }
 
 /* ---- Two-column layout: sticky contents beside the text ---- */
@@ -297,7 +323,11 @@
 
 @media screen and (max-width: 736px) {
   .guide-title {
-    font-size: 1.6em;
+    font-size: 1.75em;
+  }
+
+  .guide-resources .action-pill {
+    font-size: 0.85em;
   }
 
   .guide-body h2 {

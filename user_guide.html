@@ -1,126 +1,45 @@
-
-
-<html>
+<!DOCTYPE HTML>
+<!--
+	The user guide is read online now: the menu links straight to
+	user_guide/nerdss_user_guide.html, and the downloads (PDF, ioNERDSS .docx)
+	sit in that page's header.  This page only keeps old links working:
+	  user_guide.html              -> user_guide/nerdss_user_guide.html
+	  user_guide.html#angle-tools  -> tools.html
+	Without JavaScript the refresh goes to the guide, and the body below lists
+	everything this page used to offer.
+-->
+<html lang="en">
 	<head>
-		<title>NERDSS -user guide</title>
+		<title>NERDSS - user guide</title>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(function () {
+				var target = location.hash === '#angle-tools' ? 'tools.html' : 'user_guide/nerdss_user_guide.html';
+				location.replace(target);
+			})();
+		</script>
+		<meta http-equiv="refresh" content="0; url=user_guide/nerdss_user_guide.html" />
+		<link rel="canonical" href="user_guide/nerdss_user_guide.html" />
+		<meta name="robots" content="noindex" />
 		<link rel="icon" type="image/png" href="images/NERDSSicon.png">
 		<link rel="stylesheet" href="assets/css/main.css" />
-		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+		<link rel="stylesheet" href="assets/css/custom.css" />
 	</head>
-	<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HWZ9W3CM4J"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-HWZ9W3CM4J');
-</script>
-	<body class="is-preload">
-		<!-- Wrapper -->
-			<div id="wrapper">
-
-				<!-- Header -->
-					<header id="header">
-						<div class="inner">
-
-							<!-- Logo -->
-							<a href="index.html" class="logo">
-								<span class="symbol"><img src="images/logo_design.png" alt="" /></span>
-							</a>
-
-							<!-- Nav -->
-								<nav>
-									<ul>
-										<li><a href="#menu">Menu</a></li>
-									</ul>
-								</nav>
-
-						</div>
-					</header>
-
-				<!-- Menu -->
-					<nav id="menu">
-						<h2>Menu</h2>
-						<ul>
-							<li><a href="index.html">Home</a></li>
-							<li><a href="about.html">About</a></li>
-							<li><a href="introductory_tutorial.html">Tutorials</a></li>
-							<li><a href="user_guide.html">User Guides</a></li>
-							<li><a href="articles.html">Articles</a></li>
-							<li><a href="developers.html">For Developers</a></li>
-							<li><a href="https://github.com/mjohn218/NERDSS/discussions" target="_blank">User Forum</a></li>
-						</ul>
-					</nav>
-
-				<!-- Main -->
-					<div id="main">
-						<div class="inner">
-							<h1>NERDSS and ioNERDSS User Guide</h1>
-							<p>Instructions and descriptions of NERDSS in details can be found in the <b>NERDSS user guide</b></p>
-							<p>The guide can now be read online as a web page, with a table of contents and a link to every
-								section and parameter. The online version comes from the latest master document, so it is
-								newer than the PDF.</p>
-                            <ul class="actions">
-								<li><a href="user_guide/nerdss_user_guide.html" class="button primary">Read the NERDSS user guide online</a></li>
-								<li><a href="files/NERDSS_USER_GUIDE.pdf" class="button primary small">Click to download the NERDSS user guide</a></li>
-							</ul>
-							<p>The guide's source is a plain Markdown file,
-								<a href="user_guide/nerdss_user_guide.md">user_guide/nerdss_user_guide.md</a>. Corrections and additions
-								go there, and the web page is regenerated from it.</p>
-							<p>Instructions and descriptions on helper functions included in the ioNERDSS package can be found in more details in the 
-                                <b>ioNERDSS user guide</b>:
-                            </p>
-                            <ul class="actions">
-								<li><a href="files/ioNERDSSUserGuide.docx" class="button primary small">Click to download the ioNERDSS user guide</a></li>
-							</ul>
-						</div>
-						<div class="inner" id="angle-tools">
-							<h2>Interactive angle tools</h2>
-							<p>The five association angles &mdash; &theta;<sub>1</sub>, &theta;<sub>2</sub>, &phi;<sub>1</sub>, &phi;<sub>2</sub> and &omega;
-								&mdash; are the fiddliest part of writing a parameter file. Both pages below are built from the
-								measurement code itself, so they agree with what the simulator does, including at the special
-								cases where an angle is undefined, where an angle should be written as <b>nan</b>, and where
-								&omega; is read from the normal vectors instead of the centre-of-mass arms.</p>
-							<p>Set the five angles and watch the bound geometry they produce, with each sign convention and
-								singularity exposed as you move them:</p>
-							<ul class="actions">
-								<li><a href="angle-convention.html" class="button primary small">Angle explorer: angles &rarr; geometry</a></li>
-							</ul>
-							<p>Or work backwards: give the bound-state coordinates and the two normal vectors, and read off the
-								five angles together with the <b>assocAngles</b> line to paste into your parameter file:</p>
-							<ul class="actions">
-								<li><a href="angle-inverse.html" class="button primary small">Angle solver: geometry &rarr; angles</a></li>
-							</ul>
-						</div>
-					</div>
-
-				<!-- Footer -->
-				<footer id="footer">
-					<div class="inner">
-						<section>
-							<h2>Get in touch</h2>
-							<p>email: margaret.johnson@jhu.edu</p>
-							<p>lab website: <a href = "https://sites.krieger.jhu.edu/johnson-lab/" target="_blank">https://sites.krieger.jhu.edu/johnson-lab/</a></p>
-						</section>
-						<section>
-							<h2>Follow</h2>
-							<ul class="icons">
-								<li><a href="https://github.com/mjohn218/NERDSS" class="icon brands style2 fa-github" target="_blank"><span class="label">GitHub</span></a></li>
-							</ul>
-					</div>
-				</footer>
-
+	<body>
+		<div id="wrapper">
+			<div id="main">
+				<div class="inner">
+					<h1>NERDSS user guide</h1>
+					<p>The user guide has moved to its online edition. If you are not taken there automatically, use the links below.</p>
+					<ul>
+						<li><a href="user_guide/nerdss_user_guide.html">Read the NERDSS user guide online</a> (current edition)</li>
+						<li><a href="files/NERDSS_USER_GUIDE.pdf">Download the NERDSS user guide as a PDF</a> (2024 edition)</li>
+						<li><a href="files/ioNERDSSUserGuide.docx">Download the ioNERDSS user guide</a> (.docx)</li>
+						<li><a href="tools.html">Interactive angle tools</a></li>
+					</ul>
+				</div>
 			</div>
-
-		<!-- Scripts -->
-			<script src="assets/js/jquery.min.js"></script>
-			<script src="assets/js/browser.min.js"></script>
-			<script src="assets/js/breakpoints.min.js"></script>
-			<script src="assets/js/util.js"></script>
-			<script src="assets/js/main.js"></script>
-
+		</div>
 	</body>
 </html>
