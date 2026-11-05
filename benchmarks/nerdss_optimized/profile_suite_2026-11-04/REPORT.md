@@ -111,6 +111,14 @@ cells, resident in L1), which `add_member()` sets together with `typeMask`.
 
 ## 3. Candidate 1 (recommended next): test the occupancy bit before the SubBox
 
+**Status: applied to the branch on 2026-11-05**, in the commit that carries
+this note, as the two statements the patch below shows plus a comment. The
+validation it promised was repeated on the committed form: byte-identical on
+all 19 cases of `cases.tsv` and `coverage_cases.tsv` for both `bin/nerdss`
+and `bin/nerdss_legacy` (every `DATA/`, `RESTARTS/` and `PDB/` file), and
+`bin/nerdss_mpi` builds and completes `rev_3D` at np=1 and np=2. The
+`sphere` re-time on the reference host is still owed.
+
 [`occupancy_prefilter.patch`](occupancy_prefilter.patch) adds one test in
 front of the `typeMask` load:
 

@@ -187,6 +187,10 @@ void measure_separations_to_identify_possible_reactions(
   };
   // Partner types for the type-mask tests below, without touching moleculeList.
   const std::vector<int>& memberTypeIndex{simulVolume.memberTypeIndex};
+  // One bit per SubBox, set by add_member() whenever it sets a typeMask bit
+  // and cleared only together with the masks, so a clear bit means an empty
+  // SubBox and nothing else has to be read to know it.
+  const std::vector<uint64_t>& occupancy{simulVolume.occupancyMask};
 #ifdef mpi_
   const int columns{simulVolume.numSubCells.x};
 #endif
@@ -294,6 +298,18 @@ void measure_separations_to_identify_possible_reactions(
         // instructions than the old inline walk; this scan gives them back.
         // The accepted SubBoxes are visited in neighborList order, so the
         // pairs come out in the same order as before.
+        //
+        // The occupancy bit is tested before the SubBox is touched.  A SubBox
+        // is about 80 bytes and the 13 neighbours of a cell lie in three
+        // z-planes of a grid that is megabytes on a large box, so each
+        // typeMask load is a likely cache miss; the occupancy mask is one bit
+        // per cell (3.4 KB for rev_3D's 27 000 cells) and stays in L1.  On a
+        // sparse box nearly every neighbour is empty: rev_3D occupies 1 800 of
+        // its 27 000 cells, and the scan was 19% of its run.  Exact, because
+        // a cell whose bit is clear has typeMask 0 and would have failed the
+        // mask test anyway, so the accepted cells and their order do not
+        // change.  Measured 1.10x on rev_3D and 1.08x on scale_10k, neutral
+        // on dense cases (benchmarks/nerdss_optimized/profile_suite_2026-11-04).
         const std::vector<int>& neighborList{
             simulVolume.subCellList[cellItr].neighborList};
         int liveCells[kMaxNeighbors];
@@ -303,6 +319,8 @@ void measure_separations_to_identify_possible_reactions(
         for (int neighCellItr : neighborList) {
           if (DEBUG && (neighCellItr > simulVolume.subCellList.size()))
             error("neighCellItr is higher than subCellList size!");
+          if (!((occupancy[neighCellItr >> 6] >> (neighCellItr & 63)) & 1))
+            continue;
           if ((simulVolume.subCellList[neighCellItr].typeMask & targMask) != 0)
             liveCells[numLiveCells++] = neighCellItr;
         }
