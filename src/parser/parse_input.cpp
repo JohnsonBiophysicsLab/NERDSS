@@ -224,14 +224,32 @@ std::string create_tmp_line(const std::string& line)
     return tmpLine;
 }
 
-void parse_input(std::string& fileName, Parameters& params, std::map<std::string, int>& observableList,
+namespace {
+
+/* The one parser behind parse_input() and parse_input_for_add().  The two
+ * were separate copies that differed in six places, all parse-time: an add
+ * file extends lists the restart file already filled, so its templates and
+ * reactions are numbered after the existing ones, it grows numEachMolType
+ * per template instead of sizing it once, it sizes the transition matrices
+ * nothing else sizes for it, it counts the species over the whole list once
+ * the file is read, it enters only its own reactions into the per-state
+ * lists, and it prints its own messages.  Each difference sits behind
+ * isAddFile at the line the add copy had it, so neither path changes.
+ */
+void parse_input_impl(std::string& fileName, Parameters& params, std::map<std::string, int>& observableList,
     std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
-    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject)
+    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject,
+    const bool isAddFile)
 {
     bool hasParsedMol = false;
+    // What the restart file already holds, so the add file is numbered after it.
+    const int addForwardRxnNum { isAddFile ? static_cast<int>(forwardRxns.size()) : 0 };
+    const int addMolTemplateListNum { isAddFile ? static_cast<int>(molTemplateList.size()) : 0 };
     std::ifstream inputFile { fileName };
     if (!inputFile) {
-        std::cerr << "Reaction file cannot be opened. Exiting..." << std::endl;
+        std::cerr << (isAddFile ? "Add reaction file cannot be opened. Exiting..."
+                                : "Reaction file cannot be opened. Exiting...")
+                  << std::endl;
         exit(1);
     }
 
@@ -340,7 +358,7 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
                 molTemplateList.emplace_back(parse_molFile(
                     locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
-                molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0];
+                molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0] + addMolTemplateListNum;
                 molTemplateList.back().copies = providedNums[providedMolIndex];
                 molTemplateList.back().startingNumState = providedNumState[providedMolIndex];
                 ++MolTemplate::numMolTypes;
@@ -352,9 +370,25 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
                         params.numLipids += molTemplateList.back().copies;
                 } else {
                 }
+                if (isAddFile) {
+                    MolTemplate::numEachMolType.emplace_back(0);
+
+                    // A new simulation sizes these at startup, and a restart reads them
+                    // for the templates in its file; nothing sized them for a template
+                    // that arrives here.  write_restart() and every change in a
+                    // cluster's size index them by cluster size, with no bounds check.
+                    MolTemplate& addedTemp { molTemplateList.back() };
+                    if (addedTemp.countTransition == true) {
+                        addedTemp.transitionMatrix.resize(addedTemp.transitionMatrixSize);
+                        addedTemp.lifeTime.resize(addedTemp.transitionMatrixSize);
+                        for (int indexOne = 0; indexOne < addedTemp.transitionMatrixSize; ++indexOne)
+                            addedTemp.transitionMatrix[indexOne].resize(addedTemp.transitionMatrixSize);
+                    }
+                }
             }
 
-            MolTemplate::numEachMolType = std::vector<int>(MolTemplate::numMolTypes);
+            if (!isAddFile)
+                MolTemplate::numEachMolType = std::vector<int>(MolTemplate::numMolTypes);
             params.numMolTypes = MolTemplate::numMolTypes;
 
             // Give a buffer for the trajectory file (since VMD can't understand trajectories with frames that have
@@ -375,7 +409,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
             // set the isPoint and isRod for molecule
             determine_shape_molecule(molTemplateList);
         } else if (tmpLine == "startreactions") {
-            if (hasParsedMol == false) {
+            // The add path never had this check (a TODO stood in its place), so
+            // it is not applied there.
+            if (!isAddFile && hasParsedMol == false) {
                 std::cerr << "Error, molecule section must be before reaction section in input file, exiting...\n";
                 exit(1);
             }
@@ -402,7 +438,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
                 linePos = inputFile.tellg();
             }
 
-            RxnBase::totRxnSpecies = totSpecies + 1; // had to increment this by 1, it was not correct!
+            // For an add file totRxnSpecies is set once the whole file is read, below
+            if (!isAddFile)
+                RxnBase::totRxnSpecies = totSpecies + 1; // had to increment this by 1, it was not correct!
 
         } else if (tmpLine == "startobservables") {
             // TODO: make this use parse_molecule_bngl() and create a vector of ParsedMol
@@ -483,8 +521,9 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
         }
     }
 
-    // populate the list of reactions on each state
-    populate_reaction_lists(forwardRxns, backRxns, createDestructRxns, molTemplateList);
+    // populate the list of reactions on each state; for an add file only its
+    // own reactions, the restart file's are entered already
+    populate_reaction_lists(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum);
     for (auto& oneTemp : molTemplateList) {
         // here's where we remove duplicate reaction partners
         std::sort(oneTemp.rxnPartners.begin(), oneTemp.rxnPartners.end());
@@ -500,6 +539,19 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
         }
     }
 
+    if (isAddFile) {
+        // Every interface state, then one product per bimolecular reaction, as
+        // init_speciesFile() lays the species out.  The reactions block used to set
+        // this from its own totSpecies, which counts only this file's products (the
+        // add block numbers them after the restart file's numDoubleBeforeAdd), and a
+        // file without a reactions block left out the states it added.
+        RxnBase::totRxnSpecies = Interface::State::totalNumOfStates;
+        for (const auto& oneRxn : forwardRxns) {
+            if (oneRxn.rxnType == ReactionType::bimolecular)
+                ++RxnBase::totRxnSpecies;
+        }
+    }
+
     params.numTotalSpecies = RxnBase::totRxnSpecies; // total number of all species possible in the system (includes
         // reactant and product states).
 
@@ -507,7 +559,7 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
     params.isNonEQ = createDestructRxns.size() > 0;
 
     std::cout << '\n'
-              << "Input file parsing complete\n";
+              << (isAddFile ? "Add input file parsing complete\n" : "Input file parsing complete\n");
     // std::cout << "Simulation Parameters\n";
     // params.display();
     // std::cout << "Molecule Information\n";
@@ -516,319 +568,22 @@ void parse_input(std::string& fileName, Parameters& params, std::map<std::string
     // display_all_reactions(forwardRxns, backRxns, createDestructRxns);
 }
 
+} // namespace
+
+void parse_input(std::string& fileName, Parameters& params, std::map<std::string, int>& observableList,
+    std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
+    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject)
+{
+    parse_input_impl(fileName, params, observableList, forwardRxns, backRxns, createDestructRxns, transmissionRxns,
+        molTemplateList, membraneObject, false);
+}
+
 void parse_input_for_add(std::string& fileName, Parameters& params, std::map<std::string, int>& observableList,
     std::vector<ForwardRxn>& forwardRxns, std::vector<BackRxn>& backRxns,
-    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject, int numDoubleBeforeAdd)
+    std::vector<CreateDestructRxn>& createDestructRxns, std::vector<TransmissionRxn>& transmissionRxns, std::vector<MolTemplate>& molTemplateList, Membrane& membraneObject, int /*numDoubleBeforeAdd*/)
 {
-    bool hasParsedMol = false;
-    int addForwardRxnNum { static_cast<int>(forwardRxns.size()) }; //this is the origin number of forwardRxns for add case
-    int addBackRxnNum { static_cast<int>(backRxns.size()) }; //this is the origin number of backRxns for add case
-    int addCreateDestructRxnNum { static_cast<int>(createDestructRxns.size()) }; //this is the origin number of createDestructRxns for add case
-    int addMolTemplateListNum { static_cast<int>(molTemplateList.size()) };
-
-    std::ifstream inputFile { fileName };
-    if (!inputFile) {
-        std::cerr << "Add reaction file cannot be opened. Exiting..." << std::endl;
-        exit(1);
-    }
-
-    // read first, so the molFiles block may sit anywhere in the file
-    const std::map<std::string, std::string> molFilePaths { read_mol_file_paths(fileName) };
-
-    std::vector<std::string> providedObs {};
-    // the start and end blocks are hardcoded since regex has proved itself woefully non-portable,
-    // especially with the Intel compiler (icpc)
-    while (!inputFile.eof()) {
-        std::string line;
-        getline(inputFile, line);
-        std::string tmpLine { create_tmp_line(line) };
-
-        if (skipLine(tmpLine)) {
-            continue;
-        } else if (tmpLine == "startparameters") {
-            // read in parameters
-            std::cout << "Parsing simulation parameters..." << '\n';
-            params.parse_paramFile(inputFile);
-        } else if (tmpLine == "startboundaries") {
-            // read in boundaries
-            std::cout << "Parsing simulation boundary conditions..." << '\n';
-            //params.parse_paramFile(inputFile);
-            while (getline(inputFile, line)) {
-                tmpLine = create_tmp_line(line);
-                if (skipLine(tmpLine))
-                    continue;
-                else if (tmpLine == "endboundaries")
-                    break;
-                else {
-                    line.erase(std::remove_if(line.begin(), line.end(), [](unsigned char x) { return std::isspace(x); }), line.end());
-                    std::transform(line.begin(), line.end(), line.begin(), ::tolower); //make all lower case
-
-                    // if the line starts with a comment, skip it
-                    if (line[0] == '#')
-                        continue;
-                    else
-                        remove_comment(line);
-
-                    bool gotValue { false };
-                    std::string buffer;
-                    for (auto lineItr = line.begin(); lineItr != line.end(); ++lineItr) {
-                        if (std::isalnum(*lineItr))
-                            buffer += std::tolower(static_cast<char>(*lineItr));
-                        else if (*lineItr == '=') {
-                            auto keyFind = bcKeywords.find(buffer);
-                            line.erase(line.begin(), lineItr + 1); // + 1 removes the '=' sign. could make this erase(remove_if)
-                            // find the value type from the keyword and then set that parameter
-                            if (keyFind != bcKeywords.end()) {
-                                // std::cout << "Keyword found: " << keyFind->first << '\n';
-                                //this->set_value(line, keyFind->second);
-                                membraneObject.set_value_BC(line, keyFind->second);
-                                gotValue = true;
-                                break;
-                            } else {
-                                std::cout << "Warning, ignoring unknown keyword " << buffer << '\n';
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (tmpLine == "startmolecules") {
-            // get the molecule names from the parameter input file
-            std::cout << "Parsing mol file information..." << '\n';
-            std::vector<std::string> providedMols {};
-            std::vector<std::string> providedMols_temp {};
-            std::vector<MolTemplate> molTemplateList_temp {};
-            std::vector<ParsedMolNumState> providedNumState {};
-            std::vector<int> providedNums {};
-            while (getline(inputFile, line)) {
-                tmpLine = create_tmp_line(line);
-                if (skipLine(tmpLine))
-                    continue;
-                else if (tmpLine == "endmolecules")
-                    break;
-                else {
-                    line.erase(std::remove_if(line.begin(), line.end(), [](unsigned char x) { return std::isspace(x); }), line.end());
-                    remove_comment(line);
-                    bool gotValue { false };
-                    std::string buffer;
-                    for (auto lineItr = line.begin(); lineItr != line.end(); ++lineItr) {
-                        if (std::isalnum(*lineItr))
-                            buffer += static_cast<char>(*lineItr);
-                        else if (*lineItr == ':') {
-                            providedMols.emplace_back(buffer);
-                            line.erase(line.begin(), lineItr + 1); // + 1 removes the ':' sign. could make this erase(remove_if)
-                            // find the value type from the keyword and then set that parameter
-                            ParsedMolNumState tmpMolNumState {};
-                            tmpMolNumState = parse_number_bngl(line);
-                            providedNums.emplace_back(tmpMolNumState.totalCopyNumbers);
-                            providedNumState.emplace_back(tmpMolNumState);
-                            gotValue = true;
-                            break;
-                        }
-                    }
-                    if (gotValue == false) {
-                        std::cout << "Please provide the copy number of each molecule in INP file in this format-- molName:100" << std::endl;
-                        exit(0);
-                    }
-                }
-            }
-
-            // parse the .mol files for each molecule
-            warn_unused_mol_file_paths(molFilePaths, providedMols, fileName);
-            for (int providedMolIndex = 0; providedMolIndex < providedMols.size(); providedMolIndex++) {
-                molTemplateList.emplace_back(parse_molFile(
-                    locate_mol_file(providedMols[providedMolIndex], params, molFilePaths))); // do the actual parsing
-                molTemplateList.back().molTypeIndex = &providedMols[providedMolIndex] - &providedMols[0] + addMolTemplateListNum;
-                molTemplateList.back().copies = providedNums[providedMolIndex];
-                molTemplateList.back().startingNumState = providedNumState[providedMolIndex];
-                ++MolTemplate::numMolTypes;
-                if (molTemplateList.back().isImplicitLipid == false) {
-                    params.numTotalComplex += molTemplateList.back().copies;
-                    params.numTotalUnits
-                        += (molTemplateList.back().copies * (molTemplateList.back().interfaceList.size() + 1));
-                    if (molTemplateList.back().isLipid)
-                        params.numLipids += molTemplateList.back().copies;
-                } else {
-                }
-                MolTemplate::numEachMolType.emplace_back(0);
-
-                // A new simulation sizes these at startup, and a restart reads them
-                // for the templates in its file; nothing sized them for a template
-                // that arrives here.  write_restart() and every change in a
-                // cluster's size index them by cluster size, with no bounds check.
-                MolTemplate& addedTemp { molTemplateList.back() };
-                if (addedTemp.countTransition == true) {
-                    addedTemp.transitionMatrix.resize(addedTemp.transitionMatrixSize);
-                    addedTemp.lifeTime.resize(addedTemp.transitionMatrixSize);
-                    for (int indexOne = 0; indexOne < addedTemp.transitionMatrixSize; ++indexOne)
-                        addedTemp.transitionMatrix[indexOne].resize(addedTemp.transitionMatrixSize);
-                }
-            }
-
-            params.numMolTypes = MolTemplate::numMolTypes;
-
-            // Give a buffer for the trajectory file (since VMD can't understand trajectories with frames that have
-            // different numbers of atoms)
-            // TODO: Think about the size of buffer
-            //            params.numTotalUnits += params.numTotalUnits / 100;
-
-            // Make sure the writing of restart file and timestep information is in unison.
-            // A non-positive restartWrite turns the periodic restart write off and is left alone,
-            // and a non-positive timeWrite (statistics output off) leaves restartWrite as given.
-            if (params.restartWrite > 0 && params.timeWrite > 0 && params.restartWrite % params.timeWrite != 0) {
-                long long tmp = params.restartWrite / params.timeWrite;
-                if (tmp == 0)
-                    tmp = 1;
-                params.restartWrite = tmp * params.timeWrite;
-            }
-            determine_shape_molecule(molTemplateList);
-        } else if (tmpLine == "startreactions") {
-            // TODO: make sure this can only be read in after molecule templates
-            // index of the last template. should. starts out as number of interface states
-            int totSpecies { (molTemplateList.back().interfaceList.back().stateList.back().index) }; // last iface index
-            int numProvidedRxns { 0 };
-
-            auto linePos = inputFile.tellg();
-            std::cout << "Parsing reactions...\n";
-            while (getline(inputFile, line)) {
-                tmpLine = create_tmp_line(line);
-                // if the line is an ignored line, ignore it. if it's an end of block line, break
-                if (skipLine(tmpLine)) {
-                    linePos = inputFile.tellg();
-                    continue;
-                } else if (tmpLine == "endreactions")
-                    break;
-                else {
-                    // if it's neither, parse the line
-                    inputFile.seekg(linePos);
-
-                    parse_reaction(inputFile, totSpecies, numProvidedRxns, molTemplateList, forwardRxns, backRxns,
-                        createDestructRxns, transmissionRxns, observableList, membraneObject);
-                }
-                linePos = inputFile.tellg();
-            }
-            // RxnBase::totRxnSpecies is set once the whole file is read, below
-        } else if (tmpLine == "startobservables") {
-            // TODO: make this use parse_molecule_bngl() and create a vector of ParsedMol
-            // Need to change the function to allow for molecules with no explicit interfaces
-            std::cout << "Gathering observables...\n";
-            while (getline(inputFile, line)) {
-                tmpLine = create_tmp_line(line);
-                tmpLine.erase(
-                    std::remove_if(tmpLine.begin(), tmpLine.end(), [](unsigned char x) { return std::isspace(x); }),
-                    tmpLine.end());
-                if (skipLine(tmpLine)) {
-                    // if the line is a comment line, ignore it.
-                    continue;
-                } else if (tmpLine == "endobservables") {
-                    // if end of parameter block, break out from loop
-                    break;
-                } else {
-                    remove_comment(line);
-                    providedObs.emplace_back(line); // save these to parse AFTER reactions
-                }
-            }
-        }
-    }
-
-    // TODO: TEMPORARY COUPLED RXN
-    for (unsigned rxnItr { 0 }; rxnItr < forwardRxns.size(); ++rxnItr) {
-        if (forwardRxns[rxnItr].isCoupled) {
-            // if the input is a asRxnIndex
-            if (forwardRxns[rxnItr].coupledRxn.absRxnIndex != -1) {
-                // for the case destruction coupled to disscociation
-                for (const auto& createDestructRxn : createDestructRxns) {
-                    if (createDestructRxn.absRxnIndex == forwardRxns[rxnItr].coupledRxn.absRxnIndex) {
-                        forwardRxns[rxnItr].coupledRxn.rxnType = ReactionType::destruction;
-                        forwardRxns[rxnItr].coupledRxn.relRxnIndex = createDestructRxn.relRxnIndex;
-                        forwardRxns[rxnItr].coupledRxn.label = createDestructRxn.rxnLabel;
-                        backRxns[forwardRxns[rxnItr].conjBackRxnIndex].coupledRxn = forwardRxns[rxnItr].coupledRxn;
-                        break;
-                    }
-                }
-
-                // for the case uniStateChange coupled to disscociation
-                for (const auto& uniStateChangeRxn : forwardRxns) {
-                    if (uniStateChangeRxn.rxnType == ReactionType::uniMolStateChange) {
-                        if (uniStateChangeRxn.absRxnIndex == forwardRxns[rxnItr].coupledRxn.absRxnIndex) {
-                            forwardRxns[rxnItr].coupledRxn.rxnType = ReactionType::uniMolStateChange;
-                            forwardRxns[rxnItr].coupledRxn.relRxnIndex = uniStateChangeRxn.relRxnIndex;
-                            forwardRxns[rxnItr].coupledRxn.label = uniStateChangeRxn.rxnLabel;
-                            backRxns[forwardRxns[rxnItr].conjBackRxnIndex].coupledRxn = forwardRxns[rxnItr].coupledRxn;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                // if the input is a label
-                // for the case destruction coupled to disscociation
-                for (const auto& createDestructRxn : createDestructRxns) {
-                    if (createDestructRxn.rxnLabel == forwardRxns[rxnItr].coupledRxn.label) {
-                        forwardRxns[rxnItr].coupledRxn.rxnType = ReactionType::destruction;
-                        forwardRxns[rxnItr].coupledRxn.relRxnIndex = createDestructRxn.relRxnIndex;
-                        forwardRxns[rxnItr].coupledRxn.absRxnIndex = createDestructRxn.absRxnIndex;
-                        backRxns[forwardRxns[rxnItr].conjBackRxnIndex].coupledRxn = forwardRxns[rxnItr].coupledRxn;
-                        break;
-                    }
-                }
-
-                // for the case uniStateChange coupled to disscociation
-                for (const auto& uniStateChangeRxn : forwardRxns) {
-                    if (uniStateChangeRxn.rxnType == ReactionType::uniMolStateChange) {
-                        if (uniStateChangeRxn.rxnLabel == forwardRxns[rxnItr].coupledRxn.label) {
-                            forwardRxns[rxnItr].coupledRxn.rxnType = ReactionType::uniMolStateChange;
-                            forwardRxns[rxnItr].coupledRxn.relRxnIndex = uniStateChangeRxn.relRxnIndex;
-                            forwardRxns[rxnItr].coupledRxn.absRxnIndex = uniStateChangeRxn.absRxnIndex;
-                            backRxns[forwardRxns[rxnItr].conjBackRxnIndex].coupledRxn = forwardRxns[rxnItr].coupledRxn;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // only the add file's reactions: the restart file's are entered already
-    populate_reaction_lists(forwardRxns, backRxns, createDestructRxns, molTemplateList, addForwardRxnNum);
-
-    for (auto& oneTemp : molTemplateList) {
-        // here's where we remove duplicate reaction partners
-        std::sort(oneTemp.rxnPartners.begin(), oneTemp.rxnPartners.end());
-        oneTemp.rxnPartners.erase(
-            std::unique(oneTemp.rxnPartners.begin(), oneTemp.rxnPartners.end()), oneTemp.rxnPartners.end());
-
-        for (auto& oneIface : oneTemp.interfaceList) {
-            for (auto& oneState : oneIface.stateList) {
-                std::sort(oneState.rxnPartners.begin(), oneState.rxnPartners.end());
-                oneState.rxnPartners.erase(
-                    std::unique(oneState.rxnPartners.begin(), oneState.rxnPartners.end()), oneState.rxnPartners.end());
-            }
-        }
-    }
-
-    // Every interface state, then one product per bimolecular reaction, as
-    // init_speciesFile() lays the species out.  The reactions block used to set
-    // this from its own totSpecies, which counts only this file's products (the
-    // add block numbers them after the restart file's numDoubleBeforeAdd), and a
-    // file without a reactions block left out the states it added.
-    RxnBase::totRxnSpecies = Interface::State::totalNumOfStates;
-    for (const auto& oneRxn : forwardRxns) {
-        if (oneRxn.rxnType == ReactionType::bimolecular)
-            ++RxnBase::totRxnSpecies;
-    }
-
-    params.numTotalSpecies = RxnBase::totRxnSpecies; // total number of all species possible in the system (includes
-        // reactant and product states).
-
-    // TODO TEMPORARY
-    params.isNonEQ = createDestructRxns.size() > 0;
-
-    std::cout << '\n'
-              << "Add input file parsing complete\n";
-    // std::cout << "Simulation Parameters\n";
-    // params.display();
-    // std::cout << "Molecule Information\n";
-    // display_all_MolTemplates(molTemplateList);
-    // std::cout << "Reactions\n";
-    // display_all_reactions(forwardRxns, backRxns, createDestructRxns);
+    // numDoubleBeforeAdd is kept for the callers; the species count it once
+    // fed is recomputed from the whole reaction list inside.
+    parse_input_impl(fileName, params, observableList, forwardRxns, backRxns, createDestructRxns, transmissionRxns,
+        molTemplateList, membraneObject, true);
 }
