@@ -334,10 +334,7 @@ void perform_implicitlipid_state_change_box(int stateChangeIface, int facilitato
 
     // write temporary to real coords and clear temporary coordinates
     for (auto memMol : facilitatorCom.memberList) {
-        moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-        for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-            moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-        moleculeList[memMol].clear_tmp_association_coords();
+        moleculeList[memMol].commit_tmp_association_coords();
         moleculeList[memMol].trajStatus = TrajStatus::propagated;
     }
     facilitatorCom.update_properties(moleculeList, molTemplateList);

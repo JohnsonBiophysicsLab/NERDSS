@@ -381,18 +381,12 @@ void associate_sphere(long long int iter,
 
         // temporary coordinates
         for (auto memMol : reactCom1.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
+            moleculeList[memMol].commit_tmp_association_coords();
             moleculeList[memMol].trajStatus = TrajStatus::propagated;
         }
 
         for (auto memMol : reactCom2.memberList) {
-            moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-            for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-            moleculeList[memMol].clear_tmp_association_coords();
+            moleculeList[memMol].commit_tmp_association_coords();
             // push reactCom2 into reactCom1
             if (currRxn.rxnType != ReactionType::biMolStateChange) {
                 moleculeList[memMol].myComIndex = reactCom1.index; // update their complex index

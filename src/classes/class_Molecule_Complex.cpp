@@ -138,6 +138,15 @@ void Molecule::clear_tmp_association_coords() {
   tmpICoords.erase(tmpICoords.begin(), tmpICoords.end());
 }
 
+void Molecule::commit_tmp_association_coords() {
+  // Written out at twelve sites in eight files, each the same three
+  // statements; the callers keep whatever else they set on the molecule.
+  comCoord = tmpComCoord;
+  for (unsigned int i{0}; i < interfaceList.size(); ++i)
+    interfaceList[i].coord = tmpICoords[i];
+  clear_tmp_association_coords();
+}
+
 void Molecule::destroy() {
   /*! \ingroup Reactions
    * \brief Destroys the parent Molecule.

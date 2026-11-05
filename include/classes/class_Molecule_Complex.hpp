@@ -402,6 +402,8 @@ struct Molecule {
     void update_association_coords(const Vec3D& vec);
     void set_tmp_association_coords();
     void clear_tmp_association_coords();
+    //! Makes the temporary association coordinates the real ones, then clears them.
+    void commit_tmp_association_coords();
     void create_position_implicit_lipid(Molecule& reactMol1, int ifaceIndex2, double bindRadius, const Membrane& membraneObject);
 
     // other reaction member functions

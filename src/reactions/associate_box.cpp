@@ -805,20 +805,13 @@ void associate_box(long long int iter, int ifaceIndex1, int ifaceIndex2,
     // else if cancelAssoc==false, write temporary to real coords and clear
     // temporary coordinates
     for (auto memMol : reactCom1.memberList) {
-      moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-      for (unsigned int i{0}; i < moleculeList[memMol].interfaceList.size(); ++i)
-        moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-      moleculeList[memMol].clear_tmp_association_coords();
+      moleculeList[memMol].commit_tmp_association_coords();
       moleculeList[memMol].trajStatus = TrajStatus::propagated;
       moleculeList[memMol].need_to_send = true;
     }
 
     for (auto memMol : reactCom2.memberList) {
-      moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-      for (unsigned int i{0}; i < moleculeList[memMol].interfaceList.size();
-           ++i)
-        moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-      moleculeList[memMol].clear_tmp_association_coords();
+      moleculeList[memMol].commit_tmp_association_coords();
       if (currRxn.rxnType != ReactionType::biMolStateChange) {
         moleculeList[memMol].myComIndex = reactCom1.index; // update their complex index
         reactCom1.memberList.push_back(memMol);

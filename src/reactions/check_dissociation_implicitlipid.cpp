@@ -256,10 +256,7 @@ void check_dissociation_implicitlipid(long long int simItr, const Parameters& pa
                     moleculeList[mp].update_association_coords(transVec1);
 
                 for (auto memMol : complexList[moleculeList[molItr].myComIndex].memberList) {
-                    moleculeList[memMol].comCoord = moleculeList[memMol].tmpComCoord;
-                    for (unsigned int i { 0 }; i < moleculeList[memMol].interfaceList.size(); ++i)
-                        moleculeList[memMol].interfaceList[i].coord = moleculeList[memMol].tmpICoords[i];
-                    moleculeList[memMol].clear_tmp_association_coords();
+                    moleculeList[memMol].commit_tmp_association_coords();
                 }
                 //*/
                 complexList[moleculeList[molItr].myComIndex].update_properties(moleculeList, molTemplateList); // recalculate the properties of the first complex
