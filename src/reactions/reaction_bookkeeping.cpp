@@ -8,7 +8,10 @@
  * the second - and the copies differ only in which molecule or which reaction
  * they name.
  */
+#include "io/io.hpp"
 #include "reactions/shared_reaction_functions.hpp"
+
+#include <fstream>
 
 void record_crossing_pair(int pro1, int pro2, int relIface1, int relIface2,
     const std::array<int, 3>& crossRxn, std::vector<Molecule>& moleculeList,
@@ -253,4 +256,112 @@ bool erase_bond(Molecule& mol, int relIface)
     if (slot < mol.bndpartner.size())
         mol.bndpartner.erase(mol.bndpartner.begin() + slot);
     return true;
+}
+
+void finalize_bond(long long int iter, int ifaceIndex1, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
+    Complex& reactCom1, const ForwardRxn& currRxn, const Parameters& params, std::vector<Molecule>& moleculeList,
+    std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList,
+    copyCounters& counterArrays, std::ofstream& assocDissocFile)
+{
+    remove_from_monomer_list(reactMol1, molTemplateList);
+    remove_from_monomer_list(reactMol2, molTemplateList);
+
+    // update Molecule interface statuses
+    reactMol1.interfaceList[ifaceIndex1].interaction.partnerIndex = reactMol2.index;
+    reactMol2.interfaceList[ifaceIndex2].interaction.partnerIndex = reactMol1.index;
+    reactMol1.interfaceList[ifaceIndex1].interaction.partnerIfaceIndex = ifaceIndex2;
+    reactMol2.interfaceList[ifaceIndex2].interaction.partnerIfaceIndex = ifaceIndex1;
+    if (currRxn.isReversible) {
+      reactMol1.interfaceList[ifaceIndex1].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
+      reactMol2.interfaceList[ifaceIndex2].interaction.conjBackRxn = currRxn.conjBackRxnIndex;
+    }
+    if (assocDissocFile.is_open()) {
+        assocDissocFile << "ITR:" << iter << "," << "BOND," 
+        << molTemplateList[reactMol1.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol1) << "," << ifaceIndex1 << "," 
+        << molTemplateList[reactMol2.molTypeIndex].molName << "," << assoc_dissoc_label(reactMol2) << "," << ifaceIndex2 << std::endl;
+    }
+    reactMol1.interfaceList[ifaceIndex1].isBound = true;
+    reactMol1.interfaceList[ifaceIndex1].index = currRxn.productListNew[0].absIfaceIndex;
+    reactMol2.interfaceList[ifaceIndex2].isBound = true;
+    reactMol2.interfaceList[ifaceIndex2].index = currRxn.productListNew[0].absIfaceIndex;
+    reactMol1.refresh_iface_state_bits();
+    reactMol2.refresh_iface_state_bits();
+
+    // add to the list of bound interfaces and remove from the list of free
+    // interfaces
+    reactMol1.bndlist.push_back(ifaceIndex1);
+    reactMol2.bndlist.push_back(ifaceIndex2);
+    reactMol1.bndpartner.push_back(reactMol2.index);
+    reactMol2.bndpartner.push_back(reactMol1.index);
+
+    {
+      size_t tmpItr{0};
+      for (unsigned i{0}; i < reactMol1.freelist.size(); ++i) {
+        if (reactMol1.freelist[i] == ifaceIndex1)
+          tmpItr = i;
+      }
+      reactMol1.freelist[tmpItr] = reactMol1.freelist.back();
+      reactMol1.freelist.pop_back();
+    }
+    {
+      size_t tmpItr{0};
+      for (unsigned i{0}; i < reactMol2.freelist.size(); ++i) {
+        if (reactMol2.freelist[i] == ifaceIndex2)
+          tmpItr = i;
+      }
+      reactMol2.freelist[tmpItr] = reactMol2.freelist.back();
+      reactMol2.freelist.pop_back();
+    }
+
+    // Set probability of this protein to zero in all reactions so it doesn't try
+    // to react again but the partners still will avoid overlapping.
+    zero_partner_probvec(reactMol1, moleculeList);
+
+    // Set probability of this protein to zero in all reactions so it doesn't try
+    // to react again but the partners still will avoid overlapping.
+    zero_partner_probvec(reactMol2, moleculeList);
+
+    // Update the crossed molecule lists so that the current molecules won't avoid
+    // anything, but others will.
+    reactCom1.ncross = -1;
+    reactMol1.crossings.clear();
+    reactMol2.crossings.clear();
+
+    /*update the number of bound species*/
+    update_Nboundpairs(reactMol1.molTypeIndex, reactMol2.molTypeIndex, 1, params, counterArrays);
+    /*Update species copy numbers*/
+    counterArrays.copyNumSpecies[currRxn.reactantListNew[0].absIfaceIndex]--; // decrement ifaceIndex1
+    counterArrays.copyNumSpecies[currRxn.reactantListNew[1].absIfaceIndex]--; // decrement ifaceIndex2
+    counterArrays.copyNumSpecies[currRxn.productListNew[0].absIfaceIndex]++; // increment product state
+
+    //-------------------------UPDATE BINDPAIRLIST----------------------------
+    if (counterArrays.canDissociate[currRxn.productListNew[0].absIfaceIndex]) {
+      // int molIndex { reactMol1.index };
+      // if (reactMol1.index > reactMol2.index)
+      //     molIndex = reactMol2.index;
+      int molIndex{-1};
+      if (ifaceIndex1 == currRxn.reactantListNew[0].relIfaceIndex) {
+        molIndex = reactMol1.index;
+      } else {
+        molIndex = reactMol2.index;
+      }
+
+      counterArrays.bindPairList[currRxn.productListNew[0].absIfaceIndex]
+          .emplace_back(molIndex);
+    }
+    //-----------------------END UPDATE BINDPAIRLIST--------------------------
+
+    // std::cout << " After ASSOCIATE, CHANGE COPY NUMBERS, interfaces: " <<
+    // ifaceIndex1 << ' ' << ifaceIndex2
+    //           << " add to product: " << currRxn.productListNew[0].absIfaceIndex
+    //           << " sub from reactants: " <<
+    //           currRxn.reactantListNew[0].absIfaceIndex << " "
+    //           << currRxn.reactantListNew[1].absIfaceIndex << std::endl;
+
+    // species tracking here
+    if (currRxn.isObserved) {
+      auto obsItr = observablesList.find(currRxn.observeLabel);
+      if (obsItr != observablesList.end())
+        ++obsItr->second;
+    }
 }

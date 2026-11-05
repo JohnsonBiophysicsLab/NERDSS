@@ -123,6 +123,22 @@ void remove_from_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& 
 void add_to_monomer_list(const Molecule& oneMol, std::vector<MolTemplate>& molTemplateList);
 
 /*!
+ * \brief Everything a bimolecular association does once the geometry is set.
+ *
+ * Takes both molecules off their templates' monomer lists, points each bound
+ * interface at its partner, writes the BOND record, moves the interfaces from
+ * the free lists to the bound lists, zeroes the pair's remaining reaction
+ * probabilities and crossings, and moves the bound-pair, species and
+ * observable counts.  The box and sphere association paths each carried a
+ * copy of this; they differed only in comments.  Integer bookkeeping in the
+ * copies' order, so the outputs are unchanged.
+ */
+void finalize_bond(long long int iter, int ifaceIndex1, int ifaceIndex2, Molecule& reactMol1, Molecule& reactMol2,
+    Complex& reactCom1, const ForwardRxn& currRxn, const Parameters& params, std::vector<Molecule>& moleculeList,
+    std::vector<MolTemplate>& molTemplateList, std::map<std::string, int>& observablesList,
+    copyCounters& counterArrays, std::ofstream& assocDissocFile);
+
+/*!
  * \brief Performs the uniMolStateChange that a dissociation is coupled to.
  *
  * A back reaction can name a forward uniMolStateChange as its `coupledRxn`;
