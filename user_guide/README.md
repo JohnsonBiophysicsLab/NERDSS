@@ -8,7 +8,7 @@ This folder holds the NERDSS user guide as Markdown, plus the web page built fro
 | `nerdss_user_guide.html` | The page on the website. Generated, so do not edit it by hand. |
 | `media/` | Figures used by the guide (taken from the Word document). |
 | `build.sh` | Regenerates the table of contents in the `.md` and rebuilds the `.html`. |
-| `template.html` | Pandoc template: the website's header, menu, footer and scripts around the guide. |
+| `template.html` | Pandoc template: the website's header, menu, footer and scripts around the guide, and the guide's own title block with the download links (PDF, ioNERDSS `.docx`, Markdown source, angle tools). |
 | `filters.lua` | Pandoc filter: title from the first heading, scrollable tables, warning callouts. |
 | `toc.tpl` | Tiny pandoc template used by `build.sh` to write the Markdown table of contents. |
 | `user_guide.css` | Extra styles for the guide page (loaded after `main.css` and `custom.css`). |
@@ -46,3 +46,11 @@ but the formatting was changed:
 
 The Word document is still the archival copy, and so is `files/NERDSS_USER_GUIDE.pdf`, an older 2024 edition.
 From now on, make content changes here in Markdown.
+
+## How the site links to it
+
+The site menu's **User Guide** entry opens `nerdss_user_guide.html` directly. The old landing page,
+`user_guide.html` at the site root, is now only a redirect so that existing links keep working
+(`user_guide.html#angle-tools` goes to `tools.html`). The downloads it used to list are in the
+guide's title block, set in `template.html`.
+

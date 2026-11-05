@@ -305,3 +305,53 @@ a.social-btn:hover{
 }
 
 
+
+/* ================================
+   Interactive tools page (tools.html)
+   ================================ */
+
+.tools-lede {
+  max-width: 50rem;
+}
+
+.tools-grid {
+  margin: 0.4rem 0 1.6rem 0;
+}
+
+.tool-kicker {
+  margin: 0 0 0.2rem 0 !important;
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.55) !important;
+}
+
+/* The screenshot is a link to the tool; show its top (title and controls). */
+.tools-grid .software-card .media {
+  display: block;
+  border-bottom: none;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.tools-grid .software-card .media img {
+  height: 240px;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.tools-grid .software-card .actions .action-pill.primary {
+  flex-basis: 100%;
+  justify-content: center;
+}
+
+.tools-related h2 {
+  font-size: 1em;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-bottom: 0.5rem;
+}
+
+.tools-related ul {
+  margin: 0;
+}
