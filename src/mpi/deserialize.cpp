@@ -556,28 +556,6 @@ void deserialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume,
       // since this rank serialized it)
       auto &oldCellIndex = moleculeList[molIndex].mySubVolIndex;
 
-      // check if the mol cross the ghosted boundary
-      // int xBinOld = get_x_bin(mpiContext, moleculeList[molIndex]);
-      // int xBinNew = get_x_bin(mpiContext, mol);
-      // if (check_enter_ghosted_zone(mpiContext, xBinOld, xBinNew,
-      //                              indicesEnteringMolecules, simulVolume)) {
-      //   if (VERBOSE)
-      //     printf(
-      //         "mol (id=%d) enter the ghosted zone; old xBin (%d), new xBin "
-      //         "(%d).\n",
-      //         mol.id, xBinOld, xBinNew);
-      //   indicesEnteringMolecules.push_back(molIndex);
-      // }
-      // if (check_exit_ghosted_zone(mpiContext, xBinOld, xBinNew,
-      //                             indicesEnteringMolecules, simulVolume)) {
-      //   if (VERBOSE)
-      //     printf(
-      //         "mol (id=%d) exit the ghosted zone; old xBin (%d), new xBin "
-      //         "(%d).\n",
-      //         mol.id, xBinOld, xBinNew);
-      //   indicesExitingMolecules.push_back(molIndex);
-      // }
-
       // The reweighting history is not on the wire (Molecule::serialize()),
       // and it is this rank's: the record of the pairs it evaluated, filed
       // under its own indices.  Losing it at every exchange gave every pair
@@ -747,28 +725,6 @@ void deserialize_molecules_right(
       // since this rank serialized it)
       auto oldCellIndex = moleculeList[molIndex].mySubVolIndex;
 
-      // check if the mol cross the ghosted boundary
-      // int xBinOld = get_x_bin(mpiContext, moleculeList[molIndex]);
-      // int xBinNew = get_x_bin(mpiContext, mol);
-      // if (check_enter_ghosted_zone(mpiContext, xBinOld, xBinNew,
-      //                              indicesEnteringMolecules, simulVolume)) {
-      //   if (VERBOSE)
-      //     printf(
-      //         "mol (id=%d) enter the ghosted zone; old xBin (%d), new xBin "
-      //         "(%d).\n",
-      //         mol.id, xBinOld, xBinNew);
-      //   indicesEnteringMolecules.push_back(molIndex);
-      // }
-      // if (check_exit_ghosted_zone(mpiContext, xBinOld, xBinNew,
-      //                             indicesEnteringMolecules, simulVolume)) {
-      //   if (VERBOSE)
-      //     printf(
-      //         "mol (id=%d) exit the ghosted zone; old xBin (%d), new xBin "
-      //         "(%d).\n",
-      //         mol.id, xBinOld, xBinNew);
-      //   indicesExitingMolecules.push_back(molIndex);
-      // }
-
       // A received copy carries no candidate reactions: the sender's refer
       // to its own indices and are not on the wire.  The candidates this
       // rank listed at the top of the step are still the ones its second
@@ -845,32 +801,4 @@ void update_mySubVolIndex(MpiContext &mpiContext, Molecule &mol,
   // Based on coordinates, assign index of cell:
   mol.mySubVolIndex = currBin;
   if (VERBOSE) cout << "update_mySubVolIndex ends" << endl;
-}
-
-bool check_enter_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew,
-                              vector<int> &indicesEnteringMolecules,
-                              SimulVolume &simulVolume) {
-  if (mpiContext.rank && xBinOld == 1 && xBinNew == 0) {  // if not first rank
-    return true;
-  }
-  if (mpiContext.rank < mpiContext.nprocs - 1 &&
-      xBinOld == simulVolume.numSubCells.x - 2 &&
-      xBinNew == simulVolume.numSubCells.x - 1) {  // if not last rank
-    return true;
-  }
-  return false;
-}
-
-bool check_exit_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew,
-                             vector<int> &indicesEnteringMolecules,
-                             SimulVolume &simulVolume) {
-  if (mpiContext.rank && xBinOld == 0 && xBinNew == 1) {  // if not first rank
-    return true;
-  }
-  if (mpiContext.rank < mpiContext.nprocs - 1 &&
-      xBinOld == simulVolume.numSubCells.x - 1 &&
-      xBinNew == simulVolume.numSubCells.x - 2) {  // if not last rank
-    return true;
-  }
-  return false;
 }

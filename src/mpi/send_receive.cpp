@@ -369,17 +369,6 @@ void receive_right_neighborhood_zones(
     }
     IDs_to_indices(mpiContext, moleculeList, indices);
 
-    // for (auto i : indicesEnteringMolecules) {
-    //   update_copyCounters_enter_ghosted_zone(mpiContext, moleculeList[i],
-    //                                          molTemplateList, counterArrays,
-    //                                          moleculeList, simulVolume);
-    // }
-    // for (auto i : indicesExitingMolecules) {
-    //   update_copyCounters_exit_ghosted_zone(mpiContext, moleculeList[i],
-    //                                         molTemplateList, counterArrays,
-    //                                         moleculeList, simulVolume);
-    // }
-
     if (DEBUG) {
       DEBUG_FIND_MOL("2_ (after IDs_to_indices)");
       DEBUG_FIND_COMPLEX("2_ (after IDs_to_indices)");
@@ -509,17 +498,6 @@ void receive_left_neighborhood_zones(
       DEBUG_FIND_COMPLEX("1.5 (after deserialize_complexes)");
     }
     IDs_to_indices(mpiContext, moleculeList, indices);
-
-    // for (auto i : indicesEnteringMolecules) {
-    //   update_copyCounters_enter_ghosted_zone(mpiContext, moleculeList[i],
-    //                                          molTemplateList, counterArrays,
-    //                                          moleculeList, simulVolume);
-    // }
-    // for (auto i : indicesExitingMolecules) {
-    //   update_copyCounters_exit_ghosted_zone(mpiContext, moleculeList[i],
-    //                                         molTemplateList, counterArrays,
-    //                                         moleculeList, simulVolume);
-    // }
 
     if (DEBUG) {
       DEBUG_FIND_MOL("2 (after IDs_to_indices)");

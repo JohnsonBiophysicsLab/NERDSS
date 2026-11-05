@@ -844,9 +844,6 @@ int main(int argc, char* argv[]) {
           "Checking coords of molecules in the left part to determine if need "
           "communication...\n");
     }
-    // check_molecule_coordinates(mpiContext, moleculeList, left, complexList,
-    //                            molTemplateList, simulVolume, membraneObject,
-    //                            counterArrays);
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//(10)");
@@ -1049,9 +1046,6 @@ int main(int argc, char* argv[]) {
           "Checking coords of molecules in the right part to determine if need "
           "communication...\n");
     }
-    // check_molecule_coordinates(mpiContext, moleculeList, right, complexList,
-    //                            molTemplateList, simulVolume, membraneObject,
-    //                            counterArrays);
     if (DEBUG) {
       debug_molecule_complex_missmatch(mpiContext, moleculeList, complexList,
                                        "//(10)");
@@ -1182,9 +1176,6 @@ int main(int argc, char* argv[]) {
     if (DEBUG) {
       LOC(9.0, " @ IO_TRAJ_+_PDB_+_TMATRIX ", PROC_ALL, simItr);
     }
-
-    // debug_bndpartner_interface(mpiContext, "34: (before remove empty
-    // complexes)");
 
     if (DEBUG) {
       LOC(9.2, " @ RM_EMPTY_COMPLEXES ", PROC_ALL, simItr);

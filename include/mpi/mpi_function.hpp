@@ -24,11 +24,6 @@ using namespace std;
  */
 
 /*! \ingroup mpi_function
- * \brief move complex
- */
-void move_complexes_based_on_propagation(MpiContext &mpiContext, vector<Molecule> &moleculeList, SimulVolume &simulVolume, Membrane &membraneObject);
-
-/*! \ingroup mpi_function
  * \brief Index of the molecule with this id in moleculeList, or -1.  Answers
  * from the id-to-index map (src/mpi/id_index.cpp); the slot may be empty.
  */
@@ -80,37 +75,6 @@ void derive_ghost_from_ownership(MpiContext &mpiContext,
 int find_complex(vector<Complex> &complexList, int id);
 
 /*! \ingroup mpi_function
- * \brief update the copycounters when complex enter ghosted zone
- */
-void update_copyCounters_enter_ghosted_zone(MpiContext &mpiContext, Molecule &mol, vector<MolTemplate> &molTemplateList,
-    copyCounters &counterArrays, vector<Molecule> &moleculeList, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
- * \brief update the copycounters when complex exit ghosted zone
- */
-void update_copyCounters_exit_ghosted_zone(MpiContext &mpiContext, Molecule &mol, vector<MolTemplate> &molTemplateList,
-    copyCounters &counterArrays, vector<Molecule> &moleculeList, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it enters the ghosted zone
- */
-void enter_ghosted_zone(MpiContext &mpiContext, Molecule &mol, vector<MolTemplate> &molTemplateList, copyCounters &counterArrays,
-    vector<Molecule> &moleculeList, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it exits the ghosted zone
- */
-void exit_ghosted_zone(MpiContext &mpiContext, Molecule &mol, vector<MolTemplate> &molTemplateList, copyCounters &counterArrays,
-    vector<Molecule> &moleculeList, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
- * \brief update the properties of the molecule when it moves across the shared
- * zones
- */
-void check_molecule_coordinates(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<int> &molIndexList, vector<Complex> &complexList,
-    vector<MolTemplate> &molTemplateList, SimulVolume &simulVolume, Membrane &membraneObject, copyCounters &counterArrays);
-
-/*! \ingroup mpi_function
  * \brief Set each bound interface's partnerId from its partnerIndex before the
  * molecule is serialized (-3 for the implicit lipid).  Persists.
  */
@@ -128,26 +92,10 @@ void indices_to_IDs(Molecule &mol, vector<Molecule> &moleculeList, vector<Comple
 void update_mySubVolIndex(MpiContext &mpiContext, Molecule &mol, Membrane &membraneObject, SimulVolume &simulVolume);
 
 /*! \ingroup mpi_function
- * \brief check if a recieved mol enter the ghosted zone
- */
-bool check_enter_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, vector<int> &indicesEnteringMolecules, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
- * \brief check if a recieved mol exit the ghosted zone
- */
-bool check_exit_ghosted_zone(MpiContext &mpiContext, int xBinOld, int xBinNew, vector<int> &indicesEnteringMolecules, SimulVolume &simulVolume);
-
-/*! \ingroup mpi_function
  * \brief Serialize the molecules at these indices, in this order.
  */
 void serialize_molecules(MpiContext &mpiContext, SimulVolume &simulVolume, vector<Molecule> &moleculeList, vector<Complex> &complexList, unsigned char *arrayRank,
     int &nArrayRank, const vector<int> &molecules);
-
-/*! \ingroup mpi_function
- * \brief serialize some molecules
- */
-void serialize_molecules_partial(MpiContext &mpiContext, SimulVolume &simulVolume, vector<int> &indices, vector<Molecule> &moleculeList,
-    vector<Complex> &complexList, unsigned char *arrayRank, int &nArrayRank, set<int> &complexesSet, int cellX);
 
 /*! \ingroup mpi_function
  * \brief What a molecule looked like at one point of the step: which complex
@@ -304,11 +252,6 @@ void drop_references_to_absent_molecules(vector<Molecule> &moleculeList,
                                          vector<Complex> &complexList);
 
 /*! \ingroup mpi_function
- * \brief disconnect molecule partners
- */
-void disconnect_molecule_partners(unsigned &targMolIndex, Molecule &mol, vector<Molecule> &moleculeList);
-
-/*! \ingroup mpi_function
  * \brief The x bin at which this rank's columns split into the left region
  * (bins below it, acted on in the first half of the step) and the right
  * region (the rest, acted on in the second half).  One rule for the driver's
@@ -347,12 +290,6 @@ void delete_disappeared_molecules(MpiContext &mpiContext, SimulVolume &simulVolu
  * the neighbor rank, but were not received back:
  */
 void delete_disappeared_complexes_partial(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
-
-/*! \ingroup mpi_function
- * \brief Delete all complexes that were in the shared zone before sending to
- * the neighbor rank, but were not received back:
- */
-void delete_disappeared_complexes(MpiContext &mpiContext, vector<Molecule> &moleculeList, vector<Complex> &complexList);
 
 /*! \ingroup mpi_function
  * \brief Send data to left neighbor rank

@@ -121,9 +121,6 @@ void remove_empty_slots(
                                      "// before 3.10");
   }
 
-  // if(DEBUG) {debug_bndpartner_interface(mpiContext, "35: (before remove
-  // empty molecules)");}
-
   //------------------------------------------------------------------------------------
   // Remove empty molecules:
   sort(Molecule::emptyMolList.begin(), Molecule::emptyMolList.end());

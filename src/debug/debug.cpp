@@ -135,52 +135,6 @@ void debug_print_complex(MpiContext &mpiContext, Complex &com, string s) {
   }
 }
 
-void debug_bndpartner_interface(MpiContext &mpiContext, string errorMessage) {
-  if (!DEBUG) return;
-  auto &moleculeList = *mpiContext.moleculeList;
-  for (auto &mol : moleculeList) {
-    if (mol.isImplicitLipid == true) {
-      continue;
-    }
-    vector<int> vec;
-    for (auto &tmpIface : mol.interfaceList) {
-      if ((tmpIface.interaction.partnerIndex >= moleculeList.size()) &&
-          (tmpIface.interaction.partnerIndex != -1))
-        error("35: tmpIface.interaction.partnerIndex >= moleculeList.size(), " +
-              to_string(tmpIface.interaction.partnerIndex) +
-              ">=" + to_string(moleculeList.size()));
-      vec.push_back(tmpIface.interaction.partnerIndex);
-
-      if (tmpIface.interaction.partnerIndex != -1) {
-        bool found = false;
-        for (auto &it : mol.bndpartner) {
-          if (it == tmpIface.interaction.partnerIndex) found = true;
-        }
-        if (!found) {
-          error(
-              "29: mol[id=" + to_string(mol.id) +
-              "].tmpIface.interaction.partnerIndex not found mol.bndpartner!" +
-              errorMessage);
-        }
-      }
-    }
-    for (auto &partner : mol.bndpartner) {
-      if (partner >= moleculeList.size() && partner != -1)
-        error("36: mol.bndpartner element >= moleculeList.size(), " +
-              to_string(partner) + ">=" + to_string(moleculeList.size()));
-      bool found = false;
-      for (auto &it : vec)
-        if (it == partner) found = true;
-      if (!found) {
-        error("30: mol[id=" + to_string(mol.id) +
-              "].bndpartner not found in interfaceList "
-              "interaction.partnerIndex!" +
-              errorMessage);
-      }
-    }
-  }
-}
-
 void debug_firstEmptyIndex(MpiContext &mpiContext, string errorMessage) {
   if (!DEBUG) return;
   auto &moleculeList = *mpiContext.moleculeList;

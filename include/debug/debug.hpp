@@ -29,17 +29,6 @@ using namespace std;
  */
 
 /*! \ingroup debug
- * \brief write the debug information to debugFileName
- */
-void write_debug_information(MpiContext &mpiContext, long long int simItr,
-                             ofstream &debugFile,
-                             vector<Molecule> &moleculeList,
-                             vector<Complex> &complexList,
-                             vector<MolTemplate> &molTemplateList,
-                             copyCounters &counterArrays, double simTime,
-                             string s);
-
-/*! \ingroup debug
  * \brief get x_bin of one molecule
  */
 inline int get_x_bin(MpiContext &mpiContext, Molecule &mol) {
@@ -63,12 +52,6 @@ void debug_print_complex(MpiContext &mpiContext, Complex &com, string s);
  * moleculeList.size()
  */
 void debug_firstEmptyIndex(MpiContext &mpiContext, string errorMessage);
-
-/*! \ingroup debug
- * \brief check consistence between Iface.interaction.partnerIndex and
- * mol.bndpartner
- */
-void debug_bndpartner_interface(MpiContext &mpiContext, string errorMessage);
 
 /*! \ingroup debug
  * \brief Check consistence of mol.myComIndex and com.memberList
